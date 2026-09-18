@@ -1,0 +1,29 @@
+{
+  "name": "openamx",
+  "version": "0.1.0",
+  "description": "OpenAMX is an open-source, text-based, computable document format for Asset Management knowledge.",
+  "type": "module",
+  "bin": {
+    "openamx": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "bun test",
+    "dev": "bun --watch src/cli.ts render examples/hello-world.amx --out examples/hello-world.html",
+    "render:hello": "bun run dist/cli.js render examples/hello-world.amx --out examples/hello-world.html",
+    "render:transformer": "bun run dist/cli.js render examples/transformer-strategy.amx --out examples/transformer-strategy.html"
+  },
+  "dependencies": {
+    "cac": "^6.7.14",
+    "marked": "^14.1.4",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}

@@ -1,0 +1,30 @@
+---
+title: Transformer Replacement Strategy
+author: Carlos Gamez
+version: 0.1
+status: draft
+---
+
+# Transformer Replacement Strategy
+
+This document evaluates the replacement of Transformer TX-001.
+
+```
+let replacementCost = 1250000
+let annualRiskCost = 85000
+let projectLife = 25
+
+let lifecycleRiskCost = annualRiskCost * projectLife
+let totalLifecycleCost = replacementCost + lifecycleRiskCost
+```
+
+## Result
+
+The lifecycle risk cost is {{ lifecycleRiskCost }}.
+
+The total lifecycle cost is {{ totalLifecycleCost }}.
+
+let riskScore = 18
+let priority = if riskScore >= 20 then "High" else "Medium"
+
+The priority classification is {{ priority }}.

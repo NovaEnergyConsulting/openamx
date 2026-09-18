@@ -1,0 +1,45 @@
+# 004 Acceptance Criteria
+
+004 is complete when:
+
+- The sprint directory planning/sprints/0004-comparisons-logicals-conditionals-stdlib-lists/ exists with four customized files: requirements.md, blueprint.md, acceptance.md, and handoff-prompt.md.
+- planning/state.md has been updated to reflect that Sprint 004 (Comparisons, Logical, Conditionals, Stdlib, Lists) is active or complete.
+- planning/decisions.md has been reviewed/updated if any new decisions or clarifications arose during implementation.
+- src/parser/parseExpression.ts implements the full expression parser for v0.1:
+  - Supports all prior arithmetic features plus comparison operators (== != > >= < <=).
+  - Supports logical operators (and, or, not).
+  - Supports single-line conditional expressions: if E then E else E.
+  - Supports list literals [ ... ] with number/string/boolean elements and sub-expressions.
+  - Supports function calls: Identifier ( args... ).
+  - Full precedence respected (parentheses > calls > unary -/not > ^ > */% > +- > comparisons > and > or > conditional).
+  - ^ remains right-associative.
+  - Produces proper ExpressionNode trees (BinaryExpressionNode with new ops, UnaryExpressionNode for 'not', ConditionalExpressionNode, ListLiteralNode, FunctionCallNode).
+- parseStatements.ts continues to delegate to parseExpression for let RHS; all new expression forms are supported in lets.
+- src/runtime/evaluateExpression.ts implements evaluation for:
+  - All comparison and logical binary operators.
+  - Unary 'not'.
+  - ConditionalExpressionNode (test selects consequent or alternate).
+  - ListLiteralNode (evaluates to array of values).
+  - FunctionCallNode (dispatches to standard library).
+- src/runtime/standardLibrary.ts implements all 8 functions:
+  - Aggregates: sum(values), min(values), max(values), mean(values) working with list literals and list variables.
+  - Scalar: round(value, digits?), abs(value), sqrt(value), pow(value, exponent).
+  - Clear errors for invalid argument counts or types (e.g., aggregate on non-list).
+- src/diagnostics/errors.ts (or evaluate paths) surface clear errors for type/argument problems; AMX1004 continues to work for undefined.
+- Evaluator tests in tests/evaluator.test.ts cover at minimum:
+  - All 6 comparison operators.
+  - Logical and / or / not (including mixed with comparisons).
+  - Single-line if/then/else (true and false branches).
+  - List literal construction and use in expressions.
+  - Every stdlib function (basic cases, with lists, with variables, edge cases).
+  - Type/argument errors for invalid stdlib usage.
+  - Precedence mixing arithmetic + comparisons + logicals + conditionals.
+  - Full document evaluation combining arithmetic + new features.
+- Parser tests include assertions for correct AST structure for new node types (comparisons, conditionals, lists, calls) where relevant.
+- All new and existing tests pass: `bun test`.
+- The project builds cleanly: `bun run build`.
+- No implementation work has started on rendering (inline {{ }} or renderHtml.ts), CLI execution, or populating full example content.
+- Chained else-if conditionals are NOT implemented (single-line only); the limitation is noted in planning artifacts if relevant.
+- All modules remain general-purpose with no Asset Management domain concepts.
+- Any assumptions or open questions encountered were recorded in planning/questions.md.
+- The handoff-prompt.md in this sprint folder correctly references .agents/main.md, the current sprint directory, and "openamx".
