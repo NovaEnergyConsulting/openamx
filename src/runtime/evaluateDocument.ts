@@ -1,29 +1,30 @@
-import { OpenAmxDocument, VariableDeclarationNode } from '../ast/types';
+import { OpenAmxDocument } from '../ast/types';
 import { Environment } from './environment';
-import { evaluateExpression } from './evaluateExpression';
+import { evaluateStatements } from './evaluateExpression';
 
 /**
  * Evaluate an OpenAmxDocument in source order.
- * - Only VariableDeclarationNodes are processed.
- * - Narrative nodes are ignored for evaluation.
- * - Variables are evaluated strictly in declaration order (no hoisting).
- * - Forward references produce AMX1004 via evaluateExpression / Environment.
+ * - Only executable code-block statements are processed.
+ * - All blocks share one environment and execute in document order.
+ * - Narrative nodes and legacy top-level declarations are ignored.
  * Returns a plain object map of final variable bindings.
  */
 export function evaluateDocument(
   doc: OpenAmxDocument,
   file?: string
 ): Record<string, unknown> {
+  return evaluateDocumentEnvironment(doc, file).toObject();
+}
+
+/** Evaluate executable blocks once and return their shared final environment. */
+export function evaluateDocumentEnvironment(doc: OpenAmxDocument, file?: string): Environment {
   const env = new Environment();
 
   for (const node of doc.nodes) {
-    if (node.type === 'variableDeclaration') {
-      const decl = node as VariableDeclarationNode;
-      const value = evaluateExpression(decl.expression, env, file);
-      env.set(decl.name, value);
+    if (node.type === 'executableCodeBlock') {
+      evaluateStatements(node.statements, env, file);
     }
-    // narrative nodes are deliberately ignored for evaluation
   }
 
-  return env.toObject();
+  return env;
 }

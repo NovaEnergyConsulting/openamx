@@ -1,46 +1,38 @@
 import { marked } from 'marked';
-import { OpenAmxDocument, NarrativeNode } from '../ast/types';
+import { OpenAmxDocument } from '../ast/types';
 import { parseExpression } from '../parser/parseExpression';
 import { evaluateExpression } from '../runtime/evaluateExpression';
+import { evaluateDocumentEnvironment } from '../runtime/evaluateDocument';
 import { Environment } from '../runtime/environment';
+import { formatAmx } from '../formatter/formatAmx';
 
 /**
  * Render an OpenAmxDocument to a complete standalone HTML5 document.
  *
- * - Walks only NarrativeNode entries in source order.
- * - Substitutes every non-nested {{ expression }} using the full v0.1 expression grammar.
- * - Expressions are parsed with parseExpression and evaluated with evaluateExpression
- *   against the document's let bindings (evaluated in declaration order).
+ * - Executes all executable blocks once before rendering any document nodes.
+ * - Resolves narrative expressions against the final shared environment.
  * - Post-substitution narrative is rendered with marked (headings, paragraphs, bullets).
- * - All VariableDeclarationNodes are omitted.
+ * - Executable blocks are rendered as escaped, formatted source at their source position.
  * - Frontmatter metadata.title (if string) is used for <title>; otherwise "OpenAMX Document".
  * - Output is deterministic for the supported Markdown subset.
  * - Errors inside {{ }} (e.g. AMX1004) are surfaced with the same AmxError semantics.
  */
 export function renderHtml(doc: OpenAmxDocument, file?: string): string {
-  const env = new Environment();
-
-  // Populate environment from VariableDeclarationNodes in source order.
-  // This mirrors evaluateDocument semantics so {{ }} evaluation is consistent.
-  for (const node of doc.nodes) {
-    if (node.type === 'variableDeclaration') {
-      const value = evaluateExpression(node.expression, env, file);
-      env.set(node.name, value);
-    }
-  }
+  const env = evaluateDocumentEnvironment(doc, file);
 
   const bodyFragments: string[] = [];
 
   for (const node of doc.nodes) {
     if (node.type === 'narrative') {
-      const narrative = node as NarrativeNode;
-      const substituted = substituteInlines(narrative.content, env, file, narrative.source?.line);
+      const substituted = substituteInlines(node.content, env, file, node.source?.line);
       // marked.parse returns string | Promise<string> in v14 depending on configuration.
       // For our deterministic sync usage (no async extensions) it is always a string.
       const htmlFragment = marked.parse(substituted) as string;
       bodyFragments.push(htmlFragment);
+    } else if (node.type === 'executableCodeBlock') {
+      const formatted = formatAmx(node.content);
+      bodyFragments.push(`<pre><code class="language-amx">${escapeHtml(formatted)}</code></pre>`);
     }
-    // VariableDeclarationNodes are deliberately omitted from rendered output.
   }
 
   const title =

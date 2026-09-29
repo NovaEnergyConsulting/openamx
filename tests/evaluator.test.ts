@@ -18,7 +18,7 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { parseStatements } from "../src/parser/parseStatements";
 import { evaluateDocument } from "../src/runtime/evaluateDocument";
-import { OpenAmxDocument, VariableDeclarationNode } from "../src/ast/types";
+import { OpenAmxDocument } from "../src/ast/types";
 import { AmxError } from "../src/diagnostics/errors";
 import { Environment } from "../src/runtime/environment";
 import { evaluateStatements } from "../src/runtime/evaluateExpression";
@@ -78,7 +78,12 @@ function makeDocFromBody(body: string): OpenAmxDocument {
   for (let index = 0; index < lines.length; index++) {
     if (/^\s*let\s+/.test(lines[index])) {
       flushNarrative();
-      nodes.push(...parseStatements(lines[index], { line: index + 1, column: 1 }));
+      nodes.push({
+        type: "executableCodeBlock",
+        content: `${lines[index]}\n`,
+        statements: parseStatements(lines[index], { line: index + 1, column: 1 }),
+        source: { line: index + 1, column: 1 }
+      });
     } else {
       narrativeLines.push(lines[index]);
     }
@@ -225,18 +230,68 @@ let totalLifecycleCost = replacementCost + lifecycleRiskCost`;
   });
 
   it("ignores narrative nodes during evaluation", () => {
-    const body =
-`# Heading
-
-Some text here.
-
-let value = 99
-
-More narrative after.`;
-    const doc = makeDocFromBody(body);
+    const doc: OpenAmxDocument = {
+      metadata: {},
+      nodes: [{ type: "narrative", content: "# Heading\n\nlet value = 99\n\nMore narrative after." }]
+    };
     const ctx = evaluateDocument(doc);
-    expect(ctx.value).toBe(99);
-    expect(Object.keys(ctx).length).toBe(1);
+    expect(ctx.value).toBeUndefined();
+    expect(Object.keys(ctx)).toHaveLength(0);
+  });
+
+  it("shares mutations between executable blocks and ignores bare declarations", () => {
+    const doc: OpenAmxDocument = {
+      metadata: {},
+      nodes: [
+        {
+          type: "executableCodeBlock",
+          content: "let total = 2\n",
+          statements: parseStatements("let total = 2", { line: 2, column: 1 })
+        },
+        {
+          type: "narrative",
+          content: "let ignored = 100"
+        },
+        {
+          type: "executableCodeBlock",
+          content: "total += 3\n",
+          statements: parseStatements("total += 3", { line: 5, column: 1 })
+        }
+      ]
+    };
+    const ctx = evaluateDocument(doc);
+
+    expect(ctx).toEqual({ total: 5 });
+  });
+
+  it("evaluates ranges, loops, and match across later executable blocks", () => {
+    const doc: OpenAmxDocument = {
+      metadata: {},
+      nodes: [
+        {
+          type: "executableCodeBlock",
+          content: "let total = 0\nlet values = [1 to 3]\n",
+          statements: parseStatements("let total = 0\nlet values = [1 to 3]", { line: 2, column: 1 })
+        },
+        {
+          type: "executableCodeBlock",
+          content: "for item in values {\n  total += item\n}\nlet label = match total {\ncase 6 => \"ok\"\ndefault => \"bad\"\n}\n",
+          statements: parseStatements(
+            "for item in values {\n  total += item\n}\nlet label = match total {\ncase 6 => \"ok\"\ndefault => \"bad\"\n}",
+            { line: 6, column: 1 }
+          )
+        },
+        {
+          type: "executableCodeBlock",
+          content: "total += 1\n",
+          statements: parseStatements("total += 1", { line: 14, column: 1 })
+        }
+      ]
+    };
+    const ctx = evaluateDocument(doc);
+
+    expect(ctx.total).toBe(7);
+    expect(ctx.label).toBe("ok");
   });
 });
 

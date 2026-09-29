@@ -36,7 +36,12 @@ function makeDocFromBody(body: string, metadata: Record<string, unknown> = {}): 
   for (let index = 0; index < lines.length; index++) {
     if (/^\s*let\s+/.test(lines[index])) {
       flushNarrative();
-      nodes.push(...parseStatements(lines[index], { line: index + 1, column: 1 }));
+      nodes.push({
+        type: "executableCodeBlock",
+        content: `${lines[index]}\n`,
+        statements: parseStatements(lines[index], { line: index + 1, column: 1 }),
+        source: { line: index + 1, column: 1 }
+      });
     } else {
       narrativeLines.push(lines[index]);
     }
@@ -64,8 +69,8 @@ describe("renderer - headings paragraphs bullets", () => {
   });
 });
 
-describe("renderer - let omission", () => {
-  it("omits all let declarations from output", () => {
+describe("renderer - executable code display", () => {
+  it("renders formatted executable declarations", () => {
     const body = `# Doc
 
 let x = 1
@@ -75,10 +80,8 @@ Narrative here.
 `;
     const doc = makeDocFromBody(body);
     const html = renderHtml(doc);
-    expect(html).not.toContain("let x");
-    expect(html).not.toContain("let y");
-    expect(html).not.toContain("= 1");
-    expect(html).not.toContain("= 2 + 3");
+    expect(html).toContain('<pre><code class="language-amx">let x = 1\n</code></pre>');
+    expect(html).toContain('<pre><code class="language-amx">let y = 2 + 3\n</code></pre>');
     expect(html).toContain("<h1>Doc</h1>");
     expect(html).toContain("Narrative here.");
   });
@@ -156,6 +159,55 @@ Value is {{ x }}.`;
     const h2 = renderHtml(doc2);
     expect(h1).toBe(h2);
   });
+
+  it("executes blocks before interpolation and safely displays code in document order", () => {
+    const doc: OpenAmxDocument = {
+      metadata: {},
+      nodes: [
+        { type: "narrative", content: "Before: {{ total }}.\n" },
+        {
+          type: "executableCodeBlock",
+          content: 'let total = 1\nlet renderCount = 0\nlet markup = "<tag>&"\n',
+          statements: parseStatements('let total = 1\nlet renderCount = 0\nlet markup = "<tag>&"', { line: 2, column: 1 }),
+          source: { line: 1, column: 1 }
+        },
+        {
+          type: "executableCodeBlock",
+          content: "total += 2\nrenderCount += 1\n",
+          statements: parseStatements("total += 2\nrenderCount += 1", { line: 8, column: 1 }),
+          source: { line: 6, column: 1 }
+        },
+        { type: "narrative", content: "After: {{ total }}; rendered {{ renderCount }} time(s).\n" }
+      ]
+    };
+    const html = renderHtml(doc);
+
+    expect(html).toContain("<p>Before: 3.</p>");
+    expect(html).toContain("<p>After: 3; rendered 1 time(s).</p>");
+    expect(html).toContain('let markup = &quot;&lt;tag&gt;&amp;&quot;');
+    expect(html.indexOf("Before: 3.")).toBeLessThan(html.indexOf("language-amx"));
+    expect(html.indexOf("language-amx")).toBeLessThan(html.indexOf("After: 3;"));
+    expect(html).not.toContain('<tag>');
+  });
+
+  it("preserves ordinary Markdown fences and does not execute bare declarations", () => {
+    const doc: OpenAmxDocument = {
+      metadata: {},
+      nodes: [{
+        type: "narrative",
+        content: "```text\nlet hidden = 8\n```\n\nBare: {{ hidden }}"
+      }]
+    };
+
+    expect(() => renderHtml(doc)).toThrow(AmxError);
+    doc.nodes = [{
+      type: "narrative",
+      content: "```text\nlet hidden = 8\n```\n\nBare declaration remains narrative."
+    }];
+    const html = renderHtml(doc);
+    expect(html).toContain('<pre><code class="language-text">let hidden = 8\n</code></pre>');
+    expect(html).not.toContain('class="language-amx"');
+  });
 });
 
 describe("renderer - full pipeline smoke test (in-memory)", () => {
@@ -182,9 +234,7 @@ Paragraph with {{ 2 + 2 }}.
     expect(html).toContain("<p>Paragraph with 4.</p>");
     expect(html).toContain("<li>item A</li>");
 
-    // lets never appear
-    expect(html).not.toContain("let secret");
-    expect(html).not.toContain("123");
+    expect(html).toContain('<pre><code class="language-amx">let secret = 123\n</code></pre>');
   });
 });
 

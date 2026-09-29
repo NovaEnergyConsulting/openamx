@@ -90,9 +90,15 @@ Malformed arms, non-literal cases, and missing or duplicate defaults are parse e
 
 ## 9. Inline Interpolation and Execution
 
-`{{ expression }}` remains distinct from executable blocks and is retained as narrative by the parser. It does not make surrounding text or a Markdown fence executable. The V0.2 execution/rendering pipeline evaluates executable blocks in source order with one shared document environment. Inline expressions resolve against the final environment after all executable blocks run. Interpolation and execution behavior are implemented in the later integration sprint, not by Sprint 007.
+`{{ expression }}` remains distinct from executable blocks and is retained as narrative by the parser. It does not make surrounding text or a Markdown fence executable. The V0.2 execution/rendering pipeline evaluates executable blocks in source order with one shared document environment. All blocks execute exactly once before narrative rendering begins; inline expressions resolve against the final environment after all executable blocks run, including mutations in later blocks. Executable source is formatted and displayed in the rendered HTML in its original document position, separately from narrative Markdown and without interpolation.
 
-## 10. V0.1 Migration
+## 10. Canonical Formatting and HTML Rendering
+
+The formatter operates only on executable-block content, excluding fence delimiters and surrounding Markdown. It normalizes line endings to LF, removes leading/trailing blank lines and trailing horizontal whitespace, preserves blank lines between statements, and uses zero top-level indentation with two spaces per open braced `for`/`match` body. Opening braces stay on their header line; closing braces dedent before output. It preserves all non-whitespace token/text content within each logical line (including expression spelling, strings, and match-arm order) rather than rewriting expressions. Nonempty output ends in exactly one LF; empty input remains empty. Formatting is deterministic, idempotent, and must produce valid V0.2 source.
+
+The HTML renderer preserves narrative Markdown rendering and emits each executable block at its source position as an escaped code element (for example, `<pre><code class="language-amx">…</code></pre>`). It displays formatted block content without fence delimiters, HTML-escaping markup-significant characters so source is displayed only as text. Executable content is not interpreted as HTML or interpolated as narrative. Output remains a complete standalone HTML document and uses front matter `title` as its document title when present.
+
+## 11. V0.1 Migration
 
 V0.2 is a breaking change. Bare V0.1 declarations are no longer executable and remain ordinary narrative. Move declarations into an `amx` fence:
 
@@ -108,8 +114,8 @@ let annualRiskCost = 85000
 
 There is no legacy mode that executes bare declarations. Ordinary Markdown code fences remain non-executable. Existing inline `{{ expression }}` syntax remains supported as a separate feature.
 
-## 11. Implementation Boundaries and Non-Goals
+## 12. Implementation Boundaries and Non-Goals
 
-Sprint 007 established the contract and parses declaration statements inside executable `amx` blocks. Sprint 008 implements mutation, ranges, and loops; Sprint 009 implements `match` parsing/evaluation. Document-wide executable-block evaluation, formatting, rendering integration, and final-environment interpolation belong to Sprint 010.
+Sprint 007 established the contract and parses declaration statements inside executable `amx` blocks. Sprint 008 implements mutation, ranges, and loops; Sprint 009 implements `match` parsing/evaluation. Sprint 010 integrates document-wide executable-block evaluation, formatting, rendering, and final-environment interpolation. The VS Code extension belongs to Sprint 011.
 
 V0.2 does not add imports, units, currency, charts, tables, Asset Management domain libraries, domain-specific types, V0.3 candidates, or a parser framework. The core remains general-purpose and uses the existing TypeScript hand-written parser.

@@ -9,6 +9,8 @@
 - Sprint folder: planning/sprints/0008-mutable-bindings-ranges-loops/
 - Sprint 009: Match Expressions — COMPLETE; Sprint 010 is next.
 - Sprint folder: planning/sprints/0009-match-expressions/
+- Sprint 010: Canonical Formatter & Renderer Integration — COMPLETE; canonical formatting, shared block evaluation, and final-context rendering verified.
+- Sprint folder: planning/sprints/0010-canonical-formatter-renderer-integration/
 - Project status: v0.1 complete; V0.2 in progress.
 - Sprint 007 acceptance passed: V0.2 spec established; only exact executable `amx` fences produce code-block AST nodes; declarations outside those fences remain narrative; original-document locations and Markdown preservation are covered by parser tests.
 - Master plan approved (plan-openamxV01MasterSprintPlan.md).
@@ -53,12 +55,14 @@
 - Sprint 008: Implemented mutable/redeclared bindings, assignment and `+=`, inclusive finite-integer ranges, statement and expression loops, contextual return validation, shared-environment evaluation, and iterator shadow restoration. Added parser/evaluator acceptance coverage while preserving the Sprint 007 fenced-code boundary. `bun run build` passes; focused parser/evaluator tests pass (70 tests); `bun test` passes (81 tests). Sprint 008 COMPLETE with no deviations; match remains Sprint 009 and document orchestration remains Sprint 010.
 - Sprint 009 Architect preparation: customized the four sprint artifacts for match-expression parsing/evaluation and aligned the V0.2 spec on literal equality, default cardinality/placement, first-match ordering, and lazy branch evaluation. No Sprint 009 implementation has started.
 - Sprint 009 Builder completion: Added braced match expression parsing and strict, lazy evaluation with case order, mandatory default, nested composition, and original-document match/arm locations. Focused parser/evaluator tests passed (78 tests); `bun run build` passed; full `bun test` passed (89 tests). A strengthened once-only scrutinee assertion subsequently passed in the focused evaluator suite (55 tests). No renderer or document-wide execution changes; no contract deviations.
+- Sprint 010 Architect preparation: customized the four sprint artifacts for canonical code-block layout formatting, shared source-order document execution, visible escaped code blocks, and final-environment interpolation. Updated the V0.2 language spec with formatting/output behavior. No Sprint 010 implementation has started.
+- Sprint 010 Builder completion: Added an idempotent layout formatter; document evaluation now executes executable-block statements once in source order through one shared environment while preserving the plain-object API. Rendering formats and escapes visible code blocks and resolves narrative interpolation after execution. Formatter tests passed (3 tests); focused evaluator/renderer tests passed (70 tests); `bun run build` passed; final full `bun test` passed (96 tests, 261 assertions). Bare declarations and ordinary fences remain non-executable. No contract deviations.
 
 ## Next Steps
 
 - Sprint 006 COMPLETE (see Sprint History). CLI, examples, full tests, documentation, and V0.1 acceptance are complete.
 - Sprint 007 COMPLETE (V0.2 Language Contract, AST & Fenced Parsing).
-- Sprint 008 COMPLETE (Mutable Bindings, Ranges & Loops). Sprint 009 COMPLETE (Match Expressions). Sprint 010 (Canonical Formatter & Renderer Integration) is next.
+- Sprint 008 COMPLETE (Mutable Bindings, Ranges & Loops). Sprint 009 COMPLETE (Match Expressions). Sprint 010 COMPLETE (Canonical Formatter & Renderer Integration). Sprint 011 (VS Code Extension) is next.
 - Continue to follow 120x process: only documented scope per active sprint.
 - Keep build and test green: `bun install && bun run build && bun test`.
 - Record any future clarifications in planning/decisions.md or planning/questions.md.

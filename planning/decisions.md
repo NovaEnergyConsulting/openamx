@@ -96,3 +96,21 @@ All of the above are recorded here so that Builders and future sprints do not ac
 
 - Match nodes retain case arms in source order and store the sole default expression and its arm location separately. Parsing rejects absent/duplicate defaults and non-literal cases at original-document locations.
 - The runtime evaluates the scrutinee once, compares primitive literal values with strict equality, and evaluates only the selected branch. Sprint 010 still owns document-wide orchestration, interpolation, and rendering.
+
+## V0.2 Sprint 010 Decisions
+
+- **Canonical formatter scope**: Format executable block layout only. Normalize line endings to LF; trim boundary blank lines and trailing horizontal whitespace; preserve interior blank lines and all intra-line expression/source text; use zero top-level indent and two spaces per braced `for`/`match` body; keep open braces on headers and dedent closing braces; nonempty output ends with one LF, empty output remains empty.
+- **Formatter contract**: Formatting is deterministic, idempotent, and must produce parser-valid V0.2 source. Do not rewrite operators, precedence, string quoting, or match-arm ordering.
+- **Document execution**: Only executable code-block statements run, in source order, once each, using one shared `Environment`. Keep the `evaluateDocument` plain-object result compatible and expose/reuse one evaluator path for the renderer's final environment.
+- **Render ordering**: Execute all code blocks before rendering narratives. Then assemble rendered nodes in source order; narrative placeholders use final environment state, while code blocks display their formatted source at their original position.
+- **Code display**: Render block content (without fence delimiters) as an escaped `language-amx` code element. Never run Markdown, HTML interpretation, or interpolation on executable source.
+- **Legacy test fixtures**: Update test helpers that turn bare V0.1 `let` lines into executable top-level nodes. Do not add compatibility behavior for bare declarations outside `amx` fences.
+- **Sprint boundary**: No CLI, example, VS Code extension, or V0.3 work; extension work is Sprint 011.
+
+## V0.2 Sprint 010 Implementation Outcomes
+
+- `evaluateDocumentEnvironment` evaluates each executable block's parsed statements once in source order with one shared `Environment`; `evaluateDocument` still returns the plain-object bindings API.
+- `renderHtml` executes the document before rendering, resolves narrative interpolation against the final environment, and emits formatted executable source as HTML-escaped `language-amx` code at its document position.
+- Evaluator and renderer fixture helpers now construct executable code-block AST nodes. Bare declaration narrative and ordinary Markdown fences remain non-executable; no production compatibility path was added.
+- No language/runtime contract deviations were needed.
+- Verification: formatter suite passed (3 tests); focused evaluator/renderer suites passed (70 tests); `bun run build` passed; final full `bun test` passed (96 tests, 261 assertions). Repeated renders remain deterministic, and executable source is escaped before HTML assembly.
