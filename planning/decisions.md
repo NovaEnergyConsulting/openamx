@@ -26,8 +26,9 @@ This file records key technology choices, architecture decisions, scope limitati
 
 ## CLI Library Choice
 
-- Recommended: `cac` for ergonomics and clarity.
-- Decision to be confirmed before or during Sprint 006.
+- Confirmed: `cac` is the CLI library for the v0.1 prototype.
+- It is used to provide a simple, Bun-friendly command surface for `render` and `run` with built-in help and version support.
+- The CLI remains a thin orchestration layer over the existing parser, evaluator, and renderer outputs.
 
 ## Language Spec Location
 

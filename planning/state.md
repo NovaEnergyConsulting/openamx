@@ -13,7 +13,9 @@
 - Sprint folder: planning/sprints/0004-comparisons-logicals-conditionals-stdlib-lists/
 - Sprint 005: Renderer + Inline {{ }} + HTML — COMPLETE.
 - Sprint folder: planning/sprints/0005-renderer-inline-html/
-- Project root contains: package.json, tsconfig.json, .gitignore, src/ with parser + AST + runtime implementation, examples/ (stubs), tests/ with parser + evaluator coverage.
+- Sprint 006: CLI, Examples, Full Tests, Docs, Acceptance — COMPLETE.
+- Project status: v0.1 complete.
+- Project root contains: package.json, tsconfig.json, .gitignore, src/ with parser + AST + runtime implementation, examples/ with canonical v0.1 documents, tests/ with parser + evaluator + renderer coverage.
 - Core modules implemented:
   - Full expression parser in src/parser/parseExpression.ts (arithmetic + comparisons == != > >= < <=, logicals and/or/not, single-line if/then/else conditionals, list literals [], function calls, full precedence table, right-associative ^).
   - src/parser/parseStatements.ts delegates to parseExpression for let RHS (all new expression forms supported).
@@ -22,10 +24,11 @@
   - src/runtime/standardLibrary.ts: full implementation of sum/min/max/mean/round/abs/sqrt/pow with list/scalar handling and AMX200x errors.
   - src/runtime/evaluateDocument.ts: source-order evaluation unchanged.
   - src/diagnostics/errors.ts: AmxError + AMX1004 (undefined) + AMX2000-2005 (stdlib type/arg/empty/negative).
+  - src/cli.ts: functional `render` and `run` commands backed by the existing parse/evaluate/render pipeline.
 - Parser tests (tests/parser.test.ts) continue to pass (front matter, narrative, lets, order).
-- Evaluator tests in tests/evaluator.test.ts: 54 total (unchanged).
-- Renderer tests in tests/renderer.test.ts: 10 new tests (headings/paragraphs/bullets, let omission, {{var}}/{{expr}} substitution including complex expressions with all v0.1 features, multiple subs, title, stability, full-pipeline smoke test).
-- Verification commands succeed cleanly: `bun run build && bun test` (64 tests, 0 fail, 164 expect() calls).
+- Evaluator tests in tests/evaluator.test.ts: all v0.1 expressions supported and passing.
+- Renderer tests in tests/renderer.test.ts: explicit assertions for headings, paragraphs, let omission, substitution, title, stability, and pipeline smoke tests.
+- Verification commands succeed cleanly: `bun install && bun run build && bun test` and the CLI verification sequence for both examples, including an undefined-variable failure check.
 - Renderer implemented: src/renderer/renderHtml.ts (inline {{ }} substitution for full expression grammar, marked post-substitution, standalone HTML5, let omission, title from frontmatter).
 - All modules remain general-purpose; no Asset Management domain concepts.
 - Chained else-if conditionals explicitly not implemented (single-line if/then/else only; documented limitation).

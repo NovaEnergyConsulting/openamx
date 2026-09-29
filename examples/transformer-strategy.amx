@@ -9,14 +9,12 @@ status: draft
 
 This document evaluates the replacement of Transformer TX-001.
 
-```
 let replacementCost = 1250000
 let annualRiskCost = 85000
 let projectLife = 25
 
 let lifecycleRiskCost = annualRiskCost * projectLife
 let totalLifecycleCost = replacementCost + lifecycleRiskCost
-```
 
 ## Result
 

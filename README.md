@@ -1,154 +1,106 @@
 # OpenAMX
 
-**Open Asset Management eXchange**
+OpenAMX is a plain-text, computable document format for engineering and asset-management knowledge. A document combines Markdown-like narrative with executable `let` statements and inline expressions such as `{{ 2 + 2 }}`.
 
-OpenAMX is an open-source, text-based, computable document format for Asset Management knowledge.
+The v0.1 prototype proves the pipeline:
 
-It is designed for engineers, asset managers, reliability professionals, consultants and infrastructure planners who need to create documents that combine human-readable narrative with structured data, calculations, assumptions, references and executable logic.
-
-OpenAMX aims to become a “Markdown on steroids” for Asset Management: readable as plain text, executable by software, renderable into professional documents, and suitable for long-term version control.
+.amx source -> parse -> evaluate -> render HTML
 
 ---
 
-## Why OpenAMX?
+## What this prototype supports
 
-Asset management professionals produce critical documents such as:
-
-- Strategic Asset Management Plans
-- Asset Management Plans
-- Asset strategies
-- Criticality assessments
-- Risk assessments
-- Maintenance strategies
-- Lifecycle cost models
-- Investment cases
-- Renewal plans
-- Decision papers
-
-Today, these artefacts are often split across Word documents, Excel spreadsheets, PDFs, PowerPoint decks, databases and specialist software tools.
-
-This creates persistent problems:
-
-- Calculations become separated from conclusions.
-- Assumptions are hard to trace.
-- Engineering logic is lost when documents are rendered to static formats.
-- Reports cannot easily be re-run when inputs change.
-- Knowledge is difficult to reuse across projects.
-- Reviews and audits require manual checking.
-- Documents become representations of decisions rather than living decision models.
-
-OpenAMX addresses this by allowing a document to contain both narrative and computation in a single plain-text source file.
+- UTF-8 `.amx` file parsing
+- Optional YAML front matter
+- Narrative Markdown content
+- `let name = expression` declarations
+- Numbers, strings, booleans, variables, arithmetic, comparisons, logical operators, parentheses, and single-line conditionals
+- Inline substitution with `{{ expression }}`
+- Standalone HTML rendering
+- CLI commands for `render` and `run`
 
 ---
 
-## Vision
+## Installation
 
-OpenAMX documents should be:
-
-- **Readable by humans**
-- **Processable by machines**
-- **Stored as plain text**
-- **Version controlled with Git**
-- **Composable through imports**
-- **Executable to produce calculated outputs**
-- **Renderable into professional reports**
-- **Extensible for Asset Management-specific libraries and templates**
-
-The goal is not to replace engineers or asset managers.
-
-The goal is to make engineering intent, assumptions, calculations and decision logic explicit, reusable and auditable.
-
----
-
-## What is an `.amx` File?
-
-An `.amx` file is a plain-text OpenAMX source document.
-
-Example:
-
-```amx
----
-title: Transformer Replacement Strategy
-author: Carlos Gamez
-version: 0.1
-status: draft
----
-
-import "./criticality.amx" as criticality
-import csv "./data/assets.csv" as assets
-
-# Transformer Replacement Strategy
-
-This document evaluates the lifecycle cost and risk exposure associated with Transformer TX-001.
-
-let replacementCost = 1250000
-let annualRiskCost = 85000
-let projectLife = 25
-
-let lifecycleRiskCost = annualRiskCost * projectLife
-let totalLifecycleCost = replacementCost + lifecycleRiskCost
-
-## Recommendation
-
-Replace Transformer TX-001 during FY2029.
-
-The calculated lifecycle risk cost is {{ lifecycleRiskCost }}.
-
-The calculated total lifecycle cost is {{ totalLifecycleCost }}.
-```
-
----
-
-## Installation (using bun)
-
-This project requires [bun](https://bun.sh/) as the package manager (per v0.1 decisions).
+This project requires [bun](https://bun.sh/).
 
 ```bash
 bun install
 ```
 
-## Build
+---
+
+## Build and test
 
 ```bash
 bun run build
-```
-
-## Test
-
-```bash
 bun test
 ```
 
-## Usage (future)
+The repository is configured to use Bun for the v0.1 workflow.
 
-Once implemented (Sprint 006+):
+---
+
+## CLI usage
+
+Render a document to HTML:
 
 ```bash
-# Render an .amx document to standalone HTML
 openamx render examples/hello-world.amx --out examples/hello-world.html
-
-# Or via npm-style script
-bun run render:hello
 ```
 
-## Current Status (Sprint 001)
+Or use the bundled script:
 
-This repository currently contains **project scaffolding only**.
+```bash
+bun run render:hello
+bun run render:transformer
+```
 
-- All `src/` modules are placeholders (no parser, evaluator, renderer, or CLI logic).
-- Examples and tests are minimal stubs/skeletons.
-- The project builds and tests pass with empty results.
-- Language implementation begins in Sprint 002.
+Run a document and print the evaluated context as JSON:
 
-See `.agents/planning/sprints/0001-project-scaffolding/` for sprint artifacts.
-See `.agents/planning/decisions.md` for v0.1 scope and technology decisions.
-See `.agents/language-spec-v0.1.md` for the authoritative specification (sections 1-18).
+```bash
+bun run dist/cli.js run examples/transformer-strategy.amx
+```
 
-**Limitations (v0.1 scope):**
-- No imports (CSV/JSON/.amx)
+The `run` command outputs the final variable bindings in order and matches the in-memory evaluator behavior.
+
+---
+
+## Example files
+
+The canonical examples are in the repository root under `examples/`:
+
+- `examples/hello-world.amx`
+- `examples/transformer-strategy.amx`
+
+These are the exact v0.1 example documents from the language specification and are intended to be reference inputs for the CLI and tests.
+
+---
+
+## v0.1 limitations
+
+This prototype intentionally does not implement the later-phase features that are explicitly out of scope for v0.1:
+
+- No imports (`.amx`, CSV, JSON)
 - No units, charts, tables, PDF/Word export
-- Single-line `if ... then ... else` only (no `else if`)
-- No Langium / VS Code extension (deferred)
-- Full mono-repo structure planned for later phases
+- No chained `else if` logic
+- No Langium or VS Code extension
+- No mono-repo package expansion
+- No future asset-management domain libraries or schema work
 
-For the complete list of out-of-scope items, see the sprint requirements and decisions files.
+These constraints are deliberate and remain in place for the v0.1 prototype.
+
+---
+
+## Extending the prototype
+
+The project is intentionally modular and easy to extend:
+
+- Add parser coverage in `src/parser/`
+- Add runtime behavior in `src/runtime/`
+- Keep rendering logic in `src/renderer/`
+- Add CLI-oriented validation or additional commands in `src/cli.ts`
+- Keep the core language general-purpose rather than asset-management-specific
+
+The current implementation is meant to be a small, testable foundation for later phases, not a full production language runtime.
