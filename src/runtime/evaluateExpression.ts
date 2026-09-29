@@ -13,8 +13,8 @@ import {
   SourceLocation,
   TypeReferenceNode
 } from '../ast/types';
-import { inputError, throwInputErrors, throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext } from '../diagnostics/errors';
-import { Environment } from './environment';
+import { inputError, staticError, throwInputErrors, throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext } from '../diagnostics/errors';
+import { Environment, ViewDataValue, ViewEmission } from './environment';
 import { evaluateStandardLibraryCall } from './standardLibrary';
 import type { CheckedType } from '../typechecker/checkDocument';
 
@@ -334,9 +334,69 @@ function toBoolean(v: unknown): boolean {
 }
 
 export function evaluateStatements(statements: StatementNode[], env: Environment, file?: string): void {
-  for (const statement of statements) {
-    evaluateStatement(statement, env, file);
+  const priorStatementIndex = env.currentStatementIndex;
+  try {
+    for (let statementIndex = 0; statementIndex < statements.length; statementIndex++) {
+      env.currentStatementIndex = statementIndex;
+      evaluateStatement(statements[statementIndex], env, file);
+    }
+  } finally {
+    env.currentStatementIndex = priorStatementIndex;
   }
+}
+
+function snapshotValue(value: unknown): ViewDataValue {
+  if (Array.isArray(value)) return Object.freeze(value.map(snapshotValue));
+  if (value && typeof value === 'object') {
+    const copy: Record<string, ViewDataValue> = {};
+    for (const [key, item] of Object.entries(value)) copy[key] = snapshotValue(item);
+    return Object.freeze(copy);
+  }
+  return value as string | number | boolean | null;
+}
+
+function snapshotView(name: string, env: Environment, file?: string, source?: SourceLocation): ViewEmission {
+  const declaration = env.viewDefinitions.get(name);
+  if (!declaration) return staticError('AMX3001', `Unknown visualization '${name}'`, source, file);
+  const value = env.get(declaration.binding, declaration.bindingSource, file);
+  if (!Array.isArray(value)) {
+    const diagnostic = inputError('AMX4003', `Visualization '${name}' requires a list value`, {
+      file, line: declaration.bindingSource?.line, column: declaration.bindingSource?.column,
+      dataPath: `visualization ${name}`, expected: 'list', actual: Array.isArray(value) ? 'list' : typeof value
+    });
+    throwInputErrors([diagnostic]);
+  }
+
+  let labels: readonly string[] | undefined;
+  if (declaration.type === 'chartDeclaration') {
+    const labelsOption = declaration.options.find(option => option.type === 'chartFieldOption' && option.role === 'labels');
+    if (labelsOption?.type === 'chartFieldOption') {
+      const labelValues = env.get(labelsOption.field, labelsOption.fieldSource, file);
+      if (!Array.isArray(labelValues) || !labelValues.every(label => typeof label === 'string')) {
+        const diagnostic = inputError('AMX4003', `Chart '${name}' labels must be a String[] value`, {
+          file, line: labelsOption.source?.line, column: labelsOption.source?.column,
+          dataPath: `visualization ${name}.labels`, expected: 'String[]', actual: Array.isArray(labelValues) ? 'invalid list value' : typeof labelValues
+        });
+        throwInputErrors([diagnostic]);
+      }
+      if (labelValues.length !== value.length) {
+        const diagnostic = inputError('AMX4003', `Chart '${name}' has ${value.length} values but ${labelValues.length} labels`, {
+          file, line: labelsOption.source?.line, column: labelsOption.source?.column,
+          dataPath: `visualization ${name}.labels`, expected: `${value.length} labels`, actual: `${labelValues.length} labels`
+        });
+        throwInputErrors([diagnostic]);
+      }
+      labels = snapshotValue(labelValues) as readonly string[];
+    }
+  }
+
+  const emission = {
+    name, data: snapshotValue(value) as readonly ViewDataValue[],
+    documentNodeIndex: env.currentDocumentNodeIndex, statementIndex: env.currentStatementIndex, source
+  };
+  return declaration.type === 'tableDeclaration'
+    ? Object.freeze({ kind: 'table', ...emission, declaration })
+    : Object.freeze({ kind: 'chart', ...emission, declaration, ...(labels ? { labels } : {}) });
 }
 
 function evaluateStatement(statement: StatementNode, env: Environment, file?: string): void {
@@ -347,6 +407,12 @@ function evaluateStatement(statement: StatementNode, env: Environment, file?: st
       return;
     case 'inputDeclaration':
       // Input values are validated and seeded by the module loader before evaluation.
+      return;
+    case 'tableDeclaration': case 'chartDeclaration':
+      env.viewDefinitions.set(statement.name, statement);
+      return;
+    case 'showStatement':
+      env.viewEmissions.push(snapshotView(statement.name, env, file, statement.source));
       return;
     case 'typeDeclaration':
       env.recordTypes.set(statement.name, statement);

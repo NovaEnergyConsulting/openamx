@@ -205,7 +205,8 @@ function findMatchExpressionEnd(text: string, start: number, source?: SourceLoca
       pendingFor = true;
       index += 2;
     } else if (character === '{') {
-      braces.push(!pendingFor && (parentheses === 0 || pendingMatches > 1));
+      const activeMatches = braces.filter(Boolean).length;
+      braces.push(!pendingFor && pendingMatches > activeMatches);
       pendingFor = false;
     } else if (character === '}') {
       if (braces.pop()) pendingMatches--;

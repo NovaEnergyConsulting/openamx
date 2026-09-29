@@ -25,8 +25,10 @@ export function evaluateDocumentEnvironment(doc: OpenAmxDocument, file?: string)
     for (const [name, type] of checked.bindingTypes) env.bindingTypes.set(name, type);
   }
 
-  for (const node of doc.nodes) {
+  for (let nodeIndex = 0; nodeIndex < doc.nodes.length; nodeIndex++) {
+    const node = doc.nodes[nodeIndex];
     if (node.type === 'executableCodeBlock') {
+      env.currentDocumentNodeIndex = nodeIndex;
       evaluateStatements(node.statements, env, file);
     }
   }

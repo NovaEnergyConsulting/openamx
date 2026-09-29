@@ -14,6 +14,7 @@ import { Environment } from './environment';
 import { moduleError, staticError } from '../diagnostics/errors';
 import { loadInputValues, ValidationMode } from './inputData';
 import { prepareOutputs, PreparedOutput } from './outputData';
+import type { ViewEmission } from './environment';
 
 /**
  * Local `.amx` module loader (Sprint 015).
@@ -39,6 +40,7 @@ export interface LoadedEntryModule {
   doc: OpenAmxDocument;
   env: Environment;
   outputs: PreparedOutput[];
+  viewEmissions: readonly ViewEmission[];
 }
 
 export interface ModuleLoadOptions {
@@ -120,7 +122,8 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     const statements = flattenStatements(doc);
     const localNames = new Set<string>();
     for (const statement of statements) {
-      if (statement.type === 'typeDeclaration' || statement.type === 'functionDeclaration' || statement.type === 'variableDeclaration' || statement.type === 'inputDeclaration') {
+      if (statement.type === 'typeDeclaration' || statement.type === 'functionDeclaration' || statement.type === 'variableDeclaration' || statement.type === 'inputDeclaration'
+        || statement.type === 'tableDeclaration' || statement.type === 'chartDeclaration') {
         localNames.add(statement.name);
       }
     }
@@ -194,7 +197,8 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
       checkResult = checkDocument(doc, canonicalPath, {
         types: importedTypes,
         functions: importedFunctions,
-        bindings: importedBindings
+        bindings: importedBindings,
+        isEntryModule: canonicalPath === realEntry
       });
     }
 
@@ -243,12 +247,16 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     if (canonicalPath === realEntry) {
       for (const [name, value] of inputValues) env.set(name, value);
     }
-    for (const node of record.doc.nodes) {
-      if (node.type === 'executableCodeBlock') evaluateStatements(node.statements, env, canonicalPath);
+    for (let nodeIndex = 0; nodeIndex < record.doc.nodes.length; nodeIndex++) {
+      const node = record.doc.nodes[nodeIndex];
+      if (node.type === 'executableCodeBlock') {
+        env.currentDocumentNodeIndex = nodeIndex;
+        evaluateStatements(node.statements, env, canonicalPath);
+      }
     }
     evaluatedEnvironments.set(canonicalPath, env);
   }
 
   const entryEnv = evaluatedEnvironments.get(realEntry)!;
-  return { doc: resolved.get(realEntry)!.doc, env: entryEnv, outputs };
+  return { doc: resolved.get(realEntry)!.doc, env: entryEnv, outputs, viewEmissions: entryEnv.viewEmissions };
 }

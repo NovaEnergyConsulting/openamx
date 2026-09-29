@@ -1,4 +1,4 @@
-import { FunctionDeclarationNode, InputDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TypeDeclarationNode, TypeReferenceNode, V02ExpressionNode } from '../ast/types';
+import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, FunctionDeclarationNode, InputDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TableDeclarationNode, TypeDeclarationNode, TypeReferenceNode, V02ExpressionNode, VisualizationOptionNode } from '../ast/types';
 import { moduleError, staticError } from '../diagnostics/errors';
 
 export type CheckedType =
@@ -11,6 +11,7 @@ export interface ModuleCheckContext {
   types?: Map<string, TypeDeclarationNode>;
   functions?: Map<string, FunctionDeclarationNode>;
   bindings?: Map<string, CheckedType>;
+  isEntryModule?: boolean;
 }
 
 /** Symbols this module makes available to importers because they were declared with `export`. */
@@ -75,6 +76,9 @@ export function checkingActivated(doc: OpenAmxDocument): boolean {
     || statement.type === 'functionDeclaration'
     || statement.type === 'importDeclaration'
     || statement.type === 'inputDeclaration'
+    || statement.type === 'tableDeclaration'
+    || statement.type === 'chartDeclaration'
+    || statement.type === 'showStatement'
     || (statement.type === 'variableDeclaration' && (!!statement.annotation || !!statement.exported))
     || (statement.type === 'forStatement' && (expressionHasV03(statement.iterable) || statement.body.some(statementHasV03)))
     || ('expression' in statement && expressionHasV03(statement.expression));
@@ -108,6 +112,8 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   const exportedTypes = new Map<string, TypeDeclarationNode>();
   const exportedFunctions = new Map<string, FunctionDeclarationNode>();
   const exportedBindings = new Map<string, CheckedType>();
+  const views = new Map<string, TableDeclarationNode | ChartDeclarationNode>();
+  let loopDepth = 0;
   const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005', message: string, source?: SourceLocation): never => staticError(code, message, source, file);
 
   function resolve(ref: TypeReferenceNode): CheckedType {
@@ -287,13 +293,18 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     const existing = new Set(bindings.keys());
     bindings.set(variable, (target as { kind: 'list'; element: CheckedType }).element);
     let returned: CheckedType | undefined;
-    for (const statement of body) {
-      if (statement.type === 'returnStatement') returned = infer(statement.expression, expected?.kind === 'list' ? expected.element : undefined);
-      else checkStatement(statement);
+    loopDepth++;
+    try {
+      for (const statement of body) {
+        if (statement.type === 'returnStatement') returned = infer(statement.expression, expected?.kind === 'list' ? expected.element : undefined);
+        else checkStatement(statement);
+      }
+    } finally {
+      loopDepth--;
+      for (const name of bindings.keys()) if (!existing.has(name)) bindings.delete(name);
+      if (prior) bindings.set(variable, prior);
+      else bindings.delete(variable);
     }
-    for (const name of bindings.keys()) if (!existing.has(name)) bindings.delete(name);
-    if (prior) bindings.set(variable, prior);
-    else bindings.delete(variable);
     return list(returned ?? named('Number'));
   }
 
@@ -313,12 +324,163 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     requireType(infer(expression, target), target, expression.source);
   }
 
+  function checkViewName(name: string, source?: SourceLocation, exported = false): void {
+    if (loopDepth > 0) fail('AMX3005', 'Visualizations may only be declared at module top level', source);
+    if (exported) fail('AMX3005', 'Visualizations cannot be exported', source);
+    if (primitives.has(name) || stdlibNames.has(name) || types.has(name) || functions.has(name) || bindings.has(name) || views.has(name)) {
+      fail('AMX3005', `Visualization '${name}' conflicts with another declaration`, source);
+    }
+    if (context?.isEntryModule === false) fail('AMX3005', 'Visualizations may only be declared in the entry module', source);
+  }
+
+  function optionsOf<T extends VisualizationOptionNode['type']>(
+    view: TableDeclarationNode | ChartDeclarationNode,
+    type: T
+  ): Extract<VisualizationOptionNode, { type: T }>[] {
+    return view.options.filter((option): option is Extract<VisualizationOptionNode, { type: T }> => option.type === type);
+  }
+
+  function oneOption<T extends VisualizationOptionNode['type']>(
+    view: TableDeclarationNode | ChartDeclarationNode,
+    type: T,
+    description: string,
+    required: boolean
+  ): Extract<VisualizationOptionNode, { type: T }> | undefined {
+    const found = optionsOf(view, type);
+    if (found.length > 1) fail('AMX3005', `Repeated ${description} option`, found[1].source);
+    if (required && found.length === 0) fail('AMX3003', `Missing ${description} option`, view.source);
+    return found[0];
+  }
+
+  function viewListElement(name: string, source?: SourceLocation): { kind: 'records'; name: string } | { kind: 'numbers' } {
+    const valueType = bindings.get(name);
+    if (!valueType) return fail('AMX3001', `Unknown visualization binding '${name}'`, source);
+    if (valueType.kind !== 'list') return fail('AMX3002', `Visualization binding '${name}' must be a list`, source);
+    const element = valueType.element;
+    if (element.kind === 'named' && element.name === 'Number') return { kind: 'numbers' };
+    if (element.kind === 'named' && types.has(element.name)) return { kind: 'records', name: element.name };
+    return fail('AMX3002', `Unsupported visualization list element type '${format(element)}'`, source);
+  }
+
+  function viewField(recordName: string, fieldName: string, source?: SourceLocation): CheckedType {
+    const declaration = types.get(recordName)!;
+    const field = declaration.fields.find(item => item.name === fieldName);
+    if (!field) fail('AMX3001', `Unknown field '${fieldName}' on '${recordName}'`, source);
+    return resolve(field!.annotation);
+  }
+
+  function isScalar(type: CheckedType): boolean {
+    if (type.kind === 'named') return primitives.has(type.name);
+    return type.kind === 'nullable' && type.element.kind === 'named' && primitives.has(type.element.name);
+  }
+
+  function isNumber(type: CheckedType): boolean {
+    return (type.kind === 'named' && type.name === 'Number')
+      || (type.kind === 'nullable' && type.element.kind === 'named' && type.element.name === 'Number');
+  }
+
+  function chartFieldOption(view: ChartDeclarationNode, role: ChartFieldOptionNode['role'], required: boolean): ChartFieldOptionNode | undefined {
+    const found = optionsOf(view, 'chartFieldOption').filter(option => option.role === role);
+    if (found.length > 1) fail('AMX3005', `Repeated '${role}' option`, found[1].source);
+    if (required && found.length === 0) fail('AMX3003', `Missing '${role}' option`, view.source);
+    return found[0];
+  }
+
+  function checkTable(view: TableDeclarationNode): void {
+    checkViewName(view.name, view.source, view.exported);
+    oneOption(view, 'viewTitleOption', 'title', true);
+    const columns = optionsOf(view, 'tableColumnOption');
+    if (columns.length === 0) fail('AMX3003', 'Table requires at least one column', view.source);
+    const allowed = new Set<VisualizationOptionNode['type']>(['viewTitleOption', 'tableColumnOption']);
+    const unsupported = view.options.find(option => !allowed.has(option.type));
+    if (unsupported) fail('AMX3003', 'Option is not valid for a table', unsupported.source);
+    const input = viewListElement(view.binding, view.bindingSource);
+    if (input.kind !== 'records') return fail('AMX3002', 'Tables require a list of records', view.bindingSource);
+    const fields = new Set<string>();
+    for (const column of columns) {
+      if (fields.has(column.field)) fail('AMX3005', `Repeated table field '${column.field}'`, column.fieldSource);
+      fields.add(column.field);
+      const fieldType = viewField(input.name, column.field, column.fieldSource);
+      if (!isScalar(fieldType)) fail('AMX3002', `Table column '${column.field}' must have a scalar field type`, column.fieldSource);
+    }
+    views.set(view.name, view);
+  }
+
+  function checkChart(view: ChartDeclarationNode): void {
+    checkViewName(view.name, view.source, view.exported);
+    oneOption(view, 'viewTitleOption', 'title', true);
+    oneOption(view, 'viewDescriptionOption', 'description', true);
+    const allowed: Set<VisualizationOptionNode['type']> = new Set(['viewTitleOption', 'viewDescriptionOption', 'chartFieldOption', 'chartSeriesOption']);
+    const unsupported = view.options.find(option => !allowed.has(option.type));
+    if (unsupported) fail('AMX3003', 'Option is not valid for a chart', unsupported.source);
+    const input = viewListElement(view.binding, view.bindingSource);
+    const fields = optionsOf(view, 'chartFieldOption');
+    const series = optionsOf(view, 'chartSeriesOption');
+    const seenRoles = new Set<string>();
+    for (const field of fields) {
+      if (seenRoles.has(field.role)) fail('AMX3005', `Repeated '${field.role}' option`, field.source);
+      seenRoles.add(field.role);
+    }
+
+    if (input.kind === 'numbers') {
+      if (view.kind === 'scatter') fail('AMX3002', 'Scatter charts require a list of records', view.bindingSource);
+      if (fields.some(field => field.role !== 'labels')) fail('AMX3003', `Field options are not valid for ${view.kind} charts with Number[] data`, fields.find(field => field.role !== 'labels')?.source);
+      if (series.length !== 1 || series[0].field) fail('AMX3003', `${view.kind} charts with Number[] data require exactly one scalar series label`, series[1]?.source ?? view.source);
+      const labels = chartFieldOption(view, 'labels', false);
+      if (labels) {
+        const labelType = bindings.get(labels.field);
+        if (!labelType) fail('AMX3001', `Unknown labels binding '${labels.field}'`, labels.fieldSource);
+        if (labelType!.kind !== 'list' || labelType!.element.kind !== 'named' || labelType!.element.name !== 'String') {
+          fail('AMX3002', 'Chart labels must bind a String[] value', labels.fieldSource);
+        }
+      }
+      views.set(view.name, view);
+      return;
+    }
+
+    if (view.kind === 'scatter') {
+      const x = chartFieldOption(view, 'x', true)!;
+      const y = chartFieldOption(view, 'y', true)!;
+      const group = chartFieldOption(view, 'group', false);
+      if (fields.some(field => field.role === 'category' || field.role === 'labels')) fail('AMX3003', 'Scatter charts do not accept category or labels', fields.find(field => field.role === 'category' || field.role === 'labels')?.source);
+      if (series.length) fail('AMX3003', 'Scatter charts do not accept series options', series[0].source);
+      for (const axis of [x, y]) if (!isNumber(viewField(input.name, axis.field, axis.fieldSource))) fail('AMX3002', `Scatter axis '${axis.role}' must bind a Number field`, axis.fieldSource);
+      if (group && viewField(input.name, group.field, group.fieldSource).kind !== 'named') fail('AMX3002', 'Scatter group must bind a non-null String field', group.fieldSource);
+      if (group && !equal(viewField(input.name, group.field, group.fieldSource), named('String'))) fail('AMX3002', 'Scatter group must bind a non-null String field', group.fieldSource);
+      views.set(view.name, view);
+      return;
+    }
+
+    const requiredRole = view.kind === 'line' ? 'x' : 'category';
+    const forbidden = fields.find(field => field.role !== requiredRole);
+    if (forbidden) fail('AMX3003', `Option '${forbidden.role}' is not valid for ${view.kind} charts`, forbidden.source);
+    if (input.kind === 'records') {
+      const role = chartFieldOption(view, requiredRole, true)!;
+      const roleType = viewField(input.name, role.field, role.fieldSource);
+      if (view.kind === 'line') {
+        if (!(equal(roleType, named('Number')) || equal(roleType, named('DateTime')))) fail('AMX3002', 'Line chart x must bind a Number or DateTime field', role.fieldSource);
+      } else if (!isScalar(roleType) || roleType.kind === 'nullable') {
+        fail('AMX3002', 'Bar/column category must bind a non-null scalar field', role.fieldSource);
+      }
+      if (series.length === 0 || series.some(item => !item.field)) fail('AMX3003', `${view.kind} charts with record data require field series`, view.source);
+      const seenSeries = new Set<string>();
+      for (const item of series) {
+        if (seenSeries.has(item.field!)) fail('AMX3005', `Repeated chart series field '${item.field}'`, item.fieldSource);
+        seenSeries.add(item.field!);
+        if (!isNumber(viewField(input.name, item.field!, item.fieldSource))) fail('AMX3002', 'Chart series must bind a Number field', item.fieldSource);
+      }
+      views.set(view.name, view);
+      return;
+    }
+    fail('AMX3003', `Unsupported ${view.kind} chart data shape`, view.bindingSource);
+  }
+
   function checkStatement(statement: StatementNode): void {
     switch (statement.type) {
       case 'importDeclaration':
         return;
       case 'inputDeclaration': {
-        if (types.has(statement.name) || functions.has(statement.name) || bindings.has(statement.name)) {
+        if (types.has(statement.name) || functions.has(statement.name) || bindings.has(statement.name) || views.has(statement.name)) {
           fail('AMX3005', `Input '${statement.name}' collides with another declaration`, statement.source);
         }
         bindings.set(statement.name, resolve(statement.annotation));
@@ -327,7 +489,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         return;
       }
       case 'typeDeclaration': {
-        if (primitives.has(statement.name) || types.has(statement.name) || bindings.has(statement.name) || functions.has(statement.name)) fail('AMX3005', `Duplicate type '${statement.name}'`, statement.source);
+        if (primitives.has(statement.name) || types.has(statement.name) || bindings.has(statement.name) || functions.has(statement.name) || views.has(statement.name)) fail('AMX3005', `Duplicate type '${statement.name}'`, statement.source);
         const fields = new Set<string>();
         for (const field of statement.fields) {
           if (fields.has(field.name)) fail('AMX3005', `Duplicate field '${field.name}'`, field.source);
@@ -341,7 +503,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         return;
       }
       case 'functionDeclaration': {
-        if (types.has(statement.name) || bindings.has(statement.name) || functions.has(statement.name)) fail('AMX3005', `Duplicate declaration '${statement.name}'`, statement.source);
+        if (types.has(statement.name) || bindings.has(statement.name) || functions.has(statement.name) || views.has(statement.name)) fail('AMX3005', `Duplicate declaration '${statement.name}'`, statement.source);
         if (stdlibNames.has(statement.name)) fail('AMX3005', `Function '${statement.name}' cannot shadow a standard-library function`, statement.source);
         const paramNames = new Set<string>();
         const paramScope = new Map<string, CheckedType>();
@@ -365,7 +527,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         return;
       }
       case 'variableDeclaration': {
-        if (types.has(statement.name) || functions.has(statement.name)) fail('AMX3005', `Binding '${statement.name}' conflicts with a type or function`, statement.source);
+        if (types.has(statement.name) || functions.has(statement.name) || views.has(statement.name)) fail('AMX3005', `Binding '${statement.name}' conflicts with another declaration`, statement.source);
         if (inputNames.has(statement.name)) fail('AMX3005', `Binding '${statement.name}' conflicts with an input`, statement.source);
         if (immutableNames.has(statement.name)) moduleError('AMX5002', `Cannot redeclare imported binding '${statement.name}'`, statement.source, file);
         const target = statement.annotation ? resolve(statement.annotation) : bindings.get(statement.name);
@@ -378,6 +540,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         return;
       }
       case 'assignmentStatement': case 'compoundAssignmentStatement': {
+        if (views.has(statement.name)) fail('AMX3005', `Cannot assign to immutable visualization '${statement.name}'`, statement.source);
         if (inputNames.has(statement.name)) fail('AMX3005', `Cannot assign to immutable input '${statement.name}'`, statement.source);
         if (immutableNames.has(statement.name)) moduleError('AMX5002', `Cannot assign to imported binding '${statement.name}'`, statement.source, file);
         const target = bindings.get(statement.name);
@@ -386,6 +549,13 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         requireType(infer(statement.expression, target), target!, statement.expression.source ?? statement.source);
         return;
       }
+      case 'tableDeclaration': checkTable(statement); return;
+      case 'chartDeclaration': checkChart(statement); return;
+      case 'showStatement':
+        if (loopDepth > 0) fail('AMX3005', 'Show statements may only occur at module top level', statement.source);
+        if (context?.isEntryModule === false) fail('AMX3005', 'Show statements may only occur in the entry module', statement.source);
+        if (!views.has(statement.name)) fail('AMX3001', `Unknown or not-yet-declared visualization '${statement.name}'`, statement.nameSource ?? statement.source);
+        return;
       case 'forStatement': checkLoop(statement.variable, statement.iterable, statement.body, statement.source); return;
       case 'returnStatement': fail('AMX3003', 'Return outside expression loop', statement.source);
     }

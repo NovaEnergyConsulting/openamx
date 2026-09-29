@@ -387,3 +387,26 @@ describe("Sprint 016 entry inputs and CLI mappings", () => {
     expect(await Bun.file(htmlPath).exists()).toBe(false);
   });
 });
+
+describe("Sprint 021 module visualization boundaries", () => {
+  it("returns entry view emissions without adding view names to the binding object", async () => {
+    const dir = await makeDir();
+    const entry = await write(dir, "entry.amx", `\`\`\`amx\nimport { Asset } from "./assets.amx"\nlet assets: Asset[] = [Asset { id: "A" }]\ntable register = table(assets) {\n  title: "Register"\n  column id as "Asset"\n}\nshow register\n\`\`\`\n`);
+    await write(dir, "assets.amx", `\`\`\`amx\nexport type Asset {\n  id: String\n}\n\`\`\`\n`);
+    const loaded = await loadEntryModule(entry);
+    expect(loaded.viewEmissions).toHaveLength(1);
+    expect(loaded.viewEmissions[0]).toMatchObject({
+      name: 'register', documentNodeIndex: 0, statementIndex: 3, data: [{ id: 'A' }]
+    });
+    expect(loaded.env.toObject()).toEqual({ assets: [{ id: 'A' }] });
+  });
+
+  it("rejects view declarations in imported modules", async () => {
+    const dir = await makeDir();
+    const entry = await write(dir, "entry.amx", `\`\`\`amx\nimport { Asset } from "./assets.amx"\n\`\`\`\n`);
+    await write(dir, "assets.amx", `\`\`\`amx\nexport type Asset {\n  id: String\n}\nexport let assets: Asset[] = []\ntable privateView = table(assets) {\n  title: "Private"\n  column id as "Asset"\n}\n\`\`\`\n`);
+    const error = await expectAmxError(loadEntryModule(entry), 'AMX3005');
+    expect(error.message).toContain('entry module');
+    expect(error.file).toContain('assets.amx');
+  });
+});

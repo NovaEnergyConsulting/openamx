@@ -33,7 +33,17 @@ These are Sprint 020 contract/evidence questions, not permission to defer decisi
 - **DOCX:** The export spike did not test editable DOCX. Keep it a non-blocking stretch with semantic editable text/tables and permitted chart images; no DOCX work is authorized by this sprint.
 - **Platforms and prerequisites:** The available host is Ubuntu 24.04.4 under WSL2, not a native release-owner runner. GTK 3.24.41 and the WebKitGTK 4.1, JavaScriptCoreGTK 4.1, Ayatana AppIndicator, and librsvg runtime packages are now present. Native Ubuntu 24.04+, macOS 14+, and Windows 11+ build/launch checks remain explicitly unverified.
 
-All contract questions have an adopted specification rule. The Electrobun must-have evidence remains a concrete blocker for Lead Developer review; this sprint is not ready to hand off Sprints 021 or 024.
+All contract questions have an adopted specification rule. The Electrobun must-have remains in scope. Lead Developer's Sprint 020 Option 2 disposition closes that sprint's gate for Sprint 021 while preserving Hutch scripted-command and persistent-window verification as explicit residuals.
+
+## V0.4 Sprint 021 Contract Clarification (Resolved)
+
+- Lead Developer selected `AMX4003` for a runtime mismatch between scalar chart values and their `String[]` labels. Validate at `show`, before rendering or output writes, and identify the view and labels option location. This is a runtime typed-data validation diagnostic, not a static type error.
+
+## V0.4 Sprint 021 Builder Completion
+
+- No blocking contract questions remain. The approved `AMX4003` clarification is reflected in `docs/language-spec-v0.4.md`.
+- Root verification on 2026-09-29: `bun run build` passed; `bun test` passed (176 tests, 710 assertions, 0 failures); `git diff --check` passed. Focused parser/checker/runtime/module/CLI no-write checks also passed.
+- Sprint 022 receives only typed ordered emission snapshots; interactive/static HTML and editor work remain deferred. Sprint 020's Hutch package-command and persistent-window residuals remain explicit and do not become passed by this Sprint 021 completion.
 
 ## Assumptions Made (clearly marked per builder rules)
 

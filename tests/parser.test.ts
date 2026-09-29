@@ -263,10 +263,17 @@ describe("match expression parsing", () => {
     const [loop] = parseStatements('let values = for item in [1] {\n  return match item {\n    case 1 => 2\n    default => 0\n  }\n}', { line: 20, column: 1 });
     expect((loop as VariableDeclarationNode).expression.type).toBe('forExpression');
   });
-    it("records the known limitation for record constructors directly in match arms", () => {
-      expect(() => parseExpression(
-        'match 1 {\ncase 1 => Asset { id: "A" }\ndefault => Asset { id: "B" }\n}'
-      )).toThrow(/Unclosed match expression/);
+  it("parses record constructors directly in match arms with source locations", () => {
+      const match = parseExpression(
+        'match 1 {\ncase 1 => Asset { id: "A" }\ndefault => Asset { id: "B" }\n}',
+        { line: 20, column: 4 }
+      ) as MatchExpressionNode;
+      expect(match.cases[0].expression).toMatchObject({
+        type: 'recordConstructor', name: 'Asset', source: { line: 21, column: 11 }
+      });
+      expect(match.defaultExpression).toMatchObject({
+        type: 'recordConstructor', name: 'Asset', source: { line: 22, column: 12 }
+      });
     });
 
   it("rejects missing or duplicate defaults and malformed arms with locations", () => {
@@ -285,6 +292,97 @@ describe("match expression parsing", () => {
     for (const [input, message] of invalid) {
       expect(() => parseExpression(input)).toThrow(message);
     }
+  });
+});
+
+describe("V0.4 visualization parsing", () => {
+  it("parses a typed table and later show in executable fences with original locations", () => {
+    const doc = parseDocumentText(
+      'Intro\n~~~amx\nshow ignored\n~~~\n```amx\ntype Asset {\n  id: String\n}\nlet assets: Asset[] = []\ntable register = table(assets) {\n  title: "Register"\n  column id as "Asset"\n}\n```\nBetween\n```amx\nshow register\n```'
+    );
+    const blocks = doc.nodes.filter(node => node.type === 'executableCodeBlock') as ExecutableCodeBlockNode[];
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].statements.map(statement => statement.type)).toEqual([
+      'typeDeclaration', 'variableDeclaration', 'tableDeclaration'
+    ]);
+    const table = blocks[0].statements[2] as any;
+    expect(table).toMatchObject({
+      name: 'register', binding: 'assets', source: { line: 10, column: 1 },
+      bindingSource: { line: 10, column: 24 },
+      options: [
+        { type: 'viewTitleOption', value: 'Register', source: { line: 11, column: 3 } },
+        { type: 'tableColumnOption', field: 'id', label: 'Asset', fieldSource: { line: 12, column: 10 }, source: { line: 12, column: 3 } }
+      ]
+    });
+    expect(blocks[1].statements[0]).toMatchObject({
+      type: 'showStatement', name: 'register', source: { line: 17, column: 1 }, nameSource: { line: 17, column: 6 }
+    });
+  });
+
+  it("parses record and scalar chart option forms in source order", () => {
+    const statements = parseStatements(`chart barView = bar(assets) {
+  title: "Bar"
+  description: "Asset scores"
+  category: id
+  series score as "Score"
+}
+chart lineView = line(values) {
+  title: "Line"
+  description: "Scalar trend"
+  series "Trend"
+  labels: dates
+}
+chart scatterView = scatter(points) {
+  title: "Scatter"
+  description: "Point groups"
+  x: xValue
+  y: yValue
+  group: groupName
+}
+show barView`);
+    expect(statements.map(statement => statement.type)).toEqual([
+      'chartDeclaration', 'chartDeclaration', 'chartDeclaration', 'showStatement'
+    ]);
+    expect(statements[0]).toMatchObject({
+      kind: 'bar', binding: 'assets', options: [
+        { type: 'viewTitleOption', value: 'Bar' },
+        { type: 'viewDescriptionOption', value: 'Asset scores' },
+        { type: 'chartFieldOption', role: 'category', field: 'id' },
+        { type: 'chartSeriesOption', field: 'score', label: 'Score' }
+      ]
+    });
+    expect(statements[1]).toMatchObject({
+      kind: 'line', binding: 'values', options: [
+        { type: 'viewTitleOption', value: 'Line' },
+        { type: 'viewDescriptionOption', value: 'Scalar trend' },
+        { type: 'chartSeriesOption', label: 'Trend' },
+        { type: 'chartFieldOption', role: 'labels', field: 'dates' }
+      ]
+    });
+    expect(statements[2]).toMatchObject({
+      kind: 'scatter', options: [
+        { type: 'viewTitleOption', value: 'Scatter' },
+        { type: 'viewDescriptionOption', value: 'Point groups' },
+        { type: 'chartFieldOption', role: 'x', field: 'xValue' },
+        { type: 'chartFieldOption', role: 'y', field: 'yValue' },
+        { type: 'chartFieldOption', role: 'group', field: 'groupName' }
+      ]
+    });
+  });
+
+  it("rejects malformed forms and preserves placement violations for static checking", () => {
+    expect(() => parseStatements('table bad = line(items) {\n  title: "bad"\n}')).toThrow(/Invalid visualization declaration/);
+    expect(() => parseStatements('chart bad = bar(items) {\n  subtitle: "bad"\n}')).toThrow(/Invalid chart option/);
+    expect(() => parseStatements('chart bad = bar(items) {')).toThrow(/Unclosed visualization/);
+    expect(parseStatements('export table bad = table(items) {\n  title: "bad"\n  column id as "ID"\n}')[0]).toMatchObject({
+      type: 'tableDeclaration', exported: true
+    });
+    expect(parseStatements('for item in [1] {\n  table view = table(items) {\n    title: "T"\n    column id as "ID"\n  }\n}')[0]).toMatchObject({
+      type: 'forStatement', body: [{ type: 'tableDeclaration' }]
+    });
+    expect(parseStatements('for item in [1] {\n  show view\n}')[0]).toMatchObject({
+      type: 'forStatement', body: [{ type: 'showStatement' }]
+    });
   });
 });
 

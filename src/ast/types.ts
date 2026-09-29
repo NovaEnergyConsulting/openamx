@@ -1,4 +1,4 @@
-/** Explicit AST types for OpenAMX V0.2, with source locations on syntax nodes. */
+/** Explicit OpenAMX AST types with original-document source locations. */
 
 export interface SourceLocation {
   line: number;
@@ -85,6 +85,73 @@ export interface InputDeclarationNode {
   type: 'inputDeclaration';
   name: string;
   annotation: TypeReferenceNode;
+  source?: SourceLocation;
+}
+
+export interface ViewTitleOptionNode {
+  type: 'viewTitleOption';
+  value: string;
+  source?: SourceLocation;
+}
+
+export interface ViewDescriptionOptionNode {
+  type: 'viewDescriptionOption';
+  value: string;
+  source?: SourceLocation;
+}
+
+export interface TableColumnOptionNode {
+  type: 'tableColumnOption';
+  field: string;
+  label: string;
+  fieldSource?: SourceLocation;
+  source?: SourceLocation;
+}
+
+export interface ChartFieldOptionNode {
+  type: 'chartFieldOption';
+  role: 'category' | 'x' | 'y' | 'group' | 'labels';
+  field: string;
+  fieldSource?: SourceLocation;
+  source?: SourceLocation;
+}
+
+export interface ChartSeriesOptionNode {
+  type: 'chartSeriesOption';
+  field?: string;
+  label: string;
+  fieldSource?: SourceLocation;
+  source?: SourceLocation;
+}
+
+export type VisualizationOptionNode = ViewTitleOptionNode | ViewDescriptionOptionNode
+  | TableColumnOptionNode | ChartFieldOptionNode | ChartSeriesOptionNode;
+
+export interface TableDeclarationNode {
+  type: 'tableDeclaration';
+  name: string;
+  binding: string;
+  bindingSource?: SourceLocation;
+  options: VisualizationOptionNode[];
+  exported?: boolean;
+  source?: SourceLocation;
+}
+
+export interface ChartDeclarationNode {
+  type: 'chartDeclaration';
+  name: string;
+  kind: 'bar' | 'column' | 'line' | 'scatter';
+  binding: string;
+  bindingSource?: SourceLocation;
+  options: VisualizationOptionNode[];
+  exported?: boolean;
+  source?: SourceLocation;
+}
+
+export interface ShowStatementNode {
+  type: 'showStatement';
+  name: string;
+  nameSource?: SourceLocation;
   source?: SourceLocation;
 }
 
@@ -240,6 +307,9 @@ export type StatementNode =
   | FunctionDeclarationNode
   | ImportDeclarationNode
   | InputDeclarationNode
+  | TableDeclarationNode
+  | ChartDeclarationNode
+  | ShowStatementNode
   | VariableDeclarationNode
   | AssignmentStatementNode
   | CompoundAssignmentStatementNode

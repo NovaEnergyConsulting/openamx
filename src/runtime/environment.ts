@@ -1,6 +1,30 @@
 import { throwUndefinedIdentifier } from '../diagnostics/errors';
-import { FunctionDeclarationNode, SourceLocation, TypeDeclarationNode } from '../ast/types';
+import { ChartDeclarationNode, FunctionDeclarationNode, SourceLocation, TableDeclarationNode, TypeDeclarationNode } from '../ast/types';
 import type { CheckedType } from '../typechecker/checkDocument';
+
+export type ViewDataValue = string | number | boolean | null | readonly ViewDataValue[]
+  | { readonly [field: string]: ViewDataValue };
+
+interface ViewEmissionLocation {
+  name: string;
+  data: readonly ViewDataValue[];
+  documentNodeIndex: number;
+  statementIndex: number;
+  source?: SourceLocation;
+}
+
+export interface TableViewEmission extends ViewEmissionLocation {
+  kind: 'table';
+  declaration: TableDeclarationNode;
+}
+
+export interface ChartViewEmission extends ViewEmissionLocation {
+  kind: 'chart';
+  declaration: ChartDeclarationNode;
+  labels?: readonly string[];
+}
+
+export type ViewEmission = TableViewEmission | ChartViewEmission;
 
 /**
  * Runtime environment for variable storage during evaluation.
@@ -12,6 +36,10 @@ export class Environment {
   readonly recordTypes: Map<string, TypeDeclarationNode>;
   readonly functions: Map<string, FunctionDeclarationNode>;
   readonly bindingTypes = new Map<string, CheckedType>();
+  readonly viewDefinitions = new Map<string, TableDeclarationNode | ChartDeclarationNode>();
+  readonly viewEmissions: ViewEmission[] = [];
+  currentDocumentNodeIndex = -1;
+  currentStatementIndex = -1;
   validationMode: 'aggregate' | 'fail-fast' = 'aggregate';
 
   constructor(recordTypes: Map<string, TypeDeclarationNode> = new Map(), functions: Map<string, FunctionDeclarationNode> = new Map()) {
@@ -83,5 +111,7 @@ export class Environment {
    */
   clear(): void {
     this.store.clear();
+    this.viewDefinitions.clear();
+    this.viewEmissions.length = 0;
   }
 }

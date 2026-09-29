@@ -17,7 +17,7 @@
 
 import { describe, it, expect, beforeEach } from "bun:test";
 import { parseStatements } from "../src/parser/parseStatements";
-import { evaluateDocument } from "../src/runtime/evaluateDocument";
+import { evaluateDocument, evaluateDocumentEnvironment } from "../src/runtime/evaluateDocument";
 import { OpenAmxDocument } from "../src/ast/types";
 import { AmxError } from "../src/diagnostics/errors";
 import { Environment } from "../src/runtime/environment";
@@ -118,6 +118,88 @@ describe("Sprint 016 logical input checking", () => {
       evaluateDocument(document, 'computed.amx');
     } catch (error) {
       expect((error as AmxError).code).toBe('AMX4003');
+    }
+  });
+});
+
+describe("Sprint 021 visualization checking", () => {
+  const document = (source: string) => parseDocumentText(`\`\`\`amx\n${source}\n\`\`\``);
+
+  it("activates checking and accepts a typed record table shown after its declaration", () => {
+    const doc = document(`type Asset {\n  id: String\n  score: Number?\n}\nlet assets: Asset[] = []\ntable register = table(assets) {\n  title: "Register"\n  column id as "Asset"\n  column score as "Score"\n}\nshow register`);
+    expect(checkingActivated(doc)).toBe(true);
+    expect(() => checkDocument(doc, 'visualization.amx')).not.toThrow();
+  });
+
+  it("typechecks and selects a direct record constructor in a match arm", () => {
+    const values = evaluateDocument(document(`type Asset {\n  id: String\n}\nlet selected: Asset = match 1 {\n  case 1 => Asset { id: "first" }\n  case 1 => Asset { id: "second" }\n  default => Asset { id: "fallback" }\n}`), 'match-constructor.amx');
+    expect(values.selected).toEqual({ id: 'first' });
+  });
+
+  it("captures ordered immutable show snapshots without changing plain-object bindings", () => {
+    const doc = parseDocumentText(`\`\`\`amx\ntype Asset {\n  id: String\n}\nlet assets: Asset[] = [Asset { id: "A" }]\ntable register = table(assets) {\n  title: "Register"\n  column id as "Asset"\n}\n\`\`\`\nBefore first show\n\`\`\`amx\nshow register\n\`\`\`\nBetween shows\n\`\`\`amx\nassets = []\n\`\`\`\nAfter mutation\n\`\`\`amx\nshow register\n\`\`\``);
+    const environment = evaluateDocumentEnvironment(doc, 'snapshot.amx');
+    expect(environment.viewEmissions.map(emission => [emission.kind, emission.documentNodeIndex, emission.statementIndex])).toEqual([['table', 2, 0], ['table', 6, 0]]);
+    expect(environment.viewEmissions.map(emission => emission.data)).toEqual([[{ id: 'A' }], []]);
+    expect(Object.isFrozen(environment.viewEmissions[0].data)).toBe(true);
+    expect(Object.isFrozen(environment.viewEmissions[0].data[0])).toBe(true);
+    expect(evaluateDocument(doc, 'snapshot.amx')).toEqual({ assets: [] });
+  });
+
+  it("reports scalar chart label/value length mismatches at the labels option", () => {
+    const doc = document(`let values: Number[] = [1, 2]\nlet labels: String[] = ["one"]\nchart amounts = bar(values) {\n  title: "Amounts"\n  description: "By label"\n  series "Amount"\n  labels: labels\n}\nshow amounts`);
+    try {
+      evaluateDocumentEnvironment(doc, 'chart-length.amx');
+      throw new Error('Expected chart length validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AmxError);
+      expect(error).toMatchObject({ code: 'AMX4003', file: 'chart-length.amx', line: 8, column: 3 });
+      expect((error as Error).message).toContain('2 values but 1 labels');
+    }
+  });
+
+  it("emits a typed scalar chart snapshot with its labels in statement order", () => {
+    const doc = document(`let values: Number[] = [1, 2]\nlet labels: String[] = ["one", "two"]\nchart amounts = column(values) {\n  title: "Amounts"\n  description: "By label"\n  series "Value"\n  labels: labels\n}\nshow amounts`);
+    const emission = evaluateDocumentEnvironment(doc, 'chart.amx').viewEmissions[0];
+    expect(emission).toMatchObject({
+      kind: 'chart', name: 'amounts', data: [1, 2], labels: ['one', 'two'], documentNodeIndex: 0, statementIndex: 3
+    });
+    expect(Object.isFrozen(emission.labels)).toBe(true);
+  });
+
+  it("accepts the contracted typed table and chart data shapes", () => {
+    const doc = document(`type Point {\n  id: String\n  x: Number?\n  y: Number?\n  score: Number?\n  at: DateTime\n  group: String\n}\nlet points: Point[] = []\nlet values: Number[] = [1, 2]\nlet labels: String[] = ["one", "two"]\ntable register = table(points) {\n  title: "Register"\n  column id as "Point"\n  column score as "Score"\n}\nchart bars = bar(points) {\n  title: "Bars"\n  description: "Grouped values"\n  category: id\n  series score as "Score"\n}\nchart columns = column(values) {\n  title: "Columns"\n  description: "Scalar values"\n  series "Value"\n  labels: labels\n}\nchart linePoints = line(points) {\n  title: "Line"\n  description: "Time series"\n  x: at\n  series score as "Score"\n}\nchart lineValues = line(values) {\n  title: "Line values"\n  description: "Indexed values"\n  series "Value"\n}\nchart scatterPoints = scatter(points) {\n  title: "Scatter"\n  description: "Grouped points"\n  x: x\n  y: y\n  group: group\n}`);
+    expect(() => checkDocument(doc, 'chart-shapes.amx')).not.toThrow();
+  });
+
+  it("rejects invalid visualization shapes, options, fields, and source order", () => {
+    const invalid: [string, string][] = [
+      ['let assets: Number[] = []\ntable view = table(assets) {\n  title: "T"\n  column id as "ID"\n}', 'AMX3002'],
+      ['type Asset {\n  tags: String[]\n}\nlet assets: Asset[] = []\ntable view = table(assets) {\n  title: "T"\n  column tags as "Tags"\n}', 'AMX3002'],
+      ['let assets: Number[] = []\ntable view = table(assets) {\n  title: "T"\n  column id as "ID"\n}', 'AMX3002'],
+      ['type Asset {\n  id: String\n}\nlet assets: Asset[] = []\ntable view = table(assets) {\n  title: "T"\n  column missing as "Missing"\n}', 'AMX3001'],
+      ['type Asset {\n  id: String\n}\nlet assets: Asset[] = []\ntable view = table(assets) {\n  title: "T"\n  column id as "ID"\n  column id as "Again"\n}', 'AMX3005'],
+      ['table view = table(missing) {\n  title: "T"\n  column id as "ID"\n}', 'AMX3001'],
+      ['type Asset {\n  id: String\n}\nlet assets: Asset[] = []\ntable view = table(assets) {\n  title: "T"\n  title: "Again"\n  column id as "ID"\n}', 'AMX3005'],
+      ['type Asset {\n  id: String\n}\nlet assets: Asset[] = []\ntable view = table(assets) {\n  column id as "ID"\n}', 'AMX3003'],
+      ['type Asset {\n  id: String\n}\nlet assets: Asset[] = []\ntable view = table(assets) {\n  title: "T"\n  column id as "ID"\n}\nview = assets', 'AMX3005'],
+      ['type Asset {\n  id: String\n}\nlet assets: Asset[] = []\nchart view = bar(assets) {\n  title: "B"\n  description: "D"\n  category: id\n  category: id\n  series id as "ID"\n}', 'AMX3005'],
+      ['let values: Number[] = []\nchart view = line(values) {\n  title: "L"\n  series "V"\n}', 'AMX3003'],
+      ['type Asset {\n  name: String\n  score: Number\n}\nlet assets: Asset[] = []\nchart view = bar(assets) {\n  title: "B"\n  description: "D"\n  category: name\n  series name as "Name"\n}', 'AMX3002'],
+      ['let values: Number[] = []\nchart view = scatter(values) {\n  title: "S"\n  description: "D"\n  x: x\n  y: y\n}', 'AMX3002'],
+      ['let values: Number[] = []\nlet labels: Number[] = []\nchart view = line(values) {\n  title: "L"\n  description: "D"\n  series "V"\n  labels: labels\n}', 'AMX3002'],
+      ['type Asset {\n  id: String\n}\nlet assets: Asset[] = []\ntable same = table(assets) {\n  title: "T"\n  column id as "ID"\n}\nlet same: Number = 1', 'AMX3005'],
+      ['type Asset {\n  id: String\n}\nlet assets: Asset[] = []\ntable sum = table(assets) {\n  title: "T"\n  column id as "ID"\n}', 'AMX3005'],
+      ['type Asset {\n  id: String\n}\nlet assets: Asset[] = []\ntable Number = table(assets) {\n  title: "T"\n  column id as "ID"\n}', 'AMX3005'],
+      ['type Asset {\n  id: String\n}\nlet assets: Asset[] = []\nexport table view = table(assets) {\n  title: "T"\n  column id as "ID"\n}', 'AMX3005'],
+      ['type Asset {\n  id: String\n}\nlet assets: Asset[] = []\nfor item in [1] {\n  table view = table(assets) {\n    title: "T"\n    column id as "ID"\n  }\n}', 'AMX3005'],
+      ['type Asset {\n  id: String\n}\nlet assets: Asset[] = []\ntable view = table(assets) {\n  title: "T"\n  column id as "ID"\n}\nfor item in [1] {\n  show view\n}', 'AMX3005'],
+      ['show later\ntable later = table(assets) {\n  title: "T"\n  column id as "ID"\n}', 'AMX3001'],
+      ['let assets: Number[] = []\ntable later = table(assets) {\n  title: "T"\n  column id as "ID"\n}', 'AMX3002'],
+      ['let values: Number[] = []\nchart view = line(values) {\n  title: "L"\n  description: "D"\n  category: values\n  series "V"\n}', 'AMX3003']
+    ];
+    for (const [source, code] of invalid) {
+      expect(() => checkDocument(document(source), 'invalid-view.amx')).toThrow(expect.objectContaining({ code }));
     }
   });
 });

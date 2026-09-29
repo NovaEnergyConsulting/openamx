@@ -109,6 +109,8 @@ V0.2/V0.3 location rules remain: one-based line and column in the original docum
 
 The static-check barrier precedes input loading, evaluation, rendering, and every write. Input mapping/read/validation failures prevent evaluation and rendering. Evaluation failures prevent all output writes. HTML/PDF render or serialization must complete successfully before an export destination is modified.
 
+At runtime, a scalar chart's `String[]` labels must match the values list length. A mismatch is reported as `AMX4003` at the labels option and prevents rendering and output writes.
+
 ## 6. PDF Export Contract
 
 The CLI entry point is additive: `openamx export pdf <input> --out <path>`. `--out` is required and must have the exact lowercase `.pdf` extension. Repeated `--input name=path` and `--validation aggregate|fail-fast` retain V0.3 syntax and meaning. Existing `run` and `render` commands and their defaults do not change. The desktop application exposes a corresponding export action through its main-process RPC; it calls the same core analysis and shared PDF adapter as the CLI.

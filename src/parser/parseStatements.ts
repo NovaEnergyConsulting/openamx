@@ -1,4 +1,4 @@
-import { FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, InputDeclarationNode, SourceLocation, StatementNode, TypeReferenceNode, VariableDeclarationNode } from '../ast/types';
+import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, InputDeclarationNode, SourceLocation, StatementNode, TableDeclarationNode, TypeReferenceNode, VariableDeclarationNode, VisualizationOptionNode } from '../ast/types';
 import { parseExpression } from './parseExpression';
 import { parseForStatement } from './parseFor';
 
@@ -7,7 +7,7 @@ interface ParseContext {
   allowFor?: boolean;
 }
 
-/** Parse V0.2 statements while preserving original-document source locations. */
+/** Parse executable AMX statements while preserving original-document locations. */
 export function parseStatements(
   body: string,
   start: SourceLocation = { line: 1, column: 1 },
@@ -29,9 +29,9 @@ export function parseStatements(
     }
 
     let exported = false;
-    const exportMatch = rawLine.match(/^(\s*)export(\s+)(type|fn|let)\b/);
+    const exportMatch = rawLine.match(/^(\s*)export(\s+)(type|fn|let|table|chart)\b/);
     if (exportMatch) {
-      if (context.allowFor === false) throw new Error(`Export declarations cannot occur in loops at ${lineNumber}:${exportMatch[1].length + 1}`);
+      if (context.allowFor === false && exportMatch[3] !== 'table' && exportMatch[3] !== 'chart') throw new Error(`Export declarations cannot occur in loops at ${lineNumber}:${exportMatch[1].length + 1}`);
       exported = true;
       const blankLength = exportMatch[0].length - exportMatch[3].length;
       rawLine = ' '.repeat(blankLength) + rawLine.slice(blankLength);
@@ -61,6 +61,25 @@ export function parseStatements(
         source
       };
       statements.push(input);
+      continue;
+    }
+
+    if (/^\s*(table|chart)\b/.test(rawLine)) {
+      const parsed = parseVisualization(lines, i, source, exported);
+      statements.push(parsed.statement);
+      i = parsed.endIndex;
+      continue;
+    }
+
+    if (/^\s*show\b/.test(rawLine)) {
+      const match = rawLine.match(/^\s*show\s+([A-Za-z][A-Za-z0-9_]*)\s*$/);
+      if (!match) throw new Error(`Invalid show statement at ${source.line}:${source.column}`);
+      statements.push({
+        type: 'showStatement',
+        name: match[1],
+        nameSource: { line: source.line, column: rawLine.lastIndexOf(match[1]) + 1 },
+        source
+      });
       continue;
     }
 
@@ -180,6 +199,98 @@ export function parseStatements(
   }
 
   return statements;
+}
+
+function parseVisualization(
+  lines: string[],
+  startIndex: number,
+  source: SourceLocation,
+  exported: boolean
+): { statement: TableDeclarationNode | ChartDeclarationNode; endIndex: number } {
+  const header = lines[startIndex].match(/^\s*(table|chart)\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*(table|bar|column|line|scatter)\s*\(\s*([A-Za-z][A-Za-z0-9_]*)\s*\)\s*\{\s*$/);
+  const fail = (message: string, at: SourceLocation): never => {
+    throw new Error(`${message} at ${at.line}:${at.column}`);
+  };
+  if (!header || (header[1] === 'table') !== (header[3] === 'table')) {
+    return fail('Invalid visualization declaration', source);
+  }
+
+  const name = header[2];
+  const binding = header[4];
+  const bindingSource = { line: source.line, column: lines[startIndex].lastIndexOf(binding) + 1 };
+  const options: VisualizationOptionNode[] = [];
+  let endIndex = startIndex + 1;
+  let closed = false;
+
+  for (; endIndex < lines.length; endIndex++) {
+    const line = lines[endIndex];
+    if (/^\s*}\s*$/.test(line)) {
+      closed = true;
+      break;
+    }
+    if (!line.trim()) continue;
+    const optionSource: SourceLocation = {
+      line: source.line + endIndex - startIndex,
+      column: line.length - line.trimStart().length + 1
+    };
+    const quoted = `("[^"\\r\\n]*"|'[^'\\r\\n]*')`;
+    let match: RegExpMatchArray | null;
+
+    if ((match = line.match(new RegExp(`^\\s*title\\s*:\\s*${quoted}\\s*$`)))) {
+      options.push({ type: 'viewTitleOption', value: match[1].slice(1, -1), source: optionSource });
+      continue;
+    }
+
+    if (header[1] === 'chart' && (match = line.match(new RegExp(`^\\s*description\\s*:\\s*${quoted}\\s*$`)))) {
+      options.push({ type: 'viewDescriptionOption', value: match[1].slice(1, -1), source: optionSource });
+      continue;
+    }
+
+    if (header[1] === 'table' && (match = line.match(new RegExp(`^\\s*column\\s+([A-Za-z][A-Za-z0-9_]*)\\s+as\\s+${quoted}\\s*$`)))) {
+      const field = match[1];
+      options.push({
+        type: 'tableColumnOption', field, label: match[2].slice(1, -1),
+        fieldSource: { line: optionSource.line, column: line.indexOf(field) + 1 }, source: optionSource
+      });
+      continue;
+    }
+
+    if (header[1] === 'chart') {
+      match = line.match(/^\s*(category|x|y|group|labels)\s*:\s*([A-Za-z][A-Za-z0-9_]*)\s*$/);
+      if (match) {
+        const field = match[2];
+        options.push({
+          type: 'chartFieldOption', role: match[1] as ChartFieldOptionNode['role'], field,
+          fieldSource: { line: optionSource.line, column: line.lastIndexOf(field) + 1 }, source: optionSource
+        });
+        continue;
+      }
+
+      match = line.match(new RegExp(`^\\s*series\\s+(?:([A-Za-z][A-Za-z0-9_]*)\\s+as\\s+)?${quoted}\\s*$`));
+      if (match) {
+        const field = match[1];
+        options.push({
+          type: 'chartSeriesOption', ...(field ? { field, fieldSource: { line: optionSource.line, column: line.indexOf(field) + 1 } } : {}),
+          label: match[2].slice(1, -1), source: optionSource
+        } satisfies ChartSeriesOptionNode);
+        continue;
+      }
+    }
+
+    return fail(`Invalid ${header[1]} option`, optionSource);
+  }
+
+  if (!closed) return fail('Unclosed visualization declaration', source);
+  if (header[1] === 'table') {
+    return { statement: { type: 'tableDeclaration', name, binding, bindingSource, options, ...(exported ? { exported } : {}), source }, endIndex };
+  }
+  return {
+    statement: {
+      type: 'chartDeclaration', name, kind: header[3] as ChartDeclarationNode['kind'], binding,
+      bindingSource, options, ...(exported ? { exported } : {}), source
+    },
+    endIndex
+  };
 }
 
 export function parseTypeReference(text: string, source?: SourceLocation): TypeReferenceNode {

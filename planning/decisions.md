@@ -2,6 +2,15 @@
 
 This file records key technology choices, architecture decisions, scope limitations, and other material decisions made during the project. Updated by every sprint.
 
+## V0.4 Sprint 021 Preparation
+
+- Lead Developer approved Sprint 020 closure under Option 2 on 2026-09-29 and authorized Sprint 021 implementation. Accept the direct native Bun RPC launch proof for this gate while explicitly retaining Hutch scripted prepare/build/dev reliability and persistent WSL window verification as unverified residuals. This does not remove the desktop must-have or claim full desktop acceptance.
+- Lead Developer selected `AMX4003` for runtime scalar chart label/value length mismatches. The check occurs at `show` and reports the view and labels-option location before rendering, serialization, or any output write.
+- Sprint 021 owns the typed visualization AST, parser, checker, runtime snapshots, and the direct record-constructor-in-`match` conformance fix. Interactive/static HTML and editor support remain Sprint 022; PDF and desktop production workflows remain later sprints.
+- Keep `show` emissions separate from final-environment narrative interpolation and existing V0.3 plain-object evaluation output. Type and source-order validation precedes input loading; runtime-only list-length validation precedes rendering and writes.
+- Sprint 021 implementation outcome (2026-09-29): added source-located table/chart/show AST and parsing, static typed-shape/field/option/name/placement checks, entry-only view enforcement, and frozen show snapshots ordered by original document node and statement. Fixed match-brace scanning so direct record constructors in arms parse and typecheck without changing first-match/lazy evaluation. `evaluateDocument` retains its plain-object shape; the loader exposes `viewEmissions` separately. No HTML, PDF, editor, or desktop production workflow was added.
+- Verification passed: focused table/show parser (1 test); match parser/checker regression (2 tests); focused checker, cross-fence runtime snapshot, module-boundary, and CLI no-write/pre-input-barrier tests; root `bun run build`; full `bun test` (176 tests, 710 assertions); and `git diff --check`. No further contract deviation beyond the approved AMX4003 runtime diagnostic clarification.
+
 ## V0.4 Sprint 020 Preparation Decisions
 
 - Sprint 020 owns the authoritative V0.4 language/export contract and bounded feasibility evidence. Production visualization work remains in Sprints 021–022, production PDF export in Sprint 023, desktop workflows in Sprints 024–025, and release acceptance in Sprint 027.

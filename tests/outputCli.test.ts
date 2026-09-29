@@ -131,6 +131,56 @@ describe('Sprint 017 CLI outputs', () => {
     expect(await Bun.file(conflict).exists()).toBe(false);
   });
 
+  it('writes neither HTML nor named outputs when show-time chart validation fails', async () => {
+    const directory = await createDirectory();
+    const entry = await write(directory, 'chart.amx', [
+      '```amx',
+      'let values: Number[] = [1, 2]',
+      'let labels: String[] = ["one"]',
+      'export let selected: Number = 1',
+      'chart amounts = bar(values) {',
+      '  title: "Amounts"',
+      '  description: "By label"',
+      '  series "Value"',
+      '  labels: labels',
+      '}',
+      'show amounts',
+      '```',
+      ''
+    ].join('\n'));
+    const htmlPath = `${directory}/chart.html`;
+    const jsonPath = `${directory}/selected.json`;
+    const result = await runCli('render', entry, '--out', htmlPath, '--output', `selected=${jsonPath}`);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('AMX4003');
+    expect(result.stderr).toContain('Chart \'amounts\' has 2 values but 1 labels');
+    expect(await Bun.file(htmlPath).exists()).toBe(false);
+    expect(await Bun.file(jsonPath).exists()).toBe(false);
+  });
+
+  it('checks invalid views before reading mapped inputs or writing named outputs', async () => {
+    const directory = await createDirectory();
+    const entry = await write(directory, 'invalid-view.amx', [
+      '```amx',
+      'input values: Number',
+      'export let selected: Number = 1',
+      'chart amounts = bar(values) {',
+      '  title: "Amounts"',
+      '  description: "Invalid source shape"',
+      '  series "Value"',
+      '}',
+      'show amounts',
+      '```',
+      ''
+    ].join('\n'));
+    const jsonPath = `${directory}/selected.json`;
+    const result = await runCli('run', entry, '--input', `values=${directory}/missing.json`, '--output', `selected=${jsonPath}`);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('AMX3002');
+    expect(result.stderr).not.toContain('AMX4001');
+    expect(await Bun.file(jsonPath).exists()).toBe(false);
+  });
+
   it('writes render HTML before exports and reports a later filesystem failure as AMX6002', async () => {
     const directory = await createDirectory();
     const input = await write(directory, 'render.amx', 'Rendered\n\n```amx\nexport let first: Number = 1\nexport let second: Number = 2\n```\n');
