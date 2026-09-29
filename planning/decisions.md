@@ -2,6 +2,26 @@
 
 This file records key technology choices, architecture decisions, scope limitations, and other material decisions made during the project. Updated by every sprint.
 
+## V0.4 Sprint 020 Preparation Decisions
+
+- Sprint 020 owns the authoritative V0.4 language/export contract and bounded feasibility evidence. Production visualization work remains in Sprints 021–022, production PDF export in Sprint 023, desktop workflows in Sprints 024–025, and release acceptance in Sprint 027.
+- Preserve V0.3 document, CLI, module, input/output, HTML, and VS Code behavior by default. Any compatibility exception requires explicit Lead Developer approval and migration guidance.
+- The core stays general-purpose. The desktop prototype is isolated under `desktop-app/` and must reuse core APIs. The desktop webview receives only narrow typed RPC; filesystem access, module/input resolution, execution, and export stay in the main process.
+- The V0.4 plan selects Electrobun + Vue + shadcn-vue for the prototype and requires local/offline PDF generation. Sprint 020 must prove and pin tested versions; no PDF engine or charting library is preselected.
+- DOCX remains an optional stretch, not a V0.4 core gate. Its exact disposition follows export-spike evidence and core schedule risk.
+- Do not reduce tables/charts, report-ready PDF, or the working desktop prototype based on a feasibility result alone. A concrete blocker and options go to the Lead Developer for approval before scope changes.
+- The active environment is Linux. macOS 14+, Windows 11+, and Ubuntu 24.04+ release-owner build/launch checks remain required later and must not be inferred from this sprint's Linux evidence.
+
+## V0.4 Sprint 020 Builder Outcomes
+
+- Adopt the V0.4 contract in `docs/language-spec-v0.4.md`: entry-only named table/chart declarations, top-level `show` snapshots at source position, the specified typed-list shapes, deterministic accessible HTML behavior, static print views, and additive activation that preserves V0.2/V0.3-only documents.
+- Select pdfmake 0.3.11 (package metadata MIT) as the Sprint 023 lead after its Bun/Linux offline proof generated a searchable two-page PDF with headings, all 24 table rows, an inline SVG chart, and a forced appendix page break. Keep Chrome 152.0.7977.82 as a comparison only. The pdfmake package has no separate license file beside its bundled Roboto fonts, so verify redistribution rights or replace those fonts before production. Proof versions, commands, limitations, and output measurements are in `planning/sprints/0020-v04-product-language-contract-architecture-spikes/spike-results.md`.
+- Direct core reuse is selected for file-backed unsaved entry text: the loader parses an optional in-memory entry override while keeping canonical filesystem modules, containment, inputs, checking, and evaluation on the existing main-process path. The focused tests passed without changing the saved entry.
+- The isolated prototype uses Electrobun 2.0.1 with Bun, Vue 3.5.41, and shadcn-vue 2.8.2. shadcn aliases now resolve source-owned `src/mainview/components` and `src/mainview/lib`; `.hutch/devkit` is only for the Electrobun SDK. Direct typecheck and Vite webview build pass. A generated native bundle launched with the WSL software-rendering workaround, showed a 720x520 window, and logged typed RPC requests to Bun 1.4.0. Hutch prepare/build/dev package tasks still time out after config serialization, and the app later exited cleanly; keep the desktop acceptance gate open for review.
+- The app tsconfig no longer extends the generated `.hutch/devkit/tsconfig.json`; it defines explicit relative SDK API aliases plus an app-source `@/*` alias and omits deprecated `baseUrl`. Direct typechecking passes. Hutch prepare still times out with this change, so the stall is independent of the shadcn/.hutch alias mismatch.
+- This is a must-have verification blocker, not approval to reduce desktop scope or change frameworks. Keep Sprint 020 blocked for Lead Developer review; options and platform matrix are recorded in the spike results. No production visualization, PDF export, or desktop workflows were started.
+- DOCX is not justified by the PDF proof: editable document generation was not tested. Keep it optional and non-blocking; do not start Sprint 026 without a separate approval after the core must-haves are on track.
+
 ## v0.1 Core Decisions (from Master Plan)
 
 - **Package manager**: bun is the primary and required package manager for v0.1. All scripts and instructions use bun. "npm install" wording in the language spec is treated as illustrative only. Cross-package-manager support (npm, pnpm, yarn) is not tested or guaranteed in v0.1.

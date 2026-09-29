@@ -210,6 +210,74 @@ describe("Sprint 015 opt-in Asset Management library", () => {
 });
 
 describe("Sprint 016 entry inputs and CLI mappings", () => {
+  it("runs current entry text through local imports and JSON/CSV validation without writing it", async () => {
+    const dir = await makeDir();
+    const entryPath = await write(dir, "entry.amx", "saved buffer that must not execute");
+    await write(dir, "asset.amx", "```amx\nexport type Asset {\n  id: String\n  value: Number\n}\n```\n");
+    await write(dir, "asset.json", '{"id":"A-1","value":4}');
+    await write(dir, "assets.csv", "id,value\nA-2,5\n");
+    const entryText = [
+      "Narrative before source.",
+      "",
+      "```amx",
+      'import { Asset } from "./asset.amx"',
+      "input asset: Asset",
+      "input assets: Asset[]",
+      "let total: Number = asset.value + 1",
+      "```",
+      ""
+    ].join("\n");
+
+    const { env } = await loadEntryModule(entryPath, {
+      entryText,
+      inputMappings: [`asset=${dir}/asset.json`, `assets=${dir}/assets.csv`]
+    });
+
+    expect(env.toObject()).toMatchObject({
+      asset: { id: "A-1", value: 4 },
+      assets: [{ id: "A-2", value: 5 }],
+      total: 5
+    });
+    expect(await Bun.file(entryPath).text()).toBe("saved buffer that must not execute");
+  });
+
+  it("keeps current-buffer validation diagnostics located in the unsaved source", async () => {
+    const dir = await makeDir();
+    const entryPath = await write(dir, "entry.amx", "saved source");
+    await write(dir, "asset.amx", "```amx\nexport type Asset {\n  id: String\n  value: Number\n}\n```\n");
+    await write(dir, "invalid.json", '{"id":"A-1"}');
+    const entryText = [
+      "# Report",
+      "",
+      "```amx",
+      'import { Asset } from "./asset.amx"',
+      "input asset: Asset",
+      "```",
+      ""
+    ].join("\n");
+
+    const error = await expectAmxError(loadEntryModule(entryPath, {
+      entryText,
+      inputMappings: [`asset=${dir}/invalid.json`]
+    }), "AMX4003");
+
+    expect(error.diagnostics?.[0].file).toBe(entryPath);
+    expect(error.diagnostics?.[0].declarationSource?.line).toBe(5);
+  });
+
+  it("enforces entry-root containment for imports from current-buffer text", async () => {
+    const dir = await makeDir();
+    const entryPath = await write(dir, "entry.amx", "saved source");
+    const outside = await writeRootFile("```amx\nexport let secret: Number = 1\n```\n");
+    const outsideName = outside.slice(outside.lastIndexOf("/") + 1);
+    const entryText = `\`\`\`amx\nimport { secret } from "../${outsideName}"\n\`\`\`\n`;
+
+    const error = await expectAmxError(loadEntryModule(entryPath, { entryText }), "AMX5001");
+    expect(error.message).toContain("outside the entry directory tree");
+    expect(error.file?.endsWith("/entry.amx")).toBe(true);
+    expect(await Bun.file(outside).exists()).toBe(true);
+  });
+
   it("validates and injects JSON inputs before entry evaluation", async () => {
     const dir = await makeDir();
     await write(dir, "values.json", '[2,3,5]');

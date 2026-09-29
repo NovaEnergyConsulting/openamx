@@ -7,7 +7,7 @@ import {
   StatementNode,
   TypeDeclarationNode
 } from '../ast/types';
-import { parseDocument } from '../parser/parseDocument';
+import { parseDocument, parseDocumentText } from '../parser/parseDocument';
 import { checkDocument, checkingActivated, CheckedType, ModuleCheckResult } from '../typechecker/checkDocument';
 import { evaluateStatements } from './evaluateExpression';
 import { Environment } from './environment';
@@ -42,6 +42,7 @@ export interface LoadedEntryModule {
 }
 
 export interface ModuleLoadOptions {
+  entryText?: string;
   inputMappings?: string[];
   validation?: ValidationMode;
   outputMappings?: string[];
@@ -107,7 +108,9 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
 
     let doc: OpenAmxDocument;
     try {
-      doc = await parseDocument(canonicalPath);
+      doc = canonicalPath === realEntry && options.entryText !== undefined
+        ? parseDocumentText(options.entryText)
+        : await parseDocument(canonicalPath);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       visiting.pop();

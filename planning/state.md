@@ -14,8 +14,13 @@
 - Sprint folder: planning/sprints/0017-csv-json-output/
 - Sprint 018: VS Code V0.3 Authoring Support — COMPLETE; V0.3 formatting, scoped completion, static diagnostics, host verification, and local VSIX installation delivered.
 - Sprint folder: planning/sprints/0018-v03-vscode-authoring-support/
-- Sprint 019: V0.3 Examples, Documentation, and Acceptance — Architect preparation complete; Builder execution is next. V0.3 release acceptance remains open.
+- Sprint 019: V0.3 Examples, Documentation, and Acceptance — COMPLETE; examples, docs, root/CLI acceptance, extension host tests, local VSIX package/install, and installed-artifact checks passed. The license decision and Marketplace publication remain deferred.
 - Sprint folder: planning/sprints/0019-v03-examples-documentation-acceptance/
+- Master plan selected for V0.4: `planning/plan-openamxV04MasterSprintPlan.md`.
+- Sprint 020: V0.4 Product/Language Contract and Architecture Spikes — Builder delivered the language contract, unsaved-buffer proof, PDF comparison, source-owned shadcn alias fix, and direct native Bun RPC launch proof. Ubuntu native libraries resolve; Hutch prepare/build/dev scripts and persistent WSL window verification remain open. Sprint 020 awaits Lead Developer review. No production V0.4 feature work has started.
+- Sprint folder: planning/sprints/0020-v04-product-language-contract-architecture-spikes/
+- Sprint 020 verification (2026-09-29): root `bun run build` passed; root `bun test` passed (162 tests, 642 assertions, 0 failures across 9 files); `git diff --check` passed. Desktop frozen install, RPC payload test, direct `bunx vue-tsc --noEmit`, and direct `bunx vite build` passed. Direct launch of the dev bundle with software rendering showed the 720x520 window and typed Bun RPC requests; it later exited cleanly. Hutch package prepare/build/dev commands still time out after config serialization, so the package command path and persistent window are not accepted as verified.
+- Sprint 020 remains OPEN pending Lead Developer review of the Hutch post-config wait and WSL window persistence. The shadcn source-alias inconsistency is fixed; do not start Sprint 021 or Sprint 024 production work until the remaining gate is resolved or explicitly approved.
 - Master plan approved (plan-openamxV02MasterSprintPlan.md); V0.2 acceptance complete.
 - Sprint 007: V0.2 Language Contract, AST & Fenced Parsing — COMPLETE.
 - Sprint folder: planning/sprints/0007-v02-language-contract-ast-fenced-parsing/
@@ -94,7 +99,7 @@
 
 ## Next Steps
 
-- Execute Sprint 019 only as documented: typed-data example/fixtures, evidence-based release docs/metadata, full CLI/root/extension/VSIX gates, and explicit disposition of known limitations. Do not mark V0.3 complete until every required gate passes.
+- Resolve the Sprint 020 Electrobun/Linux native prerequisite and Hutch config-loader blocker with the Lead Developer. Do not hand off Sprint 021 or Sprint 024 production work until the desktop must-have evidence and the full Sprint 020 acceptance gate are approved.
 - Sprint 006 COMPLETE (see Sprint History). CLI, examples, full tests, documentation, and V0.1 acceptance are complete.
 - Sprint 007 COMPLETE (V0.2 Language Contract, AST & Fenced Parsing).
 - Sprint 008–012 COMPLETE. Keep V0.3 candidates in this order: (1) tables/charts; (2) units/currency; (3) reusable/imported `.amx`; (4) Asset Management domain libraries; (5) data imports; (6) Word/PDF export; (7) multi-file workflows; (8) richer validation; (9) AI-assisted authoring. None is implemented; decide a project license before Marketplace publication.
