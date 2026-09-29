@@ -1,0 +1,548 @@
+import * as path from 'path';
+import { parse as parseCsv } from 'csv-parse/sync';
+import { InputDeclarationNode, SourceLocation, TypeDeclarationNode, TypeReferenceNode } from '../ast/types';
+import { AmxDiagnostic, inputError, throwInputErrors } from '../diagnostics/errors';
+import { Environment } from './environment';
+import { evaluateExpression } from './evaluateExpression';
+
+export type ValidationMode = 'aggregate' | 'fail-fast';
+
+interface InputMapping {
+  name: string;
+  path: string;
+}
+
+interface CsvCell {
+  value: string;
+  quoted: boolean;
+}
+
+interface JsonIssue {
+  message: string;
+  offset: number;
+  duplicate?: boolean;
+  dataPath?: string;
+}
+
+class StrictJsonParser {
+  private offset = 0;
+
+  constructor(private readonly text: string) {}
+
+  parse(): unknown {
+    this.skipWhitespace();
+    const value = this.parseValue('');
+    this.skipWhitespace();
+    if (this.offset !== this.text.length) this.fail('Unexpected content after JSON value');
+    return value;
+  }
+
+  private parseValue(dataPath: string): unknown {
+    this.skipWhitespace();
+    const character = this.text[this.offset];
+    if (character === '{') return this.parseObject(dataPath);
+    if (character === '[') return this.parseArray(dataPath);
+    if (character === '"') return this.parseString();
+    if (character === 't') return this.parseLiteral('true', true);
+    if (character === 'f') return this.parseLiteral('false', false);
+    if (character === 'n') return this.parseLiteral('null', null);
+    if (character === '-' || (character >= '0' && character <= '9')) return this.parseNumber();
+    this.fail('Expected a JSON value', dataPath);
+  }
+
+  private parseObject(dataPath: string): Record<string, unknown> {
+    this.offset++;
+    this.skipWhitespace();
+    const result: Record<string, unknown> = {};
+    const keys = new Set<string>();
+    if (this.consume('}')) return result;
+    while (true) {
+      this.skipWhitespace();
+      if (this.text[this.offset] !== '"') this.fail('Expected a quoted object key', dataPath);
+      const keyOffset = this.offset;
+      const key = this.parseString();
+      const propertyPath = `${dataPath}/${key.replace(/~/g, '~0').replace(/\//g, '~1')}`;
+      if (keys.has(key)) throw { message: `Duplicate JSON object key '${key}'`, offset: keyOffset, duplicate: true, dataPath: propertyPath } satisfies JsonIssue;
+      keys.add(key);
+      this.skipWhitespace();
+      if (!this.consume(':')) this.fail("Expected ':' after object key", propertyPath);
+      Object.defineProperty(result, key, {
+        value: this.parseValue(propertyPath), enumerable: true, configurable: true, writable: true
+      });
+      this.skipWhitespace();
+      if (this.consume('}')) return result;
+      if (!this.consume(',')) this.fail("Expected ',' or '}' in object", dataPath);
+    }
+  }
+
+  private parseArray(dataPath: string): unknown[] {
+    this.offset++;
+    this.skipWhitespace();
+    const result: unknown[] = [];
+    if (this.consume(']')) return result;
+    while (true) {
+      result.push(this.parseValue(`${dataPath}/${result.length}`));
+      this.skipWhitespace();
+      if (this.consume(']')) return result;
+      if (!this.consume(',')) this.fail("Expected ',' or ']' in array", dataPath);
+    }
+  }
+
+  private parseString(): string {
+    const start = this.offset++;
+    while (this.offset < this.text.length) {
+      const code = this.text.charCodeAt(this.offset++);
+      if (code === 0x22) {
+        try {
+          return JSON.parse(this.text.slice(start, this.offset)) as string;
+        } catch {
+          this.fail('Invalid JSON string');
+        }
+      }
+      if (code < 0x20) this.fail('Unescaped control character in JSON string');
+      if (code === 0x5c) {
+        const escape = this.text[this.offset++];
+        if (escape === 'u') {
+          const hex = this.text.slice(this.offset, this.offset + 4);
+          if (!/^[0-9A-Fa-f]{4}$/.test(hex)) this.fail('Invalid Unicode escape');
+          this.offset += 4;
+        } else if (!['"', '\\', '/', 'b', 'f', 'n', 'r', 't'].includes(escape)) {
+          this.fail('Invalid JSON escape');
+        }
+      }
+    }
+    this.fail('Unterminated JSON string');
+  }
+
+  private parseNumber(): number {
+    const match = this.text.slice(this.offset).match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/);
+    if (!match) this.fail('Invalid JSON number');
+    this.offset += match[0].length;
+    return Number(match[0]);
+  }
+
+  private parseLiteral<T>(literal: string, value: T): T {
+    if (!this.text.startsWith(literal, this.offset)) this.fail(`Invalid JSON token '${this.text[this.offset] ?? ''}'`);
+    this.offset += literal.length;
+    return value;
+  }
+
+  private skipWhitespace(): void {
+    while (/[\t\n\r ]/.test(this.text[this.offset] ?? '\0')) this.offset++;
+  }
+
+  private consume(character: string): boolean {
+    if (this.text[this.offset] !== character) return false;
+    this.offset++;
+    return true;
+  }
+
+  private fail(message: string, dataPath?: string): never {
+    throw { message, offset: this.offset, dataPath } satisfies JsonIssue;
+  }
+}
+
+class StopValidation {}
+
+export async function loadInputValues(
+  declarations: InputDeclarationNode[],
+  types: Map<string, TypeDeclarationNode>,
+  rawMappings: string[] = [],
+  mode: ValidationMode = 'aggregate',
+  entryFile?: string
+): Promise<Map<string, unknown>> {
+  if (mode !== 'aggregate' && mode !== 'fail-fast') {
+    throwInputErrors([inputError('AMX4001', `Unsupported validation mode '${safeText(String(mode))}'`, { file: entryFile })]);
+  }
+  const diagnostics: AmxDiagnostic[] = [];
+  const report = (diagnostic: AmxDiagnostic): void => {
+    diagnostics.push(diagnostic);
+    if (mode === 'fail-fast') throw new StopValidation();
+  };
+  const mappings = new Map<string, string>();
+  const declarationNames = new Set(declarations.map(declaration => declaration.name));
+
+  try {
+    for (const raw of rawMappings) {
+      const separator = raw.indexOf('=');
+      const name = separator < 0 ? '' : raw.slice(0, separator);
+      const filePath = separator < 0 ? '' : raw.slice(separator + 1);
+      if (!name || !filePath) {
+        report(inputError('AMX4001', `Invalid --input mapping '${safeText(raw)}'; expected name=path`, { file: entryFile, dataFile: raw }));
+        continue;
+      }
+      if (mappings.has(name)) {
+        report(inputError('AMX4001', `Input '${name}' is mapped more than once`, { file: entryFile, inputName: name, dataFile: filePath }));
+        continue;
+      }
+      mappings.set(name, filePath);
+    }
+
+    for (const [name, filePath] of mappings) {
+      if (!declarationNames.has(name)) {
+        report(inputError('AMX4001', `Unknown logical input '${name}'`, { file: entryFile, inputName: name, dataFile: filePath }));
+      }
+    }
+
+    const values = new Map<string, unknown>();
+    const environment = new Environment(types);
+    for (const declaration of declarations) {
+      const filePath = mappings.get(declaration.name);
+      if (!filePath) {
+        report(inputError('AMX4001', `Missing mapping for input '${declaration.name}'`, {
+          file: entryFile, inputName: declaration.name, declarationSource: declaration.source
+        }));
+        continue;
+      }
+      const extension = path.extname(filePath);
+      if (extension !== '.json' && extension !== '.csv') {
+        report(inputError('AMX4001', `Input '${declaration.name}' must use a lowercase .json or .csv path`, {
+          file: entryFile, inputName: declaration.name, dataFile: filePath, declarationSource: declaration.source
+        }));
+        continue;
+      }
+      let bytes: ArrayBuffer;
+      try {
+        bytes = await Bun.file(path.resolve(filePath)).arrayBuffer();
+      } catch {
+        report(inputError('AMX4001', `Cannot read UTF-8 input file '${filePath}'`, {
+          file: entryFile, inputName: declaration.name, dataFile: filePath, declarationSource: declaration.source
+        }));
+        continue;
+      }
+      let text: string;
+      try {
+        text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } catch {
+        report(inputError('AMX4002', `Input file '${filePath}' is not valid UTF-8`, {
+          file: entryFile, inputName: declaration.name, dataFile: filePath, declarationSource: declaration.source
+        }));
+        continue;
+      }
+
+      const context = { file: entryFile, inputName: declaration.name, dataFile: filePath, declarationSource: declaration.source };
+      if (extension === '.json') {
+        let parsed: unknown;
+        try {
+          parsed = new StrictJsonParser(text).parse();
+        } catch (error) {
+          const issue = error as JsonIssue;
+          const location = offsetLocation(text, issue.offset);
+          report(inputError(issue.duplicate ? 'AMX4003' : 'AMX4002', issue.message, {
+            ...context,
+            dataPath: issue.dataPath || '',
+            dataLine: location.line,
+            dataColumn: location.column
+          }));
+          continue;
+        }
+        const value = convertJson(parsed, declaration.annotation, '', declaration.source, types, environment, report, context);
+        values.set(declaration.name, value);
+      } else {
+        const value = convertCsv(text, declaration.annotation, declaration.source, types, environment, report, context);
+        values.set(declaration.name, value);
+      }
+    }
+    if (diagnostics.length) throwInputErrors(diagnostics);
+    return values;
+  } catch (error) {
+    if (error instanceof StopValidation) throwInputErrors(diagnostics);
+    throw error;
+  }
+}
+
+function convertJson(
+  value: unknown,
+  annotation: TypeReferenceNode,
+  pointer: string,
+  declarationSource: SourceLocation | undefined,
+  types: Map<string, TypeDeclarationNode>,
+  environment: Environment,
+  report: (diagnostic: AmxDiagnostic) => void,
+  context: Omit<AmxDiagnostic, 'code' | 'message'>,
+  fieldSource?: SourceLocation
+): unknown {
+  if (annotation.type === 'nullableType') {
+    if (value === null) return null;
+    return convertJson(value, annotation.element!, pointer, declarationSource, types, environment, report, context, fieldSource);
+  }
+  if (value === null) {
+    report(shapeDiagnostic('Null is not allowed for this input type', typeName(annotation), 'null', pointer, context, declarationSource, fieldSource));
+    return null;
+  }
+  if (annotation.type === 'listType') {
+    if (!Array.isArray(value)) {
+      report(shapeDiagnostic('Expected a JSON array', typeName(annotation), actualType(value), pointer, context, declarationSource, fieldSource));
+      return [];
+    }
+    return value.map((item, index) => convertJson(item, annotation.element!, `${pointer}/${index}`, declarationSource, types, environment, report, context, fieldSource));
+  }
+  const name = annotation.name!;
+  if (name === 'Number' || name === 'String' || name === 'Boolean' || name === 'DateTime') {
+    const valid = name === 'Number' ? typeof value === 'number' && Number.isFinite(value)
+      : name === 'String' || name === 'DateTime' ? typeof value === 'string'
+        : typeof value === 'boolean';
+    if (!valid) {
+      report(shapeDiagnostic(name === 'DateTime' ? 'Expected an RFC 3339 DateTime string' : 'Input value has the wrong scalar type', name, describe(value), pointer, context, declarationSource, fieldSource));
+      return value;
+    }
+    if (name === 'DateTime' && !isDateTime(value as string)) {
+      report(shapeDiagnostic('Invalid RFC 3339 DateTime value', name, describe(value), pointer, context, declarationSource, fieldSource));
+    }
+    return value;
+  }
+  const declaration = types.get(name);
+  if (!declaration) {
+    report(shapeDiagnostic(`Unknown input record type '${name}'`, name, actualType(value), pointer, context, declarationSource, fieldSource));
+    return value;
+  }
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    report(shapeDiagnostic('Expected a JSON object', name, actualType(value), pointer, context, declarationSource, fieldSource));
+    return {};
+  }
+  const object = value as Record<string, unknown>;
+  const declared = new Set(declaration.fields.map(field => field.name));
+  for (const key of Object.keys(object).filter(key => !declared.has(key)).sort()) {
+    const propertyPointer = `${pointer}/${escapePointer(key)}`;
+    report(shapeDiagnostic(`Unknown field '${key}'`, 'declared record field', describe(object[key]), propertyPointer, context, declarationSource, fieldSource));
+  }
+  const materialized: Record<string, unknown> = {};
+  for (const field of declaration.fields) {
+    const propertyPointer = `${pointer}/${escapePointer(field.name)}`;
+    if (Object.prototype.hasOwnProperty.call(object, field.name)) {
+      materialized[field.name] = convertJson(object[field.name], field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source);
+    } else if (field.defaultExpression) {
+      const value = evaluateExpression(field.defaultExpression, environment, context.file);
+      materialized[field.name] = convertJson(value, field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source);
+    } else if (field.optional) {
+      materialized[field.name] = null;
+    } else {
+      report(shapeDiagnostic(`Missing required field '${field.name}'`, typeName(field.annotation), 'missing', propertyPointer, context, declarationSource, field.source));
+    }
+  }
+  return materialized;
+}
+
+function convertCsv(
+  text: string,
+  annotation: TypeReferenceNode,
+  declarationSource: SourceLocation | undefined,
+  types: Map<string, TypeDeclarationNode>,
+  environment: Environment,
+  report: (diagnostic: AmxDiagnostic) => void,
+  context: Omit<AmxDiagnostic, 'code' | 'message'>
+): unknown[] {
+  if (annotation.type !== 'listType' || annotation.element?.type !== 'namedType' || !types.has(annotation.element.name!)) {
+    report(shapeDiagnostic('CSV input requires a list of one record type', 'RecordType[]', typeName(annotation), '', context, declarationSource));
+    return [];
+  }
+  const recordType = types.get(annotation.element.name!)!;
+  const scalarFields = recordType.fields.every(field => isCsvScalar(field.annotation));
+  if (!scalarFields) {
+    report(shapeDiagnostic('CSV records may contain only scalar fields', 'scalar-field RecordType[]', recordType.name, '', context, declarationSource));
+    return [];
+  }
+  if (hasBareCarriageReturn(text)) {
+    report(inputError('AMX4002', 'Bare CR record separators are not valid CSV', { ...context, dataLine: lineAt(text, text.indexOf('\r')) }));
+    return [];
+  }
+  let rows: CsvCell[][];
+  try {
+    rows = parseCsv(text, {
+      bom: true,
+      columns: false,
+      skip_empty_lines: false,
+      relax_column_count: true,
+      record_delimiter: ['\r\n', '\n'],
+      cast: (value, field) => ({ value, quoted: field.quoting })
+    }) as unknown as CsvCell[][];
+  } catch (error) {
+    const csvError = error as { message?: string; lines?: number };
+    report(inputError('AMX4002', `Malformed CSV: ${safeText(csvError.message ?? 'parse error')}`, {
+      ...context, dataLine: csvError.lines
+    }));
+    return [];
+  }
+  if (!rows.length) {
+    report(inputError('AMX4002', 'CSV input is missing its header record', { ...context, dataLine: 1 }));
+    return [];
+  }
+  const headers = rows[0].map(cell => cell.value);
+  const fieldNames = new Set(recordType.fields.map(field => field.name));
+  const seenHeaders = new Set<string>();
+  for (const header of [...new Set(headers.filter(header => !header))].sort()) {
+    report(shapeDiagnostic('CSV header names must be non-empty', 'declared field name', 'empty', headerPath(header), context, declarationSource));
+  }
+  for (const header of headers) {
+    if (seenHeaders.has(header)) report(shapeDiagnostic(`Duplicate CSV header '${header}'`, 'unique header', header, headerPath(header), context, declarationSource));
+    seenHeaders.add(header);
+  }
+  for (const header of [...new Set(headers.filter(header => !fieldNames.has(header)))].sort()) {
+    report(shapeDiagnostic(`Unknown CSV header '${header}'`, 'declared field name', header, headerPath(header), context, declarationSource));
+  }
+  for (const field of recordType.fields) {
+    if (!headers.includes(field.name) && !field.optional && !field.defaultExpression) {
+      report(shapeDiagnostic(`CSV header is missing required field '${field.name}'`, typeName(field.annotation), 'missing column', headerPath(field.name), context, declarationSource, field.source));
+    }
+  }
+
+  const result: unknown[] = [];
+  for (let index = 1; index < rows.length; index++) {
+    const row = rows[index];
+    const recordNumber = index;
+    if (row.length !== headers.length) {
+      report(inputError('AMX4003', `CSV record ${recordNumber} has ${row.length} fields; expected ${headers.length}`, {
+        ...context, dataPath: `record[${recordNumber}]`, recordNumber, expected: `${headers.length} fields`, actual: `${row.length} fields`
+      }));
+    }
+    const materialized: Record<string, unknown> = {};
+    for (const field of recordType.fields) {
+      const column = headers.indexOf(field.name);
+      const propertyPath = `record[${recordNumber}].${field.name}`;
+      if (column < 0) {
+        if (field.defaultExpression) {
+          const value = evaluateExpression(field.defaultExpression, environment, context.file);
+          materialized[field.name] = convertJson(value, field.annotation, propertyPath, context.declarationSource, types, environment, report, context, field.source);
+        }
+        else if (field.optional) materialized[field.name] = null;
+        continue;
+      }
+      const cell = row[column];
+      if (!cell) continue;
+      materialized[field.name] = convertCsvCell(cell, field.annotation, propertyPath, recordNumber, field.source, report, context);
+    }
+    result.push(materialized);
+  }
+  return result;
+}
+
+function convertCsvCell(
+  cell: CsvCell,
+  annotation: TypeReferenceNode,
+  dataPath: string,
+  recordNumber: number,
+  fieldSource: SourceLocation | undefined,
+  report: (diagnostic: AmxDiagnostic) => void,
+  context: Omit<AmxDiagnostic, 'code' | 'message'>
+): unknown {
+  const base = annotation.type === 'nullableType' ? annotation.element! : annotation;
+  const nullable = annotation.type === 'nullableType';
+  if (cell.value === '' && !cell.quoted) {
+    if (nullable) return null;
+    report(shapeDiagnostic('Blank CSV cell represents null, but this field is not nullable', typeName(annotation), 'null', dataPath, { ...context, recordNumber }, undefined, fieldSource));
+    return null;
+  }
+  if (cell.value === '' && cell.quoted) {
+    if (base.type === 'namedType' && base.name === 'String') return '';
+    report(shapeDiagnostic('Quoted empty CSV cell is valid only for String fields', typeName(annotation), 'empty String', dataPath, { ...context, recordNumber }, undefined, fieldSource));
+    return '';
+  }
+  if (base.type !== 'namedType') return cell.value;
+  if (base.name === 'String') return cell.value;
+  if (base.name === 'Boolean') {
+    if (cell.value === 'true') return true;
+    if (cell.value === 'false') return false;
+    report(shapeDiagnostic('Boolean CSV cells must be lowercase true or false', 'Boolean', cell.value, dataPath, { ...context, recordNumber }, undefined, fieldSource));
+    return cell.value;
+  }
+  if (base.name === 'Number') {
+    if (!/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(cell.value) || !Number.isFinite(Number(cell.value))) {
+      report(shapeDiagnostic('Invalid finite JSON-number CSV cell', 'Number', cell.value, dataPath, { ...context, recordNumber }, undefined, fieldSource));
+      return cell.value;
+    }
+    return Number(cell.value);
+  }
+  if (base.name === 'DateTime') {
+    if (!isDateTime(cell.value)) report(shapeDiagnostic('Invalid RFC 3339 DateTime CSV cell', 'DateTime', cell.value, dataPath, { ...context, recordNumber }, undefined, fieldSource));
+    return cell.value;
+  }
+  return cell.value;
+}
+
+function shapeDiagnostic(
+  message: string,
+  expected: string,
+  actual: string,
+  dataPath: string,
+  context: Omit<AmxDiagnostic, 'code' | 'message'>,
+  declarationSource?: SourceLocation,
+  fieldSource?: SourceLocation
+): AmxDiagnostic {
+  return inputError('AMX4003', message, {
+    ...context,
+    dataPath,
+    expected,
+    actual: safeText(actual),
+    declarationSource: declarationSource ?? context.declarationSource,
+    fieldSource
+  });
+}
+
+function typeName(annotation: TypeReferenceNode): string {
+  if (annotation.type === 'namedType') return annotation.name!;
+  return annotation.type === 'listType' ? `${typeName(annotation.element!)}[]` : `${typeName(annotation.element!)}?`;
+}
+
+function isCsvScalar(annotation: TypeReferenceNode): boolean {
+  const base = annotation.type === 'nullableType' ? annotation.element! : annotation;
+  return base.type === 'namedType' && ['String', 'Number', 'Boolean', 'DateTime'].includes(base.name!);
+}
+
+function isDateTime(value: string): boolean {
+  const parts = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/);
+  if (!parts) return false;
+  const [, year, month, day, hour, minute, second, offset] = parts;
+  const date = new Date(0);
+  date.setUTCFullYear(+year, +month - 1, +day);
+  return date.getUTCFullYear() === +year && date.getUTCMonth() === +month - 1 && date.getUTCDate() === +day
+    && +hour <= 23 && +minute <= 59 && +second <= 59
+    && (offset === 'Z' || (+offset.slice(1, 3) <= 23 && +offset.slice(4) <= 59));
+}
+
+function actualType(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  if (typeof value === 'object') return 'object';
+  return typeof value;
+}
+
+function describe(value: unknown): string {
+  let text: string;
+  try { text = JSON.stringify(value); } catch { text = String(value); }
+  return safeText(text ?? String(value));
+}
+
+function safeText(value: string): string {
+  return value.replace(/[\x00-\x1f\x7f]/g, character => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`).slice(0, 160);
+}
+
+function escapePointer(value: string): string {
+  return value.replace(/~/g, '~0').replace(/\//g, '~1');
+}
+
+function headerPath(value: string): string {
+  return value ? `header.${value}` : 'header';
+}
+
+function offsetLocation(text: string, offset: number): { line: number; column: number } {
+  const before = text.slice(0, offset);
+  const lines = before.split('\n');
+  return { line: lines.length, column: lines[lines.length - 1].length + 1 };
+}
+
+function lineAt(text: string, offset: number): number {
+  return text.slice(0, offset).split('\n').length;
+}
+
+function hasBareCarriageReturn(text: string): boolean {
+  let quoted = false;
+  for (let index = 0; index < text.length; index++) {
+    if (text[index] === '"') {
+      if (quoted && text[index + 1] === '"') index++;
+      else quoted = !quoted;
+    } else if (text[index] === '\r' && !quoted && text[index + 1] !== '\n') {
+      return true;
+    }
+  }
+  return false;
+}

@@ -188,6 +188,13 @@ All of the above are recorded here so that Builders and future sprints do not ac
 - **Export scope**: Exports are needed for module visibility now; CLI output selection and serialization remain exclusively Sprint 017.
 - **Asset library**: Create `libraries/asset-management.amx` as a local opt-in module containing exactly the six approved structural schemas, with no calculations or domain constraints.
 
+## V0.3 Sprint 016 Preparation Decisions
+
+- **Data boundary**: Input paths are parsed by the CLI and data files are read only by focused loader/validator support. Validated values enter the entry environment before evaluation; imported modules cannot declare inputs.
+- **CSV implementation**: Use a proven RFC 4180 CSV parser rather than split-based parsing. Nested records/lists and JSON-in-cell remain explicitly unsupported.
+- **Diagnostic behavior**: Input mapping/read failures are AMX4001, malformed JSON/CSV is AMX4002, and shape/nullability/conversion failures are AMX4003. Aggregate and fail-fast share one deterministic traversal order.
+- **JSON duplicate keys**: Reject duplicates rather than accepting JavaScript parser last-key-wins semantics; retain data-path/location context whenever the parser exposes it.
+
 ## V0.3 Sprint 014 Builder Outcome
 
 - The document checker is a pure, first-error, source-order pass over executable blocks; it activates for parsed V0.3 forms and runs before the shared evaluation environment is created. Independent errors may be aggregated in later work, but no runtime block runs after a static error.
@@ -205,3 +212,9 @@ All of the above are recorded here so that Builders and future sprints do not ac
 - **Library**: `libraries/asset-management.amx` exports exactly the six schemas from V0.3 section 13, verbatim, with no calculations/constraints and no core registration; it is a normal opt-in module resolved like any other local import.
 - A parser bug was found and fixed during implementation: the `export` keyword was blanked to spaces on a locally scoped `rawLine` copy without writing the change back into the shared `lines` array used by the multi-line `fn`/type collectors, causing multi-statement files to merge an exported declaration's tail with unrelated following lines. Fixed by writing the blanked line back into `lines[i]`. A second bug in the brace-balance scanner for function bodies (`findFunctionEnd`) advanced past the declaration line even when the body had no braces at all; fixed to return immediately for brace-free (single-line) bodies.
 - Verification on 2026-09-29: `bun run build` passed; `bun test` passed (128 tests, 462 assertions, 0 failures), including 17 new module-loader tests and 5 new parser tests. All three example renders/`run` commands were regenerated and reported no `git status` diff against committed output; `git diff --check` passed. No input/output/validation/serialization/extension work was started.
+
+## V0.3 Sprint 016 Implementation Outcomes
+
+- `csv-parse@7.0.3` is the sole new dependency and provides RFC CSV parsing with quote metadata. A focused strict JSON parser detects duplicate keys and preserves JSON Pointer/data coordinates without adding a JSON dependency.
+- Entry inputs are converted and validated after full graph checking but before any module evaluation. Input declaration order and data traversal determine aggregate/fail-fast diagnostics; validated values are immutable and seeded only into the entry environment. Computed typed boundaries use the same aggregate/fail-fast policy.
+- Verification on 2026-09-29: `bun run build` passed; `bun test` passed (147 tests, 549 assertions, 0 failures); `git diff --check` passed. No output selection, serialization, writes, or other Sprint 017 work was started.

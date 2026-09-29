@@ -10,6 +10,16 @@ export interface AmxDiagnostic {
   file?: string;
   line?: number;
   column?: number;
+  inputName?: string;
+  dataFile?: string;
+  dataPath?: string;
+  expected?: string;
+  actual?: string;
+  dataLine?: number;
+  dataColumn?: number;
+  recordNumber?: number;
+  declarationSource?: SourceLocation;
+  fieldSource?: SourceLocation;
 }
 
 /**
@@ -20,15 +30,30 @@ export class AmxError extends Error implements AmxDiagnostic {
   file?: string;
   line?: number;
   column?: number;
+  diagnostics?: AmxDiagnostic[];
 
-  constructor(diag: AmxDiagnostic) {
+  constructor(diag: AmxDiagnostic, diagnostics?: AmxDiagnostic[]) {
     super(diag.message);
     this.name = 'AmxError';
     this.code = diag.code;
     this.file = diag.file;
     this.line = diag.line;
     this.column = diag.column;
+    this.diagnostics = diagnostics;
   }
+}
+
+export function inputError(
+  code: 'AMX4001' | 'AMX4002' | 'AMX4003',
+  message: string,
+  context: Omit<AmxDiagnostic, 'code' | 'message'> = {}
+): AmxDiagnostic {
+  return { code, message, ...context };
+}
+
+export function throwInputErrors(diagnostics: AmxDiagnostic[]): never {
+  const first = diagnostics[0] ?? inputError('AMX4001', 'Input validation failed');
+  throw new AmxError(first, diagnostics);
 }
 
 export function staticError(code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005', message: string, source?: SourceLocation, file?: string): never {

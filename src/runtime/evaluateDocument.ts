@@ -19,8 +19,11 @@ export function evaluateDocument(
 
 /** Evaluate executable blocks once and return their shared final environment. */
 export function evaluateDocumentEnvironment(doc: OpenAmxDocument, file?: string): Environment {
-  if (checkingActivated(doc)) checkDocument(doc, file);
+  const checked = checkingActivated(doc) ? checkDocument(doc, file) : undefined;
   const env = new Environment();
+  if (checked) {
+    for (const [name, type] of checked.bindingTypes) env.bindingTypes.set(name, type);
+  }
 
   for (const node of doc.nodes) {
     if (node.type === 'executableCodeBlock') {

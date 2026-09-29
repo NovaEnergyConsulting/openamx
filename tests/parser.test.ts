@@ -219,6 +219,24 @@ describe("Sprint 015 function, import, and export parsing", () => {
   });
 });
 
+describe("Sprint 016 logical input parsing", () => {
+  it("parses source-located input declarations with scalar, nullable, list, and record types", () => {
+    const statements = parseStatements(
+      "import { Asset } from \"./assets.amx\"\ninput assets: Asset[]\ninput reviewedAt: DateTime?",
+      { line: 5, column: 1 }
+    );
+    expect(statements).toMatchObject([
+      { type: 'importDeclaration', source: { line: 5, column: 1 } },
+      { type: 'inputDeclaration', name: 'assets', annotation: { type: 'listType' }, source: { line: 6, column: 1 } },
+      { type: 'inputDeclaration', name: 'reviewedAt', annotation: { type: 'nullableType' }, source: { line: 7, column: 1 } }
+    ]);
+    expect((statements[1] as any).annotation.element).toMatchObject({ type: 'namedType', name: 'Asset' });
+    expect((statements[2] as any).annotation.element).toMatchObject({ type: 'namedType', name: 'DateTime' });
+    expect(() => parseStatements('input missingType')).toThrow(/Invalid input declaration at 1:1/);
+    expect(() => parseStatements('for item in [1] {\n  input nested: Number\n}')).toThrow(/Input declarations cannot occur in loops/);
+  });
+});
+
 describe("match expression parsing", () => {
   it("retains literal cases, their order, default placement, and original-document locations", () => {
     const [declaration] = parseStatements(

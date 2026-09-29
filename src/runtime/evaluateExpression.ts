@@ -9,11 +9,119 @@ import {
   ForStatementNode,
   RangeExpressionNode,
   MatchExpressionNode,
-  StatementNode
+  StatementNode,
+  SourceLocation,
+  TypeReferenceNode
 } from '../ast/types';
-import { throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext } from '../diagnostics/errors';
+import { inputError, throwInputErrors, throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext } from '../diagnostics/errors';
 import { Environment } from './environment';
 import { evaluateStandardLibraryCall } from './standardLibrary';
+import type { CheckedType } from '../typechecker/checkDocument';
+
+function validateRuntimeValue(
+  value: unknown,
+  expected: CheckedType,
+  env: Environment,
+  source: SourceLocation | undefined,
+  file: string | undefined,
+  valuePath: string
+): void {
+  const diagnostics: ReturnType<typeof inputError>[] = [];
+  const report = (message: string, target: CheckedType, actual: unknown, dataPath: string, fieldSource?: SourceLocation): void => {
+    const diagnostic = inputError('AMX4003', message, {
+      file,
+      line: source?.line,
+      column: source?.column,
+      dataPath,
+      expected: formatCheckedType(target),
+      actual: runtimeDescription(actual),
+      fieldSource
+    });
+    diagnostics.push(diagnostic);
+    if (env.validationMode === 'fail-fast') throwInputErrors([diagnostic]);
+  };
+  const visit = (actual: unknown, target: CheckedType, dataPath: string, fieldSource?: SourceLocation): void => {
+    if (target.kind === 'null') {
+      if (actual !== null) report('Expected null', target, actual, dataPath, fieldSource);
+      return;
+    }
+    if (target.kind === 'nullable') {
+      if (actual !== null) visit(actual, target.element, dataPath, fieldSource);
+      return;
+    }
+    if (target.kind === 'list') {
+      if (!Array.isArray(actual)) {
+        report('Expected a list value', target, actual, dataPath, fieldSource);
+        return;
+      }
+      actual.forEach((item, index) => visit(item, target.element, `${dataPath}[${index}]`, fieldSource));
+      return;
+    }
+    if (target.kind !== 'named') return;
+    if (target.name === 'Number') {
+      if (typeof actual !== 'number' || !Number.isFinite(actual)) report('Expected a finite Number value', target, actual, dataPath, fieldSource);
+      return;
+    }
+    if (target.name === 'String' || target.name === 'DateTime') {
+      if (typeof actual !== 'string') report(`Expected a ${target.name} value`, target, actual, dataPath, fieldSource);
+      else if (target.name === 'DateTime' && !validDateTime(actual)) report('Invalid RFC 3339 DateTime value', target, actual, dataPath, fieldSource);
+      return;
+    }
+    if (target.name === 'Boolean') {
+      if (typeof actual !== 'boolean') report('Expected a Boolean value', target, actual, dataPath, fieldSource);
+      return;
+    }
+    const declaration = env.recordTypes.get(target.name);
+    if (!declaration || typeof actual !== 'object' || actual === null || Array.isArray(actual)) {
+      report(`Expected a ${target.name} record`, target, actual, dataPath, fieldSource);
+      return;
+    }
+    const record = actual as Record<string, unknown>;
+    const fieldNames = new Set(declaration.fields.map(field => field.name));
+    for (const field of declaration.fields) {
+      if (!Object.prototype.hasOwnProperty.call(record, field.name)) {
+        report(`Missing computed field '${field.name}'`, checkedType(field.annotation), 'missing', `${dataPath}.${field.name}`, field.source);
+      } else {
+        visit(record[field.name], checkedType(field.annotation), `${dataPath}.${field.name}`, field.source);
+      }
+    }
+    for (const name of Object.keys(record).filter(name => !fieldNames.has(name)).sort()) {
+      report(`Unknown computed field '${name}'`, target, record[name], `${dataPath}.${name}`, fieldSource);
+    }
+  };
+  visit(value, expected, valuePath);
+  if (diagnostics.length) throwInputErrors(diagnostics);
+}
+
+function checkedType(reference: TypeReferenceNode): CheckedType {
+  if (reference.type === 'namedType') return { kind: 'named', name: reference.name! };
+  const element = checkedType(reference.element!);
+  return reference.type === 'listType' ? { kind: 'list', element } : { kind: 'nullable', element };
+}
+
+function formatCheckedType(type: CheckedType): string {
+  if (type.kind === 'named') return type.name;
+  if (type.kind === 'null') return 'null';
+  return type.kind === 'list' ? `${formatCheckedType(type.element)}[]` : `${formatCheckedType(type.element)}?`;
+}
+
+function runtimeDescription(value: unknown): string {
+  if (typeof value === 'number' && !Number.isFinite(value)) return String(value);
+  let description: string;
+  try { description = JSON.stringify(value) ?? String(value); } catch { description = String(value); }
+  return description.replace(/[\x00-\x1f\x7f]/g, character => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`).slice(0, 160);
+}
+
+function validDateTime(value: string): boolean {
+  const parts = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/);
+  if (!parts) return false;
+  const [, year, month, day, hour, minute, second, offset] = parts;
+  const date = new Date(0);
+  date.setUTCFullYear(+year, +month - 1, +day);
+  return date.getUTCFullYear() === +year && date.getUTCMonth() === +month - 1 && date.getUTCDate() === +day
+    && +hour <= 23 && +minute <= 59 && +second <= 59
+    && (offset === 'Z' || (+offset.slice(1, 3) <= 23 && +offset.slice(4) <= 59));
+}
 
 /** Evaluate V0.2 expressions, including ranges and expression-form loops. */
 export function evaluateExpression(
@@ -34,6 +142,7 @@ export function evaluateExpression(
         record[field.name] = supplied.has(field.name) ? supplied.get(field.name)
           : field.defaultExpression ? evaluateExpression(field.defaultExpression, env, file) : null;
       }
+      validateRuntimeValue(record, { kind: 'named', name: node.name }, env, node.source, file, `record ${node.name}`);
       return record;
     }
 
@@ -190,9 +299,14 @@ function evalFunctionCall(
   const userFunction = env.functions.get(node.callee);
   if (userFunction) {
     const parameters: Record<string, unknown> = {};
-    userFunction.parameters.forEach((parameter, index) => { parameters[parameter.name] = args[index]; });
+    userFunction.parameters.forEach((parameter, index) => {
+      validateRuntimeValue(args[index], checkedType(parameter.annotation), env, node.arguments[index]?.source ?? node.source, file, `function ${node.callee}.${parameter.name}`);
+      parameters[parameter.name] = args[index];
+    });
     const frame = env.createCallFrame(parameters);
-    return evaluateExpression(userFunction.body, frame, file);
+    const result = evaluateExpression(userFunction.body, frame, file);
+    validateRuntimeValue(result, checkedType(userFunction.returnType), env, node.source, file, `function ${node.callee} return`);
+    return result;
   }
   return evaluateStandardLibraryCall(node.callee, args, node.source, file);
 }
@@ -231,6 +345,9 @@ function evaluateStatement(statement: StatementNode, env: Environment, file?: st
       // Import materialization is the module loader's responsibility; imported
       // names are already present in the environment before statements run.
       return;
+    case 'inputDeclaration':
+      // Input values are validated and seeded by the module loader before evaluation.
+      return;
     case 'typeDeclaration':
       env.recordTypes.set(statement.name, statement);
       return;
@@ -238,11 +355,20 @@ function evaluateStatement(statement: StatementNode, env: Environment, file?: st
       env.functions.set(statement.name, statement);
       return;
     case 'variableDeclaration':
-      env.set(statement.name, evaluateExpression(statement.expression, env, file));
+      {
+        const value = evaluateExpression(statement.expression, env, file);
+        const type = env.bindingTypes.get(statement.name);
+        if (type) validateRuntimeValue(value, type, env, statement.source, file, statement.name);
+        env.set(statement.name, value);
+      }
       return;
-    case 'assignmentStatement':
-      env.update(statement.name, evaluateExpression(statement.expression, env, file), statement.source, file);
+    case 'assignmentStatement': {
+      const value = evaluateExpression(statement.expression, env, file);
+      const type = env.bindingTypes.get(statement.name);
+      if (type) validateRuntimeValue(value, type, env, statement.source, file, statement.name);
+      env.update(statement.name, value, statement.source, file);
       return;
+    }
     case 'compoundAssignmentStatement': {
       const value = evaluateExpression({
         type: 'binaryExpression',
@@ -251,6 +377,8 @@ function evaluateStatement(statement: StatementNode, env: Environment, file?: st
         right: statement.expression,
         source: statement.source
       }, env, file);
+      const type = env.bindingTypes.get(statement.name);
+      if (type) validateRuntimeValue(value, type, env, statement.source, file, statement.name);
       env.update(statement.name, value, statement.source, file);
       return;
     }

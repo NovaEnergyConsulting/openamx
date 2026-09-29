@@ -1,4 +1,4 @@
-import { FunctionDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TypeDeclarationNode, TypeReferenceNode, V02ExpressionNode } from '../ast/types';
+import { FunctionDeclarationNode, InputDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TypeDeclarationNode, TypeReferenceNode, V02ExpressionNode } from '../ast/types';
 import { moduleError, staticError } from '../diagnostics/errors';
 
 export type CheckedType =
@@ -18,6 +18,7 @@ export interface ModuleCheckResult {
   exportedTypes: Map<string, TypeDeclarationNode>;
   exportedFunctions: Map<string, FunctionDeclarationNode>;
   exportedBindings: Map<string, CheckedType>;
+  bindingTypes: Map<string, CheckedType>;
 }
 
 const named = (name: string): CheckedType => ({ kind: 'named', name });
@@ -73,6 +74,7 @@ export function checkingActivated(doc: OpenAmxDocument): boolean {
   const statementHasV03 = (statement: StatementNode): boolean => statement.type === 'typeDeclaration'
     || statement.type === 'functionDeclaration'
     || statement.type === 'importDeclaration'
+    || statement.type === 'inputDeclaration'
     || (statement.type === 'variableDeclaration' && (!!statement.annotation || !!statement.exported))
     || (statement.type === 'forStatement' && (expressionHasV03(statement.iterable) || statement.body.some(statementHasV03)))
     || ('expression' in statement && expressionHasV03(statement.expression));
@@ -102,6 +104,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   let bindings = new Map<string, CheckedType>(context?.bindings ?? []);
   const functions = new Map<string, FunctionDeclarationNode>(context?.functions ?? []);
   const immutableNames = new Set<string>([...(context?.bindings?.keys() ?? []), ...(context?.functions?.keys() ?? []), ...(context?.types?.keys() ?? [])]);
+  const inputNames = new Set<string>();
   const exportedTypes = new Map<string, TypeDeclarationNode>();
   const exportedFunctions = new Map<string, FunctionDeclarationNode>();
   const exportedBindings = new Map<string, CheckedType>();
@@ -314,6 +317,15 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     switch (statement.type) {
       case 'importDeclaration':
         return;
+      case 'inputDeclaration': {
+        if (types.has(statement.name) || functions.has(statement.name) || bindings.has(statement.name)) {
+          fail('AMX3005', `Input '${statement.name}' collides with another declaration`, statement.source);
+        }
+        bindings.set(statement.name, resolve(statement.annotation));
+        immutableNames.add(statement.name);
+        inputNames.add(statement.name);
+        return;
+      }
       case 'typeDeclaration': {
         if (primitives.has(statement.name) || types.has(statement.name) || bindings.has(statement.name) || functions.has(statement.name)) fail('AMX3005', `Duplicate type '${statement.name}'`, statement.source);
         const fields = new Set<string>();
@@ -354,6 +366,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
       }
       case 'variableDeclaration': {
         if (types.has(statement.name) || functions.has(statement.name)) fail('AMX3005', `Binding '${statement.name}' conflicts with a type or function`, statement.source);
+        if (inputNames.has(statement.name)) fail('AMX3005', `Binding '${statement.name}' conflicts with an input`, statement.source);
         if (immutableNames.has(statement.name)) moduleError('AMX5002', `Cannot redeclare imported binding '${statement.name}'`, statement.source, file);
         const target = statement.annotation ? resolve(statement.annotation) : bindings.get(statement.name);
         const actual = infer(statement.expression, target);
@@ -365,6 +378,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         return;
       }
       case 'assignmentStatement': case 'compoundAssignmentStatement': {
+        if (inputNames.has(statement.name)) fail('AMX3005', `Cannot assign to immutable input '${statement.name}'`, statement.source);
         if (immutableNames.has(statement.name)) moduleError('AMX5002', `Cannot assign to imported binding '${statement.name}'`, statement.source, file);
         const target = bindings.get(statement.name);
         if (!target) fail('AMX3001', `Unknown identifier '${statement.name}'`, statement.source);
@@ -378,17 +392,24 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   }
 
   let sawNonImport = false;
+  let sawInput = false;
+  let sawOtherItem = false;
   for (const node of doc.nodes) {
     if (node.type !== 'executableCodeBlock') continue;
     for (const statement of node.statements) {
       if (statement.type === 'importDeclaration') {
         if (sawNonImport) fail('AMX3005', 'Import declarations must precede all other executable items', statement.source);
+      } else if (statement.type === 'inputDeclaration') {
+        if (sawOtherItem) fail('AMX3005', 'Input declarations must precede other executable items', statement.source);
+        sawInput = true;
+        sawNonImport = true;
       } else {
+        sawOtherItem = true;
         sawNonImport = true;
       }
       checkStatement(statement);
     }
   }
 
-  return { exportedTypes, exportedFunctions, exportedBindings };
+  return { exportedTypes, exportedFunctions, exportedBindings, bindingTypes: new Map(bindings) };
 }

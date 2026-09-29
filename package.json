@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "cac": "^6.7.14",
+    "csv-parse": "^7.0.3",
     "marked": "^14.1.4",
     "yaml": "^2.9.0"
   },

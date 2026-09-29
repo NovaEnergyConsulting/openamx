@@ -1,5 +1,6 @@
 import { throwUndefinedIdentifier } from '../diagnostics/errors';
 import { FunctionDeclarationNode, SourceLocation, TypeDeclarationNode } from '../ast/types';
+import type { CheckedType } from '../typechecker/checkDocument';
 
 /**
  * Runtime environment for variable storage during evaluation.
@@ -10,6 +11,8 @@ export class Environment {
   private store: Map<string, unknown> = new Map();
   readonly recordTypes: Map<string, TypeDeclarationNode>;
   readonly functions: Map<string, FunctionDeclarationNode>;
+  readonly bindingTypes = new Map<string, CheckedType>();
+  validationMode: 'aggregate' | 'fail-fast' = 'aggregate';
 
   constructor(recordTypes: Map<string, TypeDeclarationNode> = new Map(), functions: Map<string, FunctionDeclarationNode> = new Map()) {
     this.recordTypes = recordTypes;
@@ -23,6 +26,8 @@ export class Environment {
    */
   createCallFrame(parameters: Record<string, unknown>): Environment {
     const frame = new Environment(this.recordTypes, this.functions);
+    frame.validationMode = this.validationMode;
+    for (const [name, type] of this.bindingTypes) frame.bindingTypes.set(name, type);
     for (const [name, value] of Object.entries(parameters)) frame.set(name, value);
     return frame;
   }

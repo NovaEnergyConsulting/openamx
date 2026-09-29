@@ -129,6 +129,12 @@ No other ambiguities found in the sprint artifacts. If new questions arise durin
 - Module resolution and canonical containment are loader responsibilities. Sprint 015 exposes exports only to imports; CLI input/output behavior remains deferred.
 - The initial Asset Management library remains structural and opt-in. Domain review is still required before calling its schemas stable standards.
 
+## V0.3 Sprint 016 Clarifications
+
+- No blocking input/validation question remains. Input declarations are entry-only and mappings always originate at the CLI boundary; imported modules remain input-free.
+- CSV is deliberately shallow. Nested JSON remains supported, but nested/list CSV fields and JSON-in-cell encoding are rejected.
+- Duplicate JSON keys must be rejected rather than silently overwritten. Aggregate and fail-fast diagnostics use the same deterministic input/data traversal.
+
 ## V0.3 Sprint 014 Builder Completion
 
 - No genuinely blocking type-system ambiguity arose; no unapproved language rule was introduced. The obsolete draft was removed without altering the later complete contract. Sprint 014 does not provide V0.3 CLI options, modules, inputs, or outputs; their activation paths belong to Sprints 015-017.
@@ -144,3 +150,8 @@ No other ambiguities found in the sprint artifacts. If new questions arise durin
 
 - Implemented typed pure functions (unique parameters, required return type, single-expression body, purity enforcement: no document/import capture, no recursion, no forward calls, no `for` expressions, no standard-library name shadowing), local module imports/exports (`fn`, `import { ... } from "..."`, `export` prefixing `type`/`fn`/top-level `let`), and a dedicated module loader (`src/runtime/moduleLoader.ts`) that canonicalizes paths, enforces entry-directory containment, performs source-order depth-first resolution, evaluates each module once before its importer in isolated environments, and detects cycles. Added `libraries/asset-management.amx` exporting exactly the six approved schemas with no core registration. CLI `run`/`render` now go through the loader; a document with no imports follows the identical checked/unchecked V0.2 path as before.
 - Verification on 2026-09-29: `bun run build` passed; full `bun test` passed (128 tests, 462 assertions, 0 failures), including 17 new focused module-loader tests (function purity/calls, import/export visibility, diamond dependency evaluate-once-by-reference, immutable-import protection, missing/duplicate/colliding names, invalid/outside-root paths, cycle detection, and real `libraries/asset-management.amx` usage) and 5 new focused parser tests for `fn`/`import`/`export` syntax and placement. All three example renders and both example `run` commands were regenerated and are byte-identical to the committed HTML (`git status --porcelain` reported no example diffs); `git diff --check` passed. No input/output/validation/serialization/extension feature was implemented; Sprint 016/017 scope was not started.
+
+## V0.3 Sprint 016 Builder Completion
+
+- No blocking ambiguity or contract deviation arose. UTF-8 failures are malformed-data diagnostics; duplicate JSON keys are rejected with data-path/location context; CSV uses the specified shallow record-list mapping. Output selection and serialization remain deferred to Sprint 017.
+- Final verification on 2026-09-29: `bun run build` passed; `bun test` passed (147 tests, 549 assertions, 0 failures); `git diff --check` passed. Focused parser, JSON/CSV, checker, loader, and CLI checks passed, including aggregate/fail-fast ordering, prevention of evaluation/HTML writes after invalid input, and V0.2 no-option `run` compatibility.

@@ -11,7 +11,8 @@ import { parseDocument } from '../parser/parseDocument';
 import { checkDocument, checkingActivated, CheckedType, ModuleCheckResult } from '../typechecker/checkDocument';
 import { evaluateStatements } from './evaluateExpression';
 import { Environment } from './environment';
-import { moduleError } from '../diagnostics/errors';
+import { moduleError, staticError } from '../diagnostics/errors';
+import { loadInputValues, ValidationMode } from './inputData';
 
 /**
  * Local `.amx` module loader (Sprint 015).
@@ -36,6 +37,11 @@ interface ModuleRecord {
 export interface LoadedEntryModule {
   doc: OpenAmxDocument;
   env: Environment;
+}
+
+export interface ModuleLoadOptions {
+  inputMappings?: string[];
+  validation?: ValidationMode;
 }
 
 function flattenStatements(doc: OpenAmxDocument): StatementNode[] {
@@ -74,7 +80,7 @@ function realpathOrFail(absolutePath: string, code: 'AMX5001', message: string, 
  * Resolve, check, and evaluate the complete module graph reachable from `entryPath`,
  * returning the entry module's document and final evaluated environment.
  */
-export async function loadEntryModule(entryPath: string): Promise<LoadedEntryModule> {
+export async function loadEntryModule(entryPath: string, options: ModuleLoadOptions = {}): Promise<LoadedEntryModule> {
   const absoluteEntry = path.resolve(entryPath);
   const realEntry = realpathOrFail(absoluteEntry, 'AMX5001', `Entry module '${entryPath}' could not be read`, entryPath);
   const entryRoot = path.dirname(realEntry);
@@ -107,8 +113,15 @@ export async function loadEntryModule(entryPath: string): Promise<LoadedEntryMod
     const statements = flattenStatements(doc);
     const localNames = new Set<string>();
     for (const statement of statements) {
-      if (statement.type === 'typeDeclaration' || statement.type === 'functionDeclaration' || statement.type === 'variableDeclaration') {
+      if (statement.type === 'typeDeclaration' || statement.type === 'functionDeclaration' || statement.type === 'variableDeclaration' || statement.type === 'inputDeclaration') {
         localNames.add(statement.name);
+      }
+    }
+
+    if (canonicalPath !== realEntry) {
+      const input = statements.find(statement => statement.type === 'inputDeclaration');
+      if (input?.type === 'inputDeclaration') {
+        staticError('AMX3005', 'Inputs may only be declared in the entry module', input.source, canonicalPath);
       }
     }
 
@@ -167,8 +180,10 @@ export async function loadEntryModule(entryPath: string): Promise<LoadedEntryMod
       }
     }
 
-    let checkResult: ModuleCheckResult = { exportedTypes: new Map(), exportedFunctions: new Map(), exportedBindings: new Map() };
-    if (imports.length > 0 || checkingActivated(doc)) {
+    let checkResult: ModuleCheckResult = {
+      exportedTypes: new Map(), exportedFunctions: new Map(), exportedBindings: new Map(), bindingTypes: new Map()
+    };
+    if (imports.length > 0 || checkingActivated(doc) || options.inputMappings?.length || options.validation !== undefined) {
       checkResult = checkDocument(doc, canonicalPath, {
         types: importedTypes,
         functions: importedFunctions,
@@ -185,15 +200,35 @@ export async function loadEntryModule(entryPath: string): Promise<LoadedEntryMod
 
   await visit(realEntry, undefined);
 
+  const entryRecord = resolved.get(realEntry)!;
+  const entryStatements = flattenStatements(entryRecord.doc);
+  const inputDeclarations = entryStatements.filter(statement => statement.type === 'inputDeclaration');
+  const entryTypes = new Map(entryRecord.importedTypes);
+  for (const statement of entryStatements) {
+    if (statement.type === 'typeDeclaration') entryTypes.set(statement.name, statement);
+  }
+  const inputValues = await loadInputValues(
+    inputDeclarations,
+    entryTypes,
+    options.inputMappings,
+    options.validation,
+    entryPath
+  );
+
   const evaluatedEnvironments = new Map<string, Environment>();
   for (const canonicalPath of evaluationOrder) {
     const record = resolved.get(canonicalPath)!;
     const env = new Environment();
+    env.validationMode = options.validation ?? 'aggregate';
     for (const [name, typeDeclaration] of record.importedTypes) env.recordTypes.set(name, typeDeclaration);
     for (const [name, functionDeclaration] of record.importedFunctions) env.functions.set(name, functionDeclaration);
+    for (const [name, bindingType] of record.checkResult.bindingTypes) env.bindingTypes.set(name, bindingType);
     for (const [name, sourcePath] of record.importedBindingSources) {
       const dependencyEnv = evaluatedEnvironments.get(sourcePath)!;
       env.set(name, dependencyEnv.get(name));
+    }
+    if (canonicalPath === realEntry) {
+      for (const [name, value] of inputValues) env.set(name, value);
     }
     for (const node of record.doc.nodes) {
       if (node.type === 'executableCodeBlock') evaluateStatements(node.statements, env, canonicalPath);

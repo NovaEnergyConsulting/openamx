@@ -81,6 +81,13 @@ export interface ImportDeclarationNode {
   source?: SourceLocation;
 }
 
+export interface InputDeclarationNode {
+  type: 'inputDeclaration';
+  name: string;
+  annotation: TypeReferenceNode;
+  source?: SourceLocation;
+}
+
 export interface RecordConstructorNode {
   type: 'recordConstructor';
   name: string;
@@ -232,6 +239,7 @@ export type StatementNode =
   | TypeDeclarationNode
   | FunctionDeclarationNode
   | ImportDeclarationNode
+  | InputDeclarationNode
   | VariableDeclarationNode
   | AssignmentStatementNode
   | CompoundAssignmentStatementNode

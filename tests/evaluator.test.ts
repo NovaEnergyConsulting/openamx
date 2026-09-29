@@ -99,6 +99,29 @@ describe("Sprint 014 activated checking and records", () => {
   });
 });
 
+describe("Sprint 016 logical input checking", () => {
+  const check = (source: string) => checkDocument(parseDocumentText(`\`\`\`amx\n${source}\n\`\`\``), 'inputs.amx');
+
+  it("makes inputs typed, immutable, and source-order constrained", () => {
+    expect(() => check('let value: Number = 1\ninput later: Number')).toThrow(AmxError);
+    expect(() => check('input value: Number\nlet value: Number = 1')).toThrow(/conflicts with an input/);
+    expect(() => check('input value: Number\nvalue = 2')).toThrow(/immutable input/);
+    expect(() => check('input value: Number\nimport { other } from "./other.amx"')).toThrow(/Import declarations must precede/);
+    expect(() => check('input value: Number\ninput value: Number')).toThrow(/collides with another declaration/);
+    expect(() => check('input value: Number\nlet result: Number = value')).not.toThrow();
+  });
+
+  it("validates typed computed bindings through direct document evaluation", () => {
+    const document = parseDocumentText('```amx\nlet value: Number = 1 / 0\n```');
+    expect(() => evaluateDocument(document, 'computed.amx')).toThrow(AmxError);
+    try {
+      evaluateDocument(document, 'computed.amx');
+    } catch (error) {
+      expect((error as AmxError).code).toBe('AMX4003');
+    }
+  });
+});
+
 describe("evaluator - match expressions", () => {
   const run = (text: string, env = new Environment()) => evaluateExpression(parseExpression(text), env);
 

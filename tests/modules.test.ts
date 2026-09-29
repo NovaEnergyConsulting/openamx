@@ -208,3 +208,114 @@ describe("Sprint 015 opt-in Asset Management library", () => {
     });
   });
 });
+
+describe("Sprint 016 entry inputs and CLI mappings", () => {
+  it("validates and injects JSON inputs before entry evaluation", async () => {
+    const dir = await makeDir();
+    await write(dir, "values.json", '[2,3,5]');
+    const entry = await write(dir, "entry.amx", "```amx\ninput values: Number[]\nlet total: Number = sum(values)\n```\n");
+    const { env } = await loadEntryModule(entry, { inputMappings: [`values=${dir}/values.json`] });
+    expect(env.toObject()).toEqual({ values: [2, 3, 5], total: 10 });
+  });
+
+  it("reports unknown, duplicate, and missing mappings as AMX4001 in stable order", async () => {
+    const dir = await makeDir();
+    await write(dir, "one.json", '1');
+    const entry = await write(dir, "entry.amx", "```amx\ninput first: Number\ninput second: Number\n```\n");
+    const error = await expectAmxError(loadEntryModule(entry, {
+      inputMappings: [`first=${dir}/one.json`, `first=${dir}/one.json`, `unknown=${dir}/other.json`]
+    }), "AMX4001");
+    expect(error.diagnostics?.map(item => item.inputName)).toEqual(['first', 'unknown', 'second']);
+    await expectAmxError(loadEntryModule(entry, { validation: 'collect' as 'aggregate' }), "AMX4001");
+  });
+
+  it("orders failures by input declarations rather than CLI mapping order", async () => {
+    const dir = await makeDir();
+    await write(dir, "first.json", '"bad"');
+    await write(dir, "second.json", 'false');
+    const entry = await write(dir, "entry.amx", "```amx\ninput first: Number\ninput second: Number\n```\n");
+    const mappings = [`second=${dir}/second.json`, `first=${dir}/first.json`];
+    const aggregate = await expectAmxError(loadEntryModule(entry, { inputMappings: mappings }), "AMX4003");
+    expect(aggregate.diagnostics?.map(item => item.inputName)).toEqual(['first', 'second']);
+    const failFast = await expectAmxError(loadEntryModule(entry, { inputMappings: mappings, validation: 'fail-fast' }), "AMX4003");
+    expect(failFast.diagnostics?.map(item => item.inputName)).toEqual(['first']);
+  });
+
+  it("prevents evaluation when an input is invalid and rejects inputs in imported modules", async () => {
+    const dir = await makeDir();
+    await write(dir, "invalid.json", '"not a number"');
+    const entry = await write(dir, "entry.amx", "```amx\ninput amount: Number\nlet values: Number[] = []\nlet failure: Number = min(values)\n```\n");
+    const inputFailure = await expectAmxError(loadEntryModule(entry, {
+      inputMappings: [`amount=${dir}/invalid.json`]
+    }), "AMX4003");
+    expect(inputFailure.diagnostics?.[0].inputName).toBe('amount');
+
+    await write(dir, "library.amx", "```amx\ninput hidden: Number\n```\n");
+    const importing = await write(dir, "importer.amx", "```amx\nimport { absent } from \"./library.amx\"\n```\n");
+    await expectAmxError(loadEntryModule(importing), "AMX3005");
+  });
+
+  it("validates computed typed records in declaration order and honors fail-fast", async () => {
+    const dir = await makeDir();
+    const entry = await write(dir, "computed.amx", "```amx\ntype Pair {\n  first: Number\n  second: Number\n}\nlet pair: Pair = Pair { first: 1 / 0, second: 0 / 0 }\n```\n");
+    const aggregate = await expectAmxError(loadEntryModule(entry), "AMX4003");
+    expect(aggregate.diagnostics?.map(item => item.dataPath)).toEqual(['record Pair.first', 'record Pair.second']);
+    expect(aggregate.diagnostics?.every(item => item.fieldSource?.line)).toBe(true);
+    const failFast = await expectAmxError(loadEntryModule(entry, { validation: 'fail-fast' }), "AMX4003");
+    expect(failFast.diagnostics).toHaveLength(1);
+    expect(failFast.diagnostics?.[0].dataPath).toBe('record Pair.first');
+  });
+
+  it("does not expose input file paths to expressions or pure functions", async () => {
+    const dir = await makeDir();
+    await write(dir, "value.json", '3');
+    const entry = await write(dir, "entry.amx", "```amx\ninput value: Number\nfn readValue(): Number = value\n```\n");
+    await expectAmxError(loadEntryModule(entry, { inputMappings: [`value=${dir}/value.json`] }), "AMX3001");
+  });
+
+  it("accepts repeated CLI --input options and preserves no-output run JSON", async () => {
+    const dir = await makeDir();
+    await write(dir, "first=one.json", '4');
+    await write(dir, "second.json", '7');
+    const entry = await write(dir, "entry.amx", "```amx\ninput first: Number\ninput second: Number\nlet total: Number = first + second\n```\n");
+    const command = Bun.spawnSync([
+      'bun', 'run', 'src/cli.ts', 'run', entry,
+      '--input', `first=${dir}/first=one.json`, '--input', `second=${dir}/second.json`, '--validation', 'fail-fast'
+    ]);
+    expect(command.exitCode).toBe(0);
+    expect(new TextDecoder().decode(command.stdout)).toContain('"total": 11');
+    expect(new TextDecoder().decode(command.stderr)).toBe('');
+  });
+
+  it("supports render inputs and keeps V0.2 no-input run behavior", async () => {
+    const dir = await makeDir();
+    await write(dir, "amount.json", '9');
+    const typedEntry = await write(dir, "render.amx", "Total: {{ amount }}\n\n```amx\ninput amount: Number\n```\n");
+    const htmlPath = `${dir}/rendered.html`;
+    const render = Bun.spawnSync([
+      'bun', 'run', 'src/cli.ts', 'render', typedEntry, '--out', htmlPath,
+      '--input', `amount=${dir}/amount.json`, '--validation', 'aggregate'
+    ]);
+    expect(render.exitCode).toBe(0);
+    expect(await Bun.file(htmlPath).text()).toContain('Total: 9');
+
+    const legacyEntry = await write(dir, "legacy.amx", "```amx\nlet value = 3\n```\n");
+    const run = Bun.spawnSync(['bun', 'run', 'src/cli.ts', 'run', legacyEntry]);
+    expect(run.exitCode).toBe(0);
+    expect(new TextDecoder().decode(run.stdout)).toContain('"value": 3');
+  });
+
+  it("does not write rendered HTML when input validation fails", async () => {
+    const dir = await makeDir();
+    await write(dir, "invalid.json", '"wrong"');
+    const entry = await write(dir, "entry.amx", "```amx\ninput amount: Number\n```\n");
+    const htmlPath = `${dir}/must-not-exist.html`;
+    const command = Bun.spawnSync([
+      'bun', 'run', 'src/cli.ts', 'render', entry, '--out', htmlPath,
+      '--input', `amount=${dir}/invalid.json`
+    ]);
+    expect(command.exitCode).not.toBe(0);
+    expect(new TextDecoder().decode(command.stderr)).toContain('AMX4003');
+    expect(await Bun.file(htmlPath).exists()).toBe(false);
+  });
+});

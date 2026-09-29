@@ -1,4 +1,4 @@
-import { FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, SourceLocation, StatementNode, TypeReferenceNode, VariableDeclarationNode } from '../ast/types';
+import { FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, InputDeclarationNode, SourceLocation, StatementNode, TypeReferenceNode, VariableDeclarationNode } from '../ast/types';
 import { parseExpression } from './parseExpression';
 import { parseForStatement } from './parseFor';
 
@@ -47,6 +47,20 @@ export function parseStatements(
     if (/^\s*import\b/.test(rawLine)) {
       if (context.allowFor === false) throw new Error(`Import declarations cannot occur in loops at ${source.line}:${source.column}`);
       statements.push(parseImportDeclaration(rawLine, source));
+      continue;
+    }
+
+    if (/^\s*input\b/.test(rawLine)) {
+      if (context.allowFor === false) throw new Error(`Input declarations cannot occur in loops at ${source.line}:${source.column}`);
+      const match = rawLine.match(/^\s*input\s+([A-Za-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*)\s*$/);
+      if (!match) throw new Error(`Invalid input declaration at ${source.line}:${source.column}`);
+      const input: InputDeclarationNode = {
+        type: 'inputDeclaration',
+        name: match[1],
+        annotation: parseTypeReference(match[2], { line: source.line, column: rawLine.indexOf(match[2]) + 1 }),
+        source
+      };
+      statements.push(input);
       continue;
     }
 
