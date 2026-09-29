@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Quarterly Asset Reliability Report</title>
+  <style>
+    @page { size: A4; margin: 18mm; }
+    body { color: #17241d; font: 11pt Arial, sans-serif; line-height: 1.45; }
+    h1 { font-size: 25pt; margin: 0 0 5mm; }
+    h2 { font-size: 16pt; margin: 8mm 0 3mm; break-after: avoid; }
+    .chart { display: block; width: 150mm; height: 60mm; margin: 4mm auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; }
+    th, td { border: 1px solid #aab5ad; padding: 2mm; text-align: left; }
+    th { background: #e7eee8; }
+    .appendix { break-before: page; }
+  </style>
+</head>
+<body>
+  <h1>Quarterly Asset Reliability Report</h1>
+  <p>Reporting period: Q3 2026. The static chart and register below are representative report content.</p>
+  <h2>Failure-mode exposure</h2>
+  <svg class="chart" viewBox="0 0 600 240" role="img" aria-label="Risk scores by asset">
+    <rect width="600" height="240" fill="#f3f6f3"/>
+    <line x1="55" y1="190" x2="565" y2="190" stroke="#58675d"/>
+    <rect x="100" y="90" width="70" height="100" fill="#287451"/>
+    <rect x="235" y="45" width="70" height="145" fill="#b8cc6d"/>
+    <rect x="370" y="115" width="70" height="75" fill="#db9451"/>
+    <text x="100" y="215">Pump A</text><text x="235" y="215">Compressor B</text><text x="370" y="215">Transformer C</text>
+  </svg>
+  <h2>Risk register</h2>
+  <table>
+    <thead><tr><th>Asset</th><th>Failure mode</th><th>Score</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td>P-101</td><td>Bearing wear</td><td>24</td><td>Trend vibration</td></tr>
+      <tr><td>P-102</td><td>Seal leakage</td><td>18</td><td>Inspect monthly</td></tr>
+      <tr><td>C-201</td><td>Lubrication loss</td><td>30</td><td>Review oil sample</td></tr>
+      <tr><td>C-202</td><td>Rotor imbalance</td><td>21</td><td>Schedule balancing</td></tr>
+      <tr><td>T-301</td><td>Bushing failure</td><td>36</td><td>Thermal inspection</td></tr>
+      <tr><td>T-302</td><td>Cooling blockage</td><td>15</td><td>Clean radiators</td></tr>
+      <tr><td>P-103</td><td>Coupling fatigue</td><td>12</td><td>Check alignment</td></tr>
+      <tr><td>P-104</td><td>Impeller erosion</td><td>27</td><td>Measure clearance</td></tr>
+      <tr><td>C-203</td><td>Valve sticking</td><td>9</td><td>Review actuator</td></tr>
+      <tr><td>C-204</td><td>Filter blockage</td><td>18</td><td>Track differential</td></tr>
+      <tr><td>T-303</td><td>Tap changer wear</td><td>24</td><td>Oil inspection</td></tr>
+      <tr><td>T-304</td><td>Ground fault</td><td>33</td><td>Test protection</td></tr>
+      <tr><td>P-105</td><td>Motor overheating</td><td>21</td><td>Check load profile</td></tr>
+      <tr><td>P-106</td><td>Pipe vibration</td><td>12</td><td>Inspect supports</td></tr>
+      <tr><td>C-205</td><td>Surge event</td><td>30</td><td>Validate controls</td></tr>
+      <tr><td>C-206</td><td>Seal degradation</td><td>15</td><td>Review flush plan</td></tr>
+      <tr><td>T-305</td><td>Core hotspot</td><td>27</td><td>Trend temperature</td></tr>
+      <tr><td>T-306</td><td>Oil contamination</td><td>18</td><td>Sample quarterly</td></tr>
+      <tr><td>P-107</td><td>Check valve failure</td><td>24</td><td>Functional test</td></tr>
+      <tr><td>P-108</td><td>Baseplate looseness</td><td>9</td><td>Verify torque</td></tr>
+      <tr><td>C-207</td><td>Instrument drift</td><td>15</td><td>Calibrate sensor</td></tr>
+      <tr><td>C-208</td><td>Cooling fan failure</td><td>21</td><td>Inspect fan drive</td></tr>
+      <tr><td>T-307</td><td>Arrester aging</td><td>30</td><td>Measure leakage</td></tr>
+      <tr><td>T-308</td><td>Terminal corrosion</td><td>12</td><td>Clean connections</td></tr>
+    </tbody>
+  </table>
+  <h2 class="appendix">Appendix: review notes</h2>
+  <p>Static exports retain content and order but do not retain interactive controls.</p>
+</body>
+</html>

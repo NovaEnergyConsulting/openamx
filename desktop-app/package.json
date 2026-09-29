@@ -1,0 +1,39 @@
+{
+	"name": "openamx-desktop-spike",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "Isolated OpenAMX desktop architecture spike",
+	"scripts": {
+		"dev": "bun run build:web && hutch electrobun dev --watch",
+		"typecheck": "hutch electrobun prepare && vue-tsc --noEmit",
+		"build:web": "hutch electrobun prepare && vite build",
+		"build": "bun run build:web && hutch electrobun build --env=stable",
+		"test": "bun run tests/rpc-contract-check.ts",
+		"run": "bun run build:web && hutch electrobun run --env=dev"
+	},
+	"dependencies": {
+		"@fontsource/dm-mono": "5.3.0",
+		"@fontsource/dm-sans": "5.3.0",
+		"@fontsource/newsreader": "5.3.0",
+		"@lucide/vue": "1.48.0",
+		"class-variance-authority": "0.7.1",
+		"clsx": "2.1.1",
+		"reka-ui": "2.10.5",
+		"tailwind-merge": "3.7.0",
+		"vue": "3.5.41"
+	},
+	"devDependencies": {
+		"@tailwindcss/vite": "4.3.3",
+		"@types/bun": "1.4.0",
+		"@vitejs/plugin-vue": "5.2.4",
+		"pdfjs-dist": "6.3.289",
+		"pdfmake": "0.3.11",
+		"shadcn-vue": "2.8.2",
+		"tailwindcss": "4.3.3",
+		"tw-animate-css": "1.4.0",
+		"typescript": "5.9.3",
+		"vite": "6.4.3",
+		"vue-tsc": "2.2.12"
+	}
+}
