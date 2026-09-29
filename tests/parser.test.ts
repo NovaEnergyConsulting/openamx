@@ -17,7 +17,7 @@ import { parseFrontMatter } from "../src/parser/parseFrontMatter";
 import { parseStatements } from "../src/parser/parseStatements";
 import { parseExpression } from "../src/parser/parseExpression";
 import { parseDocument } from "../src/parser/parseDocument";
-import { ExecutableCodeBlockNode, NarrativeNode, VariableDeclarationNode } from "../src/ast/types";
+import { ExecutableCodeBlockNode, MatchExpressionNode, NarrativeNode, VariableDeclarationNode } from "../src/ast/types";
 
 const tmpFiles: string[] = [];
 
@@ -153,6 +153,52 @@ describe("parseStatements", () => {
   });
 });
 
+describe("match expression parsing", () => {
+  it("retains literal cases, their order, default placement, and original-document locations", () => {
+    const [declaration] = parseStatements(
+      '  let result = match 1 + 2 {\n    default => 0\n    case -2 => 1\n    case 3.5 => 2\n    case "three" => 3\n    case true => 4\n  }',
+      { line: 12, column: 1 }
+    );
+    const match = (declaration as VariableDeclarationNode).expression as MatchExpressionNode;
+    expect(match.source).toEqual({ line: 12, column: 16 });
+    expect(match.expression.type).toBe('binaryExpression');
+    expect(match.defaultSource).toEqual({ line: 13, column: 5 });
+    expect(match.cases.map(arm => arm.value.value)).toEqual([-2, 3.5, 'three', true]);
+    expect(match.cases[0].source).toEqual({ line: 14, column: 5 });
+    expect(match.cases[0].value.source).toEqual({ line: 14, column: 10 });
+    expect(match.cases[0].expression.source).toEqual({ line: 14, column: 16 });
+  });
+
+  it("accepts a default-only match and matches nested inside calls, branches, and loops", () => {
+    expect((parseExpression('match 0 {\ndefault => 1\n}') as MatchExpressionNode).cases).toEqual([]);
+    const call = parseExpression('sum([match 1 {\ncase 1 => 2\ndefault => 0\n}])');
+    expect(call.type).toBe('functionCall');
+    const nested = parseExpression('match match 1 {\ncase 1 => 2\ndefault => 0\n} {\ncase 2 => match 3 {\ncase 3 => 4\ndefault => 0\n}\ndefault => 0\n}');
+    expect(nested.type).toBe('matchExpression');
+    expect((nested as MatchExpressionNode).cases[0].expression.type).toBe('matchExpression');
+    const [loop] = parseStatements('let values = for item in [1] {\n  return match item {\n    case 1 => 2\n    default => 0\n  }\n}', { line: 20, column: 1 });
+    expect((loop as VariableDeclarationNode).expression.type).toBe('forExpression');
+  });
+
+  it("rejects missing or duplicate defaults and malformed arms with locations", () => {
+    const invalid = [
+      ['match 1 {\ncase 1 => 2\n}', /default.*1:1/],
+      ['match 1 {\ndefault => 0\ndefault => 2\n}', /Duplicate default.*3:1/],
+      ['match 1 {\ncase name => 2\ndefault => 0\n}', /literal.*2:1/],
+      ['match 1 {\ncase [1] => 2\ndefault => 0\n}', /literal.*2:1/],
+      ['match 1 {\ncase 1 + 2 => 3\ndefault => 0\n}', /literal.*2:1/],
+      ['match 1 {\ncase 1 2\ndefault => 0\n}', /Expected =>.*2:1/],
+      ['match 1 {\ncase 1 =>\ndefault => 0\n}', /Missing match arm expression.*2:/],
+      ['match 1 {\ncase 1 => 2; default => 0\n}', /Unexpected character|Unexpected input/],
+      ['match 1 { case 1 => 2\ndefault => 0\n}', /newlines.*1:/],
+      ['match 1 {\ndefault => 0', /Unclosed match expression at 1:1/]
+    ] as const;
+    for (const [input, message] of invalid) {
+      expect(() => parseExpression(input)).toThrow(message);
+    }
+  });
+});
+
 describe("parseDocument (file orchestration)", () => {
   beforeEach(async () => {
     await cleanupTemp();
@@ -160,6 +206,19 @@ describe("parseDocument (file orchestration)", () => {
 
   afterEach(async () => {
     await cleanupTemp();
+  });
+
+  it("retains nested match locations inside an executable block loop", async () => {
+    const file = await writeTempAmx('---\ntitle: Match\n---\n\n```amx\nlet values = for item in [1] {\n  return match item {\n    case 1 => match 2 {\n      case 2 => item\n      default => 0\n    }\n    default => 0\n  }\n}\n```');
+    const doc = await parseDocument(file);
+    const block = doc.nodes.find(node => node.type === 'executableCodeBlock') as ExecutableCodeBlockNode;
+    const loop = (block.statements[0] as VariableDeclarationNode).expression as any;
+    const match = loop.body[0].expression as MatchExpressionNode;
+    expect(match.source).toEqual({ line: 7, column: 10 });
+    expect(match.cases[0].source).toEqual({ line: 8, column: 5 });
+    expect(match.cases[0].expression.source).toEqual({ line: 8, column: 15 });
+    expect((match.cases[0].expression as MatchExpressionNode).cases[0].expression.source)
+      .toEqual({ line: 9, column: 17 });
   });
 
   it("keeps bare declarations as narrative and parses declarations only in amx fences", async () => {

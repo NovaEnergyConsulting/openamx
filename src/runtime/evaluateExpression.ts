@@ -8,6 +8,7 @@ import {
   ForExpressionNode,
   ForStatementNode,
   RangeExpressionNode,
+  MatchExpressionNode,
   StatementNode
 } from '../ast/types';
 import { throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext } from '../diagnostics/errors';
@@ -56,7 +57,7 @@ export function evaluateExpression(
       return evalForExpression(node as ForExpressionNode, env, file);
 
     case 'matchExpression':
-      throw new Error('Match expressions are not implemented in Sprint 008');
+      return evalMatch(node, env, file);
 
     default: {
       // Exhaustiveness check: if a new node type is added without a case, this will fail to compile.
@@ -64,6 +65,14 @@ export function evaluateExpression(
       throw new Error(`Unsupported expression node type: ${_exhaustive}`);
     }
   }
+}
+
+function evalMatch(node: MatchExpressionNode, env: Environment, file?: string): unknown {
+  const value = evaluateExpression(node.expression, env, file);
+  for (const arm of node.cases) {
+    if (value === arm.value.value) return evaluateExpression(arm.expression, env, file);
+  }
+  return evaluateExpression(node.defaultExpression, env, file);
 }
 
 function evalBinary(

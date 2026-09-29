@@ -84,3 +84,15 @@ All of the above are recorded here so that Builders and future sprints do not ac
 - Expression-form `for` is parsed as a normal expression atom, including within other expression positions such as function arguments. Its single `return` value is collected per iteration and does not stop later body statements.
 - Runtime diagnostics use AMX1005 for invalid range bounds, AMX1006 for non-list loop values, and AMX1007 for a return reaching runtime outside a valid expression-loop context. Undefined reads and writes continue to use AMX1004.
 - Sprint 008 did not add document-wide block evaluation, rendering changes, `match`, dependencies, or other deferred language features.
+
+## V0.2 Sprint 009 Decisions
+
+- **Match placement and syntax**: `match expression { ... }` is a value expression. Each arm occupies one line and uses `case <number|string|boolean literal> => <expression>` or `default => <expression>`. Negative numeric literals are accepted; non-literal patterns are not.
+- **Default cardinality**: Exactly one `default` arm is required and may appear anywhere. Zero or more case arms are allowed; a default-only match is valid.
+- **Selection semantics**: Evaluate the scrutinee once; compare literal cases by strict type-and-value equality without coercion; evaluate cases in source order and select the first match. Duplicate literal cases are legal and the first wins. Evaluate only the selected branch, or default if there is no match.
+- **Deferred features**: Guards, destructuring/richer patterns, fallthrough, match statements, and document-wide execution/rendering remain out of scope. Match is available to the expression parser/evaluator for later Sprint 010 interpolation integration.
+
+## V0.2 Sprint 009 Implementation Outcomes
+
+- Match nodes retain case arms in source order and store the sole default expression and its arm location separately. Parsing rejects absent/duplicate defaults and non-literal cases at original-document locations.
+- The runtime evaluates the scrutinee once, compares primitive literal values with strict equality, and evaluates only the selected branch. Sprint 010 still owns document-wide orchestration, interpolation, and rendering.

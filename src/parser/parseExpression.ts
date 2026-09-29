@@ -6,7 +6,9 @@ import {
   ConditionalExpressionNode,
   ListLiteralNode,
   FunctionCallNode,
-  RangeExpressionNode
+  RangeExpressionNode,
+  MatchExpressionNode,
+  MatchCaseNode
 } from '../ast/types';
 import { parseForExpression } from './parseFor';
 
@@ -16,11 +18,12 @@ type Token =
   | { type: 'boolean'; value: boolean; text: string }
   | { type: 'identifier'; name: string; text: string }
   | { type: 'forExpression'; value: string; text: string }
+  | { type: 'matchExpression'; value: string; text: string; offset: number }
   | { type: 'operator'; op: string; text: string }
   | { type: 'keyword'; word: 'and' | 'or' | 'not' | 'if' | 'then' | 'else'; text: string }
   | { type: 'lparen' | 'rparen' | 'lbracket' | 'rbracket' | 'comma' | 'eof'; text?: string };
 
-function tokenize(text: string): Token[] {
+function tokenize(text: string, source?: SourceLocation): Token[] {
   const tokens: Token[] = [];
   let i = 0;
   const len = text.length;
@@ -39,6 +42,14 @@ function tokenize(text: string): Token[] {
       const end = findForExpressionEnd(text, i);
       const loopText = text.slice(i, end + 1);
       tokens.push({ type: 'forExpression', value: loopText, text: loopText });
+      i = end + 1;
+      continue;
+    }
+
+    if (text.startsWith('match', i) && !/[A-Za-z0-9_]/.test(text[i + 5] ?? '')) {
+      const end = findMatchExpressionEnd(text, i, source);
+      const matchText = text.slice(i, end + 1);
+      tokens.push({ type: 'matchExpression', value: matchText, text: matchText, offset: i });
       i = end + 1;
       continue;
     }
@@ -159,11 +170,147 @@ function findForExpressionEnd(text: string, start: number): number {
       if (depth === 0) return index;
     }
   }
-  throw new Error('Unclosed for expression');
+  throw new Error(`Unclosed braced expression`);
+}
+
+function findMatchExpressionEnd(text: string, start: number, source?: SourceLocation): number {
+  let quote: string | undefined;
+  const braces: boolean[] = [];
+  let parentheses = 0;
+  let pendingMatches = 0;
+  let pendingFor = false;
+  for (let index = start; index < text.length; index++) {
+    const character = text[index];
+    if (quote) {
+      if (character === quote && text[index - 1] !== '\\') quote = undefined;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '(') parentheses++;
+    else if (character === ')') parentheses--;
+    else if (text.startsWith('match', index)
+      && !/[A-Za-z0-9_]/.test(text[index - 1] ?? '')
+      && !/[A-Za-z0-9_]/.test(text[index + 5] ?? '')) {
+      pendingMatches++;
+      index += 4;
+    } else if (text.startsWith('for', index)
+      && !/[A-Za-z0-9_]/.test(text[index - 1] ?? '')
+      && !/[A-Za-z0-9_]/.test(text[index + 3] ?? '')) {
+      pendingFor = true;
+      index += 2;
+    } else if (character === '{') {
+      braces.push(!pendingFor && (parentheses === 0 || pendingMatches > 1));
+      pendingFor = false;
+    } else if (character === '}') {
+      if (braces.pop()) pendingMatches--;
+      if (braces.length === 0 && pendingMatches === 0 && parentheses === 0) return index;
+    }
+  }
+  const position = locationAt(text, start, source);
+  throw new Error(`Unclosed match expression at ${position.line}:${position.column}`);
+}
+
+function locationAt(text: string, offset: number, source?: SourceLocation): SourceLocation {
+  const before = text.slice(0, offset).split(/\r?\n/);
+  return {
+    line: (source?.line ?? 1) + before.length - 1,
+    column: (before.length === 1 ? source?.column ?? 1 : 1) + before[before.length - 1].length
+  };
+}
+
+function parseMatchExpression(text: string, source?: SourceLocation): MatchExpressionNode {
+  let open = -1;
+  let depth = 0;
+  let quote: string | undefined;
+  for (let index = 0; index < text.length; index++) {
+    const character = text[index];
+    if (quote) {
+      if (character === quote && text[index - 1] !== '\\') quote = undefined;
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '{') {
+      if (depth === 0) open = index;
+      depth++;
+    } else if (character === '}') {
+      depth--;
+    }
+  }
+  const fail = (message: string, offset: number): never => {
+    const position = locationAt(text, offset, source);
+    throw new Error(`${message} at ${position.line}:${position.column}`);
+  };
+  if (open < 0 || depth !== 0) fail('Malformed match braces', 0);
+  const scrutineeText = text.slice(5, open).trim();
+  if (!scrutineeText) fail('Missing match scrutinee', 5);
+  const scrutineeOffset = text.indexOf(scrutineeText, 5);
+  const expression = parseExpression(scrutineeText, locationAt(text, scrutineeOffset, source));
+  const body = text.slice(open + 1, -1);
+  if (!/^[ \t]*\r?\n/.test(body) || !/\r?\n[ \t]*$/.test(body)) fail('Match arms require newlines', open + 1);
+
+  const arms: { text: string; offset: number }[] = [];
+  let armStart = open + 1;
+  depth = 0;
+  quote = undefined;
+  for (let index = armStart; index < text.length - 1; index++) {
+    const character = text[index];
+    if (quote) {
+      if (character === quote && text[index - 1] !== '\\') quote = undefined;
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '{') depth++;
+    else if (character === '}') depth--;
+    else if (character === '\n' && depth === 0) {
+      if (text.slice(armStart, index).trim()) arms.push({ text: text.slice(armStart, index), offset: armStart });
+      armStart = index + 1;
+    }
+  }
+  if (text.slice(armStart, -1).trim()) fail('Match arm must end with a newline', armStart);
+
+  const cases: MatchCaseNode[] = [];
+  let defaultExpression: V02ExpressionNode | undefined;
+  let defaultSource: SourceLocation | undefined;
+  const parseBranch = (branch: string, offset: number): V02ExpressionNode => {
+    try {
+      return parseExpression(branch, locationAt(text, offset, source));
+    } catch (error) {
+      return fail(`Invalid match arm expression: ${error instanceof Error ? error.message : String(error)}`, offset);
+    }
+  };
+  for (const arm of arms) {
+    const leading = arm.text.length - arm.text.trimStart().length;
+    const armOffset = arm.offset + leading;
+    const armText = arm.text.trim();
+    const armSource = locationAt(text, armOffset, source);
+    const arrow = armText.indexOf('=>');
+    if (arrow < 0) fail('Expected => in match arm', armOffset);
+    const pattern = armText.slice(0, arrow).trim();
+    const branch = armText.slice(arrow + 2).trim();
+    if (!branch) fail('Missing match arm expression', armOffset + arrow + 2);
+    const branchOffset = armOffset + armText.indexOf(branch, arrow + 2);
+    if (pattern === 'default') {
+      if (defaultExpression) fail('Duplicate default match arm', armOffset);
+      defaultSource = armSource;
+      defaultExpression = parseBranch(branch, branchOffset);
+    } else {
+      const literal = pattern.match(/^case\s+(-?(?:\d+(?:\.\d*)?)|"[^"\n]*"|'[^'\n]*'|true|false)$/);
+      if (!literal) return fail('Match case requires a number, string, or boolean literal', armOffset);
+      const valueOffset = armOffset + armText.indexOf(literal[1]);
+      const valueSource = locationAt(text, valueOffset, source);
+      const value: MatchCaseNode['value'] = /^-?\d/.test(literal[1])
+        ? { type: 'numberLiteral', value: Number(literal[1]), source: valueSource }
+        : literal[1] === 'true' || literal[1] === 'false'
+          ? { type: 'booleanLiteral', value: literal[1] === 'true', source: valueSource }
+          : { type: 'stringLiteral', value: literal[1].slice(1, -1), source: valueSource };
+      cases.push({ value, expression: parseBranch(branch, branchOffset), source: armSource });
+    }
+  }
+  if (!defaultExpression) return fail('Match requires exactly one default arm', 0);
+  return { type: 'matchExpression', expression, cases, defaultExpression, defaultSource, source };
 }
 
 export function parseExpression(text: string, source?: SourceLocation): V02ExpressionNode {
-  const tokens = tokenize(text);
+  const tokens = tokenize(text, source);
   let pos = 0;
 
   function current(): Token {
@@ -218,6 +365,11 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
 
   function parsePrimary(): V02ExpressionNode {
     const t = current();
+
+    if (t.type === 'matchExpression') {
+      advance();
+      return parseMatchExpression(t.value, locationAt(text, t.offset, source));
+    }
 
     if (t.type === 'forExpression') {
       advance();

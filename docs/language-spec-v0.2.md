@@ -58,10 +58,10 @@ Expression        ::= ForExpression
 Conditional       ::= "if" Expression "then" Expression "else" Expression
                     | MatchExpression
                     | LogicalExpression
-MatchExpression  ::= "match" Expression "{" NewLine MatchArm+ "}"
+MatchExpression  ::= "match" Expression "{" NewLine MatchArm* "}"
 MatchArm          ::= "case" MatchLiteral "=>" Expression NewLine
                     | "default" "=>" Expression NewLine
-MatchLiteral      ::= NumberLiteral | StringLiteral | BooleanLiteral
+MatchLiteral      ::= NumberLiteral | "-" NumberLiteral | StringLiteral | BooleanLiteral
 
 RangeExpression  ::= "[" Expression "to" Expression "]"
 ListLiteral       ::= "[" (Expression ("," Expression)*)? "]"
@@ -84,7 +84,9 @@ Bindings are mutable. `let name = expression` creates a binding, and a repeated 
 
 ## 8. Match Expressions
 
-`match expression { ... }` is a value expression. Each arm occupies one line and has the form `case <number|string|boolean literal> => <expression>` or `default => <expression>`. Exactly one `default` arm is required and it may appear anywhere among the arms. Cases are tested in source order; the first matching case is selected. The default expression is used when no case matches. Guards and destructuring are not part of V0.2.
+`match expression { ... }` is a value expression usable wherever an ordinary expression is accepted. Each arm occupies one line and has the form `case <number|string|boolean literal> => <expression>` or `default => <expression>`. A numeric case may have a leading unary minus. Exactly one `default` arm is required and it may appear anywhere among the arms; zero or more `case` arms are allowed, so a default-only match is valid. The scrutinee is evaluated once. Case values are compared using strict type-and-value equality with no coercion, in source order; the first matching case is selected, even if a later case repeats the same literal. Only the selected branch expression is evaluated. The default expression is evaluated only when no case matches. Guards, destructuring, and richer patterns are not part of V0.2.
+
+Malformed arms, non-literal cases, and missing or duplicate defaults are parse errors at the relevant original-document match or arm location. The fallback is selected only after all case literals have been considered, regardless of its position among the arms.
 
 ## 9. Inline Interpolation and Execution
 
@@ -108,6 +110,6 @@ There is no legacy mode that executes bare declarations. Ordinary Markdown code 
 
 ## 11. Implementation Boundaries and Non-Goals
 
-Sprint 007 establishes this contract and parses only declaration statements inside executable `amx` blocks. It does not execute code or implement assignment, `+=`, ranges, loops, loop scoping/returns, or `match` parsing/evaluation. Those features belong to Sprints 008 and 009; execution, formatting, rendering integration, and final-environment interpolation belong to Sprint 010.
+Sprint 007 established the contract and parses declaration statements inside executable `amx` blocks. Sprint 008 implements mutation, ranges, and loops; Sprint 009 implements `match` parsing/evaluation. Document-wide executable-block evaluation, formatting, rendering integration, and final-environment interpolation belong to Sprint 010.
 
 V0.2 does not add imports, units, currency, charts, tables, Asset Management domain libraries, domain-specific types, V0.3 candidates, or a parser framework. The core remains general-purpose and uses the existing TypeScript hand-written parser.

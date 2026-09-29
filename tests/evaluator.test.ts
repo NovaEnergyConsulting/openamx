@@ -22,6 +22,46 @@ import { OpenAmxDocument, VariableDeclarationNode } from "../src/ast/types";
 import { AmxError } from "../src/diagnostics/errors";
 import { Environment } from "../src/runtime/environment";
 import { evaluateStatements } from "../src/runtime/evaluateExpression";
+import { parseExpression } from "../src/parser/parseExpression";
+import { evaluateExpression } from "../src/runtime/evaluateExpression";
+
+describe("evaluator - match expressions", () => {
+  const run = (text: string, env = new Environment()) => evaluateExpression(parseExpression(text), env);
+
+  it("selects number, negative, decimal, string, and boolean cases without coercion", () => {
+    for (const [value, pattern] of [['2', '2'], ['-2', '-2'], ['2.5', '2.5'], ['"a"', '"a"'], ['true', 'true'], ['false', 'false']]) {
+      expect(run(`match ${value} {\ncase ${pattern} => 7\ndefault => 0\n}`)).toBe(7);
+    }
+    expect(run('match 1 {\ncase "1" => 9\ncase true => 8\ndefault => 3\n}')).toBe(3);
+    expect(run('match true {\ncase 1 => 9\ndefault => 3\n}')).toBe(3);
+  });
+
+  it("uses first matching case even when default appears first or between cases", () => {
+    expect(run('match 2 {\ndefault => 0\ncase 2 => 4\ncase 2 => 5\n}')).toBe(4);
+    expect(run('match 2 {\ncase 1 => 1\ndefault => 0\ncase 2 => 6\n}')).toBe(6);
+    expect(run('match 2 {\ncase 1 => 1\ndefault => 9\n}')).toBe(9);
+    expect(run('match 2 {\ndefault => 8\n}')).toBe(8);
+  });
+
+  it("evaluates the scrutinee once and only the selected branch", () => {
+    const env = new Environment();
+    env.set('values', [1]);
+    env.set('count', 0);
+    expect(run('match (for item in values {\ncount += 1\nreturn item\n}) {\ncase 1 => missing\ndefault => 7\n}', env)).toBe(7);
+    expect(env.get('count')).toBe(1);
+    expect(run('match 1 {\ncase 1 => 4\ncase 1 => missing\ndefault => alsoMissing\n}')).toBe(4);
+    expect(run('match 9 {\ncase 1 => missing\ndefault => 5\n}')).toBe(5);
+    expect(() => run('match 1 {\ncase 1 => missing\ndefault => 0\n}')).toThrow(AmxError);
+  });
+
+  it("composes with arithmetic, boolean scrutinees, nesting, declarations and loop results", () => {
+    expect(run('match (1 + 2 > 2) and not false {\ncase true => 10\ndefault => 0\n} + 1')).toBe(11);
+    expect(run('match match 1 {\ncase 1 => 2\ndefault => 0\n} {\ncase 2 => match 3 {\ncase 3 => 4\ndefault => 0\n}\ndefault => 0\n}')).toBe(4);
+    const env = new Environment();
+    evaluateStatements(parseStatements('let values = for item in [1, 2] {\n  return match item {\n    case 1 => 10\n    default => 20\n  }\n}'), env);
+    expect(env.get('values')).toEqual([10, 20]);
+  });
+});
 
 function makeDocFromBody(body: string): OpenAmxDocument {
   const nodes: OpenAmxDocument["nodes"] = [];

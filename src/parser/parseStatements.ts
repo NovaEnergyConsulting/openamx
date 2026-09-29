@@ -56,11 +56,14 @@ export function parseStatements(
       if (context.allowReturn !== true) {
         throw new Error(`Return is only valid inside an expression-form for loop at ${source.line}:${source.column}`);
       }
+      const expressionText = collectExpressionLoop(lines, i, returnMatch[1], start);
       statements.push({
         type: 'returnStatement',
-        expression: parseExpression(returnMatch[1], source),
+        expression: parseExpression(expressionText.text, containsMatchExpression(expressionText.text)
+          ? { line: source.line, column: rawLine.indexOf(returnMatch[1]) + 1 } : source),
         source
       });
+      i += expressionText.lineCount - 1;
       continue;
     }
 
@@ -71,7 +74,8 @@ export function parseStatements(
       const expressionText = collectExpressionLoop(lines, i, letMatch[2], start);
       let expression;
       try {
-        expression = parseExpression(expressionText.text, source);
+        expression = parseExpression(expressionText.text, containsMatchExpression(expressionText.text)
+          ? { line: source.line, column: rawLine.indexOf(letMatch[2]) + 1 } : source);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(`Invalid declaration at ${source.line}:${source.column}: ${message}`);
@@ -98,7 +102,8 @@ export function parseStatements(
           type: compoundMatch ? 'compoundAssignmentStatement' : 'assignmentStatement',
           name: assignment[1],
           ...(compoundMatch ? { operator: '+=' as const } : {}),
-          expression: parseExpression(expressionText.text, source),
+          expression: parseExpression(expressionText.text, containsMatchExpression(expressionText.text)
+            ? { line: source.line, column: rawLine.indexOf(assignment[2]) + 1 } : source),
           source
         } as StatementNode);
       } catch (error) {
@@ -151,7 +156,15 @@ function collectExpressionLoop(
   expression: string,
   start: SourceLocation
 ): { text: string; lineCount: number } {
-  if (!containsForExpression(expression)) return { text: expression, lineCount: 1 };
+  if (!containsForExpression(expression) && !containsMatchExpression(expression)) return { text: expression, lineCount: 1 };
+  if (containsMatchExpression(expression) && !containsForExpression(expression)) {
+    const end = findLoopEnd(lines, lineIndex, { line: start.line + lineIndex, column: start.column });
+    const expressionOffset = lines[lineIndex].indexOf(expression);
+    return {
+      text: [lines[lineIndex].slice(expressionOffset), ...lines.slice(lineIndex + 1, end + 1)].join('\n'),
+      lineCount: end - lineIndex + 1
+    };
+  }
   const loopEnd = findLoopEnd(lines, lineIndex, {
     line: start.line + lineIndex,
     column: start.column
@@ -166,5 +179,10 @@ function collectExpressionLoop(
 function containsForExpression(text: string): boolean {
   const withoutStrings = text.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, '');
   return /\bfor\s+[A-Za-z][A-Za-z0-9_]*\s+in\b/.test(withoutStrings);
+}
+
+function containsMatchExpression(text: string): boolean {
+  const withoutStrings = text.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, '');
+  return /\bmatch\s+/.test(withoutStrings);
 }
 

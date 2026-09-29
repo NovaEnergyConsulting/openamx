@@ -7,7 +7,8 @@
 - Sprint folder: planning/sprints/0007-v02-language-contract-ast-fenced-parsing/
 - Sprint 008: Mutable Bindings, Ranges & Loops — COMPLETE.
 - Sprint folder: planning/sprints/0008-mutable-bindings-ranges-loops/
-- Sprint folder: planning/sprints/0008-mutable-bindings-ranges-loops/
+- Sprint 009: Match Expressions — COMPLETE; Sprint 010 is next.
+- Sprint folder: planning/sprints/0009-match-expressions/
 - Project status: v0.1 complete; V0.2 in progress.
 - Sprint 007 acceptance passed: V0.2 spec established; only exact executable `amx` fences produce code-block AST nodes; declarations outside those fences remain narrative; original-document locations and Markdown preservation are covered by parser tests.
 - Master plan approved (plan-openamxV01MasterSprintPlan.md).
@@ -50,12 +51,14 @@
 - Sprint 005: Requirements, blueprint, acceptance criteria, and handoff prompt created per master plan. Builder implemented full renderer layer: src/renderer/renderHtml.ts (inline {{ }} substitution for the complete v0.1 expression grammar using parseExpression + evaluateExpression, post-substitution marked rendering, standalone HTML5 document assembly, frontmatter title, deterministic value stringification, let omission). Replaced tests/renderer.test.ts skeleton with 10 real test suites (headings/paragraphs/bullets, let omission, simple+complex {{ }} substitution including all expression forms, multiple subs, AMX1004 surfacing, title handling, stability, full-pipeline in-memory smoke test using parseStatements + renderHtml). All 64 tests pass; build clean. No CLI or example work started. Sprint 005 COMPLETE.
 - Sprint 007: Added `docs/language-spec-v0.2.md` as the authoritative V0.2 contract; extended AST with executable code blocks and V0.2 statement/expression scaffolding; changed document parsing to recognize exact case-sensitive `amx` fences only, preserve ordinary Markdown and bare declarations as narrative, and attach original-document locations. Added fence, migration, source-order, front-matter, interpolation, CRLF, and error-boundary coverage. `bun run build` passes; `bun test` passes (68 tests). Existing evaluator/renderer test-only fixture helpers were updated to construct lower-level AST fixtures directly after their former use of `parseStatements` as a mixed-document splitter failed; production runtime and renderer were not changed. Sprint 007 COMPLETE.
 - Sprint 008: Implemented mutable/redeclared bindings, assignment and `+=`, inclusive finite-integer ranges, statement and expression loops, contextual return validation, shared-environment evaluation, and iterator shadow restoration. Added parser/evaluator acceptance coverage while preserving the Sprint 007 fenced-code boundary. `bun run build` passes; focused parser/evaluator tests pass (70 tests); `bun test` passes (81 tests). Sprint 008 COMPLETE with no deviations; match remains Sprint 009 and document orchestration remains Sprint 010.
+- Sprint 009 Architect preparation: customized the four sprint artifacts for match-expression parsing/evaluation and aligned the V0.2 spec on literal equality, default cardinality/placement, first-match ordering, and lazy branch evaluation. No Sprint 009 implementation has started.
+- Sprint 009 Builder completion: Added braced match expression parsing and strict, lazy evaluation with case order, mandatory default, nested composition, and original-document match/arm locations. Focused parser/evaluator tests passed (78 tests); `bun run build` passed; full `bun test` passed (89 tests). A strengthened once-only scrutinee assertion subsequently passed in the focused evaluator suite (55 tests). No renderer or document-wide execution changes; no contract deviations.
 
 ## Next Steps
 
 - Sprint 006 COMPLETE (see Sprint History). CLI, examples, full tests, documentation, and V0.1 acceptance are complete.
 - Sprint 007 COMPLETE (V0.2 Language Contract, AST & Fenced Parsing).
-- Sprint 008 COMPLETE (Mutable Bindings, Ranges & Loops); prepare Sprint 009 match requirements and handoff before implementation.
+- Sprint 008 COMPLETE (Mutable Bindings, Ranges & Loops). Sprint 009 COMPLETE (Match Expressions). Sprint 010 (Canonical Formatter & Renderer Integration) is next.
 - Continue to follow 120x process: only documented scope per active sprint.
 - Keep build and test green: `bun install && bun run build && bun test`.
 - Record any future clarifications in planning/decisions.md or planning/questions.md.

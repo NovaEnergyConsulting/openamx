@@ -66,6 +66,7 @@ export interface MatchExpressionNode {
   expression: V02ExpressionNode;
   cases: MatchCaseNode[];
   defaultExpression: V02ExpressionNode;
+  defaultSource?: SourceLocation;
   source?: SourceLocation;
 }
 

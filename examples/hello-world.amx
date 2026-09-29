@@ -5,8 +5,10 @@ version: 0.1
 
 # Hello OpenAMX
 
+```amx
 let assetName = "Transformer TX-001"
 let riskScore = 15
+```
 
 The asset under review is {{ assetName }}.
 
