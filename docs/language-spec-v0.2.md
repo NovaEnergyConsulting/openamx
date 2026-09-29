@@ -1,0 +1,108 @@
+# OpenAMX Language Specification V0.2
+
+V0.2 defines a breaking source-format change. This document is the authoritative language contract for V0.2. The V0.1 reference remains at `.agents/language-spec-v0.1.md`.
+
+## 1. Document Model
+
+An OpenAMX document is UTF-8 text containing optional YAML front matter, Markdown narrative, and explicitly fenced executable blocks. Front matter is metadata, not executable source. Narrative and executable blocks remain in document source order.
+
+Only a backtick fence whose trimmed info string is exactly the case-sensitive string `amx` is executable. A declaration-looking line anywhere else is narrative, including a V0.1 bare `let` line, ordinary fenced code, and text inside tilde fences. Inline `{{ expression }}` is a separate narrative interpolation form; it does not open an executable block.
+
+```amx
+let replacementCost = 1250000
+```
+
+## 2. Fence Syntax
+
+An executable opener consists of zero to three leading ASCII spaces, at least three consecutive backticks, and an info string which, after trimming surrounding whitespace, equals `amx`. The opener occupies its own line. For example, ````   ```  amx   ```` is executable; ` ```AMX ` and ` ```amx demo ` are not.
+
+The closing line has zero to three leading spaces, at least as many consecutive backticks as the opener, and only whitespace after the backticks. A shorter run, a tilde run, or a line with trailing non-whitespace text does not close the block. The first matching closing line ends the block.
+
+Other Markdown fences, including backtick fences with other labels and all tilde fences, are non-executable. Their contents are opaque to executable-fence detection, so an `amx`-looking line nested inside one does not start a block. An unclosed ordinary Markdown fence remains narrative. An unclosed executable `amx` fence is a parse error at its opening fence.
+
+## 3. Source Locations
+
+Source locations use 1-based line and column coordinates in the original document. Coordinates include front matter, fence delimiters, and all preceding narrative. Columns count UTF-16 code units, matching TypeScript and VS Code editor positions. An executable-block node points to its opening fence; a statement points to the first non-whitespace character of its source line. Parse errors identify the corresponding original-document location.
+
+## 4. Separators and Layout
+
+Newlines are the only separators between statements and between `match` arms. A semicolon is not a statement or arm separator and is invalid between adjacent constructs. A statement occupies one logical line unless it is a braced construct. Braced `for` bodies and `match` expressions may span lines. Expressions outside braced constructs do not implicitly continue across a newline.
+
+## 5. V0.2 Grammar
+
+The following grammar describes the committed V0.2 surface. `Expression` includes the V0.1 literals, identifiers, lists, function calls, parentheses, unary and binary operators, and single-line conditional expressions, together with the V0.2 range and match forms below. This grammar specifies later-sprint features as well as Sprint 007's declaration subset.
+
+```text
+Document          ::= FrontMatter? DocumentPart*
+DocumentPart      ::= Narrative | ExecutableBlock
+ExecutableBlock   ::= AmxOpener NewLine Statement* AmxCloser
+
+Statement         ::= Declaration NewLine
+                    | Assignment NewLine
+                    | CompoundAssignment NewLine
+                    | ForStatement
+                    | ReturnStatement NewLine
+
+Declaration       ::= "let" Identifier "=" Expression
+Assignment        ::= Identifier "=" Expression
+CompoundAssignment ::= Identifier "+=" Expression
+ForStatement      ::= "for" Identifier "in" Expression "{" NewLine Statement* "}"
+ReturnStatement   ::= "return" Expression
+
+Expression        ::= Conditional
+Conditional       ::= "if" Expression "then" Expression "else" Expression
+                    | MatchExpression
+                    | LogicalExpression
+MatchExpression  ::= "match" Expression "{" NewLine MatchArm+ "}"
+MatchArm          ::= "case" MatchLiteral "=>" Expression NewLine
+                    | "default" "=>" Expression NewLine
+MatchLiteral      ::= NumberLiteral | StringLiteral | BooleanLiteral
+
+RangeExpression  ::= "[" Expression "to" Expression "]"
+ListLiteral       ::= "[" (Expression ("," Expression)*)? "]"
+Identifier        ::= Letter (Letter | Digit | "_")*
+```
+
+The grammar is intentionally conceptual around expression precedence and lexical details; those retain the V0.1 contract except where explicitly extended here. A newline within braces separates statements or match arms. It does not make an ordinary expression multiline.
+
+## 6. Expression Operators
+
+V0.1 expression forms remain supported: number, string and boolean literals; case-sensitive identifiers; list literals; function calls; parentheses; unary `-` and `not`; arithmetic `+`, `-`, `*`, `/`, `%`, `^`; comparisons `==`, `!=`, `>`, `>=`, `<`, `<=`; logical `and` and `or`; and `if ... then ... else ...` conditional expressions. Power `^` is right-associative. Existing V0.1 precedence is retained: grouping and calls, unary, power, multiplication/division/remainder, addition/subtraction, comparisons, `and`, `or`, then conditional expressions.
+
+The inclusive integer range form is `[start to end]`. It yields each integer from `start` through `end`, ascending or descending with an implicit step of one. It is distinct from an explicit list literal such as `[1, 2, 3]`.
+
+## 7. Bindings and Loops
+
+Bindings are mutable. `let name = expression` creates a binding, and a repeated `let` updates an existing binding. `name = expression` replaces an existing binding; `name += expression` adds to an existing binding. References and assignments to undeclared identifiers are errors.
+
+`for item in values { ... }` iterates over a list or range. The document environment is shared across code blocks, while the iteration variable is scoped to its loop. Simple statement-form loops may omit `return`. Expression-form loops require one `return expression` for each iteration, collect one value per iteration into a list, and produce `[]` for empty input. `return` contributes that iteration's value and is not an early exit. Nested loops, `break`, and `continue` are not part of V0.2.
+
+## 8. Match Expressions
+
+`match expression { ... }` is a value expression. Each arm occupies one line and has the form `case <number|string|boolean literal> => <expression>` or `default => <expression>`. Exactly one `default` arm is required and it may appear anywhere among the arms. Cases are tested in source order; the first matching case is selected. The default expression is used when no case matches. Guards and destructuring are not part of V0.2.
+
+## 9. Inline Interpolation and Execution
+
+`{{ expression }}` remains distinct from executable blocks and is retained as narrative by the parser. It does not make surrounding text or a Markdown fence executable. The V0.2 execution/rendering pipeline evaluates executable blocks in source order with one shared document environment. Inline expressions resolve against the final environment after all executable blocks run. Interpolation and execution behavior are implemented in the later integration sprint, not by Sprint 007.
+
+## 10. V0.1 Migration
+
+V0.2 is a breaking change. Bare V0.1 declarations are no longer executable and remain ordinary narrative. Move declarations into an `amx` fence:
+
+```markdown
+let annualRiskCost = 85000
+```
+
+becomes:
+
+```amx
+let annualRiskCost = 85000
+```
+
+There is no legacy mode that executes bare declarations. Ordinary Markdown code fences remain non-executable. Existing inline `{{ expression }}` syntax remains supported as a separate feature.
+
+## 11. Implementation Boundaries and Non-Goals
+
+Sprint 007 establishes this contract and parses only declaration statements inside executable `amx` blocks. It does not execute code or implement assignment, `+=`, ranges, loops, loop scoping/returns, or `match` parsing/evaluation. Those features belong to Sprints 008 and 009; execution, formatting, rendering integration, and final-environment interpolation belong to Sprint 010.
+
+V0.2 does not add imports, units, currency, charts, tables, Asset Management domain libraries, domain-specific types, V0.3 candidates, or a parser framework. The core remains general-purpose and uses the existing TypeScript hand-written parser.
