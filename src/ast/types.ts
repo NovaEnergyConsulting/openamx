@@ -62,6 +62,27 @@ export interface ConditionalExpressionNode {
   source?: SourceLocation;
 }
 
+export interface MatchCaseNode {
+  value: NumberLiteralNode | StringLiteralNode | BooleanLiteralNode;
+  expression: V02ExpressionNode;
+  source?: SourceLocation;
+}
+
+export interface MatchExpressionNode {
+  type: 'matchExpression';
+  expression: V02ExpressionNode;
+  cases: MatchCaseNode[];
+  defaultExpression: V02ExpressionNode;
+  source?: SourceLocation;
+}
+
+export interface RangeExpressionNode {
+  type: 'rangeExpression';
+  start: V02ExpressionNode;
+  end: V02ExpressionNode;
+  source?: SourceLocation;
+}
+
 export interface FunctionCallNode {
   type: 'functionCall';
   callee: string;
@@ -86,6 +107,8 @@ export type ExpressionNode =
   | FunctionCallNode
   | ListLiteralNode;
 
+export type V02ExpressionNode = ExpressionNode | MatchExpressionNode | RangeExpressionNode;
+
 // --- Document structure ---
 export interface NarrativeNode {
   type: 'narrative';
@@ -100,7 +123,50 @@ export interface VariableDeclarationNode {
   source?: SourceLocation;
 }
 
-export type DocumentNode = NarrativeNode | VariableDeclarationNode;
+export interface AssignmentStatementNode {
+  type: 'assignmentStatement';
+  name: string;
+  expression: V02ExpressionNode;
+  source?: SourceLocation;
+}
+
+export interface CompoundAssignmentStatementNode {
+  type: 'compoundAssignmentStatement';
+  name: string;
+  operator: '+=';
+  expression: V02ExpressionNode;
+  source?: SourceLocation;
+}
+
+export interface ForStatementNode {
+  type: 'forStatement';
+  variable: string;
+  iterable: V02ExpressionNode;
+  body: StatementNode[];
+  source?: SourceLocation;
+}
+
+export interface ReturnStatementNode {
+  type: 'returnStatement';
+  expression?: V02ExpressionNode;
+  source?: SourceLocation;
+}
+
+export type StatementNode =
+  | VariableDeclarationNode
+  | AssignmentStatementNode
+  | CompoundAssignmentStatementNode
+  | ForStatementNode
+  | ReturnStatementNode;
+
+export interface ExecutableCodeBlockNode {
+  type: 'executableCodeBlock';
+  content: string;
+  statements: StatementNode[];
+  source?: SourceLocation;
+}
+
+export type DocumentNode = NarrativeNode | VariableDeclarationNode | ExecutableCodeBlockNode;
 
 export interface OpenAmxDocument {
   metadata: Record<string, unknown>;

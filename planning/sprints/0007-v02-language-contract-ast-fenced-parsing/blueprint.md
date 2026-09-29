@@ -2,6 +2,8 @@
 
 ## Approach
 
+The authoritative language contract for this sprint is [docs/language-spec-v0.2.md](../../../docs/language-spec-v0.2.md).
+
 Treat this as the compatibility boundary between the V0.1 prototype and V0.2, not as an implementation of the whole V0.2 language. First record the complete syntax/semantic commitments and migration rules in the V0.2 language contract. Then extend the document AST with an executable code-block node and explicit statement-node types, and update document parsing so only the exact `amx` fence form is classified as executable.
 
 The existing parser currently recognizes `let` anywhere in the document body. Replace that document-level interpretation with fence-aware parsing: declarations are parsed as statements only inside executable blocks; identical lines outside those blocks are retained verbatim as narrative. Ordinary fenced Markdown is opaque narrative and must not accidentally expose nested `amx` text to the executable-fence detector. Preserve front matter and source order.

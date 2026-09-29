@@ -16,7 +16,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { parseFrontMatter } from "../src/parser/parseFrontMatter";
 import { parseStatements } from "../src/parser/parseStatements";
 import { parseDocument } from "../src/parser/parseDocument";
-import { DocumentNode, NarrativeNode, VariableDeclarationNode } from "../src/ast/types";
+import { ExecutableCodeBlockNode, NarrativeNode, VariableDeclarationNode } from "../src/ast/types";
 
 const tmpFiles: string[] = [];
 
@@ -99,121 +99,20 @@ body
 });
 
 describe("parseStatements", () => {
-  it("parses pure narrative containing headings, paragraphs and bullets", () => {
-    const body =
-`# Heading 1
-
-This is a paragraph.
-
-## Heading 2
-
-- bullet one
-- bullet two
-
-Final paragraph.`;
-    const nodes = parseStatements(body);
-    expect(nodes.length).toBe(1);
-    const n = nodes[0] as NarrativeNode;
-    expect(n.type).toBe("narrative");
-    expect(n.content).toContain("# Heading 1");
-    expect(n.content).toContain("This is a paragraph.");
-    expect(n.content).toContain("- bullet one");
-    expect(n.source?.line).toBe(1);
+  it("parses declarations with original-document source locations", () => {
+    const statements = parseStatements("\n  let first = 1\nlet second = 2", { line: 7, column: 1 });
+    expect(statements).toHaveLength(2);
+    expect((statements[0] as VariableDeclarationNode).name).toBe("first");
+    expect(statements[0].source).toEqual({ line: 8, column: 3 });
+    expect(statements[1].source).toEqual({ line: 9, column: 1 });
   });
 
-  it("detects simple let declarations and captures name", () => {
-    const body =
-`let replacementCost = 1250000
-let annualRiskCost = 85000`;
-    const nodes = parseStatements(body);
-    expect(nodes.length).toBe(2);
-    const d0 = nodes[0] as VariableDeclarationNode;
-    const d1 = nodes[1] as VariableDeclarationNode;
-    expect(d0.type).toBe("variableDeclaration");
-    expect(d0.name).toBe("replacementCost");
-    expect(d1.name).toBe("annualRiskCost");
-    // expression present (may be placeholder or literal)
-    expect(d0.expression).toBeTruthy();
+  it("does not treat a semicolon as a statement separator", () => {
+    expect(() => parseStatements("let first = 1; let second = 2")).toThrow(/Invalid declaration/);
   });
 
-  it("strips all let lines from narrative content", () => {
-    const body =
-`# Title
-
-let x = 10
-
-Some narrative text.
-
-let y = 20
-
-More text after.`;
-    const nodes = parseStatements(body);
-    // Three narrative segments separated by lets + 2 decls = 5 nodes
-    expect(nodes.length).toBe(5);
-
-    const n0 = nodes[0] as NarrativeNode;
-    const d1 = nodes[1] as VariableDeclarationNode;
-    const n2 = nodes[2] as NarrativeNode;
-    const d3 = nodes[3] as VariableDeclarationNode;
-    const n4 = nodes[4] as NarrativeNode;
-
-    expect(n0.type).toBe("narrative");
-    expect(n0.content).not.toContain("let x = 10");
-    expect(n0.content).not.toContain("let y = 20");
-    expect(n0.content).toContain("# Title");
-
-    expect(d1.type).toBe("variableDeclaration");
-    expect(d1.name).toBe("x");
-
-    expect(n2.type).toBe("narrative");
-    expect(n2.content).not.toContain("let");
-    expect(n2.content).toContain("Some narrative text.");
-
-    expect(d3.type).toBe("variableDeclaration");
-    expect(d3.name).toBe("y");
-
-    expect(n4.type).toBe("narrative");
-    expect(n4.content).not.toContain("let");
-    expect(n4.content).toContain("More text after.");
-  });
-
-  it("preserves exact source order when lets and narrative are interleaved", () => {
-    const body =
-`Intro paragraph.
-
-let a = 1
-
-## Section
-
-let b = 2
-
-End.`;
-    const nodes = parseStatements(body);
-    expect(nodes.length).toBe(5);
-
-    expect((nodes[0] as NarrativeNode).type).toBe("narrative");
-    expect((nodes[1] as VariableDeclarationNode).type).toBe("variableDeclaration");
-    expect((nodes[1] as VariableDeclarationNode).name).toBe("a");
-
-    expect((nodes[2] as NarrativeNode).type).toBe("narrative");
-    expect((nodes[2] as NarrativeNode).content).toContain("## Section");
-
-    expect((nodes[3] as VariableDeclarationNode).type).toBe("variableDeclaration");
-    expect((nodes[3] as VariableDeclarationNode).name).toBe("b");
-
-    expect((nodes[4] as NarrativeNode).type).toBe("narrative");
-    expect((nodes[4] as NarrativeNode).content).toContain("End.");
-  });
-
-  it("attaches basic source locations (line numbers)", () => {
-    const body =
-`let first = 1
-# heading
-let second = 2`;
-    const nodes = parseStatements(body);
-    expect((nodes[0] as VariableDeclarationNode).source?.line).toBe(1);
-    expect((nodes[1] as NarrativeNode).source?.line).toBe(2);
-    expect((nodes[2] as VariableDeclarationNode).source?.line).toBe(3);
+  it("rejects non-declaration statements in this sprint", () => {
+    expect(() => parseStatements("value = 2", { line: 4, column: 1 })).toThrow(/Unsupported statement at 4:1/);
   });
 });
 
@@ -226,7 +125,7 @@ describe("parseDocument (file orchestration)", () => {
     await cleanupTemp();
   });
 
-  it("reads UTF-8 file, extracts front matter and returns ordered nodes", async () => {
+  it("keeps bare declarations as narrative and parses declarations only in amx fences", async () => {
     const content =
 `---
 title: Test Doc
@@ -237,31 +136,24 @@ status: draft
 
 Intro text.
 
+  \`\`\`  amx${" ".repeat(2)}
+  let inBlock = 2
+  \`\`\`
+
 let cost = 100
 
 More narrative.`;
     const filePath = await writeTempAmx(content);
     const doc = await parseDocument(filePath);
-
-    expect(doc.metadata).toEqual({ title: "Test Doc", status: "draft" });
-    expect(doc.nodes.length).toBeGreaterThanOrEqual(3);
-
-    // First node narrative (after frontmatter)
-    const first = doc.nodes[0] as NarrativeNode;
-    expect(first.type).toBe("narrative");
-    expect(first.content).toContain("# Heading");
-
-    // Find the variable decl
-    const decl = doc.nodes.find(n => (n as VariableDeclarationNode).type === "variableDeclaration") as VariableDeclarationNode;
-    expect(decl).toBeTruthy();
-    expect(decl.name).toBe("cost");
-
-    // Ensure no let line leaked into any narrative
-    for (const n of doc.nodes) {
-      if ((n as NarrativeNode).type === "narrative") {
-        expect((n as NarrativeNode).content).not.toMatch(/^\s*let\s/m);
-      }
-    }
+    expect(doc.nodes.map(node => node.type)).toEqual(["narrative", "executableCodeBlock", "narrative"]);
+    const block = doc.nodes[1] as ExecutableCodeBlockNode;
+    expect(block.content).toBe("  let inBlock = 2\n");
+    expect(block.statements).toHaveLength(1);
+    expect((block.statements[0] as VariableDeclarationNode).name).toBe("inBlock");
+    expect(block.source).toEqual({ line: 10, column: 3 });
+    expect(block.statements[0].source).toEqual({ line: 11, column: 3 });
+    expect((doc.nodes[2] as NarrativeNode).content).toContain("let cost = 100");
+    expect((doc.nodes[2] as NarrativeNode).content).toContain("More narrative.");
   });
 
   it("throws clear error for malformed front matter when parsing document", async () => {
@@ -275,24 +167,73 @@ no closing here
     await expect(parseDocument(filePath)).rejects.toThrow(/Malformed front matter/);
   });
 
-  // Additive test for spec §12: CLI uses parseDocument (covers frontmatter + statements + order)
-  it("CLI parseDocument integration - full example with frontmatter and lets", async () => {
+  it("preserves source order, front matter, interpolation, and narrative around executable blocks", async () => {
     const content = `---
 title: Test
 ---
 # Test
-
-let x = 42
-
-Narrative {{ x }}.
+let outside = 42
+\`\`\`amx
+let inside = 9
+\`\`\`
+Narrative {{ outside }} and {{ inside }}.
 `;
     const filePath = await writeTempAmx(content);
     const doc = await parseDocument(filePath);
     expect(doc.metadata.title).toBe("Test");
-    expect(doc.nodes.length).toBe(3); // narrative (heading), variableDeclaration, narrative
-    expect((doc.nodes[0] as any).type).toBe("narrative");
-    expect((doc.nodes[1] as any).type).toBe("variableDeclaration");
-    expect((doc.nodes[2] as any).type).toBe("narrative");
+    expect(doc.nodes.map(node => node.type)).toEqual(["narrative", "executableCodeBlock", "narrative"]);
+    expect((doc.nodes[0] as NarrativeNode).content).toContain("let outside = 42");
+    expect((doc.nodes[2] as NarrativeNode).content).toContain("{{ outside }} and {{ inside }}");
+  });
+
+  it("recognizes only an exact trimmed, case-sensitive amx info string", async () => {
+    const content = [
+      "```amx demo", "let rejectedLabel = 1", "```",
+      "```AMX", "let rejectedCase = 1", "```",
+      "~~~amx", "let rejectedTilde = 1", "~~~",
+      "````amx", "let accepted = 1", "`````"
+    ].join("\n");
+    const doc = await parseDocument(await writeTempAmx(content));
+    expect(doc.nodes.map(node => node.type)).toEqual(["narrative", "executableCodeBlock"]);
+    expect((doc.nodes[0] as NarrativeNode).content).toContain("let rejectedLabel = 1");
+    expect(((doc.nodes[1] as ExecutableCodeBlockNode).statements[0] as VariableDeclarationNode).name).toBe("accepted");
+  });
+
+  it("does not recognize short fences or openers indented by four spaces", async () => {
+    for (const content of [
+      "``amx\nlet short = 1\n``",
+      "    ```amx\nlet indented = 1\n    ```"
+    ]) {
+      const doc = await parseDocument(await writeTempAmx(content));
+      expect(doc.nodes).toHaveLength(1);
+      expect((doc.nodes[0] as NarrativeNode).content).toBe(content);
+    }
+  });
+
+  it("keeps amx-looking text inside ordinary fences opaque, including unclosed fences", async () => {
+    const content = [
+      "~~~markdown", "```amx", "let nested = 1", "```", "~~~",
+      "```js", "let alsoNarrative = 2"
+    ].join("\n");
+    const doc = await parseDocument(await writeTempAmx(content));
+    expect(doc.nodes).toHaveLength(1);
+    expect((doc.nodes[0] as NarrativeNode).content).toBe(content);
+  });
+
+  it("requires a valid closer and reports unclosed executable fence at its opener", async () => {
+    const filePath = await writeTempAmx("---\ntitle: Fence\n---\n  ```amx\nlet x = 1\n``` trailing");
+    await expect(parseDocument(filePath)).rejects.toThrow(/Unclosed amx fence at 4:3/);
+
+    const shortCloser = await writeTempAmx("````amx\nlet x = 1\n```\n");
+    await expect(parseDocument(shortCloser)).rejects.toThrow(/Unclosed amx fence at 1:1/);
+  });
+
+  it("accepts up to three leading spaces and preserves CRLF narrative bytes", async () => {
+    const content = "Heading\r\n   ```amx\r\n let x = 1\r\n   ````\r\nAfter\r\n";
+    const doc = await parseDocument(await writeTempAmx(content));
+    expect(doc.nodes.map(node => node.type)).toEqual(["narrative", "executableCodeBlock", "narrative"]);
+    expect((doc.nodes[0] as NarrativeNode).content).toBe("Heading\r\n");
+    expect((doc.nodes[2] as NarrativeNode).content).toBe("After\r\n");
   });
 });
 

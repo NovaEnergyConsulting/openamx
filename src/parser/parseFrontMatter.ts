@@ -6,6 +6,8 @@ import { parse as parseYaml } from "yaml";
 export interface FrontMatterResult {
   metadata: Record<string, unknown>;
   body: string;
+  /** 1-based original-document line containing the beginning of body. */
+  bodyStartLine: number;
   /** Present when YAML was malformed. */
   error?: string;
 }
@@ -22,7 +24,7 @@ export function parseFrontMatter(content: string): FrontMatterResult {
   // Must start with --- on first line
   const lines = content.split(/\r?\n/);
   if (!lines.length || lines[0].trim() !== "---") {
-    return { metadata: {}, body: content };
+    return { metadata: {}, body: content, bodyStartLine: 1 };
   }
 
   // Find the closing ---
@@ -38,12 +40,18 @@ export function parseFrontMatter(content: string): FrontMatterResult {
     return {
       metadata: {},
       body: content,
+      bodyStartLine: 1,
       error: "Malformed front matter: missing closing --- delimiter",
     };
   }
 
   const frontMatterText = lines.slice(1, closingIndex).join("\n");
-  const body = lines.slice(closingIndex + 1).join("\n");
+  const lineBreaks = [...content.matchAll(/\r?\n/g)];
+  const bodyOffset = lineBreaks[closingIndex]?.index !== undefined
+    ? lineBreaks[closingIndex].index! + lineBreaks[closingIndex][0].length
+    : content.length;
+  const body = content.slice(bodyOffset);
+  const bodyStartLine = bodyOffset < content.length ? closingIndex + 2 : closingIndex + 1;
 
   let metadata: Record<string, unknown> = {};
   if (frontMatterText.trim().length > 0) {
@@ -55,6 +63,7 @@ export function parseFrontMatter(content: string): FrontMatterResult {
         return {
           metadata: {},
           body,
+          bodyStartLine,
           error:
             "Malformed front matter: front matter must be a mapping (key: value)",
         };
@@ -63,10 +72,11 @@ export function parseFrontMatter(content: string): FrontMatterResult {
       return {
         metadata: {},
         body,
+        bodyStartLine,
         error: `Malformed front matter: ${err?.message ?? "invalid YAML"}`,
       };
     }
   }
 
-  return { metadata, body };
+  return { metadata, body, bodyStartLine };
 }

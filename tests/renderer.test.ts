@@ -22,7 +22,26 @@ import { OpenAmxDocument } from "../src/ast/types";
 import { AmxError } from "../src/diagnostics/errors";
 
 function makeDocFromBody(body: string, metadata: Record<string, unknown> = {}): OpenAmxDocument {
-  const nodes = parseStatements(body);
+  const nodes: OpenAmxDocument["nodes"] = [];
+  let narrativeLines: string[] = [];
+  const lines = body.split(/\r?\n/);
+
+  function flushNarrative() {
+    if (narrativeLines.length > 0) {
+      nodes.push({ type: "narrative", content: narrativeLines.join("\n") });
+      narrativeLines = [];
+    }
+  }
+
+  for (let index = 0; index < lines.length; index++) {
+    if (/^\s*let\s+/.test(lines[index])) {
+      flushNarrative();
+      nodes.push(...parseStatements(lines[index], { line: index + 1, column: 1 }));
+    } else {
+      narrativeLines.push(lines[index]);
+    }
+  }
+  flushNarrative();
   return { metadata, nodes };
 }
 
