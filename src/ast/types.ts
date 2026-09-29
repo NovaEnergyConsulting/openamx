@@ -24,6 +24,47 @@ export interface BooleanLiteralNode {
   source?: SourceLocation;
 }
 
+export interface NullLiteralNode {
+  type: 'nullLiteral';
+  source?: SourceLocation;
+}
+
+export interface TypeReferenceNode {
+  type: 'namedType' | 'listType' | 'nullableType';
+  name?: string;
+  element?: TypeReferenceNode;
+  source?: SourceLocation;
+}
+
+export interface RecordFieldNode {
+  name: string;
+  optional: boolean;
+  annotation: TypeReferenceNode;
+  defaultExpression?: V02ExpressionNode;
+  source?: SourceLocation;
+}
+
+export interface TypeDeclarationNode {
+  type: 'typeDeclaration';
+  name: string;
+  fields: RecordFieldNode[];
+  source?: SourceLocation;
+}
+
+export interface RecordConstructorNode {
+  type: 'recordConstructor';
+  name: string;
+  fields: { name: string; expression: V02ExpressionNode; source?: SourceLocation }[];
+  source?: SourceLocation;
+}
+
+export interface FieldAccessNode {
+  type: 'fieldAccess';
+  receiver: V02ExpressionNode;
+  field: string;
+  source?: SourceLocation;
+}
+
 // --- Identifier ---
 export interface IdentifierNode {
   type: 'identifier';
@@ -109,7 +150,8 @@ export interface ForExpressionNode {
   source?: SourceLocation;
 }
 
-export type V02ExpressionNode = ExpressionNode | MatchExpressionNode | RangeExpressionNode | ForExpressionNode;
+export type V02ExpressionNode = ExpressionNode | MatchExpressionNode | RangeExpressionNode | ForExpressionNode
+  | NullLiteralNode | RecordConstructorNode | FieldAccessNode;
 
 // --- Document structure ---
 export interface NarrativeNode {
@@ -122,6 +164,7 @@ export interface VariableDeclarationNode {
   type: 'variableDeclaration';
   name: string;
   expression: V02ExpressionNode;
+  annotation?: TypeReferenceNode;
   source?: SourceLocation;
 }
 
@@ -155,6 +198,7 @@ export interface ReturnStatementNode {
 }
 
 export type StatementNode =
+  | TypeDeclarationNode
   | VariableDeclarationNode
   | AssignmentStatementNode
   | CompoundAssignmentStatementNode

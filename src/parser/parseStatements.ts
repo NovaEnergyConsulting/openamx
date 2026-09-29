@@ -1,4 +1,4 @@
-import { SourceLocation, StatementNode, VariableDeclarationNode } from '../ast/types';
+import { SourceLocation, StatementNode, TypeReferenceNode, VariableDeclarationNode } from '../ast/types';
 import { parseExpression } from './parseExpression';
 import { parseForStatement } from './parseFor';
 
@@ -30,6 +30,27 @@ export function parseStatements(
     };
 
     if (rawLine.trim().length === 0) {
+      continue;
+    }
+
+    if (/^\s*type\b/.test(rawLine)) {
+      if (context.allowFor === false) throw new Error(`Type declarations cannot occur in loops at ${source.line}:${source.column}`);
+      const header = rawLine.match(/^\s*type\s+([A-Za-z][A-Za-z0-9_]*)\s*\{\s*$/);
+      if (!header) throw new Error(`Invalid type declaration at ${source.line}:${source.column}`);
+      const fields = [];
+      let closed = false;
+      while (++i < lines.length) {
+        const fieldLine = lines[i];
+        if (/^\s*}\s*$/.test(fieldLine)) { closed = true; break; }
+        if (!fieldLine.trim()) continue;
+        const match = fieldLine.match(/^\s*([A-Za-z][A-Za-z0-9_]*)(\?)?\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*)\s*(?:=\s*(.+))?\s*$/);
+        const fieldSource = { line: start.line + i, column: fieldLine.length - fieldLine.trimStart().length + 1 };
+        if (!match) throw new Error(`Invalid record field at ${fieldSource.line}:${fieldSource.column}`);
+        fields.push({ name: match[1], optional: !!match[2], annotation: parseTypeReference(match[3], fieldSource),
+          ...(match[4] ? { defaultExpression: parseExpression(match[4], { line: fieldSource.line, column: fieldLine.indexOf(match[4]) + 1 }) } : {}), source: fieldSource });
+      }
+      if (!closed) throw new Error(`Unclosed type declaration at ${source.line}:${source.column}`);
+      statements.push({ type: 'typeDeclaration', name: header[1], fields, source });
       continue;
     }
 
@@ -67,15 +88,15 @@ export function parseStatements(
       continue;
     }
 
-    const letMatch = rawLine.match(/^\s*let\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    const letMatch = rawLine.match(/^\s*let\s+([A-Za-z][A-Za-z0-9_]*)(?:\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*))?\s*=\s*(.*)$/);
 
     if (letMatch) {
       const name = letMatch[1];
-      const expressionText = collectExpressionLoop(lines, i, letMatch[2], start);
+      const expressionText = collectExpressionLoop(lines, i, letMatch[3], start);
       let expression;
       try {
-        expression = parseExpression(expressionText.text, containsMatchExpression(expressionText.text)
-          ? { line: source.line, column: rawLine.indexOf(letMatch[2]) + 1 } : source);
+        expression = parseExpression(expressionText.text, containsForExpression(expressionText.text) && !containsMatchExpression(expressionText.text)
+          ? source : { line: source.line, column: rawLine.indexOf(letMatch[3]) + 1 });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(`Invalid declaration at ${source.line}:${source.column}: ${message}`);
@@ -85,6 +106,7 @@ export function parseStatements(
         type: 'variableDeclaration',
         name,
         expression,
+        ...(letMatch[2] ? { annotation: parseTypeReference(letMatch[2], { line: source.line, column: rawLine.indexOf(letMatch[2]) + 1 }) } : {}),
         source
       };
       statements.push(decl);
@@ -102,8 +124,7 @@ export function parseStatements(
           type: compoundMatch ? 'compoundAssignmentStatement' : 'assignmentStatement',
           name: assignment[1],
           ...(compoundMatch ? { operator: '+=' as const } : {}),
-          expression: parseExpression(expressionText.text, containsMatchExpression(expressionText.text)
-            ? { line: source.line, column: rawLine.indexOf(assignment[2]) + 1 } : source),
+          expression: parseExpression(expressionText.text, { line: source.line, column: rawLine.indexOf(assignment[2]) + 1 }),
           source
         } as StatementNode);
       } catch (error) {
@@ -118,6 +139,23 @@ export function parseStatements(
   }
 
   return statements;
+}
+
+export function parseTypeReference(text: string, source?: SourceLocation): TypeReferenceNode {
+  const name = text.match(/^[A-Za-z][A-Za-z0-9_]*/)?.[0];
+  if (!name) throw new Error(`Invalid type reference '${text}'`);
+  let result: TypeReferenceNode = { type: 'namedType', name, source };
+  let suffix = text.slice(name.length);
+  while (suffix) {
+    if (suffix.startsWith('[]')) {
+      result = { type: 'listType', element: result, source };
+      suffix = suffix.slice(2);
+    } else if (suffix.startsWith('?') && result.type !== 'nullableType') {
+      result = { type: 'nullableType', element: result, source };
+      suffix = suffix.slice(1);
+    } else throw new Error(`Invalid type reference '${text}'`);
+  }
+  return result;
 }
 
 function findLoopEnd(lines: string[], startIndex: number, source: SourceLocation): number {

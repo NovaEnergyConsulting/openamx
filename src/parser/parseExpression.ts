@@ -13,15 +13,16 @@ import {
 import { parseForExpression } from './parseFor';
 
 type Token =
-  | { type: 'number'; value: number; text: string }
-  | { type: 'string'; value: string; text: string }
-  | { type: 'boolean'; value: boolean; text: string }
-  | { type: 'identifier'; name: string; text: string }
+  | { type: 'number'; value: number; text: string; offset: number }
+  | { type: 'string'; value: string; text: string; offset: number }
+  | { type: 'boolean'; value: boolean; text: string; offset: number }
+  | { type: 'identifier'; name: string; text: string; offset: number }
+  | { type: 'null'; text: string; offset: number }
   | { type: 'forExpression'; value: string; text: string }
   | { type: 'matchExpression'; value: string; text: string; offset: number }
   | { type: 'operator'; op: string; text: string }
   | { type: 'keyword'; word: 'and' | 'or' | 'not' | 'if' | 'then' | 'else'; text: string }
-  | { type: 'lparen' | 'rparen' | 'lbracket' | 'rbracket' | 'comma' | 'eof'; text?: string };
+  | { type: 'lparen' | 'rparen' | 'lbracket' | 'rbracket' | 'lbrace' | 'rbrace' | 'colon' | 'dot' | 'comma' | 'eof'; text?: string; offset?: number };
 
 function tokenize(text: string, source?: SourceLocation): Token[] {
   const tokens: Token[] = [];
@@ -63,7 +64,7 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
         while (j < len && /\d/.test(text[j])) j++;
       }
       const numStr = text.slice(i, j);
-      tokens.push({ type: 'number', value: Number(numStr), text: numStr });
+      tokens.push({ type: 'number', value: Number(numStr), text: numStr, offset: i });
       i = j;
       continue;
     }
@@ -80,7 +81,7 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
       if (j >= len) {
         throw new Error('Unterminated string literal');
       }
-      tokens.push({ type: 'string', value: str, text: text.slice(i, j + 1) });
+      tokens.push({ type: 'string', value: str, text: text.slice(i, j + 1), offset: i });
       i = j + 1;
       continue;
     }
@@ -91,13 +92,15 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
       while (j < len && /[A-Za-z0-9_]/.test(text[j])) j++;
       const word = text.slice(i, j);
       if (word === 'true') {
-        tokens.push({ type: 'boolean', value: true, text: word });
+        tokens.push({ type: 'boolean', value: true, text: word, offset: i });
       } else if (word === 'false') {
-        tokens.push({ type: 'boolean', value: false, text: word });
+        tokens.push({ type: 'boolean', value: false, text: word, offset: i });
+      } else if (word === 'null') {
+        tokens.push({ type: 'null', text: word, offset: i });
       } else if (word === 'and' || word === 'or' || word === 'not' || word === 'if' || word === 'then' || word === 'else') {
         tokens.push({ type: 'keyword', word: word as any, text: word });
       } else {
-        tokens.push({ type: 'identifier', name: word, text: word });
+        tokens.push({ type: 'identifier', name: word, text: word, offset: i });
       }
       i = j;
       continue;
@@ -121,7 +124,7 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
     }
 
     // Single-character operators and grouping
-    if ('+-*/%^()[].,'.includes(ch)) {
+    if ('+-*/%^()[].,{}:'.includes(ch)) {
       if (ch === '(') {
         tokens.push({ type: 'lparen', text: ch });
       } else if (ch === ')') {
@@ -132,6 +135,8 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
         tokens.push({ type: 'rbracket', text: ch });
       } else if (ch === ',') {
         tokens.push({ type: 'comma', text: ch });
+      } else if (ch === '{' || ch === '}' || ch === ':' || ch === '.') {
+        tokens.push({ type: ({ '{': 'lbrace', '}': 'rbrace', ':': 'colon', '.': 'dot' } as const)[ch as '{' | '}' | ':' | '.'], text: ch, offset: i });
       } else {
         tokens.push({ type: 'operator', op: ch, text: ch });
       }
@@ -378,19 +383,41 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
 
     if (t.type === 'number') {
       advance();
-      return { type: 'numberLiteral', value: t.value, source };
+      return { type: 'numberLiteral', value: t.value, source: locationAt(text, t.offset, source) };
     }
     if (t.type === 'string') {
       advance();
-      return { type: 'stringLiteral', value: t.value, source };
+      return { type: 'stringLiteral', value: t.value, source: locationAt(text, t.offset, source) };
     }
     if (t.type === 'boolean') {
       advance();
-      return { type: 'booleanLiteral', value: t.value, source };
+      return { type: 'booleanLiteral', value: t.value, source: locationAt(text, t.offset, source) };
+    }
+    if (t.type === 'null') {
+      advance();
+      return { type: 'nullLiteral', source: locationAt(text, t.offset, source) };
     }
     if (t.type === 'identifier') {
       const name = t.name;
       advance();
+
+      if (current().type === 'lbrace') {
+        advance();
+        const fields: { name: string; expression: V02ExpressionNode; source?: SourceLocation }[] = [];
+        while (current().type !== 'rbrace') {
+          const field = current();
+          if (field.type !== 'identifier') throw new Error('Expected constructor field name');
+          advance();
+          if (current().type !== 'colon') throw new Error('Expected : after constructor field');
+          advance();
+          fields.push({ name: field.name, expression: parseExpr(0), source: locationAt(text, field.offset, source) });
+          if (current().type !== 'comma') break;
+          advance();
+        }
+        if (current().type !== 'rbrace') throw new Error('Expected } after constructor fields');
+        advance();
+        return { type: 'recordConstructor', name, fields, source: locationAt(text, t.offset, source) };
+      }
 
       // Function call: identifier followed by '('
       if (current().type === 'lparen') {
@@ -414,11 +441,11 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
           type: 'functionCall',
           callee: name,
           arguments: args,
-          source
+          source: locationAt(text, t.offset, source)
         } as FunctionCallNode;
       }
 
-      return { type: 'identifier', name, source };
+      return { type: 'identifier', name, source: locationAt(text, t.offset, source) };
     }
     if (t.type === 'lparen') {
       advance();
@@ -514,6 +541,15 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
 
     while (true) {
       const t = current();
+
+      if (t.type === 'dot') {
+        advance();
+        const field = current();
+        if (field.type !== 'identifier') throw new Error('Expected field name after .');
+        advance();
+        left = { type: 'fieldAccess', receiver: left, field: field.name, source: locationAt(text, t.offset ?? 0, source) };
+        continue;
+      }
 
       // Conditional appearing after a left-hand side (e.g. via lower-precedence context).
       // Guarded so it only triggers at the true top level.

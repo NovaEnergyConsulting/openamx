@@ -22,6 +22,24 @@ export function evaluateExpression(
   file?: string
 ): unknown {
   switch (node.type) {
+    case 'nullLiteral':
+      return null;
+
+    case 'recordConstructor': {
+      const declaration = env.recordTypes.get(node.name);
+      if (!declaration) throw new Error(`Unknown record type '${node.name}'`);
+      const supplied = new Map(node.fields.map(field => [field.name, evaluateExpression(field.expression, env, file)]));
+      const record: Record<string, unknown> = {};
+      for (const field of declaration.fields) {
+        record[field.name] = supplied.has(field.name) ? supplied.get(field.name)
+          : field.defaultExpression ? evaluateExpression(field.defaultExpression, env, file) : null;
+      }
+      return record;
+    }
+
+    case 'fieldAccess':
+      return (evaluateExpression(node.receiver, env, file) as Record<string, unknown>)[node.field];
+
     case 'numberLiteral':
       return node.value;
 
@@ -202,6 +220,9 @@ export function evaluateStatements(statements: StatementNode[], env: Environment
 
 function evaluateStatement(statement: StatementNode, env: Environment, file?: string): void {
   switch (statement.type) {
+    case 'typeDeclaration':
+      env.recordTypes.set(statement.name, statement);
+      return;
     case 'variableDeclaration':
       env.set(statement.name, evaluateExpression(statement.expression, env, file));
       return;

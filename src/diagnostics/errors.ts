@@ -31,6 +31,10 @@ export class AmxError extends Error implements AmxDiagnostic {
   }
 }
 
+export function staticError(code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005', message: string, source?: SourceLocation, file?: string): never {
+  throw new AmxError({ code, message, file, line: source?.line, column: source?.column });
+}
+
 /**
  * Create an AMX1004 undefined identifier diagnostic.
  */

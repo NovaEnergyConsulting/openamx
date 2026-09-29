@@ -24,6 +24,80 @@ import { Environment } from "../src/runtime/environment";
 import { evaluateStatements } from "../src/runtime/evaluateExpression";
 import { parseExpression } from "../src/parser/parseExpression";
 import { evaluateExpression } from "../src/runtime/evaluateExpression";
+import { parseDocumentText } from "../src/parser/parseDocument";
+import { checkDocument, checkingActivated } from "../src/typechecker/checkDocument";
+import { renderHtml } from "../src/renderer/renderHtml";
+
+describe("Sprint 014 activated checking and records", () => {
+  const document = (source: string) => parseDocumentText(`\`\`\`amx\n${source}\n\`\`\``);
+  const run = (source: string) => evaluateDocument(document(source), 'case.amx');
+
+  it("materializes defaults, nullable omissions and nested records in declaration order with fresh copies", () => {
+    const values = run(`type Inner {\n  name: String\n}\ntype Outer {\n  id: Number\n  inner: Inner = Inner { name: "A" }\n  tags: String[] = []\n  note?: String?\n}\nlet first: Outer = Outer { id: 1 }\nlet second: Outer = Outer { id: 2, note: null }\nlet name: String = first.inner.name`);
+    expect(values).toMatchObject({ first: { id: 1, inner: { name: 'A' }, tags: [], note: null }, second: { id: 2, note: null }, name: 'A' });
+    expect(Object.keys(values.first as object)).toEqual(['id', 'inner', 'tags', 'note']);
+    expect((values.first as any).tags).not.toBe((values.second as any).tags);
+    expect((values.first as any).inner).not.toBe((values.second as any).inner);
+  });
+
+  it("narrows a nullable record only within the checked if branch", () => {
+    expect(run('type Item {\n  price: Number = -2\n}\nlet item: Item? = Item { }\nlet price: Number = if item != null then item.price else 0').price).toBe(-2);
+    expect(run('type Item {\n  price: Number\n}\nlet item: Item? = null\nlet price: Number = if item == null then 0 else item.price').price).toBe(0);
+    expect(() => run('type Item {\n  price: Number\n}\nlet item: Item? = null\nlet price = item.price')).toThrow(AmxError);
+  });
+
+  it("checks operators, conditions, loops, match, standard library, bindings and DateTime", () => {
+    expect(run(`let now: DateTime = "2024-02-29T12:30:00.123Z"\nlet dates: DateTime?[] = [now, null]\nlet numbers: Number[] = [1 to 3]\nlet total: Number = sum(numbers)\nlet doubled: Number[] = for item in numbers {\n  return item * 2\n}\nfor number in doubled {\n  total += number\n}\nlet answer: Number = if total > 3 and not false then match total {\n  case 18 => round(total / 2)\n  default => 0\n} else 0\nlet same: Boolean = now == "2024-02-29T12:30:00.123Z"`).answer).toBe(9);
+  });
+
+  it("rejects each static category before evaluation, with source and file", () => {
+    const cases: [string, string][] = [
+      ['let value: Number = unknown', 'AMX3001'],
+      ['let value = null', 'AMX3002'],
+      ['let value = [null]', 'AMX3003'],
+      ['let value: Number = "bad"', 'AMX3002'],
+      ['let value: Number = if 1 then 2 else 3', 'AMX3002'],
+      ['let value: Number = 1 + true', 'AMX3002'],
+      ['let value: Boolean = [1] == [1]', 'AMX3003'],
+      ['let value: Number = mystery(1)', 'AMX3004'],
+      ['let value: Number = round(1, true)', 'AMX3002'],
+      ['let value: Number[] = [1, "x"]', 'AMX3002'],
+      ['let value: Number = match 1 {\n case "1" => 1\n default => 2\n}', 'AMX3002'],
+      ['let value: Number = match 1 {\n case 1 => "wrong"\n default => 2\n}', 'AMX3002'],
+      ['let value: Number[] = for item in 1 {\n return item\n}', 'AMX3003'],
+      ['let value: DateTime = "2023-02-29T12:00:00Z"', 'AMX3002'],
+      ['type A {\n  id: Number\n}\nlet a: A = A { id: 1, id: 2 }', 'AMX3005'],
+      ['type A {\n  id: Number\n}\nlet a: A = A { extra: 1 }', 'AMX3001'],
+      ['type A {\n  id: Number\n}\nlet a: A = A { }', 'AMX3002'],
+      ['type A {\n  id: Number\n}\nlet a: A = A { id: 1 }\nlet b = a.missing', 'AMX3001'],
+      ['type A {\n  id?: Number\n}', 'AMX3005'],
+      ['type A {\n  id: Number = unknown\n}', 'AMX3005'],
+      ['type A {\n  id: A\n}', 'AMX3001'],
+      ['let value: Number = 1\nvalue = "wrong"', 'AMX3002']
+    ];
+    for (const [source, code] of cases) {
+      try {
+        run(source);
+        throw new Error(`Expected ${code}: ${source}`);
+      } catch (error) {
+        expect(error).toBeInstanceOf(AmxError);
+        expect((error as AmxError).code).toBe(code);
+        expect((error as AmxError).file).toBe('case.amx');
+        expect((error as AmxError).line).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("checks all blocks before evaluation and rendering but leaves V0.2-only truthiness alone", () => {
+    const invalid = parseDocumentText('```amx\nlet values = min([])\n```\n```amx\nlet bad: Number = "x"\n```');
+    expect(() => checkDocument(invalid, 'case.amx')).toThrow(AmxError);
+    expect(() => evaluateDocument(invalid, 'case.amx')).toThrow(AmxError);
+    expect(() => renderHtml(invalid)).toThrow(AmxError);
+    const legacy = document('let mixed = [1, "two"]\nlet truthy = if 1 then 3 else 4');
+    expect(checkingActivated(legacy)).toBe(false);
+    expect(evaluateDocument(legacy)).toMatchObject({ mixed: [1, 'two'], truthy: 3 });
+  });
+});
 
 describe("evaluator - match expressions", () => {
   const run = (text: string, env = new Environment()) => evaluateExpression(parseExpression(text), env);

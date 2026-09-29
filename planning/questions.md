@@ -117,3 +117,13 @@ No other ambiguities found in the sprint artifacts. If new questions arise durin
 - On 2026-09-29, `bun run build` passed; `bun test` passed (100 tests, 294 assertions, 0 failures); and `git diff --check` passed from the repository root. These checks confirm the documentation-only sprint did not alter the V0.2 implementation baseline.
 - Markdown diagnostics reported no errors in `docs/language-spec-v0.3.md` or the four Sprint 013 artifacts. `planning/questions.md` reports three existing diagnostics in its pre-Sprint-013 V0.1 section: MD009 trailing spaces at its historical lines 5 and 6, and MD038 spacing in an existing code span at historical line 11. The new Sprint 013 question/clarification text has no reported diagnostic. Historical text was left unchanged.
 - The V0.3 contract and four sprint artifacts are delivered pending Lead Developer review. Sprint 014 implementation must wait for acceptance. No changes were made to `src/`, `tests/`, `examples/`, `vscode-extension/`, manifests, generated HTML, or the V0.2 specification.
+
+## V0.3 Sprint 014 Clarifications
+
+- Sprint 013 is accepted for Sprint 014 planning. The V0.3 specification accidentally contains an obsolete preliminary draft before the later complete contract; Sprint 014 removes the duplicate without altering approved semantics before implementation.
+- No blocking language/type-system question remains. The checker activates only for V0.3 documents/options, so strict V0.3 typing does not retroactively reject V0.2-only programs.
+
+## V0.3 Sprint 014 Builder Completion
+
+- No genuinely blocking type-system ambiguity arose; no unapproved language rule was introduced. The obsolete draft was removed without altering the later complete contract. Sprint 014 does not provide V0.3 CLI options, modules, inputs, or outputs; their activation paths belong to Sprints 015-017.
+- Final verification on 2026-09-29: `bun run build` passed; `bun test` passed (106 tests, 403 assertions, 0 failures); `git diff --check` passed. Focused parser probe passed (1 test); focused checker/evaluator probe passed (5 tests, 101 assertions); combined parser/evaluator suites passed (86 tests, 316 assertions before the final cases). Markdown diagnostics were clean for the corrected specification and all four Sprint 014 artifacts. No contract deviations or blockers remain for this sprint.

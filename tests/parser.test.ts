@@ -100,6 +100,23 @@ body
 });
 
 describe("parseStatements", () => {
+  it("parses source-located types, annotations, constructors, access and null only inside amx fences", () => {
+    const doc = parseDocumentText('type Hidden { id: String }\n~~~amx\ntype AlsoHidden {\n  id: String\n}\n~~~\n```amx\ntype Asset {\n  id: String\n  tags?: String[] = []\n  note?: String?\n}\nlet asset: Asset = Asset { id: "A" }\nlet label: String? = asset.note\nlet empty: String? = null\n```');
+    const blocks = doc.nodes.filter(node => node.type === 'executableCodeBlock');
+    expect(blocks).toHaveLength(1);
+    const statements = (blocks[0] as ExecutableCodeBlockNode).statements;
+    expect(statements).toHaveLength(4);
+    expect(statements[0]).toMatchObject({ type: 'typeDeclaration', name: 'Asset', source: { line: 8, column: 1 }, fields: [
+      { name: 'id', source: { line: 9, column: 3 }, annotation: { type: 'namedType', name: 'String' } },
+      { name: 'tags', optional: true, annotation: { type: 'listType' } },
+      { name: 'note', annotation: { type: 'nullableType' } }
+    ] });
+    expect(statements[1]).toMatchObject({ annotation: { name: 'Asset' }, expression: { type: 'recordConstructor' } });
+    expect((statements[1] as VariableDeclarationNode).expression.source).toEqual({ line: 13, column: 20 });
+    expect(statements[2]).toMatchObject({ expression: { type: 'fieldAccess', field: 'note' } });
+    expect((statements[2] as VariableDeclarationNode).expression.source).toEqual({ line: 14, column: 27 });
+    expect(statements[3]).toMatchObject({ expression: { type: 'nullLiteral' } });
+  });
   it("parses declarations with original-document source locations", () => {
     const statements = parseStatements("\n  let first = 1\nlet second = 2", { line: 7, column: 1 });
     expect(statements).toHaveLength(2);

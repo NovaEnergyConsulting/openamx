@@ -1,6 +1,7 @@
 import { OpenAmxDocument } from '../ast/types';
 import { Environment } from './environment';
 import { evaluateStatements } from './evaluateExpression';
+import { checkDocument, checkingActivated } from '../typechecker/checkDocument';
 
 /**
  * Evaluate an OpenAmxDocument in source order.
@@ -18,6 +19,7 @@ export function evaluateDocument(
 
 /** Evaluate executable blocks once and return their shared final environment. */
 export function evaluateDocumentEnvironment(doc: OpenAmxDocument, file?: string): Environment {
+  if (checkingActivated(doc)) checkDocument(doc, file);
   const env = new Environment();
 
   for (const node of doc.nodes) {

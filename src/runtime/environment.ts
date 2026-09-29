@@ -1,5 +1,5 @@
 import { throwUndefinedIdentifier } from '../diagnostics/errors';
-import { SourceLocation } from '../ast/types';
+import { SourceLocation, TypeDeclarationNode } from '../ast/types';
 
 /**
  * Runtime environment for variable storage during evaluation.
@@ -8,6 +8,7 @@ import { SourceLocation } from '../ast/types';
  */
 export class Environment {
   private store: Map<string, unknown> = new Map();
+  readonly recordTypes = new Map<string, TypeDeclarationNode>();
 
   /**
    * Set or overwrite a variable value.

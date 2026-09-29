@@ -173,3 +173,17 @@ All of the above are recorded here so that Builders and future sprints do not ac
 ### V0.3 Sprint 013 Builder Outcome
 
 - Verification on 2026-09-29: `bun run build` passed; `bun test` passed (100 tests, 294 assertions, 0 failures); `git diff --check` passed. No product implementation files were changed.
+
+## V0.3 Sprint 014 Preparation Decisions
+
+- **Implementation slice**: Sprint 014 owns records, typed bindings, null, record access, runtime record values, and full static checking of activated programs. Functions/modules/library, inputs/validation, and outputs remain in Sprints 015-017.
+- **Checker integration**: The checker is a pure document-level phase run before existing evaluation. It activates only under the V0.3 activation rule, preserving V0.2-only truthiness and mixed-list behavior.
+- **Runtime boundary**: Runtime work materializes and accesses valid record values; it does not implement file-input validation, module values, serialization, or domain constraints.
+- **Contract consolidation**: The completed V0.3 specification contains a duplicated obsolete leading draft. Sprint 014 may remove that duplicate only, retaining the later complete contract text without a semantic rewrite.
+
+## V0.3 Sprint 014 Builder Outcome
+
+- The document checker is a pure, first-error, source-order pass over executable blocks; it activates for parsed V0.3 forms and runs before the shared evaluation environment is created. Independent errors may be aggregated in later work, but no runtime block runs after a static error.
+- Record field declarations retain source order; constructed values evaluate supplied expressions then materialize in declaration order, creating fresh nested/list default values per instance. Direct access to nullable records is rejected; a null comparison narrows the appropriate `if` branch.
+- The historical V0.2 path, executable fences, CLI, formatter, and renderer remain unchanged. The later complete V0.3 contract is retained without semantic modification; deferred function/module/input/output work was not started.
+- Verification on 2026-09-29: final `bun run build` passed; `bun test` passed (106 tests, 403 assertions, 0 failures); `git diff --check` passed. No contract deviation.
