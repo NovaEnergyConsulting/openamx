@@ -13,6 +13,7 @@ import { evaluateStatements } from './evaluateExpression';
 import { Environment } from './environment';
 import { moduleError, staticError } from '../diagnostics/errors';
 import { loadInputValues, ValidationMode } from './inputData';
+import { prepareOutputs, PreparedOutput } from './outputData';
 
 /**
  * Local `.amx` module loader (Sprint 015).
@@ -37,11 +38,14 @@ interface ModuleRecord {
 export interface LoadedEntryModule {
   doc: OpenAmxDocument;
   env: Environment;
+  outputs: PreparedOutput[];
 }
 
 export interface ModuleLoadOptions {
   inputMappings?: string[];
   validation?: ValidationMode;
+  outputMappings?: string[];
+  reservedOutputPath?: string;
 }
 
 function flattenStatements(doc: OpenAmxDocument): StatementNode[] {
@@ -183,7 +187,7 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     let checkResult: ModuleCheckResult = {
       exportedTypes: new Map(), exportedFunctions: new Map(), exportedBindings: new Map(), bindingTypes: new Map()
     };
-    if (imports.length > 0 || checkingActivated(doc) || options.inputMappings?.length || options.validation !== undefined) {
+    if (imports.length > 0 || checkingActivated(doc) || options.inputMappings?.length || options.validation !== undefined || options.outputMappings?.length) {
       checkResult = checkDocument(doc, canonicalPath, {
         types: importedTypes,
         functions: importedFunctions,
@@ -207,6 +211,12 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
   for (const statement of entryStatements) {
     if (statement.type === 'typeDeclaration') entryTypes.set(statement.name, statement);
   }
+  const outputs = prepareOutputs(
+    options.outputMappings,
+    entryRecord.checkResult.exportedBindings,
+    entryTypes,
+    options.reservedOutputPath
+  );
   const inputValues = await loadInputValues(
     inputDeclarations,
     entryTypes,
@@ -237,5 +247,5 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
   }
 
   const entryEnv = evaluatedEnvironments.get(realEntry)!;
-  return { doc: resolved.get(realEntry)!.doc, env: entryEnv };
+  return { doc: resolved.get(realEntry)!.doc, env: entryEnv, outputs };
 }

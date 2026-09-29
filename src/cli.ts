@@ -12,8 +12,15 @@ import { cac } from "cac";
 import { renderHtml } from "./renderer/renderHtml";
 import { AmxDiagnostic, AmxError } from "./diagnostics/errors";
 import { loadEntryModule } from "./runtime/moduleLoader";
+import { serializeOutputs, writeOutputs } from "./runtime/outputData";
 
 const cli = cac("openamx");
+
+function suppliedMappings(options: { input?: string[]; output?: string[] }, name: "input" | "output"): string[] | undefined {
+  const option = `--${name}`;
+  const supplied = process.argv.some(argument => argument === option || argument.startsWith(`${option}=`));
+  return supplied ? options[name] : undefined;
+}
 
 function reportAmxError(error: AmxError): void {
   const diagnostics: AmxDiagnostic[] = error.diagnostics ?? [{
@@ -45,16 +52,22 @@ cli
   .command("render <input>", "Render an .amx file to standalone HTML")
   .option("--out <path>", "Output HTML file path (default: input with .html extension)")
   .option("--input <mapping>", "Map a logical input to a data file", { type: [String] })
+  .option("--output <mapping>", "Write an exported value to a JSON or CSV file", { type: [String] })
   .option("--validation <mode>", "Validation mode: aggregate or fail-fast")
-  .action(async (input: string, options: { out?: string; input?: string[]; validation?: string }) => {
+  .action(async (input: string, options: { out?: string; input?: string[]; output?: string[]; validation?: string }) => {
     try {
-      const { doc, env } = await loadEntryModule(input, {
-        inputMappings: options.input,
-        validation: options.validation as "aggregate" | "fail-fast" | undefined
+      const outPath = options.out || input.replace(/\.amx$/, ".html");
+      const inputMappings = suppliedMappings(options, "input");
+      const outputMappings = suppliedMappings(options, "output");
+      const { doc, env, outputs } = await loadEntryModule(input, {
+        inputMappings,
+        validation: options.validation as "aggregate" | "fail-fast" | undefined,
+        outputMappings,
+        reservedOutputPath: outputMappings?.length ? outPath : undefined
       });
       const html = renderHtml(doc, input, env);
-      const outPath = options.out || input.replace(/\.amx$/, ".html");
-      await Bun.write(outPath, html);
+      const serialized = serializeOutputs(outputs, env);
+      await writeOutputs([{ path: outPath, contents: html }, ...serialized]);
       console.log(`Rendered to ${outPath}`);
     } catch (err: any) {
       if (err instanceof AmxError) {
@@ -69,13 +82,19 @@ cli
 cli
   .command("run <input>", "Run an .amx file and print evaluated context as JSON")
   .option("--input <mapping>", "Map a logical input to a data file", { type: [String] })
+  .option("--output <mapping>", "Write an exported value to a JSON or CSV file", { type: [String] })
   .option("--validation <mode>", "Validation mode: aggregate or fail-fast")
-  .action(async (input: string, options: { input?: string[]; validation?: string }) => {
+  .action(async (input: string, options: { input?: string[]; output?: string[]; validation?: string }) => {
     try {
-      const { env } = await loadEntryModule(input, {
-        inputMappings: options.input,
-        validation: options.validation as "aggregate" | "fail-fast" | undefined
+      const inputMappings = suppliedMappings(options, "input");
+      const outputMappings = suppliedMappings(options, "output");
+      const { env, outputs } = await loadEntryModule(input, {
+        inputMappings,
+        validation: options.validation as "aggregate" | "fail-fast" | undefined,
+        outputMappings
       });
+      const serialized = serializeOutputs(outputs, env);
+      await writeOutputs(serialized);
       console.log(JSON.stringify(env.toObject(), null, 2));
     } catch (err: any) {
       if (err instanceof AmxError) {

@@ -195,6 +195,13 @@ All of the above are recorded here so that Builders and future sprints do not ac
 - **Diagnostic behavior**: Input mapping/read failures are AMX4001, malformed JSON/CSV is AMX4002, and shape/nullability/conversion failures are AMX4003. Aggregate and fail-fast share one deterministic traversal order.
 - **JSON duplicate keys**: Reject duplicates rather than accepting JavaScript parser last-key-wins semantics; retain data-path/location context whenever the parser exposes it.
 
+## V0.3 Sprint 017 Preparation Decisions
+
+- **Output visibility**: Only explicit entry-module exported `let` values are output-selectable. Module exports enable reuse but do not make imported/private names CLI outputs.
+- **Serialization boundary**: Typed values are serialized completely in memory before destination writes. JSON/CSV formats preserve declaration-order type metadata; arbitrary object keys do not establish a CSV shape.
+- **Write ordering**: `render` produces/serializes HTML and exports before writing any destination, writes HTML first, then exports in option order. Filesystem failures use AMX6002 and may leave prior writes intact.
+- **CSV scope**: CSV output is limited to typed scalar-field record lists, including empty lists. Null and empty-string cells remain distinct per the V0.3 contract.
+
 ## V0.3 Sprint 014 Builder Outcome
 
 - The document checker is a pure, first-error, source-order pass over executable blocks; it activates for parsed V0.3 forms and runs before the shared evaluation environment is created. Independent errors may be aggregated in later work, but no runtime block runs after a static error.
@@ -218,3 +225,10 @@ All of the above are recorded here so that Builders and future sprints do not ac
 - `csv-parse@7.0.3` is the sole new dependency and provides RFC CSV parsing with quote metadata. A focused strict JSON parser detects duplicate keys and preserves JSON Pointer/data coordinates without adding a JSON dependency.
 - Entry inputs are converted and validated after full graph checking but before any module evaluation. Input declaration order and data traversal determine aggregate/fail-fast diagnostics; validated values are immutable and seeded only into the entry environment. Computed typed boundaries use the same aggregate/fail-fast policy.
 - Verification on 2026-09-29: `bun run build` passed; `bun test` passed (147 tests, 549 assertions, 0 failures); `git diff --check` passed. No output selection, serialization, writes, or other Sprint 017 work was started.
+
+## V0.3 Sprint 017 Implementation Outcomes
+
+- Output mappings are validated against the entry check result's explicit exported bindings and retained `CheckedType` metadata. `run` continues printing its final context; `render` continues producing its standalone HTML. Both serialize every requested export before writes. Render then writes HTML followed by exports in option order. Writes are ordered, not transactional.
+- JSON recursively serializes finite declared values and rebuilds records in field declaration order. CSV accepts only a list of one declared record type with scalar/nullable-scalar fields; cell escaping preserves commas, quotes, newlines, boundary spaces, nulls, and quoted empty strings. Empty record lists use declared headers.
+- No dependency was added. No input validation, module/function/library behavior, renderer output, editor, or release-example work changed. CAC's absent repeated options are normalized at the CLI boundary using actual argv presence so output support does not turn absent `--input`/`--output` options into mappings.
+- Verification on 2026-09-29: focused output tests passed (9 tests); integrated output/loader/regression tests passed (35 tests); `bun run build` passed; full `bun test` passed (156 tests across 9 files, 0 failures); `git diff --check` passed. See `planning/questions.md` for the acceptance/spec AMX6001/AMX6002 diagnostic-code clarification.

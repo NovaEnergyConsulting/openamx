@@ -64,6 +64,10 @@ export function moduleError(code: 'AMX5001' | 'AMX5002' | 'AMX5003', message: st
   throw new AmxError({ code, message, file, line: source?.line, column: source?.column });
 }
 
+export function outputError(code: 'AMX6001' | 'AMX6002', message: string): never {
+  throw new AmxError({ code, message });
+}
+
 /**
  * Create an AMX1004 undefined identifier diagnostic.
  */

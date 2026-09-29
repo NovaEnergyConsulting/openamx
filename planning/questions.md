@@ -135,6 +135,18 @@ No other ambiguities found in the sprint artifacts. If new questions arise durin
 - CSV is deliberately shallow. Nested JSON remains supported, but nested/list CSV fields and JSON-in-cell encoding are rejected.
 - Duplicate JSON keys must be rejected rather than silently overwritten. Aggregate and fail-fast diagnostics use the same deterministic input/data traversal.
 
+## V0.3 Sprint 017 Clarifications
+
+- No blocking output question remains. Output names select only explicit entry-module exported bindings; imports never implicitly become CLI outputs.
+- Serialization completes before writes, but individual filesystem write failures may leave earlier destinations present. This is deterministic ordering, not a transaction guarantee.
+- CSV stays limited to typed scalar-field record lists. Empty record lists still emit their declared headers; nested/list/scalar CSV exports are rejected.
+- The Sprint 017 acceptance text groups non-finite numbers with `AMX6001`, while authoritative V0.3 spec section 11 assigns `AMX6002` to serialization failures and section 12 rejects non-finite JSON numbers. Following the handoff's spec-authoritative rule, unsupported export shapes use `AMX6001`; non-finite values discovered during serialization use `AMX6002`.
+
+## V0.3 Sprint 017 Builder Completion
+
+- No blocking ambiguity arose. The only acceptance/spec mismatch and its conservative, spec-authoritative disposition are recorded above; no language or serialization rule was otherwise invented.
+- Final verification on 2026-09-29: `bun run build` passed; focused serializer/CLI tests passed (9 tests); integrated output/loader/regression tests passed (35 tests); `bun test` passed (156 tests across 9 files, 0 failures); `git diff --check` passed. Output ordering, no-option compatibility, explicit entry-export selection, declared-type JSON/CSV round trips, and AMX6002 write failure behavior are covered.
+
 ## V0.3 Sprint 014 Builder Completion
 
 - No genuinely blocking type-system ambiguity arose; no unapproved language rule was introduced. The obsolete draft was removed without altering the later complete contract. Sprint 014 does not provide V0.3 CLI options, modules, inputs, or outputs; their activation paths belong to Sprints 015-017.

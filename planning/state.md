@@ -10,6 +10,8 @@
 - Sprint folder: planning/sprints/0015-pure-functions-modules-asset-management-library/
 - Sprint 016: CSV/JSON Input and Runtime Validation — COMPLETE; logical inputs, CLI mappings, JSON/CSV conversion, and deterministic runtime validation delivered.
 - Sprint folder: planning/sprints/0016-csv-json-input-runtime-validation/
+- Sprint 017: CSV/JSON Output — COMPLETE; repeated named exports, deterministic typed JSON/CSV serialization, and ordered safe writes delivered.
+- Sprint folder: planning/sprints/0017-csv-json-output/
 - Master plan approved (plan-openamxV02MasterSprintPlan.md); V0.2 acceptance complete.
 - Sprint 007: V0.2 Language Contract, AST & Fenced Parsing — COMPLETE.
 - Sprint folder: planning/sprints/0007-v02-language-contract-ast-fenced-parsing/
@@ -88,10 +90,18 @@
 
 ## Next Steps
 
-- Sprint 016 COMPLETE. Sprint 017 is next and remains scoped to named output/serialization.
+- Sprint 017 COMPLETE. Sprint 018 owns V0.3 editor support; Sprint 019 owns release examples/documentation and end-to-end acceptance.
 - Sprint 006 COMPLETE (see Sprint History). CLI, examples, full tests, documentation, and V0.1 acceptance are complete.
 - Sprint 007 COMPLETE (V0.2 Language Contract, AST & Fenced Parsing).
 - Sprint 008–012 COMPLETE. Keep V0.3 candidates in this order: (1) tables/charts; (2) units/currency; (3) reusable/imported `.amx`; (4) Asset Management domain libraries; (5) data imports; (6) Word/PDF export; (7) multi-file workflows; (8) richer validation; (9) AI-assisted authoring. None is implemented; decide a project license before Marketplace publication.
 - Continue to follow 120x process: only documented scope per active sprint.
 - Keep build and test green: `bun install && bun run build && bun test`.
 - Record any future clarifications in planning/decisions.md or planning/questions.md.
+
+## V0.3 Sprint 017 Builder Completion
+
+- Added repeated `--output name=path` support for `run` and `render`. Selection is limited to explicitly exported entry-module `let` values; mappings and canonical destinations are checked before input loading/evaluation, and checked declared types remain available through serialization.
+- Added deterministic JSON serialization for finite typed scalars, nulls, records, and lists, preserving declaration-order fields and DateTime strings. Added shallow typed-record-list CSV serialization with declaration-order headers, RFC 4180 quoting, LF/final LF, null/empty-string distinction, and valid empty-list headers.
+- All exports serialize before writes. Render prepares HTML and exports before writing HTML first and exports in CLI order; filesystem failures report AMX6002 and may leave earlier files, with no transaction guarantee. Existing run context JSON and render HTML behavior remain intact when outputs are absent.
+- Focused verification: `bun test tests/outputData.test.ts tests/outputCli.test.ts` passed (9 tests); integrated loader/regression verification `bun test tests/outputCli.test.ts tests/modules.test.ts tests/outputData.test.ts` passed (35 tests). Final `bun run build` passed; full `bun test` passed (156 tests across 9 files, 0 failures). `git diff --check` recorded after final planning edits.
+- One contract clarification is recorded in `planning/questions.md`: the acceptance text associates non-finite numbers with AMX6001, but the authoritative specification assigns serialization failures to AMX6002. Unsupported shapes remain AMX6001; non-finite serialization values use AMX6002.
