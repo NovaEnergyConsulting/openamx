@@ -2,6 +2,13 @@
 
 This file records key technology choices, architecture decisions, scope limitations, and other material decisions made during the project. Updated by every sprint.
 
+## V0.4 Sprint 022 Preparation
+
+- Sprint 022 consumes Sprint 021's immutable `ViewEmission` snapshots by document node/statement position, appending views after the owning fence's existing visible formatted source; the renderer must not evaluate the CLI's already-loaded environment again. Narrative interpolation remains final-environment based.
+- Provide browser-interactive, accessible offline HTML and original-order static print content now; PDF composition/command and production font approval remain Sprint 023. Table sorting/filtering/pagination must not change the captured snapshot or the print content.
+- Extend the existing direct VS Code providers for pure-buffer formatting/completion/static diagnostics. Runtime input-validation failures, including `AMX4003` label-length mismatches, remain outside editor diagnostics.
+- Sprint 020 Option 2 closure is recorded. The deferred Hutch command reliability and persistent WSL window proof stay desktop residuals, not a change to Sprint 022 or platform acceptance claims.
+
 ## V0.4 Sprint 021 Preparation
 
 - Lead Developer approved Sprint 020 closure under Option 2 on 2026-09-29 and authorized Sprint 021 implementation. Accept the direct native Bun RPC launch proof for this gate while explicitly retaining Hutch scripted prepare/build/dev reliability and persistent WSL window verification as unverified residuals. This does not remove the desktop must-have or claim full desktop acceptance.
