@@ -123,7 +123,24 @@ No other ambiguities found in the sprint artifacts. If new questions arise durin
 - Sprint 013 is accepted for Sprint 014 planning. The V0.3 specification accidentally contains an obsolete preliminary draft before the later complete contract; Sprint 014 removes the duplicate without altering approved semantics before implementation.
 - No blocking language/type-system question remains. The checker activates only for V0.3 documents/options, so strict V0.3 typing does not retroactively reject V0.2-only programs.
 
+## V0.3 Sprint 015 Clarifications
+
+- No blocking function/module question remains. Function call frames contain parameters and permitted callable symbols only; they do not capture module or document bindings.
+- Module resolution and canonical containment are loader responsibilities. Sprint 015 exposes exports only to imports; CLI input/output behavior remains deferred.
+- The initial Asset Management library remains structural and opt-in. Domain review is still required before calling its schemas stable standards.
+
 ## V0.3 Sprint 014 Builder Completion
 
 - No genuinely blocking type-system ambiguity arose; no unapproved language rule was introduced. The obsolete draft was removed without altering the later complete contract. Sprint 014 does not provide V0.3 CLI options, modules, inputs, or outputs; their activation paths belong to Sprints 015-017.
 - Final verification on 2026-09-29: `bun run build` passed; `bun test` passed (106 tests, 403 assertions, 0 failures); `git diff --check` passed. Focused parser probe passed (1 test); focused checker/evaluator probe passed (5 tests, 101 assertions); combined parser/evaluator suites passed (86 tests, 316 assertions before the final cases). Markdown diagnostics were clean for the corrected specification and all four Sprint 014 artifacts. No contract deviations or blockers remain for this sprint.
+
+## V0.3 Sprint 015 Builder Clarifications
+
+- **Non-blocking ambiguity resolved before implementation**: Section 8 states "Imports and inputs may not appear in an imported module" immediately after describing depth-first, cycle-aware module resolution, which is only meaningful for graphs deeper than one level. Read literally, that sentence would make transitive imports and any cycle other than direct self-import impossible, contradicting the DFS/cycle-detection language in the same section. The conservative, contract-consistent disposition adopted here: only `input` is entry-module-only; `import` may appear in any module (entry or dependency), enabling genuine transitive graphs and multi-module cycles. This is recorded here rather than left silently assumed; it does not relax any other module rule (containment, explicit exports only, no re-export, isolated environments, evaluate-once).
+- Imported-value mutation and redeclaration are diagnosed as `AMX5002` (not `AMX3005`), matching the acceptance criteria's explicit listing of "imported-value mutation" alongside missing/duplicate exports and collisions under the `AMX5002` family.
+- No other blocking function/module/library ambiguity arose. The six Asset Management schemas were packaged verbatim from the V0.3 contract with no calculations or constraints added.
+
+## V0.3 Sprint 015 Builder Completion
+
+- Implemented typed pure functions (unique parameters, required return type, single-expression body, purity enforcement: no document/import capture, no recursion, no forward calls, no `for` expressions, no standard-library name shadowing), local module imports/exports (`fn`, `import { ... } from "..."`, `export` prefixing `type`/`fn`/top-level `let`), and a dedicated module loader (`src/runtime/moduleLoader.ts`) that canonicalizes paths, enforces entry-directory containment, performs source-order depth-first resolution, evaluates each module once before its importer in isolated environments, and detects cycles. Added `libraries/asset-management.amx` exporting exactly the six approved schemas with no core registration. CLI `run`/`render` now go through the loader; a document with no imports follows the identical checked/unchecked V0.2 path as before.
+- Verification on 2026-09-29: `bun run build` passed; full `bun test` passed (128 tests, 462 assertions, 0 failures), including 17 new focused module-loader tests (function purity/calls, import/export visibility, diamond dependency evaluate-once-by-reference, immutable-import protection, missing/duplicate/colliding names, invalid/outside-root paths, cycle detection, and real `libraries/asset-management.amx` usage) and 5 new focused parser tests for `fn`/`import`/`export` syntax and placement. All three example renders and both example `run` commands were regenerated and are byte-identical to the committed HTML (`git status --porcelain` reported no example diffs); `git diff --check` passed. No input/output/validation/serialization/extension feature was implemented; Sprint 016/017 scope was not started.

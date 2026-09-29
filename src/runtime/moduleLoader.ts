@@ -1,0 +1,206 @@
+import * as path from 'path';
+import * as fs from 'fs';
+import {
+  FunctionDeclarationNode,
+  ImportDeclarationNode,
+  OpenAmxDocument,
+  StatementNode,
+  TypeDeclarationNode
+} from '../ast/types';
+import { parseDocument } from '../parser/parseDocument';
+import { checkDocument, checkingActivated, CheckedType, ModuleCheckResult } from '../typechecker/checkDocument';
+import { evaluateStatements } from './evaluateExpression';
+import { Environment } from './environment';
+import { moduleError } from '../diagnostics/errors';
+
+/**
+ * Local `.amx` module loader (Sprint 015).
+ *
+ * Owns all filesystem access for imports: canonicalizing paths, enforcing
+ * entry-directory containment, resolving the complete dependency graph with
+ * source-order depth-first traversal, detecting cycles, and evaluating each
+ * module exactly once before its importer. AMX expressions/functions never
+ * receive paths or file handles; only this loader touches the filesystem.
+ */
+
+interface ModuleRecord {
+  canonicalPath: string;
+  doc: OpenAmxDocument;
+  checkResult: ModuleCheckResult;
+  importedTypes: Map<string, TypeDeclarationNode>;
+  importedFunctions: Map<string, FunctionDeclarationNode>;
+  importedBindings: Map<string, CheckedType>;
+  importedBindingSources: Map<string, string>;
+}
+
+export interface LoadedEntryModule {
+  doc: OpenAmxDocument;
+  env: Environment;
+}
+
+function flattenStatements(doc: OpenAmxDocument): StatementNode[] {
+  const statements: StatementNode[] = [];
+  for (const node of doc.nodes) {
+    if (node.type === 'executableCodeBlock') statements.push(...node.statements);
+  }
+  return statements;
+}
+
+function validateImportPathSyntax(importNode: ImportDeclarationNode, file: string): void {
+  const importPath = importNode.path;
+  if (!(importPath.startsWith('./') || importPath.startsWith('../'))) {
+    moduleError('AMX5001', `Import path '${importPath}' must be relative and start with './' or '../'`, importNode.pathSource, file);
+  }
+  if (importPath.includes('\\')) {
+    moduleError('AMX5001', `Import path '${importPath}' must use '/' separators`, importNode.pathSource, file);
+  }
+  if (!importPath.endsWith('.amx')) {
+    moduleError('AMX5001', `Import path '${importPath}' must end with the exact lowercase '.amx' suffix`, importNode.pathSource, file);
+  }
+  if (path.isAbsolute(importPath)) {
+    moduleError('AMX5001', `Import path '${importPath}' must be relative`, importNode.pathSource, file);
+  }
+}
+
+function realpathOrFail(absolutePath: string, code: 'AMX5001', message: string, sourceFile: string): string {
+  try {
+    return fs.realpathSync(absolutePath);
+  } catch {
+    moduleError(code, message, undefined, sourceFile);
+  }
+}
+
+/**
+ * Resolve, check, and evaluate the complete module graph reachable from `entryPath`,
+ * returning the entry module's document and final evaluated environment.
+ */
+export async function loadEntryModule(entryPath: string): Promise<LoadedEntryModule> {
+  const absoluteEntry = path.resolve(entryPath);
+  const realEntry = realpathOrFail(absoluteEntry, 'AMX5001', `Entry module '${entryPath}' could not be read`, entryPath);
+  const entryRoot = path.dirname(realEntry);
+
+  const resolved = new Map<string, ModuleRecord>();
+  const visiting: string[] = [];
+  const evaluationOrder: string[] = [];
+
+  async function visit(canonicalPath: string, viaImportSource: { pathSource?: ImportDeclarationNode['pathSource']; file: string } | undefined): Promise<ModuleRecord> {
+    const existing = resolved.get(canonicalPath);
+    if (existing) return existing;
+
+    const cycleIndex = visiting.indexOf(canonicalPath);
+    if (cycleIndex !== -1) {
+      const cycle = [...visiting.slice(cycleIndex), canonicalPath].map(p => path.relative(entryRoot, p) || path.basename(p));
+      moduleError('AMX5003', `Import cycle detected: ${cycle.join(' -> ')}`, viaImportSource?.pathSource, viaImportSource?.file);
+    }
+
+    visiting.push(canonicalPath);
+
+    let doc: OpenAmxDocument;
+    try {
+      doc = await parseDocument(canonicalPath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      visiting.pop();
+      return moduleError('AMX5001', `Failed to parse module '${canonicalPath}': ${message}`, undefined, canonicalPath);
+    }
+
+    const statements = flattenStatements(doc);
+    const localNames = new Set<string>();
+    for (const statement of statements) {
+      if (statement.type === 'typeDeclaration' || statement.type === 'functionDeclaration' || statement.type === 'variableDeclaration') {
+        localNames.add(statement.name);
+      }
+    }
+
+    let sawNonImport = false;
+    for (const statement of statements) {
+      if (statement.type === 'importDeclaration') {
+        if (sawNonImport) moduleError('AMX5001', 'Import declarations must precede all other executable items', statement.source, canonicalPath);
+      } else {
+        sawNonImport = true;
+      }
+    }
+
+    const imports = statements.filter((s): s is ImportDeclarationNode => s.type === 'importDeclaration');
+    const importedTypes = new Map<string, TypeDeclarationNode>();
+    const importedFunctions = new Map<string, FunctionDeclarationNode>();
+    const importedBindings = new Map<string, CheckedType>();
+    const importedBindingSources = new Map<string, string>();
+    const importedNamesSeen = new Set<string>();
+
+    for (const importNode of imports) {
+      validateImportPathSyntax(importNode, canonicalPath);
+      const importerDir = path.dirname(canonicalPath);
+      const targetAbsolute = path.resolve(importerDir, importNode.path);
+      const targetReal = realpathOrFail(
+        targetAbsolute,
+        'AMX5001',
+        `Module '${importNode.path}' could not be found`,
+        canonicalPath
+      );
+      const relativeToRoot = path.relative(entryRoot, targetReal);
+      if (relativeToRoot === '' || relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+        moduleError('AMX5001', `Module '${importNode.path}' resolves outside the entry directory tree`, importNode.pathSource, canonicalPath);
+      }
+
+      const dependency = await visit(targetReal, { pathSource: importNode.pathSource, file: canonicalPath });
+
+      for (const importedName of importNode.names) {
+        if (importedNamesSeen.has(importedName.name)) {
+          moduleError('AMX5002', `Duplicate import of '${importedName.name}'`, importedName.source, canonicalPath);
+        }
+        importedNamesSeen.add(importedName.name);
+        if (localNames.has(importedName.name)) {
+          moduleError('AMX5002', `Imported name '${importedName.name}' collides with a local declaration`, importedName.source, canonicalPath);
+        }
+
+        if (dependency.checkResult.exportedTypes.has(importedName.name)) {
+          importedTypes.set(importedName.name, dependency.checkResult.exportedTypes.get(importedName.name)!);
+        } else if (dependency.checkResult.exportedFunctions.has(importedName.name)) {
+          importedFunctions.set(importedName.name, dependency.checkResult.exportedFunctions.get(importedName.name)!);
+        } else if (dependency.checkResult.exportedBindings.has(importedName.name)) {
+          importedBindings.set(importedName.name, dependency.checkResult.exportedBindings.get(importedName.name)!);
+          importedBindingSources.set(importedName.name, dependency.canonicalPath);
+        } else {
+          moduleError('AMX5002', `Module '${importNode.path}' does not export '${importedName.name}'`, importedName.source, canonicalPath);
+        }
+      }
+    }
+
+    let checkResult: ModuleCheckResult = { exportedTypes: new Map(), exportedFunctions: new Map(), exportedBindings: new Map() };
+    if (imports.length > 0 || checkingActivated(doc)) {
+      checkResult = checkDocument(doc, canonicalPath, {
+        types: importedTypes,
+        functions: importedFunctions,
+        bindings: importedBindings
+      });
+    }
+
+    visiting.pop();
+    const record: ModuleRecord = { canonicalPath, doc, checkResult, importedTypes, importedFunctions, importedBindings, importedBindingSources };
+    resolved.set(canonicalPath, record);
+    evaluationOrder.push(canonicalPath);
+    return record;
+  }
+
+  await visit(realEntry, undefined);
+
+  const evaluatedEnvironments = new Map<string, Environment>();
+  for (const canonicalPath of evaluationOrder) {
+    const record = resolved.get(canonicalPath)!;
+    const env = new Environment();
+    for (const [name, typeDeclaration] of record.importedTypes) env.recordTypes.set(name, typeDeclaration);
+    for (const [name, functionDeclaration] of record.importedFunctions) env.functions.set(name, functionDeclaration);
+    for (const [name, sourcePath] of record.importedBindingSources) {
+      const dependencyEnv = evaluatedEnvironments.get(sourcePath)!;
+      env.set(name, dependencyEnv.get(name));
+    }
+    for (const node of record.doc.nodes) {
+      if (node.type === 'executableCodeBlock') evaluateStatements(node.statements, env, canonicalPath);
+    }
+    evaluatedEnvironments.set(canonicalPath, env);
+  }
+
+  const entryEnv = evaluatedEnvironments.get(realEntry)!;
+  return { doc: resolved.get(realEntry)!.doc, env: entryEnv };
+}

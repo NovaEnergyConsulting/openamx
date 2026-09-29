@@ -17,14 +17,14 @@ import { formatAmx } from '../formatter/formatAmx';
  * - Output is deterministic for the supported Markdown subset.
  * - Errors inside {{ }} (e.g. AMX1004) are surfaced with the same AmxError semantics.
  */
-export function renderHtml(doc: OpenAmxDocument, file?: string): string {
-  const env = evaluateDocumentEnvironment(doc, file);
+export function renderHtml(doc: OpenAmxDocument, file?: string, env?: Environment): string {
+  const environment = env ?? evaluateDocumentEnvironment(doc, file);
 
   const bodyFragments: string[] = [];
 
   for (const node of doc.nodes) {
     if (node.type === 'narrative') {
-      const substituted = substituteInlines(node.content, env, file, node.source?.line);
+      const substituted = substituteInlines(node.content, environment, file, node.source?.line);
       // marked.parse returns string | Promise<string> in v14 depending on configuration.
       // For our deterministic sync usage (no async extensions) it is always a string.
       const htmlFragment = marked.parse(substituted) as string;

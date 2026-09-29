@@ -1,0 +1,69 @@
+---
+title: Asset Management Library
+---
+# Asset Management Library
+
+This is an opt-in local module exporting the six initial Asset Management structural
+schemas defined by `docs/language-spec-v0.3.md` section 13. These types are shape
+contracts only: they express no severity/likelihood scale, score formula, identifier
+policy, required relationship, or other domain rule beyond their declared fields. They
+are not core defaults and are only visible to a document that explicitly imports them,
+for example:
+
+```text
+import { Asset, FailureMode } from "./libraries/asset-management.amx"
+```
+
+Domain review is required before these schemas are represented as stable Asset
+Management standards.
+
+```amx
+export type FailureMode {
+  id: String
+  name: String
+  description?: String? = null
+  severity: Number
+  occurrence: Number
+  detectability?: Number? = null
+}
+
+export type Risk {
+  id: String
+  failureMode: FailureMode
+  likelihood: Number
+  consequence: Number
+  score?: Number? = null
+}
+
+export type Strategy {
+  id: String
+  name: String
+  description?: String? = null
+  targetRiskIds: String[] = []
+}
+
+export type Asset {
+  id: String
+  name: String
+  assetClass: String
+  criticality: Number
+  failureModes: FailureMode[] = []
+}
+
+export type MaintenanceTask {
+  id: String
+  assetId: String
+  strategyId?: String? = null
+  title: String
+  intervalDays: Number
+  estimatedCost?: Number? = null
+}
+
+export type LifecycleCost {
+  assetId: String
+  acquisitionCost: Number
+  operatingCost: Number
+  maintenanceCost: Number
+  disposalCost?: Number? = null
+}
+```

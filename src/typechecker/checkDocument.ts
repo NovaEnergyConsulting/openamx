@@ -1,10 +1,24 @@
-import { OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TypeDeclarationNode, TypeReferenceNode, V02ExpressionNode } from '../ast/types';
-import { staticError } from '../diagnostics/errors';
+import { FunctionDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TypeDeclarationNode, TypeReferenceNode, V02ExpressionNode } from '../ast/types';
+import { moduleError, staticError } from '../diagnostics/errors';
 
-type CheckedType =
+export type CheckedType =
   | { kind: 'named'; name: string }
   | { kind: 'list' | 'nullable'; element: CheckedType }
   | { kind: 'null' };
+
+/** Symbols made visible to a module because they were explicitly imported (immutable). */
+export interface ModuleCheckContext {
+  types?: Map<string, TypeDeclarationNode>;
+  functions?: Map<string, FunctionDeclarationNode>;
+  bindings?: Map<string, CheckedType>;
+}
+
+/** Symbols this module makes available to importers because they were declared with `export`. */
+export interface ModuleCheckResult {
+  exportedTypes: Map<string, TypeDeclarationNode>;
+  exportedFunctions: Map<string, FunctionDeclarationNode>;
+  exportedBindings: Map<string, CheckedType>;
+}
 
 const named = (name: string): CheckedType => ({ kind: 'named', name });
 const list = (element: CheckedType): CheckedType => ({ kind: 'list', element });
@@ -57,15 +71,40 @@ export function checkingActivated(doc: OpenAmxDocument): boolean {
     }
   };
   const statementHasV03 = (statement: StatementNode): boolean => statement.type === 'typeDeclaration'
-    || (statement.type === 'variableDeclaration' && !!statement.annotation)
+    || statement.type === 'functionDeclaration'
+    || statement.type === 'importDeclaration'
+    || (statement.type === 'variableDeclaration' && (!!statement.annotation || !!statement.exported))
     || (statement.type === 'forStatement' && (expressionHasV03(statement.iterable) || statement.body.some(statementHasV03)))
     || ('expression' in statement && expressionHasV03(statement.expression));
   return doc.nodes.some(node => node.type === 'executableCodeBlock' && node.statements.some(statementHasV03));
 }
 
-export function checkDocument(doc: OpenAmxDocument, file?: string): void {
-  const types = new Map<string, TypeDeclarationNode>();
-  const bindings = new Map<string, CheckedType>();
+const stdlibNames = new Set(['sum', 'min', 'max', 'mean', 'round', 'abs', 'sqrt', 'pow']);
+
+function bodyContainsForExpression(expression: V02ExpressionNode): boolean {
+  switch (expression.type) {
+    case 'forExpression': return true;
+    case 'binaryExpression': return bodyContainsForExpression(expression.left) || bodyContainsForExpression(expression.right);
+    case 'unaryExpression': return bodyContainsForExpression(expression.argument);
+    case 'conditionalExpression': return [expression.test, expression.consequent, expression.alternate].some(bodyContainsForExpression);
+    case 'listLiteral': return expression.elements.some(bodyContainsForExpression);
+    case 'functionCall': return expression.arguments.some(bodyContainsForExpression);
+    case 'rangeExpression': return bodyContainsForExpression(expression.start) || bodyContainsForExpression(expression.end);
+    case 'matchExpression': return bodyContainsForExpression(expression.expression) || expression.cases.some(arm => bodyContainsForExpression(arm.expression)) || bodyContainsForExpression(expression.defaultExpression);
+    case 'recordConstructor': return expression.fields.some(field => bodyContainsForExpression(field.expression));
+    case 'fieldAccess': return bodyContainsForExpression(expression.receiver);
+    default: return false;
+  }
+}
+
+export function checkDocument(doc: OpenAmxDocument, file?: string, context?: ModuleCheckContext): ModuleCheckResult {
+  const types = new Map<string, TypeDeclarationNode>(context?.types ?? []);
+  let bindings = new Map<string, CheckedType>(context?.bindings ?? []);
+  const functions = new Map<string, FunctionDeclarationNode>(context?.functions ?? []);
+  const immutableNames = new Set<string>([...(context?.bindings?.keys() ?? []), ...(context?.functions?.keys() ?? []), ...(context?.types?.keys() ?? [])]);
+  const exportedTypes = new Map<string, TypeDeclarationNode>();
+  const exportedFunctions = new Map<string, FunctionDeclarationNode>();
+  const exportedBindings = new Map<string, CheckedType>();
   const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005', message: string, source?: SourceLocation): never => staticError(code, message, source, file);
 
   function resolve(ref: TypeReferenceNode): CheckedType {
@@ -200,6 +239,15 @@ export function checkDocument(doc: OpenAmxDocument, file?: string): void {
         requireType(infer(expression.end), named('Number'), expression.end.source);
         return list(named('Number'));
       case 'functionCall': {
+        const userFunction = functions.get(expression.callee);
+        if (userFunction) {
+          if (expression.arguments.length !== userFunction.parameters.length) fail('AMX3004', `Invalid arity for '${expression.callee}'`, expression.source);
+          expression.arguments.forEach((argument, index) => {
+            const target = resolve(userFunction.parameters[index].annotation);
+            requireType(infer(argument, target), target, argument.source);
+          });
+          return resolve(userFunction.returnType);
+        }
         const signature = signatures[expression.callee];
         if (!signature) fail('AMX3004', `Unknown function '${expression.callee}'`, expression.source);
         if (expression.arguments.length < signature.min || expression.arguments.length > signature.args.length) fail('AMX3004', `Invalid arity for '${expression.callee}'`, expression.source);
@@ -264,8 +312,10 @@ export function checkDocument(doc: OpenAmxDocument, file?: string): void {
 
   function checkStatement(statement: StatementNode): void {
     switch (statement.type) {
+      case 'importDeclaration':
+        return;
       case 'typeDeclaration': {
-        if (primitives.has(statement.name) || types.has(statement.name) || bindings.has(statement.name)) fail('AMX3005', `Duplicate type '${statement.name}'`, statement.source);
+        if (primitives.has(statement.name) || types.has(statement.name) || bindings.has(statement.name) || functions.has(statement.name)) fail('AMX3005', `Duplicate type '${statement.name}'`, statement.source);
         const fields = new Set<string>();
         for (const field of statement.fields) {
           if (fields.has(field.name)) fail('AMX3005', `Duplicate field '${field.name}'`, field.source);
@@ -275,18 +325,47 @@ export function checkDocument(doc: OpenAmxDocument, file?: string): void {
         }
         types.set(statement.name, statement);
         for (const field of statement.fields) if (field.defaultExpression) checkDefault(field.defaultExpression, resolve(field.annotation));
+        if (statement.exported) exportedTypes.set(statement.name, statement);
+        return;
+      }
+      case 'functionDeclaration': {
+        if (types.has(statement.name) || bindings.has(statement.name) || functions.has(statement.name)) fail('AMX3005', `Duplicate declaration '${statement.name}'`, statement.source);
+        if (stdlibNames.has(statement.name)) fail('AMX3005', `Function '${statement.name}' cannot shadow a standard-library function`, statement.source);
+        const paramNames = new Set<string>();
+        const paramScope = new Map<string, CheckedType>();
+        for (const parameter of statement.parameters) {
+          if (paramNames.has(parameter.name)) fail('AMX3005', `Duplicate parameter '${parameter.name}'`, parameter.source);
+          paramNames.add(parameter.name);
+          paramScope.set(parameter.name, resolve(parameter.annotation));
+        }
+        const returnType = resolve(statement.returnType);
+        if (bodyContainsForExpression(statement.body)) fail('AMX3003', 'Function bodies cannot contain a for expression', statement.body.source ?? statement.source);
+        const outerBindings = bindings;
+        bindings = paramScope;
+        try {
+          const actual = infer(statement.body, returnType);
+          requireType(actual, returnType, statement.body.source ?? statement.source);
+        } finally {
+          bindings = outerBindings;
+        }
+        functions.set(statement.name, statement);
+        if (statement.exported) exportedFunctions.set(statement.name, statement);
         return;
       }
       case 'variableDeclaration': {
-        if (types.has(statement.name)) fail('AMX3005', `Binding '${statement.name}' conflicts with a type`, statement.source);
+        if (types.has(statement.name) || functions.has(statement.name)) fail('AMX3005', `Binding '${statement.name}' conflicts with a type or function`, statement.source);
+        if (immutableNames.has(statement.name)) moduleError('AMX5002', `Cannot redeclare imported binding '${statement.name}'`, statement.source, file);
         const target = statement.annotation ? resolve(statement.annotation) : bindings.get(statement.name);
         const actual = infer(statement.expression, target);
         if (!target && actual.kind === 'null') fail('AMX3002', 'Null needs a nullable type annotation', statement.expression.source);
         if (target) requireType(actual, target, statement.expression.source ?? statement.source);
-        bindings.set(statement.name, target ?? actual);
+        const finalType = target ?? actual;
+        bindings.set(statement.name, finalType);
+        if (statement.exported) exportedBindings.set(statement.name, finalType);
         return;
       }
       case 'assignmentStatement': case 'compoundAssignmentStatement': {
+        if (immutableNames.has(statement.name)) moduleError('AMX5002', `Cannot assign to imported binding '${statement.name}'`, statement.source, file);
         const target = bindings.get(statement.name);
         if (!target) fail('AMX3001', `Unknown identifier '${statement.name}'`, statement.source);
         if (statement.type === 'compoundAssignmentStatement') requireType(target!, named('Number'), statement.source);
@@ -298,5 +377,18 @@ export function checkDocument(doc: OpenAmxDocument, file?: string): void {
     }
   }
 
-  for (const node of doc.nodes) if (node.type === 'executableCodeBlock') for (const statement of node.statements) checkStatement(statement);
+  let sawNonImport = false;
+  for (const node of doc.nodes) {
+    if (node.type !== 'executableCodeBlock') continue;
+    for (const statement of node.statements) {
+      if (statement.type === 'importDeclaration') {
+        if (sawNonImport) fail('AMX3005', 'Import declarations must precede all other executable items', statement.source);
+      } else {
+        sawNonImport = true;
+      }
+      checkStatement(statement);
+    }
+  }
+
+  return { exportedTypes, exportedFunctions, exportedBindings };
 }

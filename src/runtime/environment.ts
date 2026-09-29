@@ -1,5 +1,5 @@
 import { throwUndefinedIdentifier } from '../diagnostics/errors';
-import { SourceLocation, TypeDeclarationNode } from '../ast/types';
+import { FunctionDeclarationNode, SourceLocation, TypeDeclarationNode } from '../ast/types';
 
 /**
  * Runtime environment for variable storage during evaluation.
@@ -8,7 +8,24 @@ import { SourceLocation, TypeDeclarationNode } from '../ast/types';
  */
 export class Environment {
   private store: Map<string, unknown> = new Map();
-  readonly recordTypes = new Map<string, TypeDeclarationNode>();
+  readonly recordTypes: Map<string, TypeDeclarationNode>;
+  readonly functions: Map<string, FunctionDeclarationNode>;
+
+  constructor(recordTypes: Map<string, TypeDeclarationNode> = new Map(), functions: Map<string, FunctionDeclarationNode> = new Map()) {
+    this.recordTypes = recordTypes;
+    this.functions = functions;
+  }
+
+  /**
+   * Create an isolated call frame sharing this module's record types and functions
+   * but containing only the supplied parameter bindings. Used to evaluate pure
+   * function bodies without exposing document/module state.
+   */
+  createCallFrame(parameters: Record<string, unknown>): Environment {
+    const frame = new Environment(this.recordTypes, this.functions);
+    for (const [name, value] of Object.entries(parameters)) frame.set(name, value);
+    return frame;
+  }
 
   /**
    * Set or overwrite a variable value.

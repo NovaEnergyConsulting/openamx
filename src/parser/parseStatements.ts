@@ -1,4 +1,4 @@
-import { SourceLocation, StatementNode, TypeReferenceNode, VariableDeclarationNode } from '../ast/types';
+import { FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, SourceLocation, StatementNode, TypeReferenceNode, VariableDeclarationNode } from '../ast/types';
 import { parseExpression } from './parseExpression';
 import { parseForStatement } from './parseFor';
 
@@ -21,15 +21,41 @@ export function parseStatements(
   const statements: StatementNode[] = [];
 
   for (let i = 0; i < lines.length; i++) {
-    const rawLine = lines[i];
+    let rawLine = lines[i];
     const lineNumber = start.line + i;
+
+    if (rawLine.trim().length === 0) {
+      continue;
+    }
+
+    let exported = false;
+    const exportMatch = rawLine.match(/^(\s*)export(\s+)(type|fn|let)\b/);
+    if (exportMatch) {
+      if (context.allowFor === false) throw new Error(`Export declarations cannot occur in loops at ${lineNumber}:${exportMatch[1].length + 1}`);
+      exported = true;
+      const blankLength = exportMatch[0].length - exportMatch[3].length;
+      rawLine = ' '.repeat(blankLength) + rawLine.slice(blankLength);
+      lines[i] = rawLine;
+    }
+
     const indentation = rawLine.length - rawLine.trimStart().length;
     const source: SourceLocation = {
       line: lineNumber,
       column: i === 0 ? start.column + indentation : indentation + 1
     };
 
-    if (rawLine.trim().length === 0) {
+    if (/^\s*import\b/.test(rawLine)) {
+      if (context.allowFor === false) throw new Error(`Import declarations cannot occur in loops at ${source.line}:${source.column}`);
+      statements.push(parseImportDeclaration(rawLine, source));
+      continue;
+    }
+
+    if (/^\s*fn\b/.test(rawLine)) {
+      if (context.allowFor === false) throw new Error(`Function declarations cannot occur in loops at ${source.line}:${source.column}`);
+      const endIndex = findFunctionEnd(lines, i, source);
+      const fnText = lines.slice(i, endIndex + 1).join('\n');
+      statements.push(parseFunctionDeclaration(fnText, source, exported));
+      i = endIndex;
       continue;
     }
 
@@ -50,7 +76,7 @@ export function parseStatements(
           ...(match[4] ? { defaultExpression: parseExpression(match[4], { line: fieldSource.line, column: fieldLine.indexOf(match[4]) + 1 }) } : {}), source: fieldSource });
       }
       if (!closed) throw new Error(`Unclosed type declaration at ${source.line}:${source.column}`);
-      statements.push({ type: 'typeDeclaration', name: header[1], fields, source });
+      statements.push({ type: 'typeDeclaration', name: header[1], fields, ...(exported ? { exported } : {}), source });
       continue;
     }
 
@@ -107,6 +133,7 @@ export function parseStatements(
         name,
         expression,
         ...(letMatch[2] ? { annotation: parseTypeReference(letMatch[2], { line: source.line, column: rawLine.indexOf(letMatch[2]) + 1 }) } : {}),
+        ...(exported ? { exported } : {}),
         source
       };
       statements.push(decl);
@@ -156,6 +183,93 @@ export function parseTypeReference(text: string, source?: SourceLocation): TypeR
     } else throw new Error(`Invalid type reference '${text}'`);
   }
   return result;
+}
+
+function parseImportDeclaration(rawLine: string, source: SourceLocation): ImportDeclarationNode {
+  const match = rawLine.match(/^\s*import\s*\{\s*([^}]*)\}\s*from\s*"([^"]*)"\s*$/);
+  if (!match) throw new Error(`Invalid import declaration at ${source.line}:${source.column}`);
+  const namesText = match[1];
+  const braceIndex = rawLine.indexOf('{');
+  const names: ImportedNameNode[] = [];
+  let cursor = braceIndex + 1;
+  for (const rawName of namesText.split(',')) {
+    const name = rawName.trim();
+    if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(name)) throw new Error(`Invalid imported name '${rawName.trim()}' at ${source.line}:${source.column}`);
+    const nameStart = rawLine.indexOf(name, cursor);
+    names.push({ name, source: { line: source.line, column: nameStart + 1 } });
+    cursor = nameStart + name.length;
+  }
+  if (!names.length) throw new Error(`Import requires at least one name at ${source.line}:${source.column}`);
+  const pathIndex = rawLine.lastIndexOf(`"${match[2]}"`);
+  return {
+    type: 'importDeclaration',
+    names,
+    path: match[2],
+    pathSource: { line: source.line, column: pathIndex + 2 },
+    source
+  };
+}
+
+function findFunctionEnd(lines: string[], startIndex: number, source: SourceLocation): number {
+  let depth = 0;
+  let sawOpen = false;
+  let quote: string | undefined;
+
+  const scan = (line: string) => {
+    for (const ch of line) {
+      if (quote) {
+        if (ch === quote) quote = undefined;
+        continue;
+      }
+      if (ch === '"' || ch === "'") quote = ch;
+      else if (ch === '{') { depth++; sawOpen = true; }
+      else if (ch === '}') depth--;
+    }
+  };
+
+  scan(lines[startIndex]);
+  if (!sawOpen) return startIndex; // single-line body with no braced constructs
+
+  let index = startIndex;
+  while (depth > 0) {
+    index++;
+    if (index >= lines.length) throw new Error(`Unclosed function body at ${source.line}:${source.column}`);
+    scan(lines[index]);
+  }
+  return index;
+}
+
+function parseFunctionDeclaration(text: string, source: SourceLocation, exported: boolean): FunctionDeclarationNode {
+  const match = text.match(/^\s*fn\s+([A-Za-z][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*)\s*=\s*([\s\S]*)$/);
+  if (!match) throw new Error(`Invalid function declaration at ${source.line}:${source.column}`);
+  const [, name, paramsText, returnTypeText, bodyText] = match;
+  const paramsRaw = paramsText.trim();
+  const parameters: FunctionParameterNode[] = [];
+  if (paramsRaw) {
+    for (const part of paramsRaw.split(',')) {
+      const paramMatch = part.trim().match(/^([A-Za-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*)$/);
+      if (!paramMatch) throw new Error(`Invalid function parameter at ${source.line}:${source.column}`);
+      parameters.push({ name: paramMatch[1], annotation: parseTypeReference(paramMatch[2], source), source });
+    }
+  }
+  const bodyTrimmed = bodyText.trim();
+  if (!bodyTrimmed) throw new Error(`Missing function body at ${source.line}:${source.column}`);
+  let body;
+  try {
+    body = parseExpression(bodyTrimmed, source);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid function body at ${source.line}:${source.column}: ${message}`);
+  }
+  return {
+    type: 'functionDeclaration',
+    name,
+    parameters,
+    returnType: parseTypeReference(returnTypeText, source),
+    body,
+    ...(exported ? { exported } : {}),
+    source
+  };
 }
 
 function findLoopEnd(lines: string[], startIndex: number, source: SourceLocation): number {

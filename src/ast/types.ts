@@ -48,6 +48,36 @@ export interface TypeDeclarationNode {
   type: 'typeDeclaration';
   name: string;
   fields: RecordFieldNode[];
+  exported?: boolean;
+  source?: SourceLocation;
+}
+
+export interface FunctionParameterNode {
+  name: string;
+  annotation: TypeReferenceNode;
+  source?: SourceLocation;
+}
+
+export interface FunctionDeclarationNode {
+  type: 'functionDeclaration';
+  name: string;
+  parameters: FunctionParameterNode[];
+  returnType: TypeReferenceNode;
+  body: V02ExpressionNode;
+  exported?: boolean;
+  source?: SourceLocation;
+}
+
+export interface ImportedNameNode {
+  name: string;
+  source?: SourceLocation;
+}
+
+export interface ImportDeclarationNode {
+  type: 'importDeclaration';
+  names: ImportedNameNode[];
+  path: string;
+  pathSource?: SourceLocation;
   source?: SourceLocation;
 }
 
@@ -165,6 +195,7 @@ export interface VariableDeclarationNode {
   name: string;
   expression: V02ExpressionNode;
   annotation?: TypeReferenceNode;
+  exported?: boolean;
   source?: SourceLocation;
 }
 
@@ -199,6 +230,8 @@ export interface ReturnStatementNode {
 
 export type StatementNode =
   | TypeDeclarationNode
+  | FunctionDeclarationNode
+  | ImportDeclarationNode
   | VariableDeclarationNode
   | AssignmentStatementNode
   | CompoundAssignmentStatementNode

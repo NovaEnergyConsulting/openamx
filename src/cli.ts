@@ -9,10 +9,9 @@
  */
 
 import { cac } from "cac";
-import { parseDocument } from "./parser/parseDocument";
-import { evaluateDocument } from "./runtime/evaluateDocument";
 import { renderHtml } from "./renderer/renderHtml";
 import { AmxError } from "./diagnostics/errors";
+import { loadEntryModule } from "./runtime/moduleLoader";
 
 const cli = cac("openamx");
 
@@ -21,8 +20,8 @@ cli
   .option("--out <path>", "Output HTML file path (default: input with .html extension)")
   .action(async (input: string, options: { out?: string }) => {
     try {
-      const doc = await parseDocument(input);
-      const html = renderHtml(doc, input);
+      const { doc, env } = await loadEntryModule(input);
+      const html = renderHtml(doc, input, env);
       const outPath = options.out || input.replace(/\.amx$/, ".html");
       await Bun.write(outPath, html);
       console.log(`Rendered to ${outPath}`);
@@ -43,9 +42,8 @@ cli
   .command("run <input>", "Run an .amx file and print evaluated context as JSON")
   .action(async (input: string) => {
     try {
-      const doc = await parseDocument(input);
-      const context = evaluateDocument(doc, input);
-      console.log(JSON.stringify(context, null, 2));
+      const { env } = await loadEntryModule(input);
+      console.log(JSON.stringify(env.toObject(), null, 2));
     } catch (err: any) {
       if (err instanceof AmxError) {
         console.error(`AMX${err.code}: ${err.message}`);

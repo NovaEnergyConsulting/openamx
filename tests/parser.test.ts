@@ -170,6 +170,55 @@ describe("parseStatements", () => {
   });
 });
 
+describe("Sprint 015 function, import, and export parsing", () => {
+  it("parses a source-located function declaration with typed parameters and an expression body", () => {
+    const [fn] = parseStatements("fn riskScore(severity: Number, occurrence: Number): Number = severity * occurrence", { line: 3, column: 1 });
+    expect(fn).toMatchObject({
+      type: 'functionDeclaration',
+      name: 'riskScore',
+      returnType: { type: 'namedType', name: 'Number' },
+      parameters: [
+        { name: 'severity', annotation: { type: 'namedType', name: 'Number' } },
+        { name: 'occurrence', annotation: { type: 'namedType', name: 'Number' } }
+      ],
+      source: { line: 3, column: 1 }
+    });
+    expect((fn as any).body.type).toBe('binaryExpression');
+    expect((fn as any).exported).toBeUndefined();
+  });
+
+  it("parses a multi-line function body containing a braced match expression", () => {
+    const [fn] = parseStatements("fn classify(score: Number): String = match score {\n  case 1 => \"low\"\n  default => \"high\"\n}");
+    expect((fn as any).body.type).toBe('matchExpression');
+  });
+
+  it("parses named local imports with per-name and path source locations", () => {
+    const [imported] = parseStatements('import { Asset, riskScore } from "./libraries/asset-management.amx"', { line: 1, column: 1 });
+    expect(imported).toMatchObject({
+      type: 'importDeclaration',
+      path: './libraries/asset-management.amx',
+      names: [
+        { name: 'Asset', source: { line: 1, column: 10 } },
+        { name: 'riskScore', source: { line: 1, column: 17 } }
+      ]
+    });
+    expect((imported as any).pathSource.column).toBeGreaterThan(0);
+  });
+
+  it("parses export prefixes on type, function, and let declarations while preserving keyword-aligned source columns", () => {
+    const [typeDecl, fnDecl, letDecl] = parseStatements("export type Asset {\n  id: String\n}\nexport fn identity(id: String): String = id\nexport let ready: Boolean = true");
+    expect(typeDecl).toMatchObject({ type: 'typeDeclaration', name: 'Asset', exported: true, source: { line: 1, column: 8 } });
+    expect(fnDecl).toMatchObject({ type: 'functionDeclaration', name: 'identity', exported: true, source: { line: 4, column: 8 } });
+    expect(letDecl).toMatchObject({ type: 'variableDeclaration', name: 'ready', exported: true, source: { line: 5, column: 8 } });
+  });
+
+  it("rejects fn, import, and export declarations inside loop bodies", () => {
+    expect(() => parseStatements("for item in [1] {\n  fn bad(n: Number): Number = n\n}")).toThrow(/cannot occur in loops/);
+    expect(() => parseStatements("for item in [1] {\n  import { A } from \"./a.amx\"\n}")).toThrow(/cannot occur in loops/);
+    expect(() => parseStatements("for item in [1] {\n  export let x: Number = 1\n}")).toThrow(/cannot occur in loops/);
+  });
+});
+
 describe("match expression parsing", () => {
   it("retains literal cases, their order, default placement, and original-document locations", () => {
     const [declaration] = parseStatements(

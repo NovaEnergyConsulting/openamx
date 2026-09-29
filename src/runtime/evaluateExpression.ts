@@ -187,6 +187,13 @@ function evalFunctionCall(
   file?: string
 ): unknown {
   const args = node.arguments.map(a => evaluateExpression(a, env, file));
+  const userFunction = env.functions.get(node.callee);
+  if (userFunction) {
+    const parameters: Record<string, unknown> = {};
+    userFunction.parameters.forEach((parameter, index) => { parameters[parameter.name] = args[index]; });
+    const frame = env.createCallFrame(parameters);
+    return evaluateExpression(userFunction.body, frame, file);
+  }
   return evaluateStandardLibraryCall(node.callee, args, node.source, file);
 }
 
@@ -220,8 +227,15 @@ export function evaluateStatements(statements: StatementNode[], env: Environment
 
 function evaluateStatement(statement: StatementNode, env: Environment, file?: string): void {
   switch (statement.type) {
+    case 'importDeclaration':
+      // Import materialization is the module loader's responsibility; imported
+      // names are already present in the environment before statements run.
+      return;
     case 'typeDeclaration':
       env.recordTypes.set(statement.name, statement);
+      return;
+    case 'functionDeclaration':
+      env.functions.set(statement.name, statement);
       return;
     case 'variableDeclaration':
       env.set(statement.name, evaluateExpression(statement.expression, env, file));
