@@ -202,6 +202,13 @@ All of the above are recorded here so that Builders and future sprints do not ac
 - **Write ordering**: `render` produces/serializes HTML and exports before writing any destination, writes HTML first, then exports in option order. Filesystem failures use AMX6002 and may leave prior writes intact.
 - **CSV scope**: CSV output is limited to typed scalar-field record lists, including empty lists. Null and empty-string cells remain distinct per the V0.3 contract.
 
+## V0.3 Sprint 018 Preparation Decisions
+
+- **Provider architecture**: Extend the existing direct VS Code providers; reuse pure buffer parsing, canonical formatting, and static checking. Do not add an LSP or call Bun APIs in the Node host.
+- **Editor import boundary**: Use read-only local dependency resolution for imported completion/checker symbols. The evaluating CLI module loader is not suitable for editor diagnostics because it can read data inputs and execute modules.
+- **Editor diagnostics**: Preserve parser-only V0.2 behavior and report V0.3 type diagnostics at original-document source coordinates for activated buffers. Do not claim CLI input or computed-value validation in the extension.
+- **Acceptance gate**: Exercise providers in the Extension Development Host, package and locally install a VSIX, and document the unresolved license prerequisite; defer release-wide documentation/version changes to Sprint 019.
+
 ## V0.3 Sprint 014 Builder Outcome
 
 - The document checker is a pure, first-error, source-order pass over executable blocks; it activates for parsed V0.3 forms and runs before the shared evaluation environment is created. Independent errors may be aggregated in later work, but no runtime block runs after a static error.
@@ -232,3 +239,10 @@ All of the above are recorded here so that Builders and future sprints do not ac
 - JSON recursively serializes finite declared values and rebuilds records in field declaration order. CSV accepts only a list of one declared record type with scalar/nullable-scalar fields; cell escaping preserves commas, quotes, newlines, boundary spaces, nulls, and quoted empty strings. Empty record lists use declared headers.
 - No dependency was added. No input validation, module/function/library behavior, renderer output, editor, or release-example work changed. CAC's absent repeated options are normalized at the CLI boundary using actual argv presence so output support does not turn absent `--input`/`--output` options into mappings.
 - Verification on 2026-09-29: focused output tests passed (9 tests); integrated output/loader/regression tests passed (35 tests); `bun run build` passed; full `bun test` passed (156 tests across 9 files, 0 failures); `git diff --check` passed. See `planning/questions.md` for the acceptance/spec AMX6001/AMX6002 diagnostic-code clarification.
+
+## V0.3 Sprint 018 Implementation Outcomes
+
+- The existing layout-only `formatAmx` handles V0.3 type/function/import/input/export declarations, nested record constructors, composed constructor fields, and braced expressions; Sprint 018 added focused core and real-host coverage without changing language syntax or formatting semantics. A constructor directly inside a match arm remains blocked by an existing core parser brace-scanner limitation, recorded in `planning/state.md`.
+- Editor module analysis is a separate read-only Node path rather than reuse of `loadEntryModule`. It uses unsaved text for the entry, canonical local `.amx` reads for dependencies, explicit export maps, and `checkDocument`; it never evaluates declarations, loads input files, or writes files.
+- V0.3 completions are limited to preceding/in-scope declarations and successfully resolved explicit imports. Record fields are offered only for known record receivers. V0.2 standard completions remain available and V0.2-only diagnostics remain parser-only.
+- Static/link diagnostics use core AMX codes and original source positions, including dependency source documents; stale results clear on entry edits/close. The core checker is first-error, so each analysis currently publishes one static/link failure at a time.

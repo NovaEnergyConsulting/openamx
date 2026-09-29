@@ -42,4 +42,47 @@ describe('formatAmx', () => {
     expect(formatted).toBe('let text = "{ not a block }"\nlet total=1+2\n');
     expect(() => parseStatements(formatted)).not.toThrow();
   });
+
+  it('formats parser-valid V0.3 declarations and braced expressions idempotently', () => {
+    const source = [
+      'import { Asset } from "./model.amx"',
+      'input assets: Asset[]',
+      'export type LocalAsset {',
+      'name: String',
+      'count: Number',
+      '}',
+      'type Envelope {',
+      'asset: LocalAsset',
+      '}',
+      'fn label(asset: LocalAsset): String = asset.name',
+      'let item: Envelope = Envelope { asset: LocalAsset { name: "pump", count: 1 + 2 } }',
+      'let selected = match 1 {',
+      'case 1 => "one"',
+      'default => "other"',
+      '}'
+    ].join('\n');
+    const expected = [
+      'import { Asset } from "./model.amx"',
+      'input assets: Asset[]',
+      'export type LocalAsset {',
+      '  name: String',
+      '  count: Number',
+      '}',
+      'type Envelope {',
+      '  asset: LocalAsset',
+      '}',
+      'fn label(asset: LocalAsset): String = asset.name',
+      'let item: Envelope = Envelope { asset: LocalAsset { name: "pump", count: 1 + 2 } }',
+      'let selected = match 1 {',
+      '  case 1 => "one"',
+      '  default => "other"',
+      '}',
+      ''
+    ].join('\n');
+    const formatted = formatAmx(source);
+
+    expect(formatted).toBe(expected);
+    expect(formatAmx(formatted)).toBe(formatted);
+    expect(() => parseStatements(formatted)).not.toThrow();
+  });
 });

@@ -147,6 +147,19 @@ No other ambiguities found in the sprint artifacts. If new questions arise durin
 - No blocking ambiguity arose. The only acceptance/spec mismatch and its conservative, spec-authoritative disposition are recorded above; no language or serialization rule was otherwise invented.
 - Final verification on 2026-09-29: `bun run build` passed; focused serializer/CLI tests passed (9 tests); integrated output/loader/regression tests passed (35 tests); `bun test` passed (156 tests across 9 files, 0 failures); `git diff --check` passed. Output ordering, no-option compatibility, explicit entry-export selection, declared-type JSON/CSV round trips, and AMX6002 write failure behavior are covered.
 
+## V0.3 Sprint 018 Clarifications
+
+- No blocking authoring-contract question is known. Editor checks use the current unsaved buffer for the entry document and may read local `.amx` dependencies only for explicit import visibility; they never evaluate AMX or load CSV/JSON data files.
+- If a dependency cannot be resolved accurately, report the localized issue or withhold that completion; do not invent symbols. The implemented resolver requires a file-backed entry URI and confines dependencies to its canonical directory tree; untitled entry documents with imports therefore receive an unavailable-import diagnostic and no imported completions.
+- Release-wide extension documentation/version metadata and Marketplace publication remain outside Sprint 018. Packaging and local VSIX installation remain required despite the unresolved license decision.
+
+## V0.3 Sprint 018 Builder Completion
+
+- No blocking ambiguity or contract deviation arose. The host tests prove unsaved entry-buffer checking, explicit import visibility, missing-export/cycle reporting, original-coordinate AMX3002 diagnostics, edit clearing, V0.2 behavior, and no input mapping/runtime validation in the editor.
+- Verification on 2026-09-29: root `bun run build && bun test` passed (157 tests, 607 assertions); focused formatter tests passed (4 tests, 11 assertions); extension compile passed; source and installed-VSIX host suites each passed (11 tests on VS Code 1.85.0); local package/install and installed-extension listing passed. Exact artifact, commands, warnings, and limitations are recorded in `planning/state.md`.
+- Local packaging continued only after confirmation of the missing-license warning. No license was selected or added, and no Marketplace upload was attempted. DBus/Python API-proposal host warnings were unrelated and did not affect tests.
+- Formatter probing found an existing core parser limitation for record constructors directly in `match` arms; the formatter cannot format that composition until the parser brace scanner is corrected. No language rule was changed and no editor-only parser workaround was added in Sprint 018.
+
 ## V0.3 Sprint 014 Builder Completion
 
 - No genuinely blocking type-system ambiguity arose; no unapproved language rule was introduced. The obsolete draft was removed without altering the later complete contract. Sprint 014 does not provide V0.3 CLI options, modules, inputs, or outputs; their activation paths belong to Sprints 015-017.

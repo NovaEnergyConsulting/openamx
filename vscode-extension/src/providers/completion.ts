@@ -7,57 +7,155 @@ import {
   OpenAmxDocument,
   RangeExpressionNode,
   StatementNode,
+  TypeDeclarationNode,
   V02ExpressionNode
 } from '../../../src/ast/types';
 import { parseDocumentText } from '../../../src/parser/parseDocument';
+import { parseFrontMatter } from '../../../src/parser/parseFrontMatter';
+import { checkingActivated } from '../../../src/typechecker/checkDocument';
+import { EditorAnalysis, analyzeEditorDocument } from './moduleAnalysis';
 
-const keywords = [
+const v02Keywords = [
   'let', 'for', 'in', 'to', 'return', 'match', 'case', 'default',
   'if', 'then', 'else', 'and', 'or', 'not', 'true', 'false'
 ];
+const v03Keywords = ['null', 'type', 'fn', 'import', 'from', 'input', 'export'];
 
 const functions = ['sum', 'min', 'max', 'mean', 'round', 'abs', 'sqrt', 'pow'];
+const primitiveTypes = ['Number', 'String', 'Boolean', 'DateTime'];
 
 export function registerCompletionProvider(): vscode.Disposable {
   return vscode.languages.registerCompletionItemProvider('amx', {
     provideCompletionItems(document, position) {
       const text = document.getText();
-      let parsed: OpenAmxDocument;
+      const cursorOffset = document.offsetAt(position);
+      const completionSource = completionBuffer(text, cursorOffset);
+      if (!completionSource) return undefined;
+      const parsed = parseDocumentText(completionSource);
+      let analysis: EditorAnalysis | undefined;
       try {
-        parsed = parseDocumentText(text);
+        const entryFile = document.uri.scheme === 'file' ? document.uri.fsPath : undefined;
+        analysis = analyzeEditorDocument(completionSource, entryFile);
       } catch {
-        return undefined;
+        analysis = undefined;
       }
 
-      const cursorOffset = document.offsetAt(position);
       const currentBlock = parsed.nodes.find(node =>
         node.type === 'executableCodeBlock' && node.source &&
-        cursorOffset >= blockContentStart(document, node) &&
-        cursorOffset < blockContentStart(document, node) + node.content.length
+        cursorOffset >= blockContentStart(document, node) && cursorInAmxFence(text, cursorOffset)
       );
       if (!currentBlock || currentBlock.type !== 'executableCodeBlock') return undefined;
 
-      const names = visibleVariables(document, parsed, cursorOffset);
+      const visible = visibleSymbols(document, parsed, cursorOffset, analysis);
+      const cursorPrefix = document.lineAt(position.line).text.slice(0, position.character);
+      const v03 = checkingActivated(parsed)
+        || /^\s*(?:type|fn|import|input|export)\b/.test(cursorPrefix)
+        || /:\s*[A-Z][A-Za-z0-9_]*$/.test(cursorPrefix);
+      const fieldReceiver = document.lineAt(position.line).text.slice(0, position.character).match(/\b([A-Za-z][A-Za-z0-9_]*)\.\w*$/)?.[1];
+      const fields = fieldReceiver ? visible.recordTypes.get(fieldReceiver)?.fields.map(field => field.name) ?? [] : [];
       const items = [
-        ...keywords.map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Keyword)),
+        ...[...v02Keywords, ...(v03 ? v03Keywords : [])].map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Keyword)),
         ...functions.map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Function)),
-        ...names.map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Variable))
+        ...visible.functions.map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Function)),
+        ...(v03 ? visible.types : []).map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Class)),
+        ...visible.variables.map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Variable)),
+        ...fields.map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Field))
       ];
       return items;
     }
   });
 }
 
+function completionBuffer(text: string, cursorOffset: number): string | undefined {
+  try {
+    parseDocumentText(text);
+    return text;
+  } catch {
+    const frontMatter = parseFrontMatter(text);
+    if (frontMatter.error) return undefined;
+    const bodyOffset = text.length - frontMatter.body.length;
+    const relativeCursor = Math.max(0, cursorOffset - bodyOffset);
+    const cursorLine = text.slice(bodyOffset, bodyOffset + relativeCursor).split(/\r?\n/).length - 1;
+    const lines = frontMatter.body.split(/\r?\n/);
+    let open: { marker: string; executable: boolean } | undefined;
+    for (let index = 0; index < cursorLine; index++) {
+      const line = lines[index] ?? '';
+      if (!open) {
+        const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+        if (match) open = { marker: match[1], executable: match[1][0] === '`' && match[2].trim() === 'amx' };
+      } else {
+        const closing = line.match(/^ {0,3}(`+|~+)(\s*)$/);
+        if (closing && closing[1][0] === open.marker[0] && closing[1].length >= open.marker.length) open = undefined;
+      }
+    }
+    const currentLine = lines[cursorLine] ?? '';
+    const currentCloser = currentLine.match(/^ {0,3}(`+|~+)(\s*)$/);
+    if (!open?.executable || (currentCloser && currentCloser[1][0] === open.marker[0]
+      && currentCloser[1].length >= open.marker.length)) return undefined;
+
+    const lineStart = text.lastIndexOf('\n', Math.max(0, cursorOffset - 1)) + 1;
+    const closer = `${open.marker}\n`;
+    const candidates = [
+      `${text.slice(0, cursorOffset)}${text.slice(0, cursorOffset).endsWith('\n') ? '' : '\n'}${closer}`,
+      `${text.slice(0, lineStart)}${text.slice(0, lineStart).endsWith('\n') ? '' : '\n'}${closer}`
+    ];
+    for (const candidate of candidates) {
+      try {
+        parseDocumentText(candidate);
+        return candidate;
+      } catch {
+        // Ignore an incomplete current statement and retain only prior complete statements.
+      }
+    }
+    return undefined;
+  }
+}
+
+function cursorInAmxFence(text: string, cursorOffset: number): boolean {
+  const frontMatter = parseFrontMatter(text);
+  if (frontMatter.error) return false;
+  const bodyOffset = text.length - frontMatter.body.length;
+  if (cursorOffset < bodyOffset) return false;
+  const relativeCursor = cursorOffset - bodyOffset;
+  const cursorLine = frontMatter.body.slice(0, relativeCursor).split(/\r?\n/).length - 1;
+  const lines = frontMatter.body.split(/\r?\n/);
+  let open: { marker: string; executable: boolean } | undefined;
+  for (let index = 0; index <= cursorLine; index++) {
+    const line = lines[index] ?? '';
+    if (!open) {
+      const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+      if (match) open = { marker: match[1], executable: match[1][0] === '`' && match[2].trim() === 'amx' };
+    } else {
+      const closing = line.match(/^ {0,3}(`+|~+)(\s*)$/);
+      if (closing && closing[1][0] === open.marker[0] && closing[1].length >= open.marker.length) open = undefined;
+    }
+  }
+  return !!open?.executable;
+}
+
 function blockContentStart(document: vscode.TextDocument, node: Extract<DocumentNode, { type: 'executableCodeBlock' }>): number {
   return document.offsetAt(new vscode.Position(node.source!.line, 0));
 }
 
-function visibleVariables(
+interface VisibleSymbols {
+  variables: string[];
+  functions: string[];
+  types: string[];
+  recordTypes: Map<string, TypeDeclarationNode>;
+}
+
+function visibleSymbols(
   document: vscode.TextDocument,
   parsed: OpenAmxDocument,
-  cursorOffset: number
-): string[] {
+  cursorOffset: number,
+  analysis?: EditorAnalysis
+): VisibleSymbols {
   const names = new Set<string>();
+  const visibleFunctions = new Set<string>();
+  const visibleTypes = new Set(primitiveTypes);
+  const recordTypes = new Map<string, TypeDeclarationNode>();
+  const localTypeDeclarations = new Map<string, TypeDeclarationNode>();
+  const localBindingTypes = new Map<string, string>();
   const activeIterators = new Set<string>();
 
   const collectStatements = (statements: StatementNode[]) => {
@@ -66,13 +164,43 @@ function visibleVariables(
       if (start >= cursorOffset) continue;
 
       if (statement.type === 'variableDeclaration') {
-        if (statementEndOffset(document, statement) <= cursorOffset) names.add(statement.name);
+        if (statementEndOffset(document, statement) <= cursorOffset) {
+          names.add(statement.name);
+          const inferredType = statement.annotation?.type === 'namedType'
+            ? statement.annotation.name
+            : statement.expression.type === 'recordConstructor' ? statement.expression.name : undefined;
+          if (inferredType) localBindingTypes.set(statement.name, inferredType);
+        }
         collectExpression(statement.expression);
+      } else if (statement.type === 'inputDeclaration') {
+        if (statementEndOffset(document, statement) <= cursorOffset) {
+          names.add(statement.name);
+          if (statement.annotation.type === 'namedType') localBindingTypes.set(statement.name, statement.annotation.name!);
+        }
+      } else if (statement.type === 'typeDeclaration') {
+        if (statementEndOffset(document, statement) <= cursorOffset) {
+          visibleTypes.add(statement.name);
+          localTypeDeclarations.set(statement.name, statement);
+        }
+      } else if (statement.type === 'functionDeclaration') {
+        if (statementEndOffset(document, statement) <= cursorOffset) visibleFunctions.add(statement.name);
+      } else if (statement.type === 'importDeclaration') {
+        if (statementEndOffset(document, statement) <= cursorOffset) {
+          for (const item of statement.names) {
+            if (analysis?.importedTypes.has(item.name)) visibleTypes.add(item.name);
+            if (analysis?.importedFunctions.has(item.name)) visibleFunctions.add(item.name);
+            if (analysis?.importedBindings.has(item.name)) {
+              names.add(item.name);
+              const bindingType = analysis.importedBindings.get(item.name);
+              if (bindingType?.kind === 'named') localBindingTypes.set(item.name, bindingType.name);
+            }
+          }
+        }
       } else if (statement.type === 'forStatement') {
         collectLoop(statement);
       } else if (statement.type === 'assignmentStatement' || statement.type === 'compoundAssignmentStatement') {
         collectExpression(statement.expression);
-      } else {
+      } else if ('expression' in statement) {
         collectExpression(statement.expression);
       }
     }
@@ -139,7 +267,21 @@ function visibleVariables(
   }
 
   for (const iterator of activeIterators) names.add(iterator);
-  return [...names];
+  for (const [name, typeName] of localBindingTypes) {
+    const declaration = localTypeDeclarations.get(typeName) ?? analysis?.importedTypes.get(typeName);
+    if (declaration) recordTypes.set(name, declaration);
+  }
+  if (analysis) {
+    for (const [name, declaration] of analysis.importedTypes) {
+      if (visibleTypes.has(name)) localTypeDeclarations.set(name, declaration);
+    }
+  }
+  return {
+    variables: [...names],
+    functions: [...visibleFunctions],
+    types: [...visibleTypes],
+    recordTypes
+  };
 }
 
 function statementOffset(document: vscode.TextDocument, statement: StatementNode): number {
