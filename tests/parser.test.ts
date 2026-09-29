@@ -15,6 +15,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { parseFrontMatter } from "../src/parser/parseFrontMatter";
 import { parseStatements } from "../src/parser/parseStatements";
+import { parseExpression } from "../src/parser/parseExpression";
 import { parseDocument } from "../src/parser/parseDocument";
 import { ExecutableCodeBlockNode, NarrativeNode, VariableDeclarationNode } from "../src/ast/types";
 
@@ -111,8 +112,44 @@ describe("parseStatements", () => {
     expect(() => parseStatements("let first = 1; let second = 2")).toThrow(/Invalid declaration/);
   });
 
-  it("rejects non-declaration statements in this sprint", () => {
-    expect(() => parseStatements("value = 2", { line: 4, column: 1 })).toThrow(/Unsupported statement at 4:1/);
+  it("parses assignments, ranges, and expression-form loops with source locations", () => {
+    const statements = parseStatements(
+      "value = [3 to 1]\nlet doubled = for item in [1, 2] {\n  return item * 2\n}",
+      { line: 4, column: 1 }
+    );
+    expect(statements[0].type).toBe("assignmentStatement");
+    expect((statements[0] as any).expression.type).toBe("rangeExpression");
+    expect((statements[1] as VariableDeclarationNode).expression.type).toBe("forExpression");
+    expect((statements[1] as VariableDeclarationNode).expression.source).toEqual({ line: 5, column: 1 });
+  });
+
+  it("parses for-expressions nested inside ordinary expression positions", () => {
+    const expression = parseExpression("sum(for item in [1, 2] {\nreturn item\n})");
+    expect(expression.type).toBe("functionCall");
+    expect((expression as any).arguments[0].type).toBe("forExpression");
+
+    const combined = parseExpression("for item in [1] {\nreturn item\n} + 1");
+    expect(combined.type).toBe("binaryExpression");
+    expect((combined as any).left.type).toBe("forExpression");
+  });
+
+  it("preserves original locations on statements nested in loop bodies", () => {
+    const [loop] = parseStatements("for item in [1] {\n  total += item\n}", { line: 10, column: 1 });
+    expect(loop.source).toEqual({ line: 10, column: 1 });
+    expect((loop as any).body[0].source).toEqual({ line: 11, column: 3 });
+  });
+
+  it("requires returns only in expression loops and rejects nested/control-flow forms", () => {
+    expect(() => parseExpression("for item in [1] {\nlet value = item\n}"))
+      .toThrow(/exactly one return expression/);
+    expect(() => parseExpression("for item in [1] {\nreturn item\nreturn item + 1\n}"))
+      .toThrow(/exactly one return expression/);
+    expect(() => parseStatements("for item in [1] {\nreturn item\n}"))
+      .toThrow(/cannot contain return/);
+    expect(() => parseStatements("return 1")).toThrow(/only valid inside/);
+    expect(() => parseStatements("for item in [1] {\nfor nested in [2] {\n}\n}"))
+      .toThrow(/Nested loops/);
+    expect(() => parseStatements("break")).toThrow(/Unsupported loop control/);
   });
 });
 

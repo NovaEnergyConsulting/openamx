@@ -59,3 +59,33 @@ export function throwUndefinedIdentifier(
   const diag = createUndefinedIdentifierDiagnostic(name, source, file);
   throw new AmxError(diag);
 }
+
+export function throwInvalidRangeBounds(source?: SourceLocation, file?: string): never {
+  throw new AmxError({
+    code: 'AMX1005',
+    message: 'Range bounds must be finite integers',
+    file,
+    line: source?.line,
+    column: source?.column
+  });
+}
+
+export function throwInvalidLoopIterable(source?: SourceLocation, file?: string): never {
+  throw new AmxError({
+    code: 'AMX1006',
+    message: 'For loops require a list or range value',
+    file,
+    line: source?.line,
+    column: source?.column
+  });
+}
+
+export function throwInvalidReturnContext(source?: SourceLocation, file?: string): never {
+  throw new AmxError({
+    code: 'AMX1007',
+    message: 'Return is only valid inside an expression-form for loop',
+    file,
+    line: source?.line,
+    column: source?.column
+  });
+}

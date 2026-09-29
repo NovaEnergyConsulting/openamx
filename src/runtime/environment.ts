@@ -16,6 +16,17 @@ export class Environment {
     this.store.set(name, value);
   }
 
+  update(name: string, value: unknown, source?: SourceLocation, file?: string): void {
+    if (!this.store.has(name)) {
+      throwUndefinedIdentifier(name, source, file);
+    }
+    this.store.set(name, value);
+  }
+
+  delete(name: string): void {
+    this.store.delete(name);
+  }
+
   /**
    * Get a variable value. Throws AMX1004 if not defined.
    */

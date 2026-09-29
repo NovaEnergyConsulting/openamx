@@ -68,7 +68,7 @@ ListLiteral       ::= "[" (Expression ("," Expression)*)? "]"
 Identifier        ::= Letter (Letter | Digit | "_")*
 ```
 
-The grammar is intentionally conceptual around expression precedence and lexical details; those retain the V0.1 contract except where explicitly extended here. A newline within braces separates statements or match arms. It does not make an ordinary expression multiline. `ForStatement` is used in statement context and has no return; `ForExpression` is used in expression context and has exactly one return. Loop bodies do not contain nested `for` statements.
+The grammar is intentionally conceptual around expression precedence and lexical details; those retain the V0.1 contract except where explicitly extended here. A newline within braces separates statements or match arms. It does not make an ordinary expression multiline. `ForStatement` is selected in statement context and has no return. `ForExpression` is selected anywhere an expression is accepted and has exactly one `ReturnStatement`; its return value is collected once per iteration, later body statements still execute, and an empty iterable produces `[]`. Loop bodies do not contain nested `for` statements.
 
 ## 6. Expression Operators
 

@@ -1,11 +1,4 @@
-/**
- * Explicit AST types for OpenAMX v0.1 per language-spec-v0.1.md section 6.
- * SourceLocation is present on all nodes from the start (per planning decisions).
- *
- * This sprint (002) defines the complete shape. Construction of complex
- * expression trees is deferred; only atomic literals and identifiers (or
- * minimal placeholders) are produced by the statement splitter.
- */
+/** Explicit AST types for OpenAMX V0.2, with source locations on syntax nodes. */
 
 export interface SourceLocation {
   line: number;
@@ -31,34 +24,34 @@ export interface BooleanLiteralNode {
   source?: SourceLocation;
 }
 
-// --- Identifier (also used as placeholder for unparsed RHS in Sprint 002) ---
+// --- Identifier ---
 export interface IdentifierNode {
   type: 'identifier';
   name: string;
   source?: SourceLocation;
 }
 
-// --- Expressions (full variants defined for type completeness; only atoms constructed in Sprint 002) ---
+// --- Expressions ---
 export interface BinaryExpressionNode {
   type: 'binaryExpression';
   operator: '+' | '-' | '*' | '/' | '%' | '^' | '==' | '!=' | '>' | '>=' | '<' | '<=' | 'and' | 'or';
-  left: ExpressionNode;
-  right: ExpressionNode;
+  left: V02ExpressionNode;
+  right: V02ExpressionNode;
   source?: SourceLocation;
 }
 
 export interface UnaryExpressionNode {
   type: 'unaryExpression';
   operator: '-' | 'not';
-  argument: ExpressionNode;
+  argument: V02ExpressionNode;
   source?: SourceLocation;
 }
 
 export interface ConditionalExpressionNode {
   type: 'conditionalExpression';
-  test: ExpressionNode;
-  consequent: ExpressionNode;
-  alternate: ExpressionNode;
+  test: V02ExpressionNode;
+  consequent: V02ExpressionNode;
+  alternate: V02ExpressionNode;
   source?: SourceLocation;
 }
 
@@ -86,13 +79,13 @@ export interface RangeExpressionNode {
 export interface FunctionCallNode {
   type: 'functionCall';
   callee: string;
-  arguments: ExpressionNode[];
+  arguments: V02ExpressionNode[];
   source?: SourceLocation;
 }
 
 export interface ListLiteralNode {
   type: 'listLiteral';
-  elements: ExpressionNode[];
+  elements: V02ExpressionNode[];
   source?: SourceLocation;
 }
 
@@ -107,7 +100,15 @@ export type ExpressionNode =
   | FunctionCallNode
   | ListLiteralNode;
 
-export type V02ExpressionNode = ExpressionNode | MatchExpressionNode | RangeExpressionNode;
+export interface ForExpressionNode {
+  type: 'forExpression';
+  variable: string;
+  iterable: V02ExpressionNode;
+  body: StatementNode[];
+  source?: SourceLocation;
+}
+
+export type V02ExpressionNode = ExpressionNode | MatchExpressionNode | RangeExpressionNode | ForExpressionNode;
 
 // --- Document structure ---
 export interface NarrativeNode {
@@ -119,7 +120,7 @@ export interface NarrativeNode {
 export interface VariableDeclarationNode {
   type: 'variableDeclaration';
   name: string;
-  expression: ExpressionNode;
+  expression: V02ExpressionNode;
   source?: SourceLocation;
 }
 
@@ -148,7 +149,7 @@ export interface ForStatementNode {
 
 export interface ReturnStatementNode {
   type: 'returnStatement';
-  expression?: V02ExpressionNode;
+  expression: V02ExpressionNode;
   source?: SourceLocation;
 }
 

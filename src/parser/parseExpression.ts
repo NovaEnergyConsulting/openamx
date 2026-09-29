@@ -1,18 +1,21 @@
 import {
-  ExpressionNode,
   SourceLocation,
+  V02ExpressionNode,
   BinaryExpressionNode,
   UnaryExpressionNode,
   ConditionalExpressionNode,
   ListLiteralNode,
-  FunctionCallNode
+  FunctionCallNode,
+  RangeExpressionNode
 } from '../ast/types';
+import { parseForExpression } from './parseFor';
 
 type Token =
   | { type: 'number'; value: number; text: string }
   | { type: 'string'; value: string; text: string }
   | { type: 'boolean'; value: boolean; text: string }
   | { type: 'identifier'; name: string; text: string }
+  | { type: 'forExpression'; value: string; text: string }
   | { type: 'operator'; op: string; text: string }
   | { type: 'keyword'; word: 'and' | 'or' | 'not' | 'if' | 'then' | 'else'; text: string }
   | { type: 'lparen' | 'rparen' | 'lbracket' | 'rbracket' | 'comma' | 'eof'; text?: string };
@@ -31,6 +34,14 @@ function tokenize(text: string): Token[] {
     if (i >= len) break;
 
     const ch = text[i];
+
+    if (text.startsWith('for', i) && !/[A-Za-z0-9_]/.test(text[i + 3] ?? '')) {
+      const end = findForExpressionEnd(text, i);
+      const loopText = text.slice(i, end + 1);
+      tokens.push({ type: 'forExpression', value: loopText, text: loopText });
+      i = end + 1;
+      continue;
+    }
 
     // Number literal: digits, optional decimal part. No sign here (unary minus is separate).
     if (/\d/.test(ch)) {
@@ -124,7 +135,34 @@ function tokenize(text: string): Token[] {
   return tokens;
 }
 
-export function parseExpression(text: string, source?: SourceLocation): ExpressionNode {
+function findForExpressionEnd(text: string, start: number): number {
+  let open = -1;
+  let depth = 0;
+  let quote: string | undefined;
+  let escaped = false;
+
+  for (let index = start; index < text.length; index++) {
+    const character = text[index];
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if (character === quote) quote = undefined;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '{') {
+      if (open === -1) open = index;
+      depth++;
+    } else if (character === '}' && open !== -1) {
+      depth--;
+      if (depth === 0) return index;
+    }
+  }
+  throw new Error('Unclosed for expression');
+}
+
+export function parseExpression(text: string, source?: SourceLocation): V02ExpressionNode {
   const tokens = tokenize(text);
   let pos = 0;
 
@@ -178,8 +216,13 @@ export function parseExpression(text: string, source?: SourceLocation): Expressi
     return op === '^';
   }
 
-  function parsePrimary(): ExpressionNode {
+  function parsePrimary(): V02ExpressionNode {
     const t = current();
+
+    if (t.type === 'forExpression') {
+      advance();
+      return parseForExpression(t.value, source);
+    }
 
     if (t.type === 'number') {
       advance();
@@ -200,7 +243,7 @@ export function parseExpression(text: string, source?: SourceLocation): Expressi
       // Function call: identifier followed by '('
       if (current().type === 'lparen') {
         advance(); // consume '('
-        const args: ExpressionNode[] = [];
+        const args: V02ExpressionNode[] = [];
         if (current().type !== 'rparen') {
           while (true) {
             args.push(parseExpr(0));
@@ -232,28 +275,34 @@ export function parseExpression(text: string, source?: SourceLocation): Expressi
       return expr;
     }
     if (t.type === 'lbracket') {
-      // List literal [ expr, ... ]
       advance();
-      const elements: ExpressionNode[] = [];
-      if (current().type !== 'rbracket') {
-        while (true) {
-          elements.push(parseExpr(0));
-          if (current().type === 'comma') {
-            advance();
-            continue;
-          }
-          break;
+      if (current().type === 'rbracket') {
+        advance();
+        return { type: 'listLiteral', elements: [], source } as ListLiteralNode;
+      }
+
+      const first = parseExpr(0);
+      const rangeSeparator = current();
+      if (rangeSeparator.type === 'identifier' && rangeSeparator.name === 'to') {
+        advance();
+        const end = parseExpr(0);
+        if (current().type !== 'rbracket') {
+          throw new Error(`Expected ']' after range expression`);
         }
+        advance();
+        return { type: 'rangeExpression', start: first, end, source } as RangeExpressionNode;
+      }
+
+      const elements: V02ExpressionNode[] = [first];
+      while (current().type === 'comma') {
+        advance();
+        elements.push(parseExpr(0));
       }
       if (current().type !== 'rbracket') {
-        throw new Error(`Expected ']' after list literal`);
+        throw new Error(`Expected ',' or ']' after list expression`);
       }
       advance();
-      return {
-        type: 'listLiteral',
-        elements,
-        source
-      } as ListLiteralNode;
+      return { type: 'listLiteral', elements, source } as ListLiteralNode;
     }
     if (t.type === 'operator' && t.op === '-') {
       // Unary minus (higher precedence than ^)
@@ -283,7 +332,7 @@ export function parseExpression(text: string, source?: SourceLocation): Expressi
     );
   }
 
-  function parseExpr(minPrec: number): ExpressionNode {
+  function parseExpr(minPrec: number): V02ExpressionNode {
     // Handle leading conditional (lowest precedence) before calling parsePrimary.
     // Conditionals only start at the top level of an expression (minPrec === 0).
     const t0 = current();

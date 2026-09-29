@@ -1,22 +1,22 @@
 import {
-  ExpressionNode,
   BinaryExpressionNode,
   UnaryExpressionNode,
   ConditionalExpressionNode,
   ListLiteralNode,
-  FunctionCallNode
+  FunctionCallNode,
+  V02ExpressionNode,
+  ForExpressionNode,
+  ForStatementNode,
+  RangeExpressionNode,
+  StatementNode
 } from '../ast/types';
+import { throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext } from '../diagnostics/errors';
 import { Environment } from './environment';
 import { evaluateStandardLibraryCall } from './standardLibrary';
 
-/**
- * Evaluate an ExpressionNode.
- * Supports full v0.1 expression set: arithmetic, comparisons, logicals, conditionals,
- * list literals, and function calls (delegated to standardLibrary).
- * Throws AmxError (AMX1004) for undefined identifiers.
- */
+/** Evaluate V0.2 expressions, including ranges and expression-form loops. */
 export function evaluateExpression(
-  node: ExpressionNode,
+  node: V02ExpressionNode,
   env: Environment,
   file?: string
 ): unknown {
@@ -48,6 +48,15 @@ export function evaluateExpression(
 
     case 'functionCall':
       return evalFunctionCall(node as FunctionCallNode, env, file);
+
+    case 'rangeExpression':
+      return evalRange(node as RangeExpressionNode, env, file);
+
+    case 'forExpression':
+      return evalForExpression(node as ForExpressionNode, env, file);
+
+    case 'matchExpression':
+      throw new Error('Match expressions are not implemented in Sprint 008');
 
     default: {
       // Exhaustiveness check: if a new node type is added without a case, this will fail to compile.
@@ -154,7 +163,7 @@ function evalFunctionCall(
   return evaluateStandardLibraryCall(node.callee, args, node.source, file);
 }
 
-function toNumber(v: unknown, nodeForError?: ExpressionNode): number {
+function toNumber(v: unknown, nodeForError?: V02ExpressionNode): number {
   if (typeof v === 'number') return v;
   if (typeof v === 'boolean') return v ? 1 : 0;
   if (typeof v === 'string') {
@@ -174,4 +183,98 @@ function toBoolean(v: unknown): boolean {
   if (Array.isArray(v)) return v.length > 0;
   if (v && typeof v === 'object') return true;
   return false;
+}
+
+export function evaluateStatements(statements: StatementNode[], env: Environment, file?: string): void {
+  for (const statement of statements) {
+    evaluateStatement(statement, env, file);
+  }
+}
+
+function evaluateStatement(statement: StatementNode, env: Environment, file?: string): void {
+  switch (statement.type) {
+    case 'variableDeclaration':
+      env.set(statement.name, evaluateExpression(statement.expression, env, file));
+      return;
+    case 'assignmentStatement':
+      env.update(statement.name, evaluateExpression(statement.expression, env, file), statement.source, file);
+      return;
+    case 'compoundAssignmentStatement': {
+      const value = evaluateExpression({
+        type: 'binaryExpression',
+        operator: '+',
+        left: { type: 'identifier', name: statement.name, source: statement.source },
+        right: statement.expression,
+        source: statement.source
+      }, env, file);
+      env.update(statement.name, value, statement.source, file);
+      return;
+    }
+    case 'forStatement':
+      evalForStatement(statement, env, file);
+      return;
+    case 'returnStatement':
+      throwInvalidReturnContext(statement.source, file);
+  }
+}
+
+function evalRange(node: RangeExpressionNode, env: Environment, file?: string): number[] {
+  const start = evaluateExpression(node.start, env, file);
+  const end = evaluateExpression(node.end, env, file);
+  if (typeof start !== 'number' || !Number.isFinite(start) || !Number.isInteger(start)
+      || typeof end !== 'number' || !Number.isFinite(end) || !Number.isInteger(end)) {
+    throwInvalidRangeBounds(node.source, file);
+  }
+  const values: number[] = [];
+  const step = start <= end ? 1 : -1;
+  for (let value = start; step > 0 ? value <= end : value >= end; value += step) {
+    values.push(value);
+    if (value + step === value && value !== end) throwInvalidRangeBounds(node.source, file);
+  }
+  return values;
+}
+
+function evalForStatement(node: ForStatementNode, env: Environment, file?: string): void {
+  const values = evaluateLoopIterable(node.iterable, env, file);
+  withLoopBinding(node.variable, values, env, () => evaluateStatements(node.body, env, file));
+}
+
+function evalForExpression(node: ForExpressionNode, env: Environment, file?: string): unknown[] {
+  const values = evaluateLoopIterable(node.iterable, env, file);
+  const results: unknown[] = [];
+  withLoopBinding(node.variable, values, env, () => {
+    for (const statement of node.body) {
+      if (statement.type === 'returnStatement') {
+        results.push(evaluateExpression(statement.expression, env, file));
+      } else {
+        evaluateStatement(statement, env, file);
+      }
+    }
+  });
+  return results;
+}
+
+function evaluateLoopIterable(node: V02ExpressionNode, env: Environment, file?: string): unknown[] {
+  const value = evaluateExpression(node, env, file);
+  if (!Array.isArray(value)) throwInvalidLoopIterable(node.source, file);
+  return value;
+}
+
+function withLoopBinding(
+  name: string,
+  values: unknown[],
+  env: Environment,
+  runIteration: () => void
+): void {
+  const existed = env.has(name);
+  const previous = existed ? env.get(name) : undefined;
+  try {
+    for (const value of values) {
+      env.set(name, value);
+      runIteration();
+    }
+  } finally {
+    if (existed) env.set(name, previous);
+    else env.delete(name);
+  }
 }

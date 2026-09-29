@@ -77,3 +77,10 @@ All of the above are recorded here so that Builders and future sprints do not ac
 - **Loop scope**: The iteration variable shadows an existing binding while the loop runs and is restored when the loop exits, including error exit; it is rebound on each iteration. Other declarations and mutations use the caller's shared environment and persist after the loop.
 - **Loop limits**: Only lists and ranges are iterable. Nested loops, `break`, `continue`, and range steps remain unsupported. The evaluator can run a statement list with a supplied `Environment`; Sprint 010 still owns document-wide code-block order and final-context rendering/interpolation.
 - **Sprint 008 boundaries**: `match` remains Sprint 009. No renderer, CLI, extension, or domain-specific changes are included.
+
+## V0.2 Sprint 008 Implementation Outcomes
+
+- The statement-list evaluator accepts a caller-supplied `Environment`; declarations and ordinary assignments in loop bodies mutate that environment, while `for` temporarily shadows and restores only its iterator in a `finally` path.
+- Expression-form `for` is parsed as a normal expression atom, including within other expression positions such as function arguments. Its single `return` value is collected per iteration and does not stop later body statements.
+- Runtime diagnostics use AMX1005 for invalid range bounds, AMX1006 for non-list loop values, and AMX1007 for a return reaching runtime outside a valid expression-loop context. Undefined reads and writes continue to use AMX1004.
+- Sprint 008 did not add document-wide block evaluation, rendering changes, `match`, dependencies, or other deferred language features.

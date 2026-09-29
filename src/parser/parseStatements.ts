@@ -1,13 +1,17 @@
 import { SourceLocation, StatementNode, VariableDeclarationNode } from '../ast/types';
 import { parseExpression } from './parseExpression';
+import { parseForStatement } from './parseFor';
 
-/**
- * Parse the declaration-only statement subset supported in V0.2 Sprint 007.
- * `start` identifies the first source position in the original document.
- */
+interface ParseContext {
+  allowReturn?: boolean;
+  allowFor?: boolean;
+}
+
+/** Parse V0.2 statements while preserving original-document source locations. */
 export function parseStatements(
   body: string,
-  start: SourceLocation = { line: 1, column: 1 }
+  start: SourceLocation = { line: 1, column: 1 },
+  context: ParseContext = {}
 ): StatementNode[] {
   if (!body || body.trim().length === 0) {
     return [];
@@ -29,14 +33,45 @@ export function parseStatements(
       continue;
     }
 
+    if (context.allowFor === false && containsForExpression(rawLine)) {
+      throw new Error(`Nested loops are unsupported at ${source.line}:${source.column}`);
+    }
+
+    if (/^\s*for\b/.test(rawLine)) {
+      if (context.allowFor === false) {
+        throw new Error(`Nested loops are unsupported at ${source.line}:${source.column}`);
+      }
+      const endIndex = findLoopEnd(lines, i, { line: lineNumber, column: source.column });
+      statements.push(parseForStatement(lines.slice(i, endIndex + 1).join('\n'), source));
+      i = endIndex;
+      continue;
+    }
+
+    if (/^\s*(break|continue)\b/.test(rawLine)) {
+      throw new Error(`Unsupported loop control statement at ${source.line}:${source.column}`);
+    }
+
+    const returnMatch = rawLine.match(/^\s*return\s+(.+)\s*$/);
+    if (returnMatch) {
+      if (context.allowReturn !== true) {
+        throw new Error(`Return is only valid inside an expression-form for loop at ${source.line}:${source.column}`);
+      }
+      statements.push({
+        type: 'returnStatement',
+        expression: parseExpression(returnMatch[1], source),
+        source
+      });
+      continue;
+    }
+
     const letMatch = rawLine.match(/^\s*let\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.*)$/);
 
     if (letMatch) {
       const name = letMatch[1];
-      const expressionText = letMatch[2];
+      const expressionText = collectExpressionLoop(lines, i, letMatch[2], start);
       let expression;
       try {
-        expression = parseExpression(expressionText, source);
+        expression = parseExpression(expressionText.text, source);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(`Invalid declaration at ${source.line}:${source.column}: ${message}`);
@@ -49,6 +84,28 @@ export function parseStatements(
         source
       };
       statements.push(decl);
+      i += expressionText.lineCount - 1;
+      continue;
+    }
+
+    const compoundMatch = rawLine.match(/^\s*([A-Za-z][A-Za-z0-9_]*)\s*\+=\s*(.*)$/);
+    const assignmentMatch = rawLine.match(/^\s*([A-Za-z][A-Za-z0-9_]*)\s*=(?!=)\s*(.*)$/);
+    const assignment = compoundMatch ?? assignmentMatch;
+    if (assignment) {
+      const expressionText = collectExpressionLoop(lines, i, assignment[2], start);
+      try {
+        statements.push({
+          type: compoundMatch ? 'compoundAssignmentStatement' : 'assignmentStatement',
+          name: assignment[1],
+          ...(compoundMatch ? { operator: '+=' as const } : {}),
+          expression: parseExpression(expressionText.text, source),
+          source
+        } as StatementNode);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Invalid assignment at ${source.line}:${source.column}: ${message}`);
+      }
+      i += expressionText.lineCount - 1;
       continue;
     }
 
@@ -56,5 +113,58 @@ export function parseStatements(
   }
 
   return statements;
+}
+
+function findLoopEnd(lines: string[], startIndex: number, source: SourceLocation): number {
+  const text = lines.slice(startIndex).join('\n');
+  let open = -1;
+  let depth = 0;
+  let quote: string | undefined;
+  let escaped = false;
+
+  for (let offset = 0; offset < text.length; offset++) {
+    const character = text[offset];
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if (character === quote) quote = undefined;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '{') {
+      if (open === -1) open = offset;
+      depth++;
+    } else if (character === '}' && open !== -1) {
+      depth--;
+      if (depth === 0) {
+        return startIndex + text.slice(0, offset).split('\n').length - 1;
+      }
+    }
+  }
+  throw new Error(`${open === -1 ? "Expected '{' to start" : 'Unclosed'} for loop at ${source.line}:${source.column}`);
+}
+
+function collectExpressionLoop(
+  lines: string[],
+  lineIndex: number,
+  expression: string,
+  start: SourceLocation
+): { text: string; lineCount: number } {
+  if (!containsForExpression(expression)) return { text: expression, lineCount: 1 };
+  const loopEnd = findLoopEnd(lines, lineIndex, {
+    line: start.line + lineIndex,
+    column: start.column
+  });
+  const expressionOffset = lines[lineIndex].indexOf(expression);
+  return {
+    text: [lines[lineIndex].slice(expressionOffset), ...lines.slice(lineIndex + 1, loopEnd + 1)].join('\n'),
+    lineCount: loopEnd - lineIndex + 1
+  };
+}
+
+function containsForExpression(text: string): boolean {
+  const withoutStrings = text.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, '');
+  return /\bfor\s+[A-Za-z][A-Za-z0-9_]*\s+in\b/.test(withoutStrings);
 }
 

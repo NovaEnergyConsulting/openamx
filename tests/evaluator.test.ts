@@ -20,6 +20,8 @@ import { parseStatements } from "../src/parser/parseStatements";
 import { evaluateDocument } from "../src/runtime/evaluateDocument";
 import { OpenAmxDocument, VariableDeclarationNode } from "../src/ast/types";
 import { AmxError } from "../src/diagnostics/errors";
+import { Environment } from "../src/runtime/environment";
+import { evaluateStatements } from "../src/runtime/evaluateExpression";
 
 function makeDocFromBody(body: string): OpenAmxDocument {
   const nodes: OpenAmxDocument["nodes"] = [];
@@ -393,5 +395,112 @@ let final = total + round(avg)`;
     expect(ctx.isHigh).toBe(true);
     expect(ctx.label).toBe("high");
     expect(ctx.final).toBe(80);
+  });
+});
+
+describe("evaluator - Sprint 008 mutation, ranges, and loops", () => {
+  it("updates repeated declarations and applies assignment and += to existing bindings", () => {
+    const env = new Environment();
+    evaluateStatements(parseStatements("let total = 2\nlet total = total + 3\ntotal += 4\ntotal = total * 2"), env);
+    expect(env.get("total")).toBe(18);
+  });
+
+  it("uses AMX1004 with source locations for undefined writes", () => {
+    for (const statement of ["missing = 1", "missing += 1"]) {
+      const env = new Environment();
+      try {
+        evaluateStatements(parseStatements(statement, { line: 8, column: 1 }), env);
+        throw new Error("Expected assignment error");
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(AmxError);
+        expect(error.code).toBe("AMX1004");
+        expect(error.line).toBe(8);
+        expect(error.column).toBe(1);
+      }
+    }
+  });
+
+  it("evaluates ascending, descending, and equal inclusive ranges distinctly from lists", () => {
+    const env = new Environment();
+    evaluateStatements(parseStatements(
+      "let ascending = [1 to 3]\nlet descending = [3 to 1]\nlet equal = [2 to 2]\nlet list = [1, 3]"
+    ), env);
+    expect(env.get("ascending")).toEqual([1, 2, 3]);
+    expect(env.get("descending")).toEqual([3, 2, 1]);
+    expect(env.get("equal")).toEqual([2]);
+    expect(env.get("list")).toEqual([1, 3]);
+  });
+
+  it("rejects non-finite and non-integer range bounds with locations", () => {
+    for (const expression of ["[1.5 to 3]", "[1 to 1 / 0]"]) {
+      const env = new Environment();
+      try {
+        evaluateStatements(parseStatements(`let values = ${expression}`, { line: 6, column: 1 }), env);
+        throw new Error("Expected range error");
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(AmxError);
+        expect(error.code).toBe("AMX1005");
+        expect(error.line).toBe(6);
+      }
+    }
+  });
+
+  it("runs statement loops over lists and ranges with shared side effects", () => {
+    const env = new Environment();
+    evaluateStatements(parseStatements(
+      "let total = 0\nfor item in [1, 2, 3] {\n  total += item\n  let observed = item\n}\nfor step in [1 to 2] {\n  total += step\n}"
+    ), env);
+    expect(env.get("total")).toBe(9);
+    expect(env.get("observed")).toBe(3);
+    expect(env.has("item")).toBe(false);
+    expect(env.has("step")).toBe(false);
+  });
+
+  it("collects one expression-loop return per iteration and runs later statements", () => {
+    const env = new Environment();
+    evaluateStatements(parseStatements(
+      "let total = 0\nlet results = for item in [1 to 3] {\n  return item * 2\n  total += item\n}"
+    ), env);
+    expect(env.get("results")).toEqual([2, 4, 6]);
+    expect(env.get("total")).toBe(6);
+  });
+
+  it("returns an empty list for an empty expression loop", () => {
+    const env = new Environment();
+    evaluateStatements(parseStatements("let results = for item in [] {\nreturn item\n}"), env);
+    expect(env.get("results")).toEqual([]);
+    expect(env.has("item")).toBe(false);
+  });
+
+  it("evaluates an expression loop inside a function argument", () => {
+    const env = new Environment();
+    evaluateStatements(parseStatements(
+      "let total = sum(for item in [1 to 3] {\nreturn item\n})"
+    ), env);
+    expect(env.get("total")).toBe(6);
+  });
+
+  it("restores a shadowed iterator after success and evaluation failure", () => {
+    const env = new Environment();
+    env.set("item", 99);
+    evaluateStatements(parseStatements("for item in [1, 2] {\nitem += 1\n}"), env);
+    expect(env.get("item")).toBe(99);
+
+    expect(() => evaluateStatements(parseStatements(
+      "let values = for item in [1] {\nreturn item\nmissing = 2\n}"
+    ), env)).toThrow(AmxError);
+    expect(env.get("item")).toBe(99);
+  });
+
+  it("rejects non-list loop values with a source-located diagnostic", () => {
+    const env = new Environment();
+    try {
+      evaluateStatements(parseStatements("for item in 3 {\n}\n", { line: 11, column: 1 }), env);
+      throw new Error("Expected iterable error");
+    } catch (error: any) {
+      expect(error).toBeInstanceOf(AmxError);
+      expect(error.code).toBe("AMX1006");
+      expect(error.line).toBe(11);
+    }
   });
 });
