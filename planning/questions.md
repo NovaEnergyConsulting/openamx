@@ -160,6 +160,18 @@ No other ambiguities found in the sprint artifacts. If new questions arise durin
 - Local packaging continued only after confirmation of the missing-license warning. No license was selected or added, and no Marketplace upload was attempted. DBus/Python API-proposal host warnings were unrelated and did not affect tests.
 - Formatter probing found an existing core parser limitation for record constructors directly in `match` arms; the formatter cannot format that composition until the parser brace scanner is corrected. No language rule was changed and no editor-only parser workaround was added in Sprint 018.
 
+## V0.3 Sprint 019 Clarifications
+
+- No blocking acceptance-scope question is known. The typed-data example must import opt-in schemas from a valid local module path inside its entry root; a fixture-local library copy is permissible, but a core built-in or relaxed path rule is not.
+- Sprint 018's record-constructor-in-`match`-arm parser limitation needs a direct contract conformance test and explicit disposition in the V0.3 release record. Do not claim full support if that test remains failing.
+- The six Asset Management shapes are initial schemas without domain validation or certified scoring rules. A project license decision/file remains a separate prerequisite for Marketplace publication; do not infer or add one during Sprint 019.
+
+## V0.3 Sprint 019 Builder Completion
+
+- No blocking questions arose. The typed example, exact CLI assertions, root gates, extension host gates, VSIX packaging/install, and installed-artifact host rerun passed.
+- The known constructor-in-`match` limitation is a recorded residual conformance issue, not a silently accepted feature. The V0.3 release record and README identify it as unsupported.
+- No license was selected or added. Marketplace publication/upload remains outside the completed local acceptance scope.
+
 ## V0.3 Sprint 014 Builder Completion
 
 - No genuinely blocking type-system ambiguity arose; no unapproved language rule was introduced. The obsolete draft was removed without altering the later complete contract. Sprint 014 does not provide V0.3 CLI options, modules, inputs, or outputs; their activation paths belong to Sprints 015-017.

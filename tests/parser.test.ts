@@ -263,6 +263,11 @@ describe("match expression parsing", () => {
     const [loop] = parseStatements('let values = for item in [1] {\n  return match item {\n    case 1 => 2\n    default => 0\n  }\n}', { line: 20, column: 1 });
     expect((loop as VariableDeclarationNode).expression.type).toBe('forExpression');
   });
+    it("records the known limitation for record constructors directly in match arms", () => {
+      expect(() => parseExpression(
+        'match 1 {\ncase 1 => Asset { id: "A" }\ndefault => Asset { id: "B" }\n}'
+      )).toThrow(/Unclosed match expression/);
+    });
 
   it("rejects missing or duplicate defaults and malformed arms with locations", () => {
     const invalid = [

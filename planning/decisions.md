@@ -202,6 +202,14 @@ All of the above are recorded here so that Builders and future sprints do not ac
 - **Write ordering**: `render` produces/serializes HTML and exports before writing any destination, writes HTML first, then exports in option order. Filesystem failures use AMX6002 and may leave prior writes intact.
 - **CSV scope**: CSV output is limited to typed scalar-field record lists, including empty lists. Null and empty-string cells remain distinct per the V0.3 contract.
 
+## V0.3 Sprint 019 Preparation Decisions
+
+- **Example architecture**: Use one auditable typed-data analysis with custom and explicitly imported opt-in records, CSV/JSON fixtures, typed pure function, named JSON/CSV exports, and aggregate/fail-fast invalid fixtures. Keep imports inside the entry directory tree without weakening path containment.
+- **Acceptance evidence**: Assert actual values, stable rendered HTML, exact exported file bytes, ordered error context, absent writes on failure, and V0.2 no-option compatibility through production APIs/CLI. Avoid exit-code-only tests and generated-output churn.
+- **Release documentation**: Update root/editor guidance, migration notes, limitations, and package/CLI/VSIX version metadata to match observed commands. Preserve the historical V0.2 contract and keep Asset Management shapes provisional.
+- **Known conformance issue**: Check Sprint 018's record constructor directly in a `match` arm against the language contract. Repair only if required for acceptance, with a focused regression; otherwise disclose the tested limitation and its release disposition. Do not assert support without proof.
+- **Closure gate**: Root and extension builds/tests, example renders, real CLI validation/import/export checks, local VSIX packaging/install, installed-host check where supported, and recorded license/publication status are required before marking V0.3 complete. Marketplace publication remains deferred.
+
 ## V0.3 Sprint 018 Preparation Decisions
 
 - **Provider architecture**: Extend the existing direct VS Code providers; reuse pure buffer parsing, canonical formatting, and static checking. Do not add an LSP or call Bun APIs in the Node host.
@@ -246,3 +254,10 @@ All of the above are recorded here so that Builders and future sprints do not ac
 - Editor module analysis is a separate read-only Node path rather than reuse of `loadEntryModule`. It uses unsaved text for the entry, canonical local `.amx` reads for dependencies, explicit export maps, and `checkDocument`; it never evaluates declarations, loads input files, or writes files.
 - V0.3 completions are limited to preceding/in-scope declarations and successfully resolved explicit imports. Record fields are offered only for known record receivers. V0.2 standard completions remain available and V0.2-only diagnostics remain parser-only.
 - Static/link diagnostics use core AMX codes and original source positions, including dependency source documents; stale results clear on entry edits/close. The core checker is first-error, so each analysis currently publishes one static/link failure at a time.
+
+## V0.3 Sprint 019 Builder Outcome
+
+- The acceptance example keeps the entry-directory containment rule intact by placing fixture-local schema modules under `examples/libraries/`. Inputs appear immediately after imports and use imported record types, matching the loader's enforced input-placement and type-visibility rules.
+- The example formula `severity * occurrence` is explicitly illustrative. It is not introduced as an Asset Management standard; the six library schemas remain structural and provisional pending domain review.
+- Direct record constructors in `match` arms were checked against the V0.3 grammar and still fail with `Unclosed match expression`. A focused parser regression records this residual limitation; no parser workaround or contract redefinition was made in Sprint 019.
+- Release metadata is aligned at 0.3.0 across root package, CLI, extension manifest, VSIX artifact, installed listing, and documented install command. Marketplace publication remains deferred because the project has no license decision/file.

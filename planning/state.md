@@ -14,6 +14,8 @@
 - Sprint folder: planning/sprints/0017-csv-json-output/
 - Sprint 018: VS Code V0.3 Authoring Support — COMPLETE; V0.3 formatting, scoped completion, static diagnostics, host verification, and local VSIX installation delivered.
 - Sprint folder: planning/sprints/0018-v03-vscode-authoring-support/
+- Sprint 019: V0.3 Examples, Documentation, and Acceptance — Architect preparation complete; Builder execution is next. V0.3 release acceptance remains open.
+- Sprint folder: planning/sprints/0019-v03-examples-documentation-acceptance/
 - Master plan approved (plan-openamxV02MasterSprintPlan.md); V0.2 acceptance complete.
 - Sprint 007: V0.2 Language Contract, AST & Fenced Parsing — COMPLETE.
 - Sprint folder: planning/sprints/0007-v02-language-contract-ast-fenced-parsing/
@@ -92,7 +94,7 @@
 
 ## Next Steps
 
-- Sprint 018 COMPLETE. Sprint 019 owns release examples/documentation and final V0.3 acceptance.
+- Execute Sprint 019 only as documented: typed-data example/fixtures, evidence-based release docs/metadata, full CLI/root/extension/VSIX gates, and explicit disposition of known limitations. Do not mark V0.3 complete until every required gate passes.
 - Sprint 006 COMPLETE (see Sprint History). CLI, examples, full tests, documentation, and V0.1 acceptance are complete.
 - Sprint 007 COMPLETE (V0.2 Language Contract, AST & Fenced Parsing).
 - Sprint 008–012 COMPLETE. Keep V0.3 candidates in this order: (1) tables/charts; (2) units/currency; (3) reusable/imported `.amx`; (4) Asset Management domain libraries; (5) data imports; (6) Word/PDF export; (7) multi-file workflows; (8) richer validation; (9) AI-assisted authoring. None is implemented; decide a project license before Marketplace publication.
@@ -117,3 +119,13 @@
 - Environment notes: VSIX packaging warned that no `LICENSE`, `LICENSE.md`, or `LICENSE.txt` exists and required confirmation to continue; local packaging proceeded without choosing a license. `vsce` warned that the 345.3 KB bundled JS is large and that 4.0.0 is available (installed 3.9.2). Host logs included the DBus portal method error and an unrelated Python extension API-proposal warning; tests passed. Installed-host verification was supported and passed. No upload/publication occurred.
 - Remaining authoring limitation: imported analysis requires a file-backed entry URI and readable dependencies inside the entry directory tree. Untitled documents with imports report unavailable resolution and provide no fabricated imported symbols. The checker publishes its first static diagnostic; runtime/data validation is not part of editor diagnostics.
 - Existing core-parser limitation found during formatter probing: a record constructor used directly as a `match` arm expression is rejected by the current match-brace scanner, so the formatter returns no edits for that composition. Sprint 018 did not alter parser/grammar scope or add an editor-only workaround; nested constructors, composed constructor fields, and braced matches are covered separately. Track this as a core conformance follow-up.
+
+## V0.3 Sprint 019 Builder Completion
+
+- Added `examples/typed-asset-analysis.amx` with fixture-local copies of the opt-in Asset Management and screening schemas, nested JSON Asset input, scalar CSV screening input, DateTime input, typed pure-function scores, illustrative computed total 38, named summary JSON export, named result CSV export, invalid CSV/JSON fixtures, and production-generated `typed-asset-analysis.html`.
+- Added real-file CLI acceptance coverage in `tests/examples.test.ts`: exact final values, JSON/CSV bytes, render parity, temporary input path overrides, aggregate diagnostic ordering, fail-fast first-error behavior, and absence of output files after invalid input. Added parser coverage explicitly recording the unsupported direct record-constructor-in-`match`-arm limitation.
+- Updated V0.3 README/editor guidance, CLI `render:typed` script, root/CLI/extension versions to 0.3.0, and local VSIX install script. Historical V0.2 specification was preserved.
+- Root verification on 2026-09-29: `bun install` (9 installs, no changes), `bun run build`, `bun test` (159 tests, 631 assertions, 0 failures), all four render scripts, V0.2 no-option `run` for transformer/fleet, `bun run dist/cli.js --version` (`openamx/0.3.0 linux-x64 node-v26.3.0`), and `git diff --check` passed. Checked-in HTML matched independently rendered HTML through the acceptance test.
+- Extension verification: `bun install` (382 installs, no changes), `bun run compile`, source `bun run test` (11 host tests, VS Code 1.85.0), `CI=1 bun run package` produced `openamx-vscode-0.3.0.vsix` (6 files, 71.38 KB), `bun run install-local`, installed listing `engineerstools.openamx-vscode@0.3.0`, and installed-artifact host test (11 tests) all passed.
+- Release notes: VSIX packaging warned that no license file exists and continued only after confirmation; `vsce` 3.9.2 noted 4.0.0 is available and the 345.3 KB bundle is large. Host logs included the DBus portal warning and unrelated Python API-proposal warning; OpenAMX tests passed. No license was selected, no Marketplace upload occurred, and the provisional Asset Management schemas remain un-certified.
+- Sprint 019 acceptance is complete; the documented parser limitation remains a release residual and is not claimed as supported.

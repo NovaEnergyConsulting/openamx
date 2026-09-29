@@ -1,7 +1,19 @@
 import { describe, expect, it } from "bun:test";
+import { mkdtemp, rm } from "fs/promises";
+import { tmpdir } from "os";
+import * as path from "path";
 import { parseDocument } from "../src/parser/parseDocument";
 import { evaluateDocument } from "../src/runtime/evaluateDocument";
 import { renderHtml } from "../src/renderer/renderHtml";
+
+async function runCli(...arguments_: string[]) {
+  const command = Bun.spawnSync(["bun", "run", "src/cli.ts", ...arguments_]);
+  return {
+    exitCode: command.exitCode,
+    stdout: new TextDecoder().decode(command.stdout),
+    stderr: new TextDecoder().decode(command.stderr)
+  };
+}
 
 describe("V0.2 canonical examples", () => {
   it("renders the basic example without executing its ordinary fence", async () => {
@@ -66,5 +78,110 @@ describe("V0.2 canonical examples", () => {
     expect(html).toContain("let narrativeOnly = 999");
     expect(html).not.toContain("1000 exposure levels");
     expect(await Bun.file("examples/asset-fleet-risk-analysis.html").text()).toBe(html);
+  });
+
+  it("accepts the typed asset analysis through production CLI paths", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "openamx-sprint019-example-"));
+    try {
+      const assetPath = path.join(directory, "asset.json");
+      const screeningsPath = path.join(directory, "screenings.csv");
+      const reviewedAtPath = path.join(directory, "reviewed-at.json");
+      await Bun.write(assetPath, await Bun.file("examples/typed-asset.json").text());
+      await Bun.write(screeningsPath, await Bun.file("examples/typed-screenings.csv").text());
+      await Bun.write(reviewedAtPath, await Bun.file("examples/typed-reviewed-at.json").text());
+
+      const summaryPath = path.join(directory, "summary.json");
+      const rowsPath = path.join(directory, "rows.csv");
+      const run = await runCli(
+        "run", "examples/typed-asset-analysis.amx",
+        "--input", `asset=${assetPath}`,
+        "--input", `screenings=${screeningsPath}`,
+        "--input", `reviewedAt=${reviewedAtPath}`,
+        "--output", `summary=${summaryPath}`,
+        "--output", `resultRows=${rowsPath}`
+      );
+      expect(run.exitCode).toBe(0);
+      expect(JSON.parse(run.stdout)).toMatchObject({
+        asset: { name: "North Pump 01", failureModes: [{ id: "FM-001" }, { id: "FM-002" }] },
+        scores: [16, 18, 4],
+        totalScore: 38,
+        summary: { assetName: "North Pump 01", reviewedAt: "2026-09-29T12:00:00Z", totalScore: 38 }
+      });
+      expect(await Bun.file(summaryPath).text()).toBe([
+        "{",
+        "  \"assetName\": \"North Pump 01\",",
+        "  \"reviewedAt\": \"2026-09-29T12:00:00Z\",",
+        "  \"totalScore\": 38",
+        "}",
+        ""
+      ].join("\n"));
+      expect(await Bun.file(rowsPath).text()).toBe([
+        "assetId,score,note",
+        "A-001,16,Bearing inspection",
+        "A-001,18,Seal inspection",
+        "A-001,4,",
+        ""
+      ].join("\n"));
+
+      const htmlPath = path.join(directory, "typed.html");
+      const render = await runCli(
+        "render", "examples/typed-asset-analysis.amx", "--out", htmlPath,
+        "--input", `asset=${assetPath}`,
+        "--input", `screenings=${screeningsPath}`,
+        "--input", `reviewedAt=${reviewedAtPath}`
+      );
+      expect(render.exitCode).toBe(0);
+      const html = await Bun.file(htmlPath).text();
+      expect(html).toBe(await Bun.file("examples/typed-asset-analysis.html").text());
+      expect(html).toContain("Asset <strong>North Pump 01</strong>");
+      expect(html).toContain("The illustrative screening total is 38.");
+      expect(html).toContain("&quot;./libraries/asset-management.amx&quot;");
+
+      const invalidCsv = "examples/typed-invalid-screenings.csv";
+      const aggregatePath = path.join(directory, "aggregate.json");
+      const aggregate = await runCli(
+        "run", "examples/typed-asset-analysis.amx",
+        "--input", `asset=${assetPath}`,
+        "--input", `screenings=${invalidCsv}`,
+        "--input", `reviewedAt=${reviewedAtPath}`,
+        "--validation", "aggregate",
+        "--output", `summary=${aggregatePath}`
+      );
+      expect(aggregate.exitCode).not.toBe(0);
+      expect(aggregate.stderr).toContain("AMX4003");
+      expect(aggregate.stderr.indexOf("record[1].severity")).toBeLessThan(aggregate.stderr.indexOf("record[2].occurrence"));
+      expect(aggregate.stderr).toContain("Expected: Number");
+      expect(await Bun.file(aggregatePath).exists()).toBe(false);
+
+      const failFastPath = path.join(directory, "fail-fast.json");
+      const failFast = await runCli(
+        "run", "examples/typed-asset-analysis.amx",
+        "--input", `asset=${assetPath}`,
+        "--input", `screenings=${invalidCsv}`,
+        "--input", `reviewedAt=${reviewedAtPath}`,
+        "--validation", "fail-fast",
+        "--output", `summary=${failFastPath}`
+      );
+      expect(failFast.exitCode).not.toBe(0);
+      expect(failFast.stderr.match(/AMX4003/g)).toHaveLength(1);
+      expect(failFast.stderr).toContain("record[1].severity");
+      expect(failFast.stderr).not.toContain("record[2].occurrence");
+      expect(await Bun.file(failFastPath).exists()).toBe(false);
+
+      const invalidJsonPath = path.join(directory, "invalid-json-output.json");
+      const invalidJson = await runCli(
+        "run", "examples/typed-asset-analysis.amx",
+        "--input", `asset=examples/typed-invalid-asset.json`,
+        "--input", `screenings=${screeningsPath}`,
+        "--input", `reviewedAt=${reviewedAtPath}`,
+        "--output", `summary=${invalidJsonPath}`
+      );
+      expect(invalidJson.exitCode).not.toBe(0);
+      expect(invalidJson.stderr).toContain("AMX4003");
+      expect(invalidJson.stderr).toContain("/id");
+      expect(await Bun.file(invalidJsonPath).exists()).toBe(false);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });

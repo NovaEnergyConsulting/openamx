@@ -1,0 +1,6 @@
+{
+  "name": "North Pump 01",
+  "assetClass": "Pump",
+  "criticality": 4,
+  "failureModes": []
+}
