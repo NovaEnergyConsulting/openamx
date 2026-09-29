@@ -2,6 +2,10 @@
 
 ## Current Status
 
+- Master plan approved (plan-openamxV02MasterSprintPlan.md); V0.2 planning is active.
+- Sprint 007: V0.2 Language Contract, AST & Fenced Parsing — ARCHITECT PACK PREPARED; Builder handoff ready; implementation not started.
+- Sprint folder: planning/sprints/0007-v02-language-contract-ast-fenced-parsing/
+- Project status: v0.1 complete; V0.2 in progress.
 - Master plan approved (plan-openamxV01MasterSprintPlan.md).
 - Sprint 001: Project scaffolding, tooling, and planning artifacts COMPLETE.
 - Sprint folder: planning/sprints/0001-project-scaffolding/
@@ -43,8 +47,8 @@
 
 ## Next Steps
 
-- Sprint 005 COMPLETE (see Sprint History). Renderer + inline {{ }} substitution + standalone HTML complete; 64 tests pass; build clean.
-- Sprint 006 (CLI, Examples, Full Tests, Docs, Acceptance) — Architect pack created. Sprint folder: planning/sprints/0006-cli-examples-full-tests-docs-acceptance/. Builder handoff ready. Next: Builder executes per handoff-prompt.md.
+- Sprint 006 COMPLETE (see Sprint History). CLI, examples, full tests, documentation, and V0.1 acceptance are complete.
+- Sprint 007 (V0.2 Language Contract, AST & Fenced Parsing) — Architect pack prepared. Sprint folder: planning/sprints/0007-v02-language-contract-ast-fenced-parsing/. Next: Builder executes only the documented scope in handoff-prompt.md.
 - Continue to follow 120x process: only documented scope per active sprint.
 - Keep build and test green: `bun install && bun run build && bun test`.
 - Record any future clarifications in planning/decisions.md or planning/questions.md.

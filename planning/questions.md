@@ -23,3 +23,10 @@
 No other ambiguities found in the sprint artifacts. If new questions arise during implementation they will be appended here before proceeding.
 
 ## Open Questions (none currently blocking)
+
+## V0.2 Sprint 007 Clarifications
+
+- Resolved the master-plan question about newline/semicolon behavior: newlines are the only statement and match-arm separators; semicolons do not separate either construct.
+- Resolved match-arm syntax and placement: `case <literal> => <expression>` and exactly one `default => <expression>`; default is fallback and may appear at any position; cases are evaluated in source order.
+- Resolved fence and source-location rules in `planning/decisions.md` and Sprint 007 requirements. No blocking language-contract questions remain for the Builder handoff.
+- The remaining implementation details belong to their assigned later sprints; do not treat them as open requirements for Sprint 007.
