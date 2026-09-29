@@ -41,15 +41,20 @@ Statement         ::= Declaration NewLine
                     | Assignment NewLine
                     | CompoundAssignment NewLine
                     | ForStatement
-                    | ReturnStatement NewLine
+LoopBodyStatement ::= Declaration NewLine
+                    | Assignment NewLine
+                    | CompoundAssignment NewLine
 
 Declaration       ::= "let" Identifier "=" Expression
 Assignment        ::= Identifier "=" Expression
 CompoundAssignment ::= Identifier "+=" Expression
-ForStatement      ::= "for" Identifier "in" Expression "{" NewLine Statement* "}"
-ReturnStatement   ::= "return" Expression
+ForStatement      ::= "for" Identifier "in" Expression "{" NewLine LoopBodyStatement* "}"
+ForExpression     ::= "for" Identifier "in" Expression "{" NewLine
+                      LoopBodyStatement* ReturnStatement LoopBodyStatement* "}"
+ReturnStatement   ::= "return" Expression NewLine
 
-Expression        ::= Conditional
+Expression        ::= ForExpression
+                    | Conditional
 Conditional       ::= "if" Expression "then" Expression "else" Expression
                     | MatchExpression
                     | LogicalExpression
@@ -63,7 +68,7 @@ ListLiteral       ::= "[" (Expression ("," Expression)*)? "]"
 Identifier        ::= Letter (Letter | Digit | "_")*
 ```
 
-The grammar is intentionally conceptual around expression precedence and lexical details; those retain the V0.1 contract except where explicitly extended here. A newline within braces separates statements or match arms. It does not make an ordinary expression multiline.
+The grammar is intentionally conceptual around expression precedence and lexical details; those retain the V0.1 contract except where explicitly extended here. A newline within braces separates statements or match arms. It does not make an ordinary expression multiline. `ForStatement` is used in statement context and has no return; `ForExpression` is used in expression context and has exactly one return. Loop bodies do not contain nested `for` statements.
 
 ## 6. Expression Operators
 
@@ -75,7 +80,7 @@ The inclusive integer range form is `[start to end]`. It yields each integer fro
 
 Bindings are mutable. `let name = expression` creates a binding, and a repeated `let` updates an existing binding. `name = expression` replaces an existing binding; `name += expression` adds to an existing binding. References and assignments to undeclared identifiers are errors.
 
-`for item in values { ... }` iterates over a list or range. The document environment is shared across code blocks, while the iteration variable is scoped to its loop. Simple statement-form loops may omit `return`. Expression-form loops require one `return expression` for each iteration, collect one value per iteration into a list, and produce `[]` for empty input. `return` contributes that iteration's value and is not an early exit. Nested loops, `break`, and `continue` are not part of V0.2.
+`for item in values { ... }` iterates over a list or range. In statement position, the loop body contains no `return` and the loop produces no value. In expression position, the loop body contains exactly one `return expression`; that expression is evaluated and collected once per iteration into a list, including when ordinary body statements follow the return. The return contributes a value but is not an early exit from the body or loop. An expression loop over empty input produces `[]`. The iteration variable is scoped to its loop and shadows/restores an existing binding of the same name; other declarations and mutations use the current shared environment and remain after the loop. A loop variable is rebound to the next iterable value at the start of each iteration. A `return` outside an expression-form loop is invalid. Nested loops, `break`, and `continue` are not part of V0.2.
 
 ## 8. Match Expressions
 

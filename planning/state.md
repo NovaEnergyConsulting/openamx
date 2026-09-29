@@ -5,6 +5,8 @@
 - Master plan approved (plan-openamxV02MasterSprintPlan.md); V0.2 planning is active.
 - Sprint 007: V0.2 Language Contract, AST & Fenced Parsing — COMPLETE.
 - Sprint folder: planning/sprints/0007-v02-language-contract-ast-fenced-parsing/
+- Sprint 008: Mutable Bindings, Ranges & Loops — ARCHITECT PACK PREPARED; Builder handoff ready; implementation not started.
+- Sprint folder: planning/sprints/0008-mutable-bindings-ranges-loops/
 - Project status: v0.1 complete; V0.2 in progress.
 - Sprint 007 acceptance passed: V0.2 spec established; only exact executable `amx` fences produce code-block AST nodes; declarations outside those fences remain narrative; original-document locations and Markdown preservation are covered by parser tests.
 - Master plan approved (plan-openamxV01MasterSprintPlan.md).
@@ -46,11 +48,12 @@
 - Sprint 004: Requirements, blueprint, acceptance criteria, and handoff prompt created per master plan (Architect phase). Builder executed full scope: tokenizer + parser extensions for comparisons/logicals/conditionals/lists/calls, evaluator dispatch + toBoolean, complete standardLibrary.ts (8 functions + validation), exhaustive evaluator.test.ts additions (comparisons, logicals, conditionals, lists, stdlib, errors, precedence, integration). Parser bugs (lone > < tokenizer; leading 'if' before primary) discovered via new tests and fixed with two targeted edits. All 54 tests pass; build clean. Sprint 004 COMPLETE.
 - Sprint 005: Requirements, blueprint, acceptance criteria, and handoff prompt created per master plan. Builder implemented full renderer layer: src/renderer/renderHtml.ts (inline {{ }} substitution for the complete v0.1 expression grammar using parseExpression + evaluateExpression, post-substitution marked rendering, standalone HTML5 document assembly, frontmatter title, deterministic value stringification, let omission). Replaced tests/renderer.test.ts skeleton with 10 real test suites (headings/paragraphs/bullets, let omission, simple+complex {{ }} substitution including all expression forms, multiple subs, AMX1004 surfacing, title handling, stability, full-pipeline in-memory smoke test using parseStatements + renderHtml). All 64 tests pass; build clean. No CLI or example work started. Sprint 005 COMPLETE.
 - Sprint 007: Added `docs/language-spec-v0.2.md` as the authoritative V0.2 contract; extended AST with executable code blocks and V0.2 statement/expression scaffolding; changed document parsing to recognize exact case-sensitive `amx` fences only, preserve ordinary Markdown and bare declarations as narrative, and attach original-document locations. Added fence, migration, source-order, front-matter, interpolation, CRLF, and error-boundary coverage. `bun run build` passes; `bun test` passes (68 tests). Existing evaluator/renderer test-only fixture helpers were updated to construct lower-level AST fixtures directly after their former use of `parseStatements` as a mixed-document splitter failed; production runtime and renderer were not changed. Sprint 007 COMPLETE.
+- Sprint 008 Architect preparation: customized the four sprint artifacts for mutable bindings, assignment, inclusive ranges, and simple statement/expression loops. Clarified the V0.2 grammar to include expression-form loops, exactly one per-iteration return, statement-loop return exclusion, and loop-variable scope. No Sprint 008 implementation has started.
 
 ## Next Steps
 
 - Sprint 006 COMPLETE (see Sprint History). CLI, examples, full tests, documentation, and V0.1 acceptance are complete.
-- Sprint 007 COMPLETE (V0.2 Language Contract, AST & Fenced Parsing). Sprint 008 (Mutable Bindings, Assignments, Ranges & Loops) is the next dependent sprint; proceed only from its approved sprint pack.
+- Sprint 007 COMPLETE (V0.2 Language Contract, AST & Fenced Parsing). Sprint 008 pack is prepared at planning/sprints/0008-mutable-bindings-ranges-loops/; Builder executes only its documented scope.
 - Continue to follow 120x process: only documented scope per active sprint.
 - Keep build and test green: `bun install && bun run build && bun test`.
 - Record any future clarifications in planning/decisions.md or planning/questions.md.

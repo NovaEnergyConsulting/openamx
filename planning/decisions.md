@@ -68,3 +68,12 @@ All of the above are recorded here so that Builders and future sprints do not ac
 - **Source locations**: Lines and columns are 1-based positions in the original document, including front matter and fence delimiters. Columns count UTF-16 code units to align with TypeScript and VS Code editor positions.
 - **Sprint 007 parser representation**: Document nodes preserve narrative and represent each executable fence as an `executableCodeBlock` containing raw source and statement nodes. Sprint 007 parses declarations only and does not execute blocks.
 - **Sprint boundaries**: Sprint 007 establishes the complete V0.2 contract and parses fenced declarations only. Assignment, `+=`, ranges, loops, and `match` implementation are deferred to Sprints 008–009; execution, formatting, rendering, and final-environment interpolation are deferred to Sprint 010.
+
+## V0.2 Sprint 008 Decisions
+
+- **Mutable declaration and assignment semantics**: First `let` introduces a binding; repeated `let` updates it. `=` and `+=` require an existing binding. `+=` uses the existing V0.1 `+` semantics. Undefined reads and writes use AMX1004.
+- **Ranges**: `[start to end]` evaluates finite integer bounds and yields an inclusive sequence with step one, ascending or descending; equal bounds yield one value. Explicit list literals remain unchanged. No explicit step syntax is added.
+- **Loop context and returns**: `for` in statement position is a side-effecting loop with no `return`. `for` in expression position requires exactly one `return expression`, collects its value once per iteration, continues later body statements, and evaluates to `[]` for empty input. `return` is invalid elsewhere and is not an early exit.
+- **Loop scope**: The iteration variable shadows an existing binding while the loop runs and is restored when the loop exits, including error exit; it is rebound on each iteration. Other declarations and mutations use the caller's shared environment and persist after the loop.
+- **Loop limits**: Only lists and ranges are iterable. Nested loops, `break`, `continue`, and range steps remain unsupported. The evaluator can run a statement list with a supplied `Environment`; Sprint 010 still owns document-wide code-block order and final-context rendering/interpolation.
+- **Sprint 008 boundaries**: `match` remains Sprint 009. No renderer, CLI, extension, or domain-specific changes are included.
