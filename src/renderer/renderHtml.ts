@@ -71,7 +71,7 @@ function substituteInlines(
     const source = narrativeLine !== undefined ? { line: narrativeLine, column: 1 } : undefined;
     const exprNode = parseExpression(trimmed, source);
     const value = evaluateExpression(exprNode, env, file);
-    return valueToString(value);
+    return escapeHtml(valueToString(value));
   });
 }
 

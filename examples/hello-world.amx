@@ -1,6 +1,6 @@
 ---
 title: Hello OpenAMX
-version: 0.1
+version: 0.2
 ---
 
 # Hello OpenAMX
@@ -13,3 +13,9 @@ let riskScore = 15
 The asset under review is {{ assetName }}.
 
 The calculated risk score is {{ riskScore }}.
+
+Only exact `amx` fences execute. This ordinary fence is illustrative:
+
+```text
+let ignored = 999
+```

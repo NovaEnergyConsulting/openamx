@@ -2,7 +2,7 @@
 
 ## Current Status
 
-- Master plan approved (plan-openamxV02MasterSprintPlan.md); V0.2 implementation is active.
+- Master plan approved (plan-openamxV02MasterSprintPlan.md); V0.2 acceptance complete.
 - Sprint 007: V0.2 Language Contract, AST & Fenced Parsing — COMPLETE.
 - Sprint folder: planning/sprints/0007-v02-language-contract-ast-fenced-parsing/
 - Sprint 008: Mutable Bindings, Ranges & Loops — COMPLETE.
@@ -13,7 +13,9 @@
 - Sprint folder: planning/sprints/0010-canonical-formatter-renderer-integration/
 - Sprint 011: VS Code Extension — COMPLETE; direct providers tested in VS Code 1.85.0 and VSIX locally installed.
 - Sprint folder: planning/sprints/0011-vscode-extension/
-- Project status: v0.1 complete; V0.2 in progress.
+- Sprint 012: V0.2 Examples, Documentation & Acceptance — COMPLETE; examples, documentation, end-to-end assertions and all required gates verified.
+- Sprint folder: planning/sprints/0012-v02-examples-documentation-acceptance/
+- Project status: v0.1 and V0.2 complete; Marketplace publication deferred pending an explicit license decision/file.
 - Sprint 007 acceptance passed: V0.2 spec established; only exact executable `amx` fences produce code-block AST nodes; declarations outside those fences remain narrative; original-document locations and Markdown preservation are covered by parser tests.
 - Master plan approved (plan-openamxV01MasterSprintPlan.md).
 - Sprint 001: Project scaffolding, tooling, and planning artifacts COMPLETE.
@@ -61,12 +63,16 @@
 - Sprint 010 Builder completion: Added an idempotent layout formatter; document evaluation now executes executable-block statements once in source order through one shared environment while preserving the plain-object API. Rendering formats and escapes visible code blocks and resolves narrative interpolation after execution. Formatter tests passed (3 tests); focused evaluator/renderer tests passed (70 tests); `bun run build` passed; final full `bun test` passed (96 tests, 261 assertions). Bare declarations and ordinary fences remain non-executable. No contract deviations.
 - Sprint 011 Architect preparation: customized the four sprint artifacts for the direct-provider VS Code extension, pure buffer parsing, Node-host bundling, Extension Development Host tests, and local VSIX packaging/installation. Added the optional editor-support contract to the V0.2 spec. No Sprint 011 implementation has started.
 - Sprint 011 Builder completion: Added `parseDocumentText` and preserved `parseDocument(path)` through delegation. Added the Node-host `vscode-extension/` package with block-only canonical formatting, scoped completions, parser diagnostics that exclude front matter/narrative, Extension Development Host tests, and local VSIX packaging. Root verification passed (`bun run build && bun test`: 97 tests, 265 assertions); extension host tests passed (3 tests) on VS Code 1.85.0 both from the source package and the installed VSIX. `openamx-vscode-0.2.0.vsix` packaged (6 files, 61.67 KB) and installed with the WSL VS Code CLI; the installed extension opened a real `.amx` test document and all provider tests passed. No language-contract or runtime deviations. `vsce` warned that the repository has no license file; local packaging continued, and a license decision/file is needed before publication.
+- Sprint 012 Architect preparation: customized the four sprint artifacts for transformer FMEA and asset-fleet Risk Analysis examples, V0.2 README/spec completion, end-to-end expected-value checks, and full root/extension verification. Recorded the ordered V0.3 candidate list and the unresolved license prerequisite for Marketplace publication. No Sprint 012 implementation has started.
+- Sprint 012 Builder completion: Reworked Hello and transformer examples and added asset-fleet Risk Analysis; regenerated all three HTML files using the production CLI. Actual-file tests assert complete final contexts, rendered values, inert narrative/ordinary fences, formatted/escaped code, and byte-for-byte parity with generated HTML. Transformer modes [24, 18, 27] sum to 69 and finish at 60; fleet scores [5, 10, 15] sum to 30 and finish at 35. Acceptance exposed raw HTML injection via interpolated values; the renderer now escapes evaluated values before Markdown parsing, covered by the transformer test. No other implementation behavior changed.
+- Sprint 012 verification (2026-09-29): root `bun install` (8 installs checked, no changes), `bun run build` (passed), `bun test` (100 tests, 294 assertions, 0 failures); `bun run render:hello`, `bun run render:transformer`, `bun run render:fleet` (passed); both `bun run dist/cli.js run examples/transformer-strategy.amx` and `bun run dist/cli.js run examples/asset-fleet-risk-analysis.amx` printed expected final JSON contexts. Generated HTML inspection confirmed standalone structure, Markdown headings/list/strong text, final-environment values, escaped executable source and interpolation, and inert ordinary fences/bare declarations. Extension `bun install` (382 installs checked, no changes), `bun run compile`, `bun run test` (3 host tests on VS Code 1.85.0), `CI=1 bun run package` (6-file 61.74 KB `openamx-vscode-0.2.0.vsix`), `bun run install-local`, and `code --list-extensions --show-versions` (reported `engineerstools.openamx-vscode@0.2.0`) all passed. `OPENAMX_EXTENSION_PATH=/home/cgamez/.vscode-server/extensions/engineerstools.openamx-vscode-0.2.0 bun run test` passed the same 3 host tests against the installed extension and a real `.amx` document.
+- Sprint 012 residuals: `vsce` required confirmation despite `CI=1` because no license file exists; local packaging continued after answering yes. It also noted an available newer vsce version and a 297.03 KB bundle. VS Code host emitted DBus portal and unrelated installed Python extension API-proposal warnings, but tests passed. Marketplace publication/upload was not attempted; a project license decision/file is a prerequisite. Remaining language/editor limitations are documented in the README. No V0.3 work was implemented.
 
 ## Next Steps
 
 - Sprint 006 COMPLETE (see Sprint History). CLI, examples, full tests, documentation, and V0.1 acceptance are complete.
 - Sprint 007 COMPLETE (V0.2 Language Contract, AST & Fenced Parsing).
-- Sprint 008 COMPLETE (Mutable Bindings, Ranges & Loops). Sprint 009 COMPLETE (Match Expressions). Sprint 010 COMPLETE (Canonical Formatter & Renderer Integration). Sprint 011 COMPLETE (VS Code Extension); Sprint 012 is next.
+- Sprint 008–012 COMPLETE. Keep V0.3 candidates in this order: (1) tables/charts; (2) units/currency; (3) reusable/imported `.amx`; (4) Asset Management domain libraries; (5) data imports; (6) Word/PDF export; (7) multi-file workflows; (8) richer validation; (9) AI-assisted authoring. None is implemented; decide a project license before Marketplace publication.
 - Continue to follow 120x process: only documented scope per active sprint.
 - Keep build and test green: `bun install && bun run build && bun test`.
 - Record any future clarifications in planning/decisions.md or planning/questions.md.

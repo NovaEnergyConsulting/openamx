@@ -17,8 +17,11 @@ bun run test
 ## Package and Install
 
 ```sh
-bun run package
-code --install-extension openamx-vscode-0.2.0.vsix --force
+CI=1 bun run package
+bun run install-local
+code --list-extensions --show-versions
 ```
 
 Packaging creates a local VSIX only; it does not publish or upload the extension.
+No project license file exists yet; the license warning during packaging must be
+resolved by a project license decision before Marketplace publication.

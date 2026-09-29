@@ -86,3 +86,18 @@ No other ambiguities found in the sprint artifacts. If new questions arise durin
 - The Extension Development Host ran on VS Code 1.85.0. `xvfb-run` was unavailable, but the active `DISPLAY=:0` allowed the host to run. The host emitted environment/built-in extension DBus/API warnings; all OpenAMX tests passed.
 - `vsce` warned that the repository has no license file. This did not prevent a local VSIX from being built and installed; choosing and adding the project license remains necessary before any Marketplace publication.
 - Exact verification: root `bun run build && bun test` passed (97 tests, 265 assertions); extension `bun run test` passed (3 tests); installed-artifact run with `OPENAMX_EXTENSION_PATH=/home/cgamez/.vscode-server/extensions/engineerstools.openamx-vscode-0.2.0 bun run test` passed (3 tests); `CI=1 bun run package` produced the 6-file `vscode-extension/openamx-vscode-0.2.0.vsix` (61.67 KB); `bun run install-local` succeeded; `code --list-extensions --show-versions` reported `engineerstools.openamx-vscode@0.2.0`. Nothing was published or uploaded.
+
+## V0.2 Sprint 012 Clarifications
+
+- The transformer-strategy example will become the Power Transformer Failure Mode Analysis, and `examples/asset-fleet-risk-analysis.amx` will be the second end-to-end Risk Analysis document. Both examples collectively cover the V0.2 acceptance surface without adding domain-specific core features.
+- Expected computed values must be stated in tests and checked against parsing/evaluation of the real example source; checked-in HTML is regenerated through the CLI.
+- The ordered V0.3 roadmap is recorded in `planning/decisions.md` and remains explicitly unimplemented.
+- The repository has no license file. Do not select or add one during Sprint 012; record that Marketplace publication remains deferred until the project makes an explicit license decision. Local VSIX packaging/install is still a Sprint 012 verification requirement.
+- No blocking questions remain for the Sprint 012 Builder handoff. V0.2 must not be marked complete if a required core, example, extension-host, packaging, or local-install check is blocked or unverified.
+
+## V0.2 Sprint 012 Builder Completion
+
+- No blocking questions arose. The actual-file tests exposed one concrete renderer defect: interpolated markup-significant characters were not escaped before Markdown conversion. The narrow fix and regression are recorded in decisions and the V0.2 spec; no other language/extension change was needed.
+- Root build and full test suite passed (100 tests, 294 assertions), all example renders and both domain CLI run outputs passed, and checked-in HTML matches renderer output. Extension host tests passed on VS Code 1.85.0 (3 from source, 3 from installed VSIX). Packaging yielded `openamx-vscode-0.2.0.vsix` (6 files, 61.74 KB); local install and installed extension listing succeeded.
+- Nonblocking environmental warnings: VS Code host DBus portal/built-in Python extension API warnings; `vsce` reports a newer version and a 297.03 KB bundled JS file. `vsce` prompted to continue without a license file despite `CI=1`; local packaging required and received confirmation. The project license selection/file remains an unresolved publication prerequisite for the Lead Developer, not a Sprint 012 language or acceptance blocker. Marketplace publication was not attempted.
+- Ordered V0.3 candidates, unimplemented: (1) tables/charts; (2) units/currency; (3) reusable/imported `.amx`; (4) Asset Management domain libraries; (5) data imports; (6) Word/PDF export; (7) multi-file workflows; (8) richer validation; (9) AI-assisted authoring.

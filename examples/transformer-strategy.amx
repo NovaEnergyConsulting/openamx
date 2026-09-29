@@ -1,32 +1,48 @@
 ---
-title: Transformer Replacement Strategy
+title: Power Transformer Failure Mode Analysis
 author: Carlos Gamez
-version: 0.1
+version: 0.2
 status: draft
 ---
 
-# Transformer Replacement Strategy
+# Power Transformer Failure Mode Analysis
 
-This document evaluates the replacement of Transformer TX-001.
-
-```amx
-let replacementCost = 1250000
-let annualRiskCost = 85000
-let projectLife = 25
-
-let lifecycleRiskCost = annualRiskCost * projectLife
-let totalLifecycleCost = replacementCost + lifecycleRiskCost
-```
-
-## Result
-
-The lifecycle risk cost is {{ lifecycleRiskCost }}.
-
-The total lifecycle cost is {{ totalLifecycleCost }}.
+The three observed failure modes for TX-001 have severity scores 8, 6 and 9.
+For this screening exercise, each has occurrence score 3; the scores are
+illustrative and are not a calibrated failure probability.
 
 ```amx
-let riskScore = 18
-let priority = if riskScore >= 20 then "High" else "Medium"
+let assetName = "TX-001 <north>"
+let severity = [8, 6, 9]
+let occurrence = 3
+let modeScores = for severityScore in severity {
+	return severityScore * occurrence
+}
+let totalScore = 0
+for score in modeScores {
+	totalScore += score
+}
+let action = match totalScore {
+	case 69 => "Inspect cooling system"
+	default => "Review operating history"
+}
 ```
 
-The priority classification is {{ priority }}.
+## Screening result
+
+For {{ assetName }}, the mode scores are {{ modeScores }} and the adjusted
+aggregate is {{ totalScore }}. The initial action is {{ action }}.
+
+- Cooling: severity 8
+- Insulation: severity 6
+- Bushings: severity 9
+
+The planned inspection reduces the aggregate by 9 screening points:
+
+```amx
+totalScore = totalScore - 9
+let remainingScore = totalScore
+```
+
+The remaining score is {{ remainingScore }}. Scores are comparative only, not
+monetary loss estimates.

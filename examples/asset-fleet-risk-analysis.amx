@@ -1,0 +1,47 @@
+---
+title: Asset Fleet Risk Analysis
+version: 0.2
+---
+
+# Asset Fleet Risk Analysis
+
+Three assets are screened at five points per ordinal exposure level. This is
+a comparative index, not a probability or financial forecast.
+
+```amx
+let fleetName = "North & South fleet"
+let exposures = [1 to 3]
+let riskPoints = for exposure in exposures {
+  return exposure * 5
+}
+let fleetScore = 0
+for points in riskPoints {
+  fleetScore += points
+}
+```
+
+## Portfolio decision
+
+The final fleet score is {{ fleetScore }} across {{ exposures }} exposure levels.
+
+An additional five points reflect a shared access constraint. The classification
+uses a literal case for a critical score and a default for other scores.
+
+```amx
+fleetScore += 5
+let fleetScore = fleetScore
+let decision = match fleetScore {
+  case 50 => "Urgent intervention"
+  default => "Schedule review"
+}
+```
+
+Decision: **{{ decision }}**. The final score is {{ fleetScore }}.
+
+The following ordinary fence is documentation, not an input to the calculation:
+
+```text
+let ignored = 1000
+```
+
+let narrativeOnly = 999

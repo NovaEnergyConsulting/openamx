@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Asset Fleet Risk Analysis</title>
+</head>
+<body>
+<h1>Asset Fleet Risk Analysis</h1>
+<p>Three assets are screened at five points per ordinal exposure level. This is
+a comparative index, not a probability or financial forecast.</p>
+<pre><code class="language-amx">let fleetName = &quot;North &amp; South fleet&quot;
+let exposures = [1 to 3]
+let riskPoints = for exposure in exposures {
+  return exposure * 5
+}
+let fleetScore = 0
+for points in riskPoints {
+  fleetScore += points
+}
+</code></pre><h2>Portfolio decision</h2>
+<p>The final fleet score is 35 across 1, 2, 3 exposure levels.</p>
+<p>An additional five points reflect a shared access constraint. The classification
+uses a literal case for a critical score and a default for other scores.</p>
+<pre><code class="language-amx">fleetScore += 5
+let fleetScore = fleetScore
+let decision = match fleetScore {
+  case 50 =&gt; &quot;Urgent intervention&quot;
+  default =&gt; &quot;Schedule review&quot;
+}
+</code></pre><p>Decision: <strong>Schedule review</strong>. The final score is 35.</p>
+<p>The following ordinary fence is documentation, not an input to the calculation:</p>
+<pre><code class="language-text">let ignored = 1000
+</code></pre>
+<p>let narrativeOnly = 999</p>
+</body>
+</html>

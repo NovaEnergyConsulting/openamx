@@ -2,22 +2,39 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Transformer Replacement Strategy</title>
+  <title>Power Transformer Failure Mode Analysis</title>
 </head>
 <body>
-<h1>Transformer Replacement Strategy</h1>
-<p>This document evaluates the replacement of Transformer TX-001.</p>
-<pre><code class="language-amx">let replacementCost = 1250000
-let annualRiskCost = 85000
-let projectLife = 25
-
-let lifecycleRiskCost = annualRiskCost * projectLife
-let totalLifecycleCost = replacementCost + lifecycleRiskCost
-</code></pre><h2>Result</h2>
-<p>The lifecycle risk cost is 2125000.</p>
-<p>The total lifecycle cost is 3375000.</p>
-<pre><code class="language-amx">let riskScore = 18
-let priority = if riskScore &gt;= 20 then &quot;High&quot; else &quot;Medium&quot;
-</code></pre><p>The priority classification is Medium.</p>
+<h1>Power Transformer Failure Mode Analysis</h1>
+<p>The three observed failure modes for TX-001 have severity scores 8, 6 and 9.
+For this screening exercise, each has occurrence score 3; the scores are
+illustrative and are not a calibrated failure probability.</p>
+<pre><code class="language-amx">let assetName = &quot;TX-001 &lt;north&gt;&quot;
+let severity = [8, 6, 9]
+let occurrence = 3
+let modeScores = for severityScore in severity {
+  return severityScore * occurrence
+}
+let totalScore = 0
+for score in modeScores {
+  totalScore += score
+}
+let action = match totalScore {
+  case 69 =&gt; &quot;Inspect cooling system&quot;
+  default =&gt; &quot;Review operating history&quot;
+}
+</code></pre><h2>Screening result</h2>
+<p>For TX-001 &lt;north&gt;, the mode scores are 24, 18, 27 and the adjusted
+aggregate is 60. The initial action is Inspect cooling system.</p>
+<ul>
+<li>Cooling: severity 8</li>
+<li>Insulation: severity 6</li>
+<li>Bushings: severity 9</li>
+</ul>
+<p>The planned inspection reduces the aggregate by 9 screening points:</p>
+<pre><code class="language-amx">totalScore = totalScore - 9
+let remainingScore = totalScore
+</code></pre><p>The remaining score is 60. Scores are comparative only, not
+monetary loss estimates.</p>
 </body>
 </html>
