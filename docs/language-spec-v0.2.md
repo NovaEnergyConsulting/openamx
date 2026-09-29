@@ -98,7 +98,11 @@ The formatter operates only on executable-block content, excluding fence delimit
 
 The HTML renderer preserves narrative Markdown rendering and emits each executable block at its source position as an escaped code element (for example, `<pre><code class="language-amx">…</code></pre>`). It displays formatted block content without fence delimiters, HTML-escaping markup-significant characters so source is displayed only as text. Executable content is not interpreted as HTML or interpolated as narrative. Output remains a complete standalone HTML document and uses front matter `title` as its document title when present.
 
-## 11. V0.1 Migration
+## 11. VS Code Support
+
+V0.2 provides an optional VS Code extension for `.amx` documents. It uses direct VS Code API providers in the Node-based extension host and reuses the core parser and canonical formatter. The extension formats only executable `amx` block contents, offers basic completion for language keywords, standard-library functions, and source-order-visible variables (including the active loop iterator), and reports parser-only diagnostics at document source locations. Ordinary Markdown and bare V0.1 declarations are not treated as executable code by these providers. The extension engine floor is VS Code 1.85.0 (`^1.85.0`). It can be developed and installed locally from a packaged VSIX; Marketplace publication is not required by V0.2.
+
+## 12. V0.1 Migration
 
 V0.2 is a breaking change. Bare V0.1 declarations are no longer executable and remain ordinary narrative. Move declarations into an `amx` fence:
 
@@ -114,8 +118,8 @@ let annualRiskCost = 85000
 
 There is no legacy mode that executes bare declarations. Ordinary Markdown code fences remain non-executable. Existing inline `{{ expression }}` syntax remains supported as a separate feature.
 
-## 12. Implementation Boundaries and Non-Goals
+## 13. Implementation Boundaries and Non-Goals
 
-Sprint 007 established the contract and parses declaration statements inside executable `amx` blocks. Sprint 008 implements mutation, ranges, and loops; Sprint 009 implements `match` parsing/evaluation. Sprint 010 integrates document-wide executable-block evaluation, formatting, rendering, and final-environment interpolation. The VS Code extension belongs to Sprint 011.
+Sprint 007 established the contract and parses declaration statements inside executable `amx` blocks. Sprint 008 implements mutation, ranges, and loops; Sprint 009 implements `match` parsing/evaluation. Sprint 010 integrates document-wide executable-block evaluation, formatting, rendering, and final-environment interpolation. Sprint 011 provides the optional VS Code extension.
 
 V0.2 does not add imports, units, currency, charts, tables, Asset Management domain libraries, domain-specific types, V0.3 candidates, or a parser framework. The core remains general-purpose and uses the existing TypeScript hand-written parser.

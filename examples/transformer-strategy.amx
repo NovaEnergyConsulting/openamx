@@ -9,12 +9,14 @@ status: draft
 
 This document evaluates the replacement of Transformer TX-001.
 
+```amx
 let replacementCost = 1250000
 let annualRiskCost = 85000
 let projectLife = 25
 
 let lifecycleRiskCost = annualRiskCost * projectLife
 let totalLifecycleCost = replacementCost + lifecycleRiskCost
+```
 
 ## Result
 
@@ -22,7 +24,9 @@ The lifecycle risk cost is {{ lifecycleRiskCost }}.
 
 The total lifecycle cost is {{ totalLifecycleCost }}.
 
+```amx
 let riskScore = 18
 let priority = if riskScore >= 20 then "High" else "Medium"
+```
 
 The priority classification is {{ priority }}.

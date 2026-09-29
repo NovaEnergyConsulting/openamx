@@ -11,6 +11,8 @@
 - Sprint folder: planning/sprints/0009-match-expressions/
 - Sprint 010: Canonical Formatter & Renderer Integration — COMPLETE; canonical formatting, shared block evaluation, and final-context rendering verified.
 - Sprint folder: planning/sprints/0010-canonical-formatter-renderer-integration/
+- Sprint 011: VS Code Extension — COMPLETE; direct providers tested in VS Code 1.85.0 and VSIX locally installed.
+- Sprint folder: planning/sprints/0011-vscode-extension/
 - Project status: v0.1 complete; V0.2 in progress.
 - Sprint 007 acceptance passed: V0.2 spec established; only exact executable `amx` fences produce code-block AST nodes; declarations outside those fences remain narrative; original-document locations and Markdown preservation are covered by parser tests.
 - Master plan approved (plan-openamxV01MasterSprintPlan.md).
@@ -57,12 +59,14 @@
 - Sprint 009 Builder completion: Added braced match expression parsing and strict, lazy evaluation with case order, mandatory default, nested composition, and original-document match/arm locations. Focused parser/evaluator tests passed (78 tests); `bun run build` passed; full `bun test` passed (89 tests). A strengthened once-only scrutinee assertion subsequently passed in the focused evaluator suite (55 tests). No renderer or document-wide execution changes; no contract deviations.
 - Sprint 010 Architect preparation: customized the four sprint artifacts for canonical code-block layout formatting, shared source-order document execution, visible escaped code blocks, and final-environment interpolation. Updated the V0.2 language spec with formatting/output behavior. No Sprint 010 implementation has started.
 - Sprint 010 Builder completion: Added an idempotent layout formatter; document evaluation now executes executable-block statements once in source order through one shared environment while preserving the plain-object API. Rendering formats and escapes visible code blocks and resolves narrative interpolation after execution. Formatter tests passed (3 tests); focused evaluator/renderer tests passed (70 tests); `bun run build` passed; final full `bun test` passed (96 tests, 261 assertions). Bare declarations and ordinary fences remain non-executable. No contract deviations.
+- Sprint 011 Architect preparation: customized the four sprint artifacts for the direct-provider VS Code extension, pure buffer parsing, Node-host bundling, Extension Development Host tests, and local VSIX packaging/installation. Added the optional editor-support contract to the V0.2 spec. No Sprint 011 implementation has started.
+- Sprint 011 Builder completion: Added `parseDocumentText` and preserved `parseDocument(path)` through delegation. Added the Node-host `vscode-extension/` package with block-only canonical formatting, scoped completions, parser diagnostics that exclude front matter/narrative, Extension Development Host tests, and local VSIX packaging. Root verification passed (`bun run build && bun test`: 97 tests, 265 assertions); extension host tests passed (3 tests) on VS Code 1.85.0 both from the source package and the installed VSIX. `openamx-vscode-0.2.0.vsix` packaged (6 files, 61.67 KB) and installed with the WSL VS Code CLI; the installed extension opened a real `.amx` test document and all provider tests passed. No language-contract or runtime deviations. `vsce` warned that the repository has no license file; local packaging continued, and a license decision/file is needed before publication.
 
 ## Next Steps
 
 - Sprint 006 COMPLETE (see Sprint History). CLI, examples, full tests, documentation, and V0.1 acceptance are complete.
 - Sprint 007 COMPLETE (V0.2 Language Contract, AST & Fenced Parsing).
-- Sprint 008 COMPLETE (Mutable Bindings, Ranges & Loops). Sprint 009 COMPLETE (Match Expressions). Sprint 010 COMPLETE (Canonical Formatter & Renderer Integration). Sprint 011 (VS Code Extension) is next.
+- Sprint 008 COMPLETE (Mutable Bindings, Ranges & Loops). Sprint 009 COMPLETE (Match Expressions). Sprint 010 COMPLETE (Canonical Formatter & Renderer Integration). Sprint 011 COMPLETE (VS Code Extension); Sprint 012 is next.
 - Continue to follow 120x process: only documented scope per active sprint.
 - Keep build and test green: `bun install && bun run build && bun test`.
 - Record any future clarifications in planning/decisions.md or planning/questions.md.

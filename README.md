@@ -40,6 +40,23 @@ bun test
 
 The repository is configured to use Bun for the v0.1 workflow.
 
+## VS Code Extension
+
+The optional OpenAMX extension supports `.amx` documents with formatting inside executable `amx` fences, basic language/function and in-scope variable completion, and parser diagnostics. The extension engine floor is VS Code 1.85.0.
+
+Develop, test in the Extension Development Host, and package a local VSIX:
+
+```bash
+cd vscode-extension
+bun install
+bun run compile
+bun run test
+bun run package
+code --install-extension openamx-vscode-0.2.0.vsix --force
+```
+
+The package is not published by these commands. For manual Extension Development Host launch instructions, see [vscode-extension/README.md](vscode-extension/README.md).
+
 ---
 
 ## CLI usage
@@ -85,7 +102,7 @@ This prototype intentionally does not implement the later-phase features that ar
 - No imports (`.amx`, CSV, JSON)
 - No units, charts, tables, PDF/Word export
 - No chained `else if` logic
-- No Langium or VS Code extension
+- No Langium or full language-server integration
 - No mono-repo package expansion
 - No future asset-management domain libraries or schema work
 

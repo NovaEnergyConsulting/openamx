@@ -16,7 +16,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { parseFrontMatter } from "../src/parser/parseFrontMatter";
 import { parseStatements } from "../src/parser/parseStatements";
 import { parseExpression } from "../src/parser/parseExpression";
-import { parseDocument } from "../src/parser/parseDocument";
+import { parseDocument, parseDocumentText } from "../src/parser/parseDocument";
 import { ExecutableCodeBlockNode, MatchExpressionNode, NarrativeNode, VariableDeclarationNode } from "../src/ast/types";
 
 const tmpFiles: string[] = [];
@@ -219,6 +219,18 @@ describe("parseDocument (file orchestration)", () => {
     expect(match.cases[0].expression.source).toEqual({ line: 8, column: 15 });
     expect((match.cases[0].expression as MatchExpressionNode).cases[0].expression.source)
       .toEqual({ line: 9, column: 17 });
+  });
+
+  it("parses in-memory text with the same front matter, blocks, and original locations", async () => {
+    const content = "---\r\ntitle: Buffer\r\n---\r\nIntro\r\n```amx\r\nlet value = 2\r\n```\r\n";
+    const fromText = parseDocumentText(content);
+    const fromPath = await parseDocument(await writeTempAmx(content));
+
+    expect(fromText).toEqual(fromPath);
+    expect(fromText.metadata.title).toBe("Buffer");
+    const block = fromText.nodes.find(node => node.type === "executableCodeBlock") as ExecutableCodeBlockNode;
+    expect(block.source).toEqual({ line: 5, column: 1 });
+    expect(block.statements[0].source).toEqual({ line: 6, column: 1 });
   });
 
   it("keeps bare declarations as narrative and parses declarations only in amx fences", async () => {

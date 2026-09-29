@@ -71,3 +71,18 @@ No other ambiguities found in the sprint artifacts. If new questions arise durin
 - No blocking ambiguities or contract deviations arose. Formatter idempotence, parser-valid formatted output, nested indentation, and quoted brace handling passed focused tests.
 - Verification: focused evaluator/renderer tests passed (70 tests); `bun run build` passed; final `bun test` passed (96 tests, 261 assertions). Output determinism, final-environment interpolation, once-only execution, and escaped executable code are covered.
 - Sprint 010 is complete. Sprint 011 extension work remains out of scope for this handoff.
+
+## V0.2 Sprint 011 Clarifications
+
+- Use `vscode-extension/` as the focused package; leave the root project layout and root TypeScript build configuration intact.
+- Providers must parse unsaved buffers through a pure core text API. Path-based `parseDocument` remains compatible and delegates to the shared text parser; extension runtime code is Node-based and must not call Bun APIs.
+- Completion scope means variables declared in preceding executable blocks or before the cursor in the current block, plus the active loop iterator. Later-only and narrative-only names are excluded.
+- Publisher is `EngineersTools`. Package and locally install a VSIX, but do not publish it. Provider checks run in an Extension Development Host.
+- No blocking questions remain for the Sprint 011 Builder handoff. Marketplace publication and LSP remain explicitly out of scope.
+
+## V0.2 Sprint 011 Builder Completion
+
+- No blocking language or provider ambiguities arose. Formatting, completion scope, parser-only diagnostics, diagnostic clearing, pure text parsing, host behavior, packaging, and local installation were verified.
+- The Extension Development Host ran on VS Code 1.85.0. `xvfb-run` was unavailable, but the active `DISPLAY=:0` allowed the host to run. The host emitted environment/built-in extension DBus/API warnings; all OpenAMX tests passed.
+- `vsce` warned that the repository has no license file. This did not prevent a local VSIX from being built and installed; choosing and adding the project license remains necessary before any Marketplace publication.
+- Exact verification: root `bun run build && bun test` passed (97 tests, 265 assertions); extension `bun run test` passed (3 tests); installed-artifact run with `OPENAMX_EXTENSION_PATH=/home/cgamez/.vscode-server/extensions/engineerstools.openamx-vscode-0.2.0 bun run test` passed (3 tests); `CI=1 bun run package` produced the 6-file `vscode-extension/openamx-vscode-0.2.0.vsix` (61.67 KB); `bun run install-local` succeeded; `code --list-extensions --show-versions` reported `engineerstools.openamx-vscode@0.2.0`. Nothing was published or uploaded.

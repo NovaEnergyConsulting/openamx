@@ -7,9 +7,17 @@
 <body>
 <h1>Transformer Replacement Strategy</h1>
 <p>This document evaluates the replacement of Transformer TX-001.</p>
-<h2>Result</h2>
+<pre><code class="language-amx">let replacementCost = 1250000
+let annualRiskCost = 85000
+let projectLife = 25
+
+let lifecycleRiskCost = annualRiskCost * projectLife
+let totalLifecycleCost = replacementCost + lifecycleRiskCost
+</code></pre><h2>Result</h2>
 <p>The lifecycle risk cost is 2125000.</p>
 <p>The total lifecycle cost is 3375000.</p>
-<p>The priority classification is Medium.</p>
+<pre><code class="language-amx">let riskScore = 18
+let priority = if riskScore &gt;= 20 then &quot;High&quot; else &quot;Medium&quot;
+</code></pre><p>The priority classification is Medium.</p>
 </body>
 </html>

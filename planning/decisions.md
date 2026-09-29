@@ -114,3 +114,21 @@ All of the above are recorded here so that Builders and future sprints do not ac
 - Evaluator and renderer fixture helpers now construct executable code-block AST nodes. Bare declaration narrative and ordinary Markdown fences remain non-executable; no production compatibility path was added.
 - No language/runtime contract deviations were needed.
 - Verification: formatter suite passed (3 tests); focused evaluator/renderer suites passed (70 tests); `bun run build` passed; final full `bun test` passed (96 tests, 261 assertions). Repeated renders remain deterministic, and executable source is escaped before HTML assembly.
+
+## V0.2 Sprint 011 Decisions
+
+- **Extension architecture**: Add a focused `vscode-extension/` package; keep the root TypeScript/Bun project layout. Use direct VS Code providers, not a separate LSP server.
+- **Extension runtime**: The extension runs in the supported Node-based VS Code extension host and bundles the pure core parser/formatter APIs. Bun remains the main project's package manager/runtime; extension runtime code must not call Bun APIs.
+- **Editor buffer parsing**: Add a pure text-buffer parser shared with `parseDocument(path)` so providers can analyze unsaved content without disk I/O or duplicated fence recognition.
+- **Provider scope**: Format only `amx` fence contents; complete keywords, standard-library functions, source-order-visible document variables, and the active loop iterator; publish parser diagnostics with document-relative source positions. Runtime diagnostics and richer language features are excluded.
+- **Packaging**: Use publisher identifier `EngineersTools`; build and locally install a Marketplace-ready VSIX. Do not publish/upload during V0.2.
+- **Verification**: Define extension-local install/build/test/package commands, exercise providers in an Extension Development Host, and verify local VSIX installation.
+
+## V0.2 Sprint 011 Implementation Outcomes
+
+- `parseDocumentText(content)` now shares front-matter and fenced-document parsing with `parseDocument(path)`; the path API still reads through Bun and delegates after reading.
+- The extension bundle targets Node 18 and imports the shared parser/formatter. Bundle inspection found no Bun runtime reference. The extension engine range is `^1.85.0`, and the host suite ran on VS Code 1.85.0.
+- Completion uses parsed statement order and active loop-body ranges; parser diagnostics map original 1-based UTF-16 locations to VS Code positions. Formatting adapts canonical block output to the document EOL so CRLF documents remain idempotent without touching surrounding text.
+- Host-only test files use a non-Bun discovery suffix so the unchanged root `bun test` remains isolated from VS Code API tests.
+- Verification passed: `bun run build && bun test` (97 tests, 265 assertions); extension `bun install`; `bun run test` (3 Extension Development Host tests); `CI=1 bun run package` (6 VSIX files, 61.67 KB); `bun run install-local`; CLI listing confirmed `engineerstools.openamx-vscode@0.2.0`. The final installed VSIX also passed all 3 host tests against a real `.amx` file; malformed front matter, bare declarations, and ordinary fences produce no extension diagnostics.
+- `vsce` reported no repository license file and required confirmation to package. The local artifact was produced and installed; no license was inferred or added, and publication remains deferred pending the project license decision.

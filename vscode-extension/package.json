@@ -1,0 +1,56 @@
+{
+  "name": "openamx-vscode",
+  "displayName": "OpenAMX",
+  "description": "Formatting, completion, and parser diagnostics for OpenAMX documents.",
+  "version": "0.2.0",
+  "publisher": "EngineersTools",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NovaEnergyConsulting/openamx.git",
+    "directory": "vscode-extension"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:amx"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "amx",
+        "aliases": [
+          "OpenAMX",
+          "amx"
+        ],
+        "extensions": [
+          ".amx"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "node ./esbuild.mjs",
+    "compile-tests": "tsc -p ./tsconfig.test.json",
+    "test": "bun run compile && bun run compile-tests && node ./out/vscode-extension/src/test/runTest.js",
+    "package": "bun run compile && vsce package --no-dependencies",
+    "install-local": "code --install-extension openamx-vscode-0.2.0.vsix --force"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.20.1",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.3.2",
+    "esbuild": "^0.25.5",
+    "mocha": "^10.8.2",
+    "typescript": "^5.9.3",
+    "yaml": "^2.9.0"
+  }
+}

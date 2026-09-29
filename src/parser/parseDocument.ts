@@ -15,6 +15,11 @@ import { parseStatements } from './parseStatements';
  */
 export async function parseDocument(filePath: string): Promise<OpenAmxDocument> {
   const content = await Bun.file(filePath).text();
+  return parseDocumentText(content);
+}
+
+/** Parse an OpenAMX document from in-memory text without file-system access. */
+export function parseDocumentText(content: string): OpenAmxDocument {
   const frontMatter = parseFrontMatter(content);
   const { metadata, body, error } = frontMatter;
 
