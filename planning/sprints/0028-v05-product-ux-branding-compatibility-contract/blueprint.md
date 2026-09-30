@@ -1,0 +1,26 @@
+# Sprint 028 Blueprint: V0.5 Product, UX, Branding, and Compatibility Contract
+
+## Approach
+
+1. Inventory only the existing version-1 desktop input config, report metadata and visible-source behavior, renderer/export boundaries, typed desktop RPC, and direct extension analysis contracts needed to avoid incompatible rules. Record the baseline and separate inherited V0.4 release residuals.
+2. Author the normative V0.5 contract in `docs/language-spec-v0.5.md` (or a linked product/report contract with an explicit authority statement). Separate normative requirements from implementation suggestions. Include a concise compatibility matrix for V0.2/V0.3/V0.4 documents with no V0.5 settings, explicit opt-in behavior, error/fallback examples, and migration notes for any approved exception.
+3. Define a compact token and state matrix shared by desktop and reports: type scale/fonts and offline availability, spacing/density, neutral and accent colors with contrast criteria, component states, icons, semantic hierarchy, focus, keyboard, responsive layout, and HTML/print/PDF/DOCX format-native mappings. Define how contrast failures fall back safely rather than recoloring arbitrary user content.
+4. Design the smallest additive project config schema alongside the existing version-1 `inputs` object. Specify schema/version policy, unknown-key handling, precedence from project defaults to report frontmatter, field types, precise source-located errors, portability, validation order and failure/fallback behavior. Treat project identity as portable metadata, not a container for user-specific paths or secrets. Specify exact local logo canonicalization, symlink policy, size/formats, media decoding, and bounded offline embedding for each adapter; identify format-specific limits.
+5. Define the shared resolved identity/presentation handoff using the evaluated document, final narrative environment and immutable view emissions. Describe order, source visibility default/override, escaped metadata, view framing and static data alternatives. Rendering adapters consume that resolved model without executing or loading data; failures and path diagnostics remain owned by the trusted caller.
+6. Specify desktop state transitions and typed RPC capabilities: native dialog intents/validation; explorer search, containment and ignore rules; tabs/entry-buffer/reload/conflict/close; session privacy; panel layout, modes, palette and shortcut collision policy. Define editor minimum behavior, analysis source maps, selection/focus preservation, diagnostics, run/preview/export invalidation and late-response ordering. Leave component/library proof for Sprint 030.
+7. Specify Node-host direct-provider inputs, outputs, symbol scope and ambiguous/unsupported results for hover/definition/symbols/references/code actions. Preserve unsaved entry text, original UTF-16 positions, local imports/explicit exports and no execution. Define CLI help/error and documentation acceptance without promising unverified features.
+8. Write a Lead Developer visual-review checklist and fixture manifest in the V0.5 contract or a linked `planning/sprints/0028-v05-product-ux-branding-compatibility-contract/visual-review.md`. Define fixture inputs/expected metadata and review at a minimum: desktop small/large window and keyboard/contrast/focus/dirty/error states; offline HTML on mobile/desktop/print with views, escaping and visible/hidden source; PDF multi-page and DOCX editable structure with local valid/missing logo, footer, chart/table alternatives, and no-brand V0.4 baseline. Provide an evidence template with reviewer/date/environment, artifact paths, pass/exception/remediation and Sprint 034 sign-off.
+9. Record final contract decisions and unresolved blockers in planning logs. Request Lead Developer approval of the Sprint 028 contract and checklist; do not mark it accepted or start dependent feature work without that decision.
+
+## Files to Update
+
+- `docs/language-spec-v0.5.md` or an explicitly linked authoritative V0.5 product/report contract
+- `planning/sprints/0028-v05-product-ux-branding-compatibility-contract/visual-review.md` if the checklist/manifest is separate from the contract
+- `planning/state.md`, `planning/decisions.md`, `planning/questions.md`
+- Sprint 028 acceptance/handoff artifacts only if a reviewed contract clarification requires it
+
+## Handoff Boundaries
+
+- Sprint 029 owns desktop workbench and safe project/session/tab/dialog/command workflows. Sprint 030 owns the editor and analysis ergonomics after 029; component selection needs bounded keyboard/accessibility/compatibility proof.
+- Sprint 031 owns resolved report identity and HTML; Sprint 032 applies the same identity to PDF/DOCX. Neither may change V0.4 report/data semantics. Sprint 033 owns direct VS Code providers and may run alongside desktop/report work after acceptance. Sprint 034 owns CLI/docs/examples, integrated acceptance and Lead Developer visual sign-off.
+- The contract may describe test fixtures and expected evidence but creates no production behavior in Sprint 028. Unapproved compatibility changes or unresolved security/identity policies block only their dependent implementation, never authorize implicit defaults.

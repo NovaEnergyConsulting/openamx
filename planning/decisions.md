@@ -1,5 +1,19 @@
 # Planning Decisions
 
+## V0.5 Sprint 028 Approved Contract Choices (2026-09-30)
+
+- The Lead Developer explicitly approved the [V0.5 contract](../docs/language-spec-v0.5.md) and [review manifest](sprints/0028-v05-product-ux-branding-compatibility-contract/visual-review.md) on 2026-09-30. The Sprint 028 gate is satisfied for Sprints 029, 031 and 033; their own criteria remain in force. Retain version-1 `inputs`, local/per-run mapping precedence and CLI working-directory paths; add only optional portable project `report` and frontmatter `report`, with field-by-field overrides and visible source by default. CLI report commands opt in via explicit `--project-root`; no implicit discovery.
+- Use strict identity validation with source JSON pointers/original YAML coordinates, fail-before-write invalid brand assets, local PNG/JPEG input with re-encoded bounded PNG embedding and canonical symlink-free project containment; effective accent fails over to neutral contrast for text/controls, not chart series. Preserve final-environment narrative, show-time snapshots, source/view order and format-native accessibility rather than pixel parity or tagged-PDF/Office claims.
+- Desktop ownership: native dialogs validated after selection in main process, contained explorer and per-tab hash/dirty/conflict revisions, explicit entry for current-buffer run, no dirty dependency substitution, local-only session metadata and stale-request rejection. Direct extension providers use source-located pure facts and withhold uncertain results. Sprint 030 must prove the chosen editor rather than adopting one by name without accessibility/compatibility evidence.
+- Sprint 034 runs the manifest and records Lead Developer visual approval or exceptions separately from automated tests and the inherited V0.4 native/Hutch, Office, license/Marketplace residuals. No production files or historical specs were changed in Sprint 028.
+
+## V0.5 Sprint 028 Architect Handoff (2026-09-30)
+
+- Prepare Sprint 028 as a contract-only Builder handoff. The master V0.5 roadmap supplies scope and compatibility defaults; its implementation-specific schema, security bounds, UI states, and review fixtures still require an authoritative reviewed contract and explicit Lead Developer acceptance. No implementation sprint is authorized by preparation alone.
+- Preserve `.openamx/project.json` version-1 input mapping semantics while specifying the smallest additive portable identity schema. Report-level overrides, source locations, strict validation, safe local logo behavior, and visible-source default are normative decisions for Sprint 028 to document; unresolved policy choices must be raised before dependent implementation.
+- The desktop remains main-process-authoritative through typed RPC. HTML/PDF/DOCX share evaluated report identity/content order with format-native layouts. VS Code remains pure direct Node-host providers. Do not reopen V0.2-V0.4 language semantics or infer release-engineering approval from V0.5 feature work.
+- The Lead Developer visual review in Sprint 034 uses the Sprint 028 checklist and fixtures; it supplements automated checks. V0.4 native platform/Hutch, broad Office, and project license/Marketplace residuals remain separate OPEN tracks.
+
 ## V0.4 Sprint 027 Preparation
 
 - Sprint 027 owns the final V0.4 example, documentation/version alignment, compatibility proof, CLI/extension/desktop acceptance, release-owner platform checks, and truthful final disposition. It must not add new product features or weaken a required gate.

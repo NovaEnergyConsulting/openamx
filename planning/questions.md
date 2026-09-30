@@ -1,5 +1,22 @@
 # Planning Questions (Sprint 002)
 
+## Sprint 028 Review and Blocking Decisions (2026-09-30)
+
+- **Resolved 2026-09-30**: The Lead Developer explicitly approved [the V0.5 contract](../docs/language-spec-v0.5.md), resolving the six Sprint 028 contract-question groups below, including visible-source default, exact `report` keys, CLI `--project-root`, strict missing-logo no-write policy, contrast fallback and desktop authority. Sprint 028 no longer blocks Sprints 029, 031 or 033; any later change to an approved policy requires a separately recorded decision.
+- **Resolved 2026-09-30**: The Lead Developer explicitly approved [the visual-review checklist, fixture manifest and evidence policy](sprints/0028-v05-product-ux-branding-compatibility-contract/visual-review.md). This approves the review procedure, not the yet-to-be-generated reports or workbench; actual Lead Developer visual sign-off remains a separate Sprint 034 decision.
+- **Later gated proof, not an undecided product policy**: Sprint 030 must demonstrate a named editor component's keyboard, IME, screen reader, selection, bundle and license compatibility with the isolated desktop stack; failure blocks the editor integration pending Lead Developer selection. Actual native platform/Hutch package/launch, Office round trips, license and Marketplace decisions remain independent open tracks, not approvals implied by this review.
+
+## V0.5 Sprint 028 Contract Questions (2026-09-30)
+
+- Which exact additive version-1 project config keys and report metadata keys/types carry portable identity and source visibility, and what are the precedence, unknown-key, error/fallback, and migration rules? Preserve existing `inputs` semantics and visible source by default unless explicitly approved otherwise.
+- Which offline logo formats, byte/dimension/path bounds, canonical containment/symlink rules, missing-asset diagnostics, alt text and format-specific embed limits are safe for all three adapters and CLI/desktop callers?
+- What measurable accent contrast/fallback and font licensing/offline rules constitute the shared visual/accessibility baseline in desktop, HTML, PDF, and DOCX without claiming formal certification?
+- What is the exact desktop multi-tab entry/current-buffer, session privacy, native-dialog, command/shortcut and stale-result state contract, including unsaved close/reload and conflict handling across tabs?
+- Which parser/checker/link facts can support each VS Code hover/definition/symbol/reference/action with original UTF-16 locations and unsaved module context, and which cases must return no result rather than speculative symbols?
+- Which fixture sources, safe assets, screen sizes, PDF/DOCX viewers, review evidence fields and pass/exception criteria will the Lead Developer use at the Sprint 034 manual visual sign-off?
+
+Sprint 028 must resolve these in the authoritative contract or record a blocking Lead Developer decision for the affected later sprint; none is approval to start implementation or close the inherited V0.4 release residuals.
+
 ## V0.4 Sprint 027 Questions To Resolve
 
 - Which one auditable V0.4 example and fixture layout best covers typed data, local imports, CSV/JSON inputs, tables, charts, HTML, PDF, desktop workflow, and delivered DOCX without creating unsupported domain claims?
