@@ -1,5 +1,23 @@
 # Planning Questions (Sprint 002)
 
+## V0.4 Sprint 025 Questions To Resolve
+
+- What exact configuration schema/version and validation behavior should `.openamx/project.json` and ignored `.openamx/local.json` expose, including unknown keys, missing files, permissions, and private-path redaction?
+- Which typed RPC response/status model prevents stale successful results from being shown after a newer run fails or is superseded, and how are cancellation/request ordering handled?
+- What bounded result summary can the UI show without exposing unrestricted evaluated objects or input file contents through the webview?
+- How should desktop destination selection and conflict handling coordinate HTML/PDF safe writes with existing JSON/CSV output semantics and project-root-relative paths?
+- Which native build/launch prerequisites and exact owner checks are available on macOS 14+, Windows 11+, and Ubuntu 24.04+, and what remains open if Hutch/package commands continue to fail?
+
+Resolve these during Sprint 025 or record explicit Lead Developer decisions before implementation; do not infer official platform acceptance from WSL2/Linux evidence.
+
+## V0.4 Sprint 025 Builder Resolutions and Residuals
+
+- Implemented strict version-1 JSON configuration with only `version` and `inputs` keys. Missing files are empty configuration; malformed JSON, unknown keys, invalid mappings, and project paths outside the canonical root are diagnostics. Project values must be relative. Local values may be absolute or root-relative and are never returned to the webview; POSIX local config must not grant group/other access. Per-run mappings override local, then project. Core validation remains aggregate by default or fail-fast when selected.
+- RPC results use bounded structured diagnostics and a summary capped at 100 bindings. Declared input names are excluded; strings are capped at 500 characters, lists become item counts, and records become a kind label. The UI invalidates run/preview state when buffer or input settings change and ignores late replies; no execution cancellation is claimed.
+- HTML/PDF destinations are confined to the canonical project root, require existing parents and exact lowercase extensions, reject symlinks and entry/input conflicts, and preserve prior files on analysis/preparation failure. HTML uses atomic replacement; PDF reuses the shared adapter and atomic writer.
+- Official owner verification remains unresolved/unavailable: this workspace reports Ubuntu 24.04.4 LTS on Microsoft WSL2, not native Ubuntu. macOS 14+, Windows 11+, and native Ubuntu 24.04+ remain open release gates; WSL2 evidence is not substituted.
+- The available result summary and configuration schema are implementation choices for Sprint 025 acceptance, not changes to the language contract. DOCX remains optional/unimplemented. License selection and Marketplace publication remain deferred.
+
 ## V0.4 Sprint 024 Resolutions
 
 - RPC payloads use discriminated `{ ok: true, ... }` / `{ ok: false, error }` responses. Document text is bounded at 2,000,000 characters and preview HTML at 8,000,000 characters; diagnostics are source-located and completions are bounded display strings.

@@ -7,6 +7,23 @@
 - The workbench is a split source editor/live preview with local module navigation, dirty/conflict indicators, diagnostics, formatting, save, bounded status, and a sandboxed iframe. Sprint 025 remains responsible for input/run/result/export workflows.
 - Focused verification passed: desktop payload/session contract (13 assertions), direct `bunx tsc --noEmit --skipLibCheck`, direct `bunx vite build` (625 modules), and shared renderer/module regressions (46 tests, 151 assertions). Hutch and full package/root/extension verification remain to be recorded below after execution.
 
+## V0.4 Sprint 025 Preparation
+
+- Sprint 025 owns current-buffer analysis/run, configuration precedence, diagnostics/status, HTML/PDF actions, safe desktop outputs, and official platform acceptance. Sprint 024's typed main-process RPC/session foundation remains the boundary; no webview authority is added.
+- Desktop input precedence is per-run override, then ignored machine-local `.openamx/local.json`, then portable `.openamx/project.json`. Desktop-relative paths use the canonical project root; CLI path semantics remain unchanged. Private local paths never enter shared configuration or unbounded diagnostics.
+- Current-buffer execution passes the supplied entry text plus file-backed URI through the existing loader/checker/input/evaluator path. The desktop calls the shared renderer and Sprint 023 PDF adapter after that barrier; it must not duplicate or re-evaluate core semantics.
+- Run/preview/export responses are typed, bounded, and stateful. The webview remains incapable of direct filesystem, module/input loading, evaluation, shell, or PDF access. Invalid analysis and pre-rename export failures preserve no-write guarantees.
+- Official acceptance targets remain macOS 14+, Windows 11+, and Ubuntu 24.04+. The WSL2/Hutch timeout residual is recorded but cannot substitute for owner checks or be silently claimed as passed.
+
+## V0.4 Sprint 025 Builder Outcome
+
+- The desktop config shape is `{ "version": 1, "inputs": { "logicalName": "path" } }`; missing files mean no defaults, unknown keys and invalid values fail without modifying files. Project defaults must be relative and canonicalize inside the root. Local overrides may use absolute or project-relative paths and, on POSIX, must be owned by the current user with group/other access disabled. Per-run `name=path` values override local, then project defaults. This is a narrow desktop config contract; core/CLI semantics are unchanged.
+- The workbench runs and previews the captured current buffer through `loadEntryModule` with the existing module, input, checker, evaluator, renderer, and PDF paths. It reports bounded diagnostics, omits declared inputs from the result summary, caps primitive strings and summary count, and represents collections/records only by count/kind. Late UI responses are ignored after a buffer or newer request revision.
+- HTML/PDF output destinations are explicit project-root paths with existing parents, exact lowercase suffixes, symlink/conflict checks, and same-directory atomic writes. PDF calls `preparePdfReport`/`serializePdfReport` and the shared atomic PDF writer; no report/evaluator logic is duplicated.
+- Configuration precedence, malformed config, POSIX local permissions, JSON/CSV data validation, aggregate/fail-fast errors, private-path redaction, current-buffer/import behavior, HTML/PDF success, symlink/path rejection, and existing-output preservation are covered by `desktop-app/tests/rpc-contract-check.ts`.
+- DOCX was not implemented or authorized; it remains a non-blocking stretch for separate approval. No project license was selected and no Marketplace publication was attempted. Roboto's Apache 2.0 notice remains required for redistribution of bundled fonts.
+- The official platform matrix remains open. Ubuntu 24.04.4 under WSL2 is supporting evidence only; package-script Hutch stalls and this environment do not verify native Ubuntu, macOS 14+, or Windows 11+.
+
 ## V0.4 Sprint 024 Preparation
 
 - Sprint 024 evolves the isolated Electrobun 2.0.1 + Bun + Vue + shadcn-vue spike into a desktop foundation. It owns file/project open, safe navigation, dirty/save/conflict state, editor services, split live preview, and typed main-process RPC; Sprint 025 owns input/run/result/export workflows.

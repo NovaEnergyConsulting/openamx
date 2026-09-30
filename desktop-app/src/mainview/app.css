@@ -59,14 +59,32 @@ body { margin: 0; min-width: 360px; min-height: 100vh; }
 button { font: inherit; }
 #app { min-height: 100vh; }
 
-main { min-height: 100vh; display: flex; flex-direction: column; padding: 22px 26px; background: #f2f5f1; }
-header { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 18px; }
+main { min-height: 100vh; display: flex; flex-direction: column; padding: 18px 20px; background: #f2f5f1; }
+header { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 12px; }
 .wordmark { font-size: 15px; font-weight: 700; letter-spacing: 0; }
 .eyebrow, .kicker, .proof-heading, footer { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0; }
 .eyebrow, .kicker, footer { color: #6b7972; }
 .toolbar { display: grid; grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr) auto; gap: 8px; margin-bottom: 14px; }
 input, textarea { border: 1px solid #cbd7ce; border-radius: 4px; background: #fff; color: #1d2925; }
 input { min-width: 0; padding: 9px 10px; font: 12px "DM Mono", monospace; }
+.workflow { border: 1px solid #cbd7ce; background: #fff; margin-bottom: 12px; }
+.workflow-grid { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) 160px; gap: 14px; padding: 10px 12px; }
+.workflow label, .export-row label { display: flex; min-width: 0; flex-direction: column; gap: 5px; color: #394941; font-size: 11px; font-weight: 600; }
+.workflow label > span { color: #748179; font: 9px "DM Mono", monospace; font-weight: 400; }
+.mapping-control textarea { width: 100%; min-height: 56px; resize: vertical; padding: 7px 8px; font: 10px/1.5 "DM Mono", monospace; }
+.run-controls { display: flex; min-width: 0; flex-direction: column; gap: 7px; }
+.run-controls select { min-height: 31px; padding: 4px 8px; border: 1px solid #cbd7ce; border-radius: 4px; background: white; color: #1d2925; font: 11px "DM Sans", sans-serif; }
+.button-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.button-row button, .export-row button { padding: 7px 9px; font-size: 11px; }
+.workflow-status { overflow: hidden; margin: 0; color: #6b7972; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.configuration { min-width: 0; border-left: 1px solid #d8e1da; padding-left: 12px; }
+.configuration > strong, .result-strip > div > strong { display: block; margin: 0 0 7px; color: #6b7972; font: 9px "DM Mono", monospace; }
+.configuration p { display: flex; justify-content: space-between; gap: 6px; margin: 5px 0; font-size: 10px; }
+.configuration code, .result-strip code { font-family: "DM Mono", monospace; }
+.configuration p span { color: #748179; }
+.export-row { display: grid; grid-template-columns: minmax(110px, 1fr) auto minmax(110px, 1fr) auto minmax(100px, 1fr); align-items: end; gap: 8px; border-top: 1px solid #d8e1da; padding: 8px 12px; }
+.export-row input { width: 100%; padding: 7px 8px; font-size: 10px; }
+.export-status { align-self: center; overflow: hidden; color: #6b7972; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .workbench { min-height: 0; flex: 1; display: grid; grid-template-columns: 170px minmax(280px, 1fr) minmax(280px, 1fr); border: 1px solid #cbd7ce; background: #fff; }
 aside { padding: 16px 12px; border-right: 1px solid #d8e1da; background: #e8eee8; }
 .kicker { color: #226a4b; margin: 0 0 12px; }
@@ -85,18 +103,43 @@ textarea { flex: 1; min-height: 280px; resize: none; border: 0; border-radius: 0
 .diagnostics p { margin: 3px 0; }
 .muted { color: #6b7972; }
 .failure { color: #a13f32; }
+.state { display: inline-flex; align-items: center; width: max-content; padding: 2px 6px; border: 1px solid #d8e1da; border-radius: 3px; color: #66736c; font: 9px "DM Mono", monospace; text-transform: uppercase; }
+.state-running { border-color: #a36b16; color: #8a5d17; }
+.state-success { border-color: #8bb29a; color: #226a4b; }
+.state-failure { border-color: #d5a39c; color: #a13f32; }
+.result-strip { display: flex; min-height: 50px; align-items: center; gap: 14px; border: 1px solid #cbd7ce; border-top: 0; background: #e8eee8; padding: 7px 12px; }
+.result-strip > div { min-width: 80px; }
+.result-strip > div > strong { margin-bottom: 3px; }
+.result-strip p { display: flex; max-width: 220px; align-items: center; gap: 7px; margin: 0; overflow-wrap: anywhere; font-size: 11px; }
 button { padding: 9px 13px; border: 1px solid #226a4b; border-radius: 4px; background: #226a4b; color: white; font-size: 13px; font-weight: 600; cursor: pointer; }
 button:hover:not(:disabled) { background: #194e38; }
 button:disabled { opacity: .6; cursor: wait; }
 code { color: #1d2925; font-size: 10px; }
 
-@media (max-width: 520px) {
+@media (max-width: 900px) {
+	.workflow-grid { grid-template-columns: minmax(200px, 1fr) minmax(200px, 1fr); }
+	.configuration { grid-column: 1 / -1; border-top: 1px solid #d8e1da; border-left: 0; padding: 8px 0 0; }
+	.configuration p { display: inline-flex; margin-right: 12px; }
+	.export-row { grid-template-columns: minmax(120px, 1fr) auto; }
+	.export-status { grid-column: 1 / -1; }
+	.workbench { grid-template-columns: 150px minmax(0, 1fr); }
+	.preview-pane { grid-column: 2; min-height: 360px; border-top: 1px solid #d8e1da; }
+	.editor-pane { grid-column: 2; grid-row: 1; min-height: 420px; }
+	aside { grid-row: 1 / span 2; }
+}
+
+@media (max-width: 620px) {
 	main { padding: 16px; }
 	.eyebrow { text-align: right; }
 	.toolbar { grid-template-columns: 1fr; }
-	.workbench { grid-template-columns: 1fr; }
-	aside { border-right: 0; border-bottom: 1px solid #d8e1da; max-height: 120px; overflow: auto; }
+	.workflow-grid { grid-template-columns: 1fr; }
+	.configuration { grid-column: auto; }
+	.export-row { grid-template-columns: minmax(0, 1fr) auto; }
+	.workbench { display: flex; flex-direction: column; }
+	aside { max-height: 100px; overflow: auto; border-right: 0; border-bottom: 1px solid #d8e1da; }
 	.editor-pane { min-height: 420px; border-right: 0; border-bottom: 1px solid #d8e1da; }
+	.preview-pane { min-height: 360px; }
+	.result-strip { flex-wrap: wrap; }
 }
 
 @theme inline {

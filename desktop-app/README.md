@@ -1,6 +1,6 @@
-# OpenAMX Desktop Authoring Foundation
+# OpenAMX Desktop Analysis Workbench
 
-This isolated Electrobun 2.0.1 + Bun + Vue 3 + shadcn-vue package provides the Sprint 024 desktop authoring foundation. The Bun main process owns project paths, file reads/writes, module loading, parsing, checking, formatting, and HTML preparation. The Vue webview receives only typed payloads and has no filesystem, Bun/Node, shell, evaluator, module-loader, input-loader, or PDF capability.
+This isolated Electrobun 2.0.1 + Bun + Vue 3 + shadcn-vue application provides project editing, current-buffer analysis/run, HTML preview/save, and PDF export. The Bun main process owns project paths, configuration, file reads/writes, module loading, parsing, checking, input validation, evaluation, rendering, and PDF generation. The Vue webview receives bounded typed payloads and has no filesystem, Bun/Node, shell, evaluator, module-loader, input-loader, or PDF capability.
 
 shadcn-vue components and helpers are application source under `src/mainview/components` and `src/mainview/lib`. `.hutch/devkit` is reserved for Hutch-generated Electrobun SDK files; never place application components there because Hutch may replace that projection.
 
@@ -12,19 +12,40 @@ Run from `desktop-app/`:
 
 ```sh
 bun install --frozen-lockfile
-bun run typecheck
 bun run test
-bun run build:web
-bun run build
-bun run dev
-bun run run
+bunx vue-tsc --noEmit
+bunx vite build
 ```
 
-All commands are isolated from root and VS Code extension scripts. The focused contract test exercises typed payloads, canonical project containment, local listing, dirty/current-buffer preview, conflict-safe save, and parser diagnostics. `openProject`, `openDocument`, `listProjectFiles`, `readDocument`, `updateBuffer`, `saveDocument`, `formatBuffer`, `analyzeBuffer`, and `previewBuffer` are main-process operations. Preview uses the exact current buffer through the shared loader and renderer; it does not substitute saved text.
+The focused contract test exercises typed payloads, canonical project containment, local listing, dirty/conflict state, current-buffer execution with a local import and JSON/CSV data, configuration precedence, bounded diagnostics, HTML/PDF output, and no-write behavior. RPC operations including `runBuffer`, `previewBuffer`, `saveHtml`, and `exportPdf` execute in the main process against the exact unsaved buffer; they reuse the shared module loader, validators, evaluator, renderer, and PDF adapter.
 
-Direct `bunx tsc --noEmit --skipLibCheck` and `bunx vite build` are useful checks when Hutch preparation is unavailable. The package scripts that invoke Hutch (`typecheck`, `build:web`, `build`, `dev`, and `run`) retain the known Sprint 020 post-config timeout residual. Record that result rather than treating a direct Linux check as native platform acceptance.
+The package scripts `bun run typecheck`, `bun run build:web`, `bun run build`, and `bun run run` invoke Hutch preparation. Hutch may stall after Electrobun config serialization; direct `bunx vue-tsc --noEmit` and `bunx vite build` are available diagnostics but do not count as native packaging or launch acceptance. Sprint 025 reproduced the Hutch timeout; see `planning/state.md` for exact commands and outcomes.
 
-Sprint 025 owns input mappings/default precedence, current-buffer run/result state, HTML/PDF actions, and desktop export. This package intentionally stops at authoring, diagnostics, and live HTML preview.
+## Input Configuration
+
+Portable defaults live in `.openamx/project.json` and use paths relative to the project root:
+
+```json
+{
+	"version": 1,
+	"inputs": {
+		"assets": "data/assets.json",
+		"screenings": "data/screenings.csv"
+	}
+}
+```
+
+Machine-local overrides use the same schema in ignored `.openamx/local.json`. Create it explicitly; the application never creates or overwrites configuration files. On POSIX systems, it must be owned by the current user with group/other access disabled (for example, `chmod 600 .openamx/local.json`). Local paths may be absolute or project-relative. Per-run overrides are entered one `name=path` mapping per line. Precedence is per-run, local, then project. Relative paths resolve from the project root; project-default paths must remain inside it. Local and per-run data files may be outside the root. URL/network paths are unsupported, and private paths are redacted from diagnostics.
+
+Both configuration files accept only `version: 1` and an `inputs` object of logical names to paths; unknown keys, invalid names, unsupported extensions, insecure or incorrectly owned POSIX local files, and invalid project paths are reported without rewriting the file. Missing configuration files mean no defaults. Core aggregate and fail-fast validation behavior is preserved.
+
+## Outputs and Limits
+
+HTML preview, HTML save, and PDF export all analyze the current buffer with the selected inputs. Output paths are explicit, resolve from the project root, must stay inside that root, use exact lowercase `.html` or `.pdf`, and require an existing parent directory. Symlinks and entry/input conflicts are rejected. HTML uses a same-directory temporary file and atomic rename; PDF uses the shared atomic PDF writer. Existing outputs are preserved when analysis or preparation fails. The webview receives only a bounded scalar/list-count/record-kind result summary, never input contents or arbitrary evaluated objects.
+
+## Verification Status
+
+The Sprint 025 builder environment was Ubuntu 24.04.4 LTS under WSL2 (Linux x86_64), Bun 1.4.2, and Node 24.20.0. This is not native Ubuntu release-owner evidence. macOS 14+, Windows 11+, and native Ubuntu 24.04+ build/launch checks remain required. The PDF adapter uses pdfmake 0.3.11 and bundled Roboto fonts; retain the recorded Apache 2.0 font notice with redistributed font assets. DOCX remains an unimplemented, non-blocking stretch, and Marketplace publication remains deferred pending an explicit project license decision.
 
 ## Native Prerequisites
 

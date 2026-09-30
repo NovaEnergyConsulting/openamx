@@ -1,0 +1,14 @@
+# Sprint 025 Acceptance Criteria
+
+Sprint 025 is complete when:
+
+- The desktop runs and previews the exact current unsaved entry buffer through the shared parser, module loader, checker, input validation, evaluator, renderer, and PDF adapter path. It never silently uses stale saved text or evaluates AMX in the webview.
+- Desktop configuration implements `.openamx/project.json` defaults, ignored `.openamx/local.json` overrides, and per-run mappings with precedence per the V0.4 contract. Relative desktop paths resolve from the project root; machine-local/private values do not enter portable config or unbounded diagnostics.
+- The typed main-process RPC validates request sizes, paths, mappings, destinations, and project containment; webview responses are bounded and structured. The webview has no direct filesystem, process, shell, module/input loader, evaluator, or PDF capability.
+- The UI exposes running, success, and failure states for analyze/run/preview/export and displays actionable parser, type, module, input-validation, runtime, rendering, PDF, and filesystem diagnostics with source/data context where available. A failed current run cannot appear as the current successful result.
+- Local imports, JSON/CSV inputs, edits, default/override precedence, invalid mappings/data, and fail-fast/aggregate behavior are covered end to end. Invalid analysis or rendering/export preparation leaves HTML/PDF/selected outputs unwritten or preserves existing destinations according to the existing contracts.
+- HTML preview/save and PDF export actions use the shared renderer/PDF adapter, validate desktop-root-relative destinations and symlinks/conflicts, and do not duplicate report semantics. Existing CLI `run`, `render`, `export pdf`, JSON, and CSV behavior remains unchanged.
+- Focused desktop tests cover current-buffer execution, local imports, input precedence, diagnostics/status transitions, output safety, path containment, stale-response/conflict behavior, and main-process-only authority. An actual host/native smoke path proves typed RPC and a representative preview/run/export workflow where the platform permits.
+- Release-owner build and launch checks are run and recorded for macOS 14+, Windows 11+, and Ubuntu 24.04+ with exact environment/toolchain/results. Any unavailable or failed target remains unverified/open; WSL2/Linux evidence is not substituted.
+- Root `bun run build`, `bun test`, relevant extension checks, desktop isolated checks, and `git diff --check` pass, or each unavailable/failed check is recorded with its cause. Planning logs and desktop docs record residual Hutch reliability, limitations, DOCX disposition, and final V0.4 acceptance handoff.
+- No installer/updater, Marketplace publication, license decision, remote asset/input, broad language change, or DOCX production is included. Sprint 027 receives the complete example/release acceptance boundary.

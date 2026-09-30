@@ -20,8 +20,8 @@ new BrowserWindow({
 	url: "views://mainview/index.html",
 	rpc,
 	frame: {
-		width: 720,
-		height: 520,
+		width: 1240,
+		height: 800,
 	},
 });
 
