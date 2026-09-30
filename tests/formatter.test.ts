@@ -85,4 +85,33 @@ describe('formatAmx', () => {
     expect(formatAmx(formatted)).toBe(formatted);
     expect(() => parseStatements(formatted)).not.toThrow();
   });
+
+  it('formats parser-valid V0.4 visualization declarations and show', () => {
+    const source = [
+      'type Asset {',
+      'id: String',
+      '}',
+      'let assets: Asset[] = []',
+      'table register = table(assets) {',
+      'title: "Register"',
+      'column id as "Asset"',
+      '}',
+      'show register'
+    ].join('\n');
+    const formatted = formatAmx(source);
+    expect(formatted).toBe([
+      'type Asset {',
+      '  id: String',
+      '}',
+      'let assets: Asset[] = []',
+      'table register = table(assets) {',
+      '  title: "Register"',
+      '  column id as "Asset"',
+      '}',
+      'show register',
+      ''
+    ].join('\n'));
+    expect(formatAmx(formatted)).toBe(formatted);
+    expect(() => parseStatements(formatted)).not.toThrow();
+  });
 });

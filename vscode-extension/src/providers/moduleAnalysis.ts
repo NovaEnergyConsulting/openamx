@@ -125,6 +125,7 @@ export function analyzeEditorDocument(text: string, entryFile?: string): EditorA
     const localNames = new Set(statements.flatMap(statement =>
       statement.type === 'typeDeclaration' || statement.type === 'functionDeclaration'
         || statement.type === 'variableDeclaration' || statement.type === 'inputDeclaration'
+        || statement.type === 'tableDeclaration' || statement.type === 'chartDeclaration'
         ? [statement.name] : []
     ));
     const importedTypes = new Map<string, TypeDeclarationNode>();

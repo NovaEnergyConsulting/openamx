@@ -20,6 +20,7 @@ import { parseStatements } from "../src/parser/parseStatements";
 import { renderHtml } from "../src/renderer/renderHtml";
 import { OpenAmxDocument } from "../src/ast/types";
 import { AmxError } from "../src/diagnostics/errors";
+import { parseDocumentText } from "../src/parser/parseDocument";
 
 function makeDocFromBody(body: string, metadata: Record<string, unknown> = {}): OpenAmxDocument {
   const nodes: OpenAmxDocument["nodes"] = [];
@@ -235,6 +236,58 @@ Paragraph with {{ 2 + 2 }}.
     expect(html).toContain("<li>item A</li>");
 
     expect(html).toContain('<pre><code class="language-amx">let secret = 123\n</code></pre>');
+  });
+});
+
+describe("renderer - V0.4 captured views", () => {
+  it("places a shown table after its owning source and preserves snapshots", () => {
+    const doc = parseDocumentText(`Intro
+\`\`\`amx
+type Asset {
+  id: String
+}
+let assets: Asset[] = [Asset { id: "<A>" }]
+table register = table(assets) {
+  title: "Register & risks"
+  column id as "Asset <id>"
+}
+show register
+\`\`\`
+Between
+\`\`\`amx
+assets = []
+show register
+\`\`\``);
+    const html = renderHtml(doc, "views.amx");
+
+    expect(html.match(/<table/g)?.length).toBe(4);
+    expect(html).toContain("<caption>Register &amp; risks</caption>");
+    expect(html).toContain("Asset &lt;id&gt;");
+    expect(html).toContain("&lt;A&gt;");
+    expect(html).toContain("No rows");
+    expect(html.indexOf("language-amx")).toBeLessThan(html.indexOf("Register &amp; risks"));
+    expect(html.indexOf("Register &amp; risks")).toBeLessThan(html.indexOf("Between"));
+  });
+
+  it("renders offline chart accessibility, data alternatives, and print markup", () => {
+    const doc = parseDocumentText(`\`\`\`amx
+let values: Number[] = [1, 2, 3]
+chart amounts = line(values) {
+  title: "Amounts <safe>"
+  description: "Values & trends"
+  series "Amount"
+}
+show amounts
+\`\`\``);
+    const html = renderHtml(doc, "chart.amx");
+
+    expect(html).toContain('role="img"');
+    expect(html).toContain("Amounts &lt;safe&gt;");
+    expect(html).toContain("Values &amp; trends");
+    expect(html).toContain("openamx-print-chart");
+    expect(html).toContain("<svg");
+    expect(html).not.toContain("<safe>");
+    expect(renderHtml(doc, "chart.amx")).toBe(html);
   });
 });
 

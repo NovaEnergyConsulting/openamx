@@ -1,5 +1,13 @@
 # Planning Decisions
 
+## V0.4 Sprint 022 Builder Outcome
+
+- Rendered views from the loader-provided immutable emissions grouped by `documentNodeIndex`; source listings remain the first content at each executable fence, followed by emissions in statement order. Reports without emissions preserve the historical HTML bytes.
+- Kept the browser layer dependency-free and offline: inline CSS/JavaScript, JSON payloads escaped for script context, semantic tables, local SVG chart graphics, and textual data alternatives. Interactive table state only changes DOM presentation; print markup is a separate original-order representation.
+- Typed table sorting compares captured values directly, keeps nulls last in both directions, and uses source indices for stable ties. Labels, values, titles, descriptions, SVG text, source, and script payloads are escaped. No new chart kind or AMX checker rule was introduced.
+- Direct providers remain the existing architecture. V0.4 completion adds source-visible view names and view keywords/options; module analysis treats view declarations as namespace occupants. Runtime/input evaluation remains outside editor analysis.
+- Verification: root `bun test` passed with 179 tests and 727 assertions; extension host passed 12 tests on VS Code 1.85.0; browser interaction verified numeric sort and filter state in the integrated browser. The only implementation correction found by full regression was removal of an extra no-view HTML newline; the later browser check found and fixed DOM row reordering.
+
 This file records key technology choices, architecture decisions, scope limitations, and other material decisions made during the project. Updated by every sprint.
 
 ## V0.4 Sprint 022 Preparation

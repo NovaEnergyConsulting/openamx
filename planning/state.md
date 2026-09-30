@@ -1,5 +1,15 @@
 # Planning State
 
+## Sprint 022 Completion (2026-09-30)
+
+- Sprint 022 is complete for its owned renderer, formatter, and direct VS Code authoring scope. `renderHtml` consumes immutable `Environment.viewEmissions`, places each shown view after its owning escaped AMX source at the original document position, and never re-evaluates the document or reads final bindings for view data.
+- Added self-contained offline HTML tables with captions, scoped headers, typed stable sorting/null-last behavior, filtering, pagination, live states, safe payloads, and print-only original-order tables. Added accessible bar/column/line/scatter view figures with deterministic local SVG/data alternatives and print representations. No remote assets or PDF/export command was added.
+- Extended direct provider completion/link visibility for V0.4 view names and contextual keywords/options. Added Extension Development Host coverage for source-visible view completion, static visualization diagnostics, and unsaved-edit clearing. Formatter behavior remains parser-valid and idempotent for V0.4 declarations and `show`.
+- Focused verification: root renderer/formatter suites passed (20 tests, 63 assertions); focused view/runtime/CLI checks passed (7 tests, 34 assertions); browser report check passed for typed numeric sorting, filter no-match state, accessibility structure, and print markup; Extension Development Host passed 12 tests on VS Code 1.85.0.
+- Required gates passed: root `bun run build`; root `bun test` (179 tests, 727 assertions, 0 failures across 9 files); extension `bun run compile`; extension `bun run test` (12 host tests); and `git diff --check`.
+- Limitations recorded: browser verification used the integrated Linux browser and a temporary local report; cross-platform browser/print metrics remain unverified. Sprint 020 Hutch scripted command reliability and persistent WSL window checks remain residuals and are not claimed here. PDF generation, desktop workflows, DOCX, and Marketplace publication remain out of scope.
+- Sprint 023 handoff: consume the stable HTML/static view presentation boundary and captured `ViewEmission` data for the shared offline PDF adapter. Verify approved font licensing or replace bundled fonts before embedding; do not add a second evaluation path.
+
 ## Current Status
 
 - Master plan approved (plan-openamxV03MasterSprintPlan.md); Sprint 013: V0.3 Language and Data Contract — COMPLETE.

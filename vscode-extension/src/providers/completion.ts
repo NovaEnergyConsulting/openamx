@@ -20,6 +20,7 @@ const v02Keywords = [
   'if', 'then', 'else', 'and', 'or', 'not', 'true', 'false'
 ];
 const v03Keywords = ['null', 'type', 'fn', 'import', 'from', 'input', 'export'];
+const v04Keywords = ['table', 'chart', 'show', 'title', 'description', 'column', 'category', 'x', 'y', 'group', 'labels', 'series', 'as'];
 
 const functions = ['sum', 'min', 'max', 'mean', 'round', 'abs', 'sqrt', 'pow'];
 const primitiveTypes = ['Number', 'String', 'Boolean', 'DateTime'];
@@ -51,14 +52,18 @@ export function registerCompletionProvider(): vscode.Disposable {
       const v03 = checkingActivated(parsed)
         || /^\s*(?:type|fn|import|input|export)\b/.test(cursorPrefix)
         || /:\s*[A-Z][A-Za-z0-9_]*$/.test(cursorPrefix);
+      const v04 = checkingActivated(parsed)
+        || /^\s*(?:table|chart|show)\b/.test(cursorPrefix)
+        || /\b(?:title|description|column|category|x|y|group|labels|series)\b/.test(cursorPrefix);
       const fieldReceiver = document.lineAt(position.line).text.slice(0, position.character).match(/\b([A-Za-z][A-Za-z0-9_]*)\.\w*$/)?.[1];
       const fields = fieldReceiver ? visible.recordTypes.get(fieldReceiver)?.fields.map(field => field.name) ?? [] : [];
       const items = [
-        ...[...v02Keywords, ...(v03 ? v03Keywords : [])].map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Keyword)),
+        ...[...v02Keywords, ...(v03 ? v03Keywords : []), ...(v04 ? v04Keywords : [])].map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Keyword)),
         ...functions.map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Function)),
         ...visible.functions.map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Function)),
         ...(v03 ? visible.types : []).map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Class)),
         ...visible.variables.map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Variable)),
+        ...(v04 ? visible.views : []).map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Reference)),
         ...fields.map(label => new vscode.CompletionItem(label, vscode.CompletionItemKind.Field))
       ];
       return items;
@@ -141,6 +146,7 @@ interface VisibleSymbols {
   variables: string[];
   functions: string[];
   types: string[];
+  views: string[];
   recordTypes: Map<string, TypeDeclarationNode>;
 }
 
@@ -157,6 +163,7 @@ function visibleSymbols(
   const localTypeDeclarations = new Map<string, TypeDeclarationNode>();
   const localBindingTypes = new Map<string, string>();
   const activeIterators = new Set<string>();
+  const viewNames = new Set<string>();
 
   const collectStatements = (statements: StatementNode[]) => {
     for (const statement of statements) {
@@ -184,6 +191,8 @@ function visibleSymbols(
         }
       } else if (statement.type === 'functionDeclaration') {
         if (statementEndOffset(document, statement) <= cursorOffset) visibleFunctions.add(statement.name);
+      } else if (statement.type === 'tableDeclaration' || statement.type === 'chartDeclaration') {
+        if (statementEndOffset(document, statement) <= cursorOffset) viewNames.add(statement.name);
       } else if (statement.type === 'importDeclaration') {
         if (statementEndOffset(document, statement) <= cursorOffset) {
           for (const item of statement.names) {
@@ -280,6 +289,7 @@ function visibleSymbols(
     variables: [...names],
     functions: [...visibleFunctions],
     types: [...visibleTypes],
+    views: [...viewNames],
     recordTypes
   };
 }

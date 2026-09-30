@@ -169,6 +169,40 @@ suite('OpenAMX providers', () => {
     }
   });
 
+  test('completes source-visible V0.4 views and clears visualization diagnostics on edit', async () => {
+    const document = await vscode.workspace.openTextDocument({
+      language: 'amx',
+      content: [
+        '```amx',
+        'type Asset {',
+        'id: String',
+        '}',
+        'let assets: Asset[] = []',
+        'table register = table(assets) {',
+        'title: "Register"',
+        'column missing as "Missing"',
+        '}',
+        'show register',
+        '```'
+      ].join('\n')
+    });
+    await vscode.window.showTextDocument(document);
+    const diagnostics = await waitForDiagnostics(document.uri, true);
+    assert.equal(diagnostics[0].code, 'AMX3001');
+
+    const position = new vscode.Position(9, document.lineAt(9).text.length);
+    const completions = await vscode.commands.executeCommand<vscode.CompletionList>(
+      'vscode.executeCompletionItemProvider', document.uri, position
+    );
+    const labels = new Set(completions?.items.map(item => String(item.label)) ?? []);
+    for (const expected of ['register', 'table', 'chart', 'show', 'column', 'series']) assert.ok(labels.has(expected), expected);
+
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(document.uri, new vscode.Range(new vscode.Position(7, 0), new vscode.Position(7, document.lineAt(7).text.length)), 'column id as "Asset"');
+    assert.ok(await vscode.workspace.applyEdit(edit));
+    assert.equal((await waitForDiagnostics(document.uri, false)).length, 0);
+  });
+
   test('checks imports against open unsaved dependency buffers and refreshes dependents on edit', async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'openamx-v03-unsaved-dependency-'));
     const dependencyPath = path.join(directory, 'model.amx');

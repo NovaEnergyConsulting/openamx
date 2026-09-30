@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.4 Sprint 022 Builder Completion
+
+- No blocking contract questions arose. The existing V0.4 specification was sufficient for source placement, captured snapshots, table interaction, chart alternatives, escaping, and editor scope.
+- No new dependency was selected. Inline assets keep reports offline and deterministic; Sprint 023 may consume the static presentation/data boundary without inheriting browser interaction state.
+- Browser interaction was verified on the available Linux integrated browser only. Cross-platform print rendering and visual metrics remain open for later release-owner checks, not silently passed by this sprint.
+- Sprint 020 desktop residuals remain explicit: Hutch scripted prepare/build/dev reliability and persistent WSL window verification were not rerun or claimed as passed.
+
 ## V0.4 Sprint 020 Questions To Resolve
 
 - What exact declaration and view-expression syntax will represent tables and charts, and how will declarations be visible across executable blocks while emitted views retain source-order placement?
