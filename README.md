@@ -1,11 +1,19 @@
-# OpenAMX V0.3
+# OpenAMX V0.4
+
+Status: release disposition OPEN. The V0.4 language, CLI, desktop workflow, and
+export paths are implemented and verified on the available Linux/WSL2 host, but
+official native macOS 14+, Windows 11+, and native Ubuntu 24.04+ release-owner
+acceptance has not been run. This repository is therefore not claiming a final,
+published V0.4 release; it is documenting the current verified state and the open
+native-platform residuals.
 
 OpenAMX combines Markdown narrative, executable `amx` fences, and inline
 `{{ expression }}` calculations in plain-text `.amx` documents. The TypeScript
 core remains domain-neutral; asset-management examples use ordinary values.
 See the [V0.2 language specification](docs/language-spec-v0.2.md) for the
-historical contract and the [V0.3 language specification](docs/language-spec-v0.3.md)
-for typed-data workflows.
+historical contract, the [V0.3 language specification](docs/language-spec-v0.3.md)
+for typed-data workflows, and the [V0.4 language specification](docs/language-spec-v0.4.md)
+for typed visualizations, report exports, and desktop-authoring behavior.
 
 ## Install and verify
 
@@ -70,7 +78,7 @@ code --list-extensions --show-versions
 `bun run test` launches the VS Code 1.85.0 Extension Development Host; a display
 or headless display server is required. For manual launch, open the extension
 directory and select **Run OpenAMX Extension**. The locally installed package is
-`engineerstools.openamx-vscode@0.3.0`. This repository has no license file;
+`engineerstools.openamx-vscode@0.4.0`. This repository has no license file;
 Marketplace publication is deferred until the project chooses a license and adds
 the corresponding file. Packaging may prompt about the missing license.
 

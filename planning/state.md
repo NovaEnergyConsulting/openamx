@@ -1,5 +1,13 @@
 # Planning State
 
+## Sprint 027 Builder Outcome (2026-09-30)
+
+- **Disposition: OPEN release status.** The V0.4 example and acceptance work are complete for the current Linux/WSL2 host, but the official native platform matrix remains unverified. The project is not claiming a final V0.4 release until direct native acceptance has been obtained for macOS 14+, Windows 11+, and native Ubuntu 24.04+; this repository records the verified current state and the residual release-owner gaps without overclaiming.
+- Added the V0.4 example, documentation alignment, version metadata updates, and exact evidence capture for the audited acceptance state. The root package, extension package, and README are aligned to V0.4 metadata while preserving the truthful release wording: local verification is green, official release-owner approval remains open.
+- Verification on this host: Ubuntu 24.04.4 LTS under Microsoft WSL2, x86_64; Bun 1.4.2; Node 24.20.0; Hutch 0.27.1; Electrobun 2.0.1. Root `bun run build` passed; full `bun test` passed with 188 tests, 778 assertions, 0 failures across 13 files. VS Code extension compile and host tests passed (12 tests). Desktop direct RPC check, Vue typecheck, and Vite build passed. These are valid Linux/WSL2 proofs only; they do not satisfy native Windows/macOS/Ubuntu release acceptance.
+- Residuals retained: native platform acceptance remains open; Hutch package/native launch proof is still unavailable; office compatibility for DOCX remains a stretch risk; no license file or Marketplace publication has been added. These conditions remain explicitly recorded in the project status and are not waived.
+- Final disposition: V0.4 core functionality is accepted for the current environment, but the official release remains OPEN until the release-owner matrix is directly validated on the actual target platforms.
+
 ## Sprint 026 Builder Outcome (2026-09-30)
 
 - **Disposition: delivered stretch.** The Lead Developer explicitly approved the optional DOCX stretch on 2026-09-30 and confirmed that time was available to bring it into scope. The open Sprint 025 native platform matrix and Hutch package/launch residual remain recorded as core-release residuals and were not waived or weakened.
@@ -52,6 +60,8 @@
 - Release-owner matrix: macOS 14+ not run (no macOS host); Windows 11+ not run (no Windows host); native Ubuntu 24.04+ not run (the available Ubuntu is WSL2). No current Sprint 025 native window or RPC-launch observation is claimed. This does not replace the previously recorded Sprint 020 direct WSL2 bundle evidence.
 - Sprint 027 readiness: the desktop workflow/configuration/RPC test boundary is ready for integration into the end-to-end example and release acceptance. Sprint 027 must retain the open native platform matrix and Hutch package/launch residual, verify cross-platform file/permission behavior, and run the actual workflow in release-owner hosts.
 - DOCX was not implemented or separately approved and remains a non-blocking stretch. No project license decision or Marketplace publication occurred. Preserve the Roboto Apache 2.0 notice with redistributed font assets. The platform and Hutch residuals prevent claiming full Sprint 025 acceptance complete.
+- Sprint 027: V0.4 Examples, Documentation, and Acceptance — Architect preparation complete; Builder execution is next. Sprint 025's official native platform matrix remains open; Sprint 026 DOCX was delivered as a non-blocking stretch.
+- Sprint folder: planning/sprints/0027-v04-examples-documentation-acceptance/
 
 ## Current Status
 

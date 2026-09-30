@@ -2,7 +2,7 @@
   "name": "openamx-vscode",
   "displayName": "OpenAMX",
   "description": "Formatting, completion, and parser diagnostics for OpenAMX documents.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "EngineersTools",
   "repository": {
     "type": "git",
@@ -39,7 +39,7 @@
     "compile-tests": "tsc -p ./tsconfig.test.json",
     "test": "bun run compile && bun run compile-tests && node ./out/vscode-extension/src/test/runTest.js",
     "package": "bun run compile && vsce package --no-dependencies",
-    "install-local": "code --install-extension openamx-vscode-0.3.0.vsix --force"
+    "install-local": "code --install-extension openamx-vscode-0.4.0.vsix --force"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",

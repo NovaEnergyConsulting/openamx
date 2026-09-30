@@ -1,5 +1,13 @@
 # Planning Decisions
 
+## V0.4 Sprint 027 Preparation
+
+- Sprint 027 owns the final V0.4 example, documentation/version alignment, compatibility proof, CLI/extension/desktop acceptance, release-owner platform checks, and truthful final disposition. It must not add new product features or weaken a required gate.
+- Sprint 026 DOCX was delivered as an approved stretch using `docx@9.8.1`; semantic OOXML inspection passed, but native Office/LibreOffice round trips and broad cross-platform compatibility remain unverified. Report this disposition without making DOCX a core gate.
+- Sprint 025 implementation and tests passed, but official macOS 14+, Windows 11+, and native Ubuntu 24.04+ build/launch checks remain open, as do Hutch package/launch residuals. WSL2/Linux evidence cannot substitute for those release-owner checks.
+- V0.4 may be marked `COMPLETE` only after every required core gate is directly verified. Otherwise leave release status `OPEN`, record the blocker/options and residual limitations, and do not imply a release claim.
+- Preserve historical V0.2/V0.3 specifications, no-option compatibility, dependency/license notices, the unresolved project license/Marketplace status, and all exact verification evidence.
+
 ## V0.4 Sprint 026 Approval Decision (2026-09-30)
 
 - The Lead Developer explicitly approved Sprint 026 implementation and confirmed sufficient time to bring the optional stretch into scope. The approval does not waive Sprint 025's open native platform matrix or Hutch residual and does not make DOCX a V0.4 core gate.

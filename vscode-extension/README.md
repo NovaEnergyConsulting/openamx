@@ -1,10 +1,14 @@
 # OpenAMX for VS Code
 
-OpenAMX 0.3.0 adds formatting for executable `amx` fences, V0.3 keyword/type,
+OpenAMX 0.4.0 adds formatting for executable `amx` fences, V0.3 keyword/type,
 function, imported-symbol, and in-scope variable completion, plus parser,
-static-check, and supported local-module diagnostics for `.amx` documents. It
-requires VS Code 1.85.0 or newer. Editor analysis does not load CSV/JSON inputs
-or run the document, so runtime validation remains a CLI concern.
+static-check, local-module diagnostics, and V0.4 view completion for `.amx`
+documents. It requires VS Code 1.85.0 or newer. Editor analysis does not load
+CSV/JSON inputs or run the document, so runtime validation remains a CLI concern.
+
+Current status: the V0.4 feature set is verified on the available Linux/WSL2
+host, but the project remains OPEN pending official native macOS, Windows, and
+native Ubuntu release-owner acceptance.
 
 ## Local Development
 

@@ -1,5 +1,15 @@
 # Planning Questions (Sprint 002)
 
+## V0.4 Sprint 027 Questions To Resolve
+
+- Which one auditable V0.4 example and fixture layout best covers typed data, local imports, CSV/JSON inputs, tables, charts, HTML, PDF, desktop workflow, and delivered DOCX without creating unsupported domain claims?
+- Which exact HTML/PDF/DOCX properties are deterministic or structurally inspectable, and which engine metadata, visual parity, accessibility, Office round-trip, and cross-platform limitations must be documented?
+- Which root/extension/desktop version metadata and command documentation should be aligned with the verified artifacts without claiming package commands or platforms that remain unverified?
+- Can the release owner run the required Electrobun build/launch checks on macOS 14+, Windows 11+, and native Ubuntu 24.04+, and what exact residual status follows if any target is unavailable or fails?
+- What is the final V0.4 status (`COMPLETE` or `OPEN`) after all core gates, DOCX disposition, license/publication status, and known limitations are reviewed?
+
+Resolve these with actual acceptance evidence. Do not close V0.4 or claim a platform/release gate based on WSL2/Linux substitution.
+
 ## V0.4 Sprint 026 Approval Resolution (2026-09-30)
 
 - The Lead Developer approved implementation and confirmed sufficient schedule for the stretch. The native platform/Hutch residual remains open but is not silently waived.
