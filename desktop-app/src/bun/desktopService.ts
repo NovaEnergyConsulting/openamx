@@ -31,7 +31,9 @@ function diagnostic(error: unknown, file?: string): AmxDiagnostic {
 	if (error instanceof AmxError) {
 		return { code: error.code, message: error.message, file: error.file ?? file, line: error.line, column: error.column };
 	}
-	return { code: "AMX3001", message: error instanceof Error ? error.message : String(error), file };
+	const message = error instanceof Error ? error.message : String(error);
+	const location = message.match(/\bat (\d+):(\d+)/);
+	return { code: "AMX3001", message, file, line: location ? Number(location[1]) : undefined, column: location ? Number(location[2]) : undefined };
 }
 
 function diagnostics(error: unknown, file?: string, privatePaths: string[] = []): TextDiagnostic[] {
@@ -274,10 +276,18 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					if (started !== generation) return { ok: true, cancelled: true };
 					if (lstatSync(path).isSymbolicLink() || !statSync(path).isDirectory()) throw new Error("Project selection must be a real directory.");
 					const candidate = realpathSync(path);
+					const recent = recents.find(item => item.root === candidate);
+					const switching = projectRoot !== candidate;
 					const action = projectRoot !== candidate && [...tabs.values()].some(tab => tab.dirty || tab.conflict)
 						? await picker?.confirmTransition?.("project") ?? "cancel" : undefined;
 					if (started !== generation || action === "cancel") return { ok: true, cancelled: true };
 					service.setProjectRoot(candidate, action);
+					if (switching && recent) {
+						for (const savedPath of [recent.entry, recent.active]) {
+							if (savedPath) await service.request.openDocument({ path: savedPath });
+						}
+						if (recent.entry && tabs.has(resolve(candidate, recent.entry))) entryPath = resolve(candidate, recent.entry);
+					}
 					record();
 					return { ok: true, cancelled: false, root: candidate };
 				} catch (error) { return errorResult<{ cancelled: boolean; root?: string }>(projectError(error instanceof Error ? error.message : String(error))); }

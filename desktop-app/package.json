@@ -13,12 +13,15 @@
 		"run": "bun run build:web && hutch electrobun run --env=dev"
 	},
 	"dependencies": {
+		"@codemirror/lang-markdown": "6.5.2",
+		"@codemirror/search": "6.7.2",
 		"@fontsource/dm-mono": "5.3.0",
 		"@fontsource/dm-sans": "5.3.0",
 		"@fontsource/newsreader": "5.3.0",
 		"@lucide/vue": "1.48.0",
 		"class-variance-authority": "0.7.1",
 		"clsx": "2.1.1",
+		"codemirror": "6.0.2",
 		"docx": "9.8.1",
 		"reka-ui": "2.10.5",
 		"tailwind-merge": "3.7.0",

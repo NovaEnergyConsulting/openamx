@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenAMX editor proof</title>
+  <style>
+    body { margin: 0; padding: 16px; background: #f5f7f7; color: #18282d; font: 15px/1.5 sans-serif; }
+    main { max-width: 1000px; margin: auto; }
+    .tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    button { min-height: 36px; border: 1px solid #405459; background: #fff; color: #18282d; padding: 6px 12px; cursor: pointer; }
+    button:focus-visible, .cm-focused { outline: 2px solid #075a82 !important; outline-offset: 2px; }
+    #editor { border: 1px solid #c5cdcf; background: white; min-height: 320px; }
+    .cm-editor { height: 420px; max-height: 65vh; }
+    .cm-scroller { font: 14px/1.5 monospace; }
+    #state { overflow-wrap: anywhere; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0s !important; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Editor proof</h1>
+  <div class="tools">
+    <button id="focus" type="button">Focus editor</button>
+    <button id="large" type="button">Load large document</button>
+    <button id="reset" type="button">Reset document</button>
+  </div>
+  <div id="editor" aria-label="OpenAMX source editor"></div>
+  <p id="state" role="status" aria-live="polite"></p>
+</main>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

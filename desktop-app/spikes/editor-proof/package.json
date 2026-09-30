@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "codemirror": "6.0.2",
+    "@codemirror/lang-markdown": "6.5.2"
+  }
+}

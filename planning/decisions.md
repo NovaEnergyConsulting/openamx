@@ -1,5 +1,35 @@
 # Planning Decisions
 
+## Sprint 030 Closed With Recorded Exceptions (2026-09-30)
+
+- Lead Developer tested the integrated UI, reported the CodeMirror editor works as expected, and directed Sprint 030 to close. Record **CLOSED with acceptance exceptions**, not "all criteria passed": AMX-token coloring, pure import-aware completion/linking, full editor/UI/request-state coverage, revision-labelled export feedback and native IME/screen-reader/200%-zoom proof remain unverified or unfinished. Do not reinterpret this direction as a Sprint 029 acceptance, native release-platform approval, or Sprint 034 visual sign-off. Assign and verify these exceptions separately before a full V0.5 feature-acceptance claim.
+
+## Sprint 030 Editor Adoption Approved (2026-09-30)
+
+- Lead Developer reviewed the isolated CodeMirror proof, reported it worked well, and explicitly approved using it. Pin `codemirror@6.0.2`, `@codemirror/lang-markdown@6.5.2` and `@codemirror/search@6.7.2` (npm metadata MIT) in the desktop package. Replace only the workbench source textarea; keep Bun main-process analysis/filesystem/export authority and per-tab editor states. Browser proof and Lead Developer approval authorize integration, but do not certify native screen-reader/IME/platform behavior or complete Sprint 030 acceptance.
+
+## Sprint 030 Editor Candidate Research (2026-09-30; Superseded by Approval Above)
+
+- Keep the production textarea while proving CodeMirror in an isolated Bun/Vite spike. npm registry metadata reports MIT for the pinned core and Markdown packages, but a 612.01 kB minified / 209.97 kB gzip proof JS bundle and browser keyboard smoke check do not satisfy the required IME, screen-reader, 200% zoom, AMX-fence highlighting or Electrobun-host proof. Do not install the candidate in the desktop package or label Sprint 030 complete until those checks pass; the authorized Sprint 029 dependency disposition remains separate.
+
+## Sprint 030 Dependency Authorized (2026-09-30)
+
+- Lead Developer explicitly authorized Sprint 030 with Sprint 029 still OPEN despite persistent native Open Project selection failure under WSL2. Preserve the Sprint 029 picker/save/close and UX residuals for follow-up before Sprint 034 acceptance; Recent projects may support bounded WSL2 Sprint 030 authoring checks but does not prove native project selection. This disposition does not select an editor or waive its accessibility/host proof, nor does it close any V0.4 release gates. Do not run Hutch checks as a Builder verification step.
+
+## Sprint 029 Manual Verification Direction (2026-09-30)
+
+- Lead Developer requested no further Builder Hutch checks and will verify the desktop app manually. Treat Hutch timeout as a separate inherited release residual, not the only Sprint 029 acceptance gate; native save/close behavior and populated workbench acceptance still require evidence. Ask for the recorded manual check outcome or explicit dependency disposition before Sprint 030 implementation; do not silently close Sprint 029 or waive its unverified criteria.
+
+## Sprint 029 Option 1 Follow-Up (2026-09-30)
+
+- Lead Developer chose option 1, not a waiver for Sprint 030: implement and verify the native save picker and native close/quit before asking for Sprint 029 acceptance. Electrobun 2.0.1 exposes no save panel but does expose a vetoable `will-close`; route export save selection through Bun-launched OS dialogs, then validate the returned path in the existing service. Linux `zenity` is a runtime prerequisite; no new native addon or webview authority is introduced. Direct command tests do not authorize acceptance without target-host dialog and close evidence.
+
+## V0.5 Sprint 030 Conditional Handoff (2026-09-30)
+
+- Prepare the Sprint 030 contract and Builder artifacts now, but do not interpret the Lead Developer's Sprint 029 change approval as Sprint 029 acceptance. Sprint 029's create-new native save picker and native close/quit proof remain open; obtain an explicit Sprint 029 acceptance or dependency disposition before editor implementation. No waiver is inferred from this preparation.
+- Sprint 030 must select a maintained editor only after a bounded license, bundle, keyboard/IME, selection/undo, screen-reader, zoom, reduced-motion, large-file and Bun/Vue/available-native-host proof. Reuse the existing main-process tab/revision and pure formatter/parser/checker/local-link boundary; no second AMX grammar, data loading or webview filesystem/evaluator capability.
+- Run/preview/export feedback must be tied to the designated entry's unsaved buffer, project/tab/input revisions and typed RPC; late/failing responses cannot appear as current success. Continue to record Sprint 029 native workflow and V0.4 release-engineering residuals separately from Sprint 030 editor outcomes.
+
 ## V0.5 Sprint 029 Follow-Up Authorization (2026-09-30)
 
 - The Lead Developer approved using an audited cross-platform native save picker in Bun and confirmed Save All / Discard All / Cancel on dirty project switch and quit, with a vetoable native close/quit hook. This is authorization of the existing Sprint 028 policy, not approval of an alternate typed-path fallback or relaxed acceptance criteria.

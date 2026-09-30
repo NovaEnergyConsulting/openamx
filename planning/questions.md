@@ -1,5 +1,28 @@
 # Planning Questions (Sprint 002)
 
+## Sprint 030 Closed-Sprint Follow-Up Ownership (2026-09-30)
+
+- Lead Developer closed Sprint 030 after an integrated UI check with recorded exceptions. Which later sprint or explicit follow-up owns AMX-specific fence/token coloring, source-order/import-aware completion and linking, comprehensive desktop UI/feedback tests, revision-labelled export state, and native IME/screen-reader/200%-zoom evidence before V0.5 feature acceptance? Sprint 034's final visual review does not automatically implement or certify missing behavior; keep each exception open until assigned and verified.
+
+## Sprint 030 Isolated Editor Proof Gate (2026-09-30)
+
+- Lead Developer: using the isolated editor proof, record OS/browser/screen-reader and pass/fail for native keyboard focus and shortcuts, IME composition, multi-line selection/undo, find/replace, 200% zoom, reduced motion, resize/scroll and a 6,001-line buffer. The integrated browser covered only focus/type/undo and large-buffer visibility, not these manual items. A separate actual Electrobun-host proof is still required before component adoption; if unavailable, keep Sprint 030 editor selection OPEN rather than treating browser evidence as host proof.
+- The Markdown-language probe does not yet highlight AMX expressions inside exact executable fences. Which parser-fact-driven decoration strategy supplies that without a second AMX grammar or treating ordinary fences/narrative as executable? Validate the strategy before replacing the textarea.
+
+## Sprint 029 Option 1 Native Evidence Pending (2026-09-30)
+
+- On macOS 14+ arm64/x64, Windows 11+, and native Ubuntu 24.04+ with `zenity` installed, does the packaged Bun process display a real save panel and return new/existing paths and cancel correctly? Verify extension/containment/conflict rejection and output preservation after invalid analysis or cancelled selection; PowerShell/AppleScript/zenity command tests under WSL2 are not substitutes.
+- Does each target's native window-close event reach the `will-close` veto before disposal, and does native app quit reach `before-quit`? Exercise Save All, Discard All, Cancel, later-tab conflict, failed save and retry on each host. Resolve the Hutch prepare/package blocker before claiming packaged-native evidence. Keep Sprint 030 gated until the Lead Developer records acceptance.
+
+## V0.5 Sprint 030 Entry Gate and Proof Questions (2026-09-30)
+
+- Will the Lead Developer record Sprint 029 acceptance after the create-new native save picker and actual native close/quit verification, or explicitly disposition Sprint 030's dependency while keeping those Sprint 029 blockers open? Approval of Sprint 029 changes alone is not this decision.
+- Which maintained Vue-compatible editor passes the approved license/bundle, keyboard, IME, undo/selection, screen-reader, 200% zoom, reduced-motion, large-file and actual Bun/Electrobun host proof? If no candidate passes, request a Lead Developer decision before integrating one.
+- Which existing parser/checker/local-link facts provide reliable original UTF-16 source locations and completion candidates for unsaved entry/imports, and where must editor analysis withhold results rather than invent symbols or evaluate inputs?
+- How will per-tab/project/input request identities and selection restoration prevent late editor, diagnostic, preview and export responses from overwriting a newer tab or presenting failed/stale success? Which focused UI/native checks can prove this beyond direct RPC tests?
+
+These are Sprint 030 implementation/proof questions subject to the Sprint 029 entry gate, not approval to weaken the V0.5 contract or absorb Sprint 029's open native workflow into editor acceptance.
+
 ## V0.5 Sprint 029 Follow-Up Residuals (2026-09-30)
 
 - **Save picker direction approved, implementation still blocked:** obtain an auditable native save-panel API or maintained source-backed package with Bun, macOS 14+ (arm64 and x64), Windows 11+, native Ubuntu 24.04+ coverage. Electrobun 2.0.1 has no save API; `tinyfiledialogs-node@1.1.8` is not an acceptable published cross-platform artifact. Validate cancellation, selected new/existing destination, exact extension, containment, conflicts and no-write/atomic guarantees on the resulting adapter. Do not infer an approval to use a webview path input.

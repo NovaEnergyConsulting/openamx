@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import type { DesktopRPCClient, InputConfiguration, OpenDocument, RecentProject, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
 import { Button } from "@/components/ui/button";
+import CodeEditor from "./CodeEditor.vue";
 
 const props = defineProps<{ rpc: DesktopRPCClient }>();
 const document = ref<OpenDocument | null>(null);
@@ -16,8 +17,7 @@ const sidePanel = ref<"explorer" | "inputs" | "export">("explorer");
 const detailPanel = ref<"preview" | "diagnostics" | "results">("preview");
 const explorerWidth = ref(220);
 const previewWidth = ref(44);
-const editorElement = ref<HTMLTextAreaElement | null>(null);
-const selections = new Map<string, { start: number; end: number; scroll: number }>();
+const editorElement = ref<InstanceType<typeof CodeEditor> | null>(null);
 let invoker: HTMLElement | null = null;
 let focusInvoker: HTMLElement | null = null;
 const visibleFiles = computed(() => files.value.filter(file => file.toLowerCase().includes(search.value.toLowerCase())));
@@ -31,6 +31,7 @@ const groupedFiles = computed(() => {
 });
 const preview = ref("");
 const analysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
+const staticAnalysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
 const inputConfiguration = ref<InputConfiguration>({ inputs: [], diagnostics: [] });
 const inputOverrides = ref("");
 const validation = ref<"aggregate" | "fail-fast">("aggregate");
@@ -44,10 +45,9 @@ const pending = ref(false);
 let bufferRevision = 0;
 let previewRequest = 0;
 let runRequest = 0;
-let htmlRequest = 0;
-let pdfRequest = 0;
-let docxRequest = 0;
+let exportRequest = 0;
 let navigationRequest = 0;
+let staticRequest = 0;
 let pendingEdit: Promise<void> = Promise.resolve();
 
 function mappings(): string[] {
@@ -61,6 +61,7 @@ function isCurrent(revision: number): boolean {
 function resetResults() {
 	summary.value = { values: [] };
 	runState.value = "idle";
+	exportRequest++;
 	exportStatus.value = "";
 }
 
@@ -93,6 +94,7 @@ async function loadProject() {
 	files.value = listing.ok ? listing.files.map(file => file.path) : [];
 	await syncWorkbench();
 	await syncRecents();
+	return listing.ok ? undefined : listing.error.message;
 }
 
 async function restore(root: string) {
@@ -208,9 +210,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 function clearView() {
 	bufferRevision++;
 	previewRequest++;
+	staticRequest++;
 	preview.value = "";
 	previewState.value = "idle";
 	analysis.value = { diagnostics: [], completions: [] };
+	staticAnalysis.value = { diagnostics: [], completions: [] };
 	inputConfiguration.value = { inputs: [], diagnostics: [] };
 	resetResults();
 }
@@ -222,33 +226,52 @@ async function openProject() {
 	if (request !== navigationRequest) return;
 	if (!result.ok) { status.value = result.error.message; return; }
 	if (result.cancelled) return;
-	if (result.root === projectRoot.value) return;
+	if (result.root === projectRoot.value) {
+		const listingError = await loadProject();
+		status.value = listingError ?? `Project ready: ${files.value.length} .amx file(s).`;
+		return;
+	}
 	clearView();
 	inputOverrides.value = "";
 	document.value = null;
 	projectRoot.value = result.root ?? "";
-	await loadProject();
+	const listingError = await loadProject();
+	if (workbench.value.active) {
+		const active = await props.rpc.request.readDocument();
+		if (active.ok) document.value = active.document;
+	}
 	const recent = recents.value.find(item => item.root === projectRoot.value);
 	explorerWidth.value = recent?.explorerWidth ?? 220;
 	previewWidth.value = recent?.previewWidth ?? 44;
-	status.value = "Project ready. Open an .amx file from the explorer.";
+	status.value = listingError ?? (document.value ? `Restored active file. ${files.value.length} .amx file(s) in project.` : `Project ready: ${files.value.length} .amx file(s). Select a file in the explorer or use Open file.`);
 }
 
 async function activate(result: Awaited<ReturnType<typeof props.rpc.request.openDocument>>) {
 	if (!result.ok) { status.value = result.error.message; return; }
-	if (document.value && editorElement.value) selections.set(document.value.path, {
-		start: editorElement.value.selectionStart, end: editorElement.value.selectionEnd, scroll: editorElement.value.scrollTop
-	});
 	clearView();
 	document.value = result.document;
-	requestAnimationFrame(() => {
-		const selection = selections.get(result.document.path);
-		if (!selection || document.value?.path !== result.document.path || !editorElement.value) return;
-		editorElement.value.setSelectionRange(selection.start, selection.end);
-		editorElement.value.scrollTop = selection.scroll;
-	});
 	await syncWorkbench();
+	void refreshStaticAnalysis(result.document.path, result.document.revision);
 	status.value = `Active: ${result.document.path.split(/[\\/]/).pop()}`;
+}
+
+async function refreshStaticAnalysis(path: string, revision: number) {
+	const request = ++staticRequest;
+	staticAnalysis.value = { diagnostics: [], completions: [] };
+	try {
+		const result = await props.rpc.request.analyzeBuffer();
+		if (request === staticRequest && document.value?.path === path && document.value.revision === revision && result.ok) staticAnalysis.value = result.analysis;
+	} catch {
+		if (request === staticRequest && document.value?.path === path && document.value.revision === revision) {
+			staticAnalysis.value = { diagnostics: [{ code: "DESKTOP_RPC", message: "Static analysis is unavailable." }], completions: [] };
+		}
+	}
+}
+
+async function navigateDiagnostic(item: TextDiagnostic) {
+	if (!item.file || !item.line) return;
+	if (document.value?.path !== item.file) await openDocument(item.file);
+	if (document.value?.path === item.file) requestAnimationFrame(() => editorElement.value?.selectLocation(item.line!, item.column ?? 1));
 }
 
 async function openDocument(path?: string) {
@@ -307,6 +330,7 @@ async function refresh() {
 	if (!document.value) return;
 	const revision = bufferRevision;
 	const request = ++previewRequest;
+	preview.value = "";
 	previewState.value = "running";
 	pending.value = true;
 	const selectedInputs = mappings();
@@ -350,6 +374,8 @@ async function updateText(text: string) {
 	if (!document.value) return;
 	const path = document.value.path;
 	const revision = ++bufferRevision;
+	staticRequest++;
+	staticAnalysis.value = { diagnostics: [], completions: [] };
 	previewRequest++;
 	pending.value = false;
 	preview.value = "";
@@ -362,6 +388,7 @@ async function updateText(text: string) {
 	if (!result.ok) { status.value = result.error.message; return; }
 	document.value = result.document;
 	await syncWorkbench();
+	void refreshStaticAnalysis(path, result.document.revision);
 }
 
 async function save() {
@@ -378,9 +405,14 @@ async function save() {
 
 async function format() {
 	await pendingEdit;
+	if (!document.value) return;
+	const path = document.value.path;
+	const revision = document.value.revision;
+	const generation = workbench.value.generation;
 	const result = await props.rpc.request.formatBuffer();
+	if (document.value?.path !== path || document.value.revision !== revision || workbench.value.generation !== generation) return;
 	if (!result.ok) { status.value = result.error.message; return; }
-	await updateText(result.text);
+	editorElement.value?.replaceText(result.text);
 }
 
 async function runAnalysis() {
@@ -388,6 +420,9 @@ async function runAnalysis() {
 	if (!document.value) return;
 	const revision = bufferRevision;
 	const request = ++runRequest;
+	previewRequest++;
+	preview.value = "";
+	previewState.value = "idle";
 	runState.value = "running";
 	summary.value = { values: [] };
 	let result: Awaited<ReturnType<typeof props.rpc.request.runBuffer>>;
@@ -417,21 +452,22 @@ async function saveHtml() {
 	await pendingEdit;
 	if (!document.value) return;
 	const started = bufferRevision;
+	const request = ++exportRequest;
+	exportStatus.value = "Choosing HTML destination…";
 	const destination = await props.rpc.request.pickDestination({ extension: ".html" });
-	if (!isCurrent(started)) return;
+	if (!isCurrent(started) || request !== exportRequest) return;
 	if (!destination.ok) { exportStatus.value = destination.error.message; return; }
-	if (destination.cancelled || !destination.path) return;
+	if (destination.cancelled || !destination.path) { exportStatus.value = ""; return; }
 	const revision = bufferRevision;
-	const request = ++htmlRequest;
 	exportStatus.value = "Saving HTML…";
 	let result: Awaited<ReturnType<typeof props.rpc.request.saveHtml>>;
 	try {
 		result = await props.rpc.request.saveHtml({ path: destination.path, inputMappings: mappings(), validation: validation.value });
 	} catch (error) {
-		if (isCurrent(revision) && request === htmlRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : "HTML save request failed.";
+		if (isCurrent(revision) && request === exportRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : "HTML save request failed.";
 		return;
 	}
-	if (!isCurrent(revision) || request !== htmlRequest) return;
+	if (!isCurrent(revision) || request !== exportRequest) return;
 	if (!result.ok) { exportStatus.value = result.error.message; return; }
 	if (result.diagnostics.length) {
 		analysis.value = { ...analysis.value, diagnostics: result.diagnostics };
@@ -443,21 +479,22 @@ async function exportPdf() {
 	await pendingEdit;
 	if (!document.value) return;
 	const started = bufferRevision;
+	const request = ++exportRequest;
+	exportStatus.value = "Choosing PDF destination…";
 	const destination = await props.rpc.request.pickDestination({ extension: ".pdf" });
-	if (!isCurrent(started)) return;
+	if (!isCurrent(started) || request !== exportRequest) return;
 	if (!destination.ok) { exportStatus.value = destination.error.message; return; }
-	if (destination.cancelled || !destination.path) return;
+	if (destination.cancelled || !destination.path) { exportStatus.value = ""; return; }
 	const revision = bufferRevision;
-	const request = ++pdfRequest;
 	exportStatus.value = "Preparing PDF…";
 	let result: Awaited<ReturnType<typeof props.rpc.request.exportPdf>>;
 	try {
 		result = await props.rpc.request.exportPdf({ path: destination.path, inputMappings: mappings(), validation: validation.value });
 	} catch (error) {
-		if (isCurrent(revision) && request === pdfRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : "PDF export request failed.";
+		if (isCurrent(revision) && request === exportRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : "PDF export request failed.";
 		return;
 	}
-	if (!isCurrent(revision) || request !== pdfRequest) return;
+	if (!isCurrent(revision) || request !== exportRequest) return;
 	if (!result.ok) { exportStatus.value = result.error.message; return; }
 	if (result.diagnostics.length) {
 		analysis.value = { ...analysis.value, diagnostics: result.diagnostics };
@@ -469,21 +506,22 @@ async function exportDocx() {
 	await pendingEdit;
 	if (!document.value) return;
 	const started = bufferRevision;
+	const request = ++exportRequest;
+	exportStatus.value = "Choosing DOCX destination…";
 	const destination = await props.rpc.request.pickDestination({ extension: ".docx" });
-	if (!isCurrent(started)) return;
+	if (!isCurrent(started) || request !== exportRequest) return;
 	if (!destination.ok) { exportStatus.value = destination.error.message; return; }
-	if (destination.cancelled || !destination.path) return;
+	if (destination.cancelled || !destination.path) { exportStatus.value = ""; return; }
 	const revision = bufferRevision;
-	const request = ++docxRequest;
 	exportStatus.value = "Preparing DOCX…";
 	let result: Awaited<ReturnType<typeof props.rpc.request.exportDocx>>;
 	try {
 		result = await props.rpc.request.exportDocx({ path: destination.path, inputMappings: mappings(), validation: validation.value });
 	} catch (error) {
-		if (isCurrent(revision) && request === docxRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : "DOCX export request failed.";
+		if (isCurrent(revision) && request === exportRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : "DOCX export request failed.";
 		return;
 	}
-	if (!isCurrent(revision) || request !== docxRequest) return;
+	if (!isCurrent(revision) || request !== exportRequest) return;
 	if (!result.ok) { exportStatus.value = result.error.message; return; }
 	if (result.diagnostics.length) {
 		analysis.value = { ...analysis.value, diagnostics: result.diagnostics };
@@ -506,6 +544,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 			<span class="project-label">{{ projectRoot || "No project" }}</span>
 			<select v-if="recents.length" aria-label="Recent projects" @change="restore(($event.target as HTMLSelectElement).value)"><option value="">Recent projects</option><option v-for="recent in recents" :key="recent.root" :value="recent.root">{{ recent.root }}</option></select>
 			<Button v-if="recents.length" type="button" @click="clearRecents">Clear history</Button>
+			<span class="project-feedback" role="status" aria-live="polite">{{ status }}</span>
 		</section>
 		<div class="panel-controls" aria-label="Workbench layout">
 			<button v-for="panel in ['explorer', 'inputs', 'export'] as const" :key="panel" :aria-pressed="sidePanel === panel" @click="sidePanel = panel">{{ panel }}</button>
@@ -521,7 +560,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 				<div class="run-controls">
 					<label>Validation <select v-model="validation" :disabled="!document" @change="validationChanged"><option value="aggregate">Aggregate</option><option value="fail-fast">Fail fast</option></select></label>
 					<div class="button-row"><Button :disabled="!document || runState === 'running'" type="button" @click="runAnalysis">{{ runState === "running" ? "Running…" : "Run analysis" }}</Button><Button :disabled="!document || pending" type="button" @click="refresh">Refresh preview</Button></div>
-					<p class="workflow-status" aria-live="polite">{{ status }}</p>
+					<p class="workflow-status">{{ status }}</p>
 				</div>
 				<div class="configuration" aria-label="Input configuration sources">
 					<strong>INPUT SOURCES</strong>
@@ -540,10 +579,10 @@ function displayDiagnostic(item: TextDiagnostic): string {
 			<aside :class="{ 'mobile-hidden': sidePanel !== 'explorer' }"><p class="kicker">PROJECT FILES</p><input id="project-search" v-model="search" aria-label="Search project files" placeholder="Search files"><div v-for="[folder, entries] in groupedFiles" :key="folder"><p class="folder">{{ folder }}</p><button v-for="file in entries" :key="file" class="file" :class="{ selected: workbench.active?.endsWith(file) }" @click="openDocument(file)">{{ file.split('/').pop() }}</button></div><p v-if="!files.length" class="muted">No project files.</p><p v-else-if="!visibleFiles.length" class="muted">No matching files.</p></aside>
 			<section class="editor-pane" aria-label="AMX editor">
 				<nav class="tabs" aria-label="Open tabs"><div v-for="tab in workbench.tabs" :key="tab.path" class="tab"><button :aria-current="workbench.active === tab.path ? 'page' : undefined" @click="selectTab(tab.path)">{{ tab.path.split(/[\\/]/).pop() }} <span v-if="workbench.entry === tab.path">Entry</span><span v-if="tab.dirty">*</span><span v-if="tab.conflict">!</span></button><button title="Close tab" :aria-label="`Close ${tab.path}`" @click="closeTab(tab.path)">×</button></div></nav>
-				<div class="pane-header"><strong>{{ document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><Button :disabled="!document || pending" type="button" @click="format">Format</Button><Button :disabled="!document || !document.dirty" type="button" @click="save">Save</Button></span></div>
+				<div class="pane-header"><strong>{{ document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><Button :disabled="!document" type="button" @click="editorElement?.openSearch()">Find</Button><Button :disabled="!document || pending" type="button" @click="format">Format</Button><Button :disabled="!document || !document.dirty" type="button" @click="save">Save</Button></span></div>
 				<div v-if="document" class="entry-actions"><Button :disabled="workbench.entry === document.path" @click="designateEntry(document.path)">Set as entry</Button><Button @click="reload">Reload…</Button><span v-if="workbench.entry && workbench.entry !== document.path">Reports use {{ workbench.entry.split(/[\\/]/).pop() }}</span></div>
-				<textarea ref="editorElement" :value="document?.text ?? ''" :disabled="!document" spellcheck="false" aria-label="AMX source" @input="updateText(($event.target as HTMLTextAreaElement).value)"></textarea>
-				<div class="diagnostics" :class="{ 'mobile-hidden': detailPanel !== 'diagnostics' }" aria-live="polite"><p v-for="(item, index) in [...analysis.diagnostics, ...inputConfiguration.diagnostics]" :key="`${item.code}-${item.line}-${index}`"><strong>{{ item.code }}</strong> {{ displayDiagnostic(item) }} <span v-if="item.line">({{ item.line }}:{{ item.column }})</span></p><p v-if="![...analysis.diagnostics, ...inputConfiguration.diagnostics].length" class="muted">{{ status }}</p></div>
+				<CodeEditor v-if="document" ref="editorElement" :path="document.path" :text="document.text" @change="updateText" />
+				<div class="diagnostics" :class="{ 'mobile-hidden': detailPanel !== 'diagnostics' }" aria-live="polite"><p v-for="(item, index) in staticAnalysis.diagnostics" :key="`static-${item.code}-${item.line}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Static · {{ item.code }} {{ item.file?.split(/[\\/]/).pop() }} ({{ item.line }}:{{ item.column }}) {{ displayDiagnostic(item) }}</button></p><p v-for="(item, index) in [...analysis.diagnostics, ...inputConfiguration.diagnostics]" :key="`${item.code}-${item.line}-${index}`"><strong>Run · {{ item.code }}</strong> {{ displayDiagnostic(item) }} <span v-if="item.line">({{ item.line }}:{{ item.column }})</span></p><p v-if="![...staticAnalysis.diagnostics, ...analysis.diagnostics, ...inputConfiguration.diagnostics].length" class="muted">No current diagnostics.</p></div>
 			</section>
 			<section class="preview-pane" :class="{ 'mobile-hidden': detailPanel !== 'preview' }" aria-label="Live HTML preview"><div class="pane-header"><strong>ENTRY PREVIEW · {{ workbench.entry?.split(/[\\/]/).pop() ?? 'No entry' }}</strong><span class="state" :class="`state-${previewState}`">{{ previewState }}</span></div><iframe :srcdoc="preview" sandbox="" title="OpenAMX live HTML preview"></iframe></section>
 		</div>
