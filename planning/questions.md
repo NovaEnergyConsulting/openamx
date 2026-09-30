@@ -1,5 +1,23 @@
 # Planning Questions (Sprint 002)
 
+## V0.4 Sprint 024 Resolutions
+
+- RPC payloads use discriminated `{ ok: true, ... }` / `{ ok: false, error }` responses. Document text is bounded at 2,000,000 characters and preview HTML at 8,000,000 characters; diagnostics are source-located and completions are bounded display strings.
+- Session state stores a canonical project root, file-backed entry path, current text, disk SHA-256 revision, dirty flag, and conflict flag. Save compares the current disk revision with the revision observed at open and refuses silent replacement.
+- Project listing recursively returns only contained regular `.amx` files, skips dot/local/generated paths and symlinks, and all open/save candidates are canonicalized through the main-process containment check. Relative UI paths resolve from the selected project root.
+- The lightest editor surface is a source-owned Vue textarea with AMX-aware formatting, static diagnostics, scoped keyword completion, dirty/save controls, and a sandboxed HTML `srcdoc` preview. Core parser, formatter, checker, loader, and renderer APIs remain shared; no VS Code provider replacement or duplicated evaluator was added.
+- Verification uses direct desktop checks where Hutch is blocked. Hutch package preparation/build/dev behavior and persistent native window evidence remain Sprint 020 residuals; WSL2/Linux evidence does not claim macOS, Windows, or native Ubuntu release acceptance.
+
+## V0.4 Sprint 024 Questions To Resolve
+
+- Which typed RPC payload limits and structured error/status forms are sufficient for document text, HTML preview, diagnostics, project listings, and save conflicts without exposing arbitrary file handles or evaluation hooks?
+- Which editor surface provides reliable AMX syntax highlighting and completion in the isolated Vue app without duplicating the core parser or importing the VS Code host?
+- How should project/session state represent canonical root, current entry URI, dirty text, disk revision, save conflict, and an untitled/import-requiring limitation across open/save/reload transitions?
+- Which safe file listing rules should cover ignored files, `.openamx/local.json`, generated outputs, symlinks, local modules, and user-selected save-as destinations while preserving V0.3 entry-root containment?
+- Which direct desktop typecheck/web/native/host checks are available after the Sprint 020 Hutch residual, and how will Sprint 024 record the exact boundary between verified Linux evidence and unverified official targets?
+
+Resolve these during Sprint 024 or record explicit decisions before implementation; do not widen webview capabilities or infer cross-platform acceptance.
+
 ## V0.4 Sprint 023 Builder Resolution
 
 - pdfmake 0.3.11 runs in the root Bun pipeline without a browser runtime. The adapter uses the package-resolved local Roboto files and denies URL access; no remote assets or telemetry are used.

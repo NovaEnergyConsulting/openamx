@@ -1,5 +1,20 @@
 # Planning Decisions
 
+## V0.4 Sprint 024 Builder Outcome
+
+- Added the isolated typed desktop session/RPC boundary in `desktop-app/`. Main-process handlers own project root canonicalization, symlink-aware containment, safe local `.amx` listing, open/read/update/save, conflict detection, formatting, static analysis, and current-buffer HTML preview.
+- Preview passes `entryText` to the existing `loadEntryModule` and renders the returned document/environment through `renderHtml`; the webview never receives filesystem or evaluation authority and never runs stale saved text.
+- The workbench is a split source editor/live preview with local module navigation, dirty/conflict indicators, diagnostics, formatting, save, bounded status, and a sandboxed iframe. Sprint 025 remains responsible for input/run/result/export workflows.
+- Focused verification passed: desktop payload/session contract (13 assertions), direct `bunx tsc --noEmit --skipLibCheck`, direct `bunx vite build` (625 modules), and shared renderer/module regressions (46 tests, 151 assertions). Hutch and full package/root/extension verification remain to be recorded below after execution.
+
+## V0.4 Sprint 024 Preparation
+
+- Sprint 024 evolves the isolated Electrobun 2.0.1 + Bun + Vue + shadcn-vue spike into a desktop foundation. It owns file/project open, safe navigation, dirty/save/conflict state, editor services, split live preview, and typed main-process RPC; Sprint 025 owns input/run/result/export workflows.
+- The current buffer is authoritative for formatting, diagnostics, and preview. File-backed entry URIs remain required for local imports and containment-sensitive operations; untitled buffers may be edited/diagnosed but must receive an explicit limitation for project operations.
+- All filesystem, canonical path/containment, module analysis, rendering, and future PDF adapter calls remain in the Bun main process. The webview receives bounded typed payloads only and cannot evaluate AMX or access files directly.
+- Reuse Sprint 023's exported PDF adapter later, but do not add PDF export UI or run/input mapping workflows in Sprint 024. Preserve root and extension independence.
+- Sprint 020 Option 2 remains the accepted desktop spike disposition: Hutch scripted prepare/build/dev reliability and persistent WSL window verification are residuals, not passed platform evidence or permission to change frameworks.
+
 ## V0.4 Sprint 023 Builder Outcome
 
 - Added the shared typed `preparePdfReport`/`serializePdfReport` adapter in `src/renderer/reportPdf.ts`. It consumes the already evaluated `OpenAmxDocument` and `Environment.viewEmissions`, preserves document/source/show order, renders final-environment narrative interpolation, visible formatted AMX source, tables, static SVG charts, textual chart data, repeated table headers, A4/18 mm layout, page numbers, and the explicit `<!-- page-break -->` report marker. It never reads modules/inputs or evaluates AMX.

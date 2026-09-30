@@ -1,0 +1,14 @@
+# Sprint 024 Acceptance Criteria
+
+Sprint 024 is complete when:
+
+- The isolated `desktop-app/` package has a typed, documented main-process RPC for project/file open, safe local listing, read/save, formatting, static analysis/diagnostics, and current-buffer HTML preview. The webview has no direct filesystem, Bun/Node, shell, evaluator, module-loader, input-loader, or PDF access.
+- A user can select/open a project or `.amx` entry file, navigate safe local `.amx` modules, edit the current buffer, see dirty state, save explicitly, use save-as where supported, and receive actionable conflict/error states without silent overwrite or stale-buffer substitution.
+- Project/file paths are canonicalized and symlink-aware; traversal, outside-root files, unsupported file types, ignored/local config/generated outputs by default, and invalid save destinations are rejected in the main process. Untitled/import-requiring limitations are explicit and do not guess paths.
+- Preview and static diagnostics operate on the exact current unsaved buffer with the file-backed entry URI. A changed buffer is reflected without saving first; malformed/parser/static/link failures return source-located diagnostics and do not produce misleading preview output.
+- The workbench provides a usable split editor/live HTML preview, AMX syntax highlighting or equivalent language-aware presentation, canonical formatting, source-scoped completion where available, diagnostics display/clearing, loading/success/failure states, and dirty/save indicators at the prototype target size.
+- Core APIs are reused for parsing, formatting, completion, static/link checking, and HTML rendering. No duplicated parser/evaluator/module-resolution implementation or alternate stale-file execution path is introduced.
+- Focused tests cover RPC payload/schema validation, path containment, project navigation, open/read/save/dirty/conflict transitions, current-buffer preview, formatting, diagnostics, errors, and webview capability boundaries. An available native or host smoke test proves typed main-process communication.
+- Root behavior remains unchanged: root `bun run build`, `bun test`, and existing extension workflows pass. Desktop isolated install/typecheck/web build/test checks pass where available; Hutch/package/native/platform limitations are recorded exactly rather than inferred.
+- `planning/state.md`, `planning/decisions.md`, and `planning/questions.md` record versions, commands, test counts, platform outcomes, residual Hutch limitations, and the Sprint 025 handoff. No macOS/Windows/Ubuntu native release gate is claimed without direct verification.
+- Input mappings/default precedence, current-buffer run/result states, HTML/PDF actions, desktop export, and owner platform acceptance remain Sprint 025 scope; no DOCX, installer, updater, or Marketplace work is included.

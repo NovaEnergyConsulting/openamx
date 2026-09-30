@@ -102,7 +102,7 @@ function renderChart(emission: ChartViewEmission): string {
   const rows = chartRows(emission);
   const svg = rows.length === 0 ? '' : renderChartSvg(emission, rows);
   const textRows = rows.map(row => `<tr>${row.map(value => `<td>${escapeHtml(valueToString(value))}</td>`).join('')}</tr>`).join('');
-  const headings = chartHeadings(emission, rows);
+  const headings = chartHeadings(emission);
   return `<figure class="openamx-view openamx-chart" data-view="${id}" aria-labelledby="${id}-title" aria-describedby="${id}-description">
   <figcaption><strong id="${id}-title">${escapeHtml(caption)}</strong><span id="${id}-description">${escapeHtml(detail)}</span></figcaption>
   ${svg || '<p class="openamx-empty">No data</p>'}
@@ -128,7 +128,7 @@ function chartRows(emission: ChartViewEmission): ViewDataValue[][] {
   });
 }
 
-function chartHeadings(emission: ChartViewEmission, rows: ViewDataValue[][]): string[] {
+function chartHeadings(emission: ChartViewEmission): string[] {
   if (emission.declaration.kind === 'scatter') return ['x', 'y', 'group'];
   const series = emission.declaration.options.filter(option => option.type === 'chartSeriesOption');
   return ['label', ...series.map(option => option.label)];

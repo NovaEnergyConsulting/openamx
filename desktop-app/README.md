@@ -1,6 +1,6 @@
-# OpenAMX Desktop Architecture Spike
+# OpenAMX Desktop Authoring Foundation
 
-This isolated Electrobun 2.0.1 + Bun + Vue 3 + shadcn-vue package proves a narrow typed `ping` RPC contract. The Vue webview has no filesystem or AMX execution API. Fonts and UI dependencies are bundled locally. This is not a production authoring workflow.
+This isolated Electrobun 2.0.1 + Bun + Vue 3 + shadcn-vue package provides the Sprint 024 desktop authoring foundation. The Bun main process owns project paths, file reads/writes, module loading, parsing, checking, formatting, and HTML preparation. The Vue webview receives only typed payloads and has no filesystem, Bun/Node, shell, evaluator, module-loader, input-loader, or PDF capability.
 
 shadcn-vue components and helpers are application source under `src/mainview/components` and `src/mainview/lib`. `.hutch/devkit` is reserved for Hutch-generated Electrobun SDK files; never place application components there because Hutch may replace that projection.
 
@@ -20,7 +20,11 @@ bun run dev
 bun run run
 ```
 
-All commands are isolated from root and VS Code extension scripts. `test` is a Bun-only payload assertion. Typecheck, webview build, native build, dev, and run require Hutch to prepare the SDK. shadcn components and helpers are source-owned under `src/mainview`; only Electrobun SDK imports use `.hutch/devkit`. In the recorded WSL2 host, direct typecheck/Vite checks passed once a projection existed, and the bundled app completed a typed RPC round trip; Hutch's prepare wrapper continued to time out. See the Sprint 020 spike results for exact commands and outcomes.
+All commands are isolated from root and VS Code extension scripts. The focused contract test exercises typed payloads, canonical project containment, local listing, dirty/current-buffer preview, conflict-safe save, and parser diagnostics. `openProject`, `openDocument`, `listProjectFiles`, `readDocument`, `updateBuffer`, `saveDocument`, `formatBuffer`, `analyzeBuffer`, and `previewBuffer` are main-process operations. Preview uses the exact current buffer through the shared loader and renderer; it does not substitute saved text.
+
+Direct `bunx tsc --noEmit --skipLibCheck` and `bunx vite build` are useful checks when Hutch preparation is unavailable. The package scripts that invoke Hutch (`typecheck`, `build:web`, `build`, `dev`, and `run`) retain the known Sprint 020 post-config timeout residual. Record that result rather than treating a direct Linux check as native platform acceptance.
+
+Sprint 025 owns input mappings/default precedence, current-buffer run/result state, HTML/PDF actions, and desktop export. This package intentionally stops at authoring, diagnostics, and live HTML preview.
 
 ## Native Prerequisites
 

@@ -1,9 +1,13 @@
 /// <reference types="bun" />
 import { BrowserWindow, createRPC } from "electrobun/main";
 import { createPingResponse, type DesktopRPCSchema } from "../shared/rpc";
+import { createDesktopService } from "./desktopService";
+
+const service = createDesktopService();
 
 const rpc = createRPC<DesktopRPCSchema["bun"], DesktopRPCSchema["webview"]>({
 	requestHandler: {
+		...service.request,
 		ping: ({ nonce }) => {
 			console.log(`Typed webview-to-Bun RPC received: ${nonce}`);
 			return createPingResponse(nonce, process.versions.bun ?? "unknown");
