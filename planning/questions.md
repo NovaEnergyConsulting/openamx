@@ -1,5 +1,22 @@
 # Planning Questions (Sprint 002)
 
+## V0.4 Sprint 023 Builder Resolution
+
+- pdfmake 0.3.11 runs in the root Bun pipeline without a browser runtime. The adapter uses the package-resolved local Roboto files and denies URL access; no remote assets or telemetry are used.
+- Roboto redistribution evidence is now recorded: the authoritative Google Fonts Roboto repository license is Apache 2.0. The installed pdfmake package contains only its MIT package license beside the fonts, so a shipped artifact must carry the Apache notice; this repository does not claim Marketplace/legal approval.
+- The shared adapter boundary is independent of CLI orchestration: Sprint 024/025 can pass an evaluated document/environment or main-process prepared request to `preparePdfReport` and `serializePdfReport` without re-reading or re-evaluating.
+- Remaining unverified checks are explicitly non-blocking limitations for this Linux/WSL2 Builder environment: permission-denial simulation, native Ubuntu/macOS/Windows acceptance, PDF/A/tagged accessibility, exact byte identity, and pixel parity.
+
+## V0.4 Sprint 023 Questions To Resolve
+
+- Are pdfmake 0.3.11's production Bun API and required local font assets compatible with the repository's root and future Electrobun main-process packaging without adding a browser runtime?
+- Can redistribution terms for the proof's bundled Roboto fonts be verified from authoritative package/font sources? If not, which approved local fonts replace them, and how are their licenses recorded?
+- Which report-model representation best preserves narrative/source/view placement, explicit page breaks, repeated table headers, static charts, and textual chart data without duplicating renderer semantics?
+- Which deterministic PDF properties can be asserted reliably with the selected engine, and which visual/layout/accessibility limitations must remain explicit?
+- How can destination canonicalization, symlink rejection, input/module conflict checks, same-directory temporary writes, atomic rename, and cleanup be tested portably in the current Linux environment?
+
+Resolve these during Sprint 023 or record a concrete Lead Developer decision; do not silently ship unverified fonts, a hidden browser fallback, or weaker no-write behavior.
+
 ## V0.4 Sprint 022 Builder Completion
 
 - No blocking contract questions arose. The existing V0.4 specification was sufficient for source placement, captured snapshots, table interaction, chart alternatives, escaping, and editor scope.

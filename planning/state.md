@@ -9,6 +9,15 @@
 - Required gates passed: root `bun run build`; root `bun test` (179 tests, 727 assertions, 0 failures across 9 files); extension `bun run compile`; extension `bun run test` (12 host tests); and `git diff --check`.
 - Limitations recorded: browser verification used the integrated Linux browser and a temporary local report; cross-platform browser/print metrics remain unverified. Sprint 020 Hutch scripted command reliability and persistent WSL window checks remain residuals and are not claimed here. PDF generation, desktop workflows, DOCX, and Marketplace publication remain out of scope.
 - Sprint 023 handoff: consume the stable HTML/static view presentation boundary and captured `ViewEmission` data for the shared offline PDF adapter. Verify approved font licensing or replace bundled fonts before embedding; do not add a second evaluation path.
+- Sprint 023: Report-Ready PDF Export — Architect preparation complete; Builder execution is next. Sprint 022 is complete and its static view/data boundary is ready for PDF integration.
+- Sprint folder: planning/sprints/0023-report-ready-pdf-export/
+
+## Sprint 023 Builder Completion (2026-09-30)
+
+- Delivered the shared offline pdfmake report adapter, additive PDF CLI command, safe destination validation, atomic same-directory writes, focused report/CLI tests, and planning evidence. The adapter consumes the existing evaluated environment and immutable V0.4 view emissions without a second analysis/evaluation/input/module read.
+- Verification: root `bun run build` passed; focused PDF adapter/CLI checks passed (5 tests, 23 assertions); full `bun test` passed with 184 tests, 754 assertions, 0 failures across 11 files; `git diff --check` passed. Valid CLI smoke output was 15,889 bytes. Exact PDF byte identity is not claimed because engine metadata identifiers vary; searchable text, page count, page break, repeated headers, page numbers, row order, and repeated preparation content were inspected.
+- Evidence limitations: Linux x64 under WSL2 only; permission failures, native Ubuntu/macOS/Windows, PDF/A, tagged accessibility, and pixel parity remain unverified. Roboto Apache 2.0 source-license evidence and the required notice disposition are recorded; pdfmake package metadata is MIT. No desktop UI/RPC, DOCX, Chrome fallback, HTML interaction, or VS Code provider changes were made.
+- Sprint 024/025 integration boundary: invoke the exported typed report adapter from the desktop main process after the shared loader/evaluation barrier, passing a file-backed entry/current-buffer context and validated input mappings; keep path checks, filesystem authority, and RPC validation in the main process.
 
 ## Current Status
 

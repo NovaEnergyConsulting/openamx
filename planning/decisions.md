@@ -1,5 +1,21 @@
 # Planning Decisions
 
+## V0.4 Sprint 023 Builder Outcome
+
+- Added the shared typed `preparePdfReport`/`serializePdfReport` adapter in `src/renderer/reportPdf.ts`. It consumes the already evaluated `OpenAmxDocument` and `Environment.viewEmissions`, preserves document/source/show order, renders final-environment narrative interpolation, visible formatted AMX source, tables, static SVG charts, textual chart data, repeated table headers, A4/18 mm layout, page numbers, and the explicit `<!-- page-break -->` report marker. It never reads modules/inputs or evaluates AMX.
+- Added `export pdf <input> --out <path>` through the existing loader path. Destination validation rejects non-lowercase extensions, missing parents, entry/input conflicts, symlinks, and non-regular destinations before analysis. PDF bytes are fully serialized before a same-directory temporary write, `sync`, close, and atomic rename; temporary files are removed on failure and existing destinations are preserved before rename.
+- Dependency evidence: root `pdfmake@0.3.11`, `pdfjs-dist@6.3.289`; runtime evidence Bun 1.4.2, Node 24.20.0, Linux x64 under WSL2. pdfmake package `LICENSE` is MIT. Bundled Roboto files are `Roboto-Regular.ttf`, `Roboto-Medium.ttf`, `Roboto-Italic.ttf`, and `Roboto-MediumItalic.ttf`; authoritative Roboto source license evidence is Apache License 2.0 at `https://github.com/googlefonts/roboto/blob/main/LICENSE`. The package does not include a separate font license file; redistribution requires retaining the Apache notice with any shipped font assets.
+- Focused evidence: `bun test tests/reportPdf.test.ts tests/pdfCli.test.ts` passed (5 tests, 23 assertions); the production fixture inspected a 2-page table with repeated `Asset` headers, 55 rows, searchable chart title/description/data, an explicit page break, page number `1 / 2`, and stable extracted page/text content across repeated preparation. A valid CLI smoke export produced 15,889 bytes. Full `bun run build && bun test` passed with 184 tests, 754 assertions, 0 failures; `git diff --check` passed.
+- Limitations and boundary: exact PDF bytes are not claimed deterministic because pdfmake metadata identifiers vary; deterministic extracted content/layout properties are asserted. PDF/A, tagged accessibility, pixel parity, cross-platform font metrics, native Ubuntu, macOS, and Windows acceptance remain unverified; evidence is Linux/WSL2 only. Permission-denial tests were not claimed because the available test environment does not provide a portable permission failure boundary. Sprint 024/025 should call the typed adapter from main-process RPC with a file-backed entry path/current text and validated mappings; no desktop UI/RPC code belongs here.
+
+## V0.4 Sprint 023 Preparation
+
+- Sprint 023 owns the shared offline PDF adapter, additive `openamx export pdf` command, destination safety, report layout, and PDF evidence. Desktop UI/RPC integration remains Sprints 024–025; the adapter must be independently callable by the future main process.
+- Use pdfmake 0.3.11 as the lead engine selected by Sprint 020. Chrome remains comparison evidence only, not a hidden runtime fallback. Verify production Bun compatibility and font redistribution terms before embedding fonts; replace bundled Roboto files if their terms cannot be established.
+- Consume Sprint 022's ordered static view/data representation and `ViewEmission` snapshots. Do not re-evaluate AMX or read modules/inputs again during report generation. Interactive HTML state does not enter PDF output.
+- PDF writes use complete preflight/preparation, a same-directory temporary file, close/flush, and atomic rename. Invalid destinations use AMX6001; layout, serialization, engine, and filesystem failures use AMX6002; existing destinations survive pre-rename failures.
+- Preserve existing `run`, `render`, named JSON/CSV output, and V0.2/V0.3 behavior. DOCX remains optional and non-blocking; no desktop or platform acceptance is part of Sprint 023.
+
 ## V0.4 Sprint 022 Builder Outcome
 
 - Rendered views from the loader-provided immutable emissions grouped by `documentNodeIndex`; source listings remain the first content at each executable fence, followed by emissions in statement order. Reports without emissions preserve the historical HTML bytes.

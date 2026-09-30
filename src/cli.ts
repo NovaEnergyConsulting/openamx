@@ -13,6 +13,8 @@ import { renderHtml } from "./renderer/renderHtml";
 import { AmxDiagnostic, AmxError } from "./diagnostics/errors";
 import { loadEntryModule } from "./runtime/moduleLoader";
 import { serializeOutputs, writeOutputs } from "./runtime/outputData";
+import { preparePdfReport, serializePdfReport } from "./renderer/reportPdf";
+import { preparePdfDestination, writePdfAtomically } from "./runtime/pdfDestination";
 
 const cli = cac("openamx");
 
@@ -47,6 +49,33 @@ function reportAmxError(error: AmxError): void {
     }
   }
 }
+
+cli
+  .command("export <format> <input>", "Export an .amx file to an offline report")
+  .option("--out <path>", "Output PDF file path")
+  .option("--input <mapping>", "Map a logical input to a data file", { type: [String] })
+  .option("--validation <mode>", "Validation mode: aggregate or fail-fast")
+  .action(async (format: string, input: string, options: { out?: string; input?: string[]; validation?: string }) => {
+    try {
+      if (format !== "pdf") throw new AmxError({ code: "AMX6001", message: `Unsupported export format '${format}'; use 'pdf'` });
+      const inputMappings = suppliedMappings(options, "input");
+      const destination = await preparePdfDestination(options.out, input, inputMappings);
+      const { doc, env } = await loadEntryModule(input, {
+        inputMappings,
+        validation: options.validation as "aggregate" | "fail-fast" | undefined
+      });
+      const bytes = await serializePdfReport(preparePdfReport(doc, env));
+      await writePdfAtomically(destination, bytes);
+      console.log(`Exported PDF to ${destination.path}`);
+    } catch (err: any) {
+      if (err instanceof AmxError) {
+        reportAmxError(err);
+      } else {
+        reportAmxError(new AmxError({ code: "AMX6002", message: `PDF export failed: ${err instanceof Error ? err.message : String(err)}` }));
+      }
+      process.exit(1);
+    }
+  });
 
 cli
   .command("render <input>", "Render an .amx file to standalone HTML")
