@@ -1,5 +1,25 @@
 # Planning Questions (Sprint 002)
 
+## V0.5 Sprint 029 Follow-Up Residuals (2026-09-30)
+
+- **Save picker direction approved, implementation still blocked:** obtain an auditable native save-panel API or maintained source-backed package with Bun, macOS 14+ (arm64 and x64), Windows 11+, native Ubuntu 24.04+ coverage. Electrobun 2.0.1 has no save API; `tinyfiledialogs-node@1.1.8` is not an acceptable published cross-platform artifact. Validate cancellation, selected new/existing destination, exact extension, containment, conflicts and no-write/atomic guarantees on the resulting adapter. Do not infer an approval to use a webview path input.
+- **Native quit verification pending:** direct service tests cover approved Save All / Discard All / Cancel and a generated-SDK `before-quit` veto is wired, but verify actual native window-close, application quit, conflict/retry and cancelled save on each supported host. A post-close event is not a substitute for a veto; if OS window close bypasses `before-quit`, the hook remains a blocker, not a pass.
+
+## V0.5 Sprint 029 Initial Options (2026-09-30; Policy Resolved Above)
+
+- **Native export save dialog:** Generated Electrobun 2.0.1 `Utils.openFileDialog` selects only existing files; no save-file dialog is exposed. Option A: add/upgrade an audited cross-platform native save picker in the Bun main process and validate its untrusted result before the existing atomic export calls. Option B: keep Sprint 029 acceptance open until a supported native picker exists. Do **not** adopt a webview-typed destination or an implicit overwrite as a policy exception without explicit Lead Developer approval.
+- **Project switch and quit:** Currently the service blocks a switch with dirty/conflicted tabs, and tab close offers Save/Discard/Cancel; neither project switch nor native quit offers the complete transactional confirmation sequence. Option A: implement a typed multi-tab preflight/confirmation operation and test a vetoable native close/quit hook on all supported hosts (failed save retains every dirty tab); Option B: leave Sprint 029 open pending that integration. The generated SDK's `before-quit` approval alone is not native window-close proof.
+- **Verification outstanding:** Native dialog cancel/selection, multi-tab UI with live RPC, 1280x720 and 800x600 populated layouts, keyboard/zoom/screen-reader focus, Hutch package/native launch and target-OS tests cannot be certified by this WSL2 direct build or browser bridge shim. Sprint 034 owns final visual sign-off after the blockers are resolved; Sprint 030 can review the tab/RPC boundary but must not assume this sprint accepted.
+
+## V0.5 Sprint 029 Builder Execution Questions (2026-09-30)
+
+- Which available Electrobun native dialog and application close/quit hooks satisfy the approved main-process typed RPC lifecycle on this host? Record the actual API/version and tested cancel/validation behavior; report a blocker if the package/native boundary cannot be verified.
+- Which service response/revision shape makes active-versus-entry requests unambiguous when projects or tabs change during an asynchronous preview/run/export, without dropping an existing safe write or presenting a stale success?
+- Where can recent/session metadata be stored locally on each supported host using the existing stack, with bounded contents, safe restore/clear behavior and no project-file or version-control leakage?
+- Which current desktop UI test/harness can demonstrate dialog, tab, keyboard, focus and 800x600/1280x720 layout states, and which native observations remain unavailable under WSL2/Hutch?
+
+These are implementation/proof questions within the approved Sprint 028 contract, not permission to change authority, privacy, dirty-dependency or conflict rules. Record concrete answers and evidence in the Sprint 029 outcome; escalate any contract-affecting blocker for Lead Developer review.
+
 ## Sprint 028 Review and Blocking Decisions (2026-09-30)
 
 - **Resolved 2026-09-30**: The Lead Developer explicitly approved [the V0.5 contract](../docs/language-spec-v0.5.md), resolving the six Sprint 028 contract-question groups below, including visible-source default, exact `report` keys, CLI `--project-root`, strict missing-logo no-write policy, contrast fallback and desktop authority. Sprint 028 no longer blocks Sprints 029, 031 or 033; any later change to an approved policy requires a separately recorded decision.

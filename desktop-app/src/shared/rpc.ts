@@ -9,7 +9,11 @@ export interface PingResponse {
 export interface DesktopRPCError { code: string; message: string; }
 export type DesktopRPCResponse<T> = { ok: true } & T | { ok: false; error: DesktopRPCError };
 export interface ProjectFile { path: string; kind: "module"; }
-export interface OpenDocument { path: string; text: string; diskHash: string; dirty: boolean; conflict: boolean; }
+export interface OpenDocument { path: string; text: string; diskHash: string; dirty: boolean; conflict: boolean; revision: number; }
+export interface TabState { path: string; dirty: boolean; conflict: boolean; revision: number; }
+export interface WorkbenchState { tabs: TabState[]; active?: string; entry?: string; generation: number; }
+export type TransitionAction = "save-all" | "discard-all" | "cancel";
+export interface RecentProject { root: string; active?: string; entry?: string; explorerWidth?: number; previewWidth?: number; }
 export interface TextDiagnostic { code: string; message: string; file?: string; line?: number; column?: number; inputName?: string; dataPath?: string; dataLine?: number; dataColumn?: number; }
 export interface TextAnalysis {
 	diagnostics: TextDiagnostic[];
@@ -25,10 +29,24 @@ export interface DesktopRPCClient {
 	request: {
 		ping(params: { nonce: string }): Promise<PingResponse>;
 		openProject(params: { path: string }): Promise<DesktopRPCResponse<{ root: string }>>;
+		pickProject(): Promise<DesktopRPCResponse<{ cancelled: boolean; root?: string }>>;
+		pickDocument(): Promise<DesktopRPCResponse<{ cancelled: boolean; document?: OpenDocument }>>;
+		pickDestination(params: { extension: ".html" | ".pdf" | ".docx" }): Promise<DesktopRPCResponse<{ cancelled: boolean; path?: string }>>;
 		openDocument(params: { path: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
+		selectTab(params: { path: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
+		getWorkbench(): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		prepareTransition(params: { action: TransitionAction }): Promise<DesktopRPCResponse<{ ready: boolean; state: WorkbenchState }>>;
+		confirmQuit(): Promise<DesktopRPCResponse<{ ready: boolean }>>;
+		getRecents(): Promise<DesktopRPCResponse<{ projects: RecentProject[] }>>;
+		clearSession(): Promise<DesktopRPCResponse<{ projects: RecentProject[] }>>;
+		restoreProject(params: { root: string }): Promise<DesktopRPCResponse<{ root: string; state: WorkbenchState }>>;
+		setPanelSizes(params: { explorerWidth: number; previewWidth: number }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		setEntry(params: { path: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		closeTab(params: { path: string; action: "save" | "discard" | "cancel" }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		reloadTab(params: { action: "discard" | "cancel" }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		listProjectFiles(): Promise<DesktopRPCResponse<{ files: ProjectFile[] }>>;
 		readDocument(): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
-		updateBuffer(params: { text: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
+		updateBuffer(params: { text: string; path?: string; sequence?: number }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		saveDocument(): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		formatBuffer(): Promise<DesktopRPCResponse<{ text: string }>>;
 		analyzeBuffer(): Promise<DesktopRPCResponse<{ analysis: TextAnalysis }>>;
@@ -53,10 +71,24 @@ export type DesktopRPCSchema = {
 				response: PingResponse;
 			};
 			openProject: { params: { path: string }; response: DesktopRPCResponse<{ root: string }> };
+			pickProject: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; root?: string }> };
+			pickDocument: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; document?: OpenDocument }> };
+			pickDestination: { params: { extension: ".html" | ".pdf" | ".docx" }; response: DesktopRPCResponse<{ cancelled: boolean; path?: string }> };
 			openDocument: { params: { path: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
+			selectTab: { params: { path: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
+			getWorkbench: { params: Record<string, never>; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			prepareTransition: { params: { action: TransitionAction }; response: DesktopRPCResponse<{ ready: boolean; state: WorkbenchState }> };
+			confirmQuit: { params: Record<string, never>; response: DesktopRPCResponse<{ ready: boolean }> };
+			getRecents: { params: Record<string, never>; response: DesktopRPCResponse<{ projects: RecentProject[] }> };
+			clearSession: { params: Record<string, never>; response: DesktopRPCResponse<{ projects: RecentProject[] }> };
+			restoreProject: { params: { root: string }; response: DesktopRPCResponse<{ root: string; state: WorkbenchState }> };
+			setPanelSizes: { params: { explorerWidth: number; previewWidth: number }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			setEntry: { params: { path: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			closeTab: { params: { path: string; action: "save" | "discard" | "cancel" }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			reloadTab: { params: { action: "discard" | "cancel" }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			listProjectFiles: { params: Record<string, never>; response: DesktopRPCResponse<{ files: ProjectFile[] }> };
 			readDocument: { params: Record<string, never>; response: DesktopRPCResponse<{ document: OpenDocument }> };
-			updateBuffer: { params: { text: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
+			updateBuffer: { params: { text: string; path?: string; sequence?: number }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			saveDocument: { params: Record<string, never>; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			formatBuffer: { params: Record<string, never>; response: DesktopRPCResponse<{ text: string }> };
 			analyzeBuffer: { params: Record<string, never>; response: DesktopRPCResponse<{ analysis: TextAnalysis }> };

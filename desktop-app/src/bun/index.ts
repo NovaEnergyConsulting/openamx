@@ -1,9 +1,45 @@
 /// <reference types="bun" />
-import { BrowserWindow, createRPC } from "electrobun/main";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import Electrobun, { BrowserWindow, Utils, createRPC } from "electrobun/main";
 import { createPingResponse, type DesktopRPCSchema } from "../shared/rpc";
 import { createDesktopService } from "./desktopService";
 
-const service = createDesktopService();
+const service = createDesktopService(undefined, {
+	async choose({ directory, extension, root }) {
+		const selected = await Utils.openFileDialog({
+			startingFolder: root, allowedFileTypes: extension ? extension.slice(1) : "*",
+			canChooseDirectory: directory, canChooseFiles: !directory, allowsMultipleSelection: false
+		});
+		return selected.length === 1 && selected[0] ? selected[0] : undefined;
+	},
+	async confirmTransition(operation) {
+		const { response } = await Utils.showMessageBox({
+			type: "question", title: operation === "quit" ? "Quit OpenAMX?" : "Switch projects?",
+			message: "There are unsaved or conflicted tabs.",
+			detail: "Save All checks disk conflicts. A failed save keeps the workbench open.",
+			buttons: ["Save All", "Discard All", "Cancel"], defaultId: 2, cancelId: 2
+		});
+		return response === 0 ? "save-all" : response === 1 ? "discard-all" : "cancel";
+	}
+}, join(homedir(), ".config", "openamx", "desktop-session.json"));
+
+let quitApproved = false;
+let quitPromptPending = false;
+Electrobun.events.on("before-quit", event => {
+	if (quitApproved) return;
+	event.response = { allow: false };
+	if (quitPromptPending) return;
+	quitPromptPending = true;
+	void service.request.confirmQuit().then(result => {
+		if (!result.ok) {
+			void Utils.showMessageBox({ type: "error", title: "OpenAMX remains open", message: "Unable to save all tabs. Resolve conflicts or try again." });
+		} else if (result.ready) {
+			quitApproved = true;
+			Utils.quit();
+		}
+	}).catch(() => undefined).finally(() => { quitPromptPending = false; });
+});
 
 const rpc = createRPC<DesktopRPCSchema["bun"], DesktopRPCSchema["webview"]>({
 	requestHandler: {

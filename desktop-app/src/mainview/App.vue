@@ -1,20 +1,39 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import type { DesktopRPCClient, InputConfiguration, OpenDocument, RunSummary, TextAnalysis, TextDiagnostic } from "../shared/rpc";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import type { DesktopRPCClient, InputConfiguration, OpenDocument, RecentProject, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
 import { Button } from "@/components/ui/button";
 
 const props = defineProps<{ rpc: DesktopRPCClient }>();
-const projectPath = ref("");
-const filePath = ref("");
 const document = ref<OpenDocument | null>(null);
+const workbench = ref<WorkbenchState>({ tabs: [], generation: 0 });
+const projectRoot = ref("");
+const recents = ref<RecentProject[]>([]);
+const search = ref("");
+const palette = ref(false);
+const paletteQuery = ref("");
+const focusMode = ref<"none" | "editor" | "preview">("none");
+const sidePanel = ref<"explorer" | "inputs" | "export">("explorer");
+const detailPanel = ref<"preview" | "diagnostics" | "results">("preview");
+const explorerWidth = ref(220);
+const previewWidth = ref(44);
+const editorElement = ref<HTMLTextAreaElement | null>(null);
+const selections = new Map<string, { start: number; end: number; scroll: number }>();
+let invoker: HTMLElement | null = null;
+let focusInvoker: HTMLElement | null = null;
+const visibleFiles = computed(() => files.value.filter(file => file.toLowerCase().includes(search.value.toLowerCase())));
+const groupedFiles = computed(() => {
+	const groups = new Map<string, string[]>();
+	for (const file of visibleFiles.value) {
+		const folder = file.includes("/") ? file.slice(0, file.lastIndexOf("/")) : ".";
+		groups.set(folder, [...(groups.get(folder) ?? []), file]);
+	}
+	return [...groups];
+});
 const preview = ref("");
 const analysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
 const inputConfiguration = ref<InputConfiguration>({ inputs: [], diagnostics: [] });
 const inputOverrides = ref("");
 const validation = ref<"aggregate" | "fail-fast">("aggregate");
-const htmlDestination = ref("analysis.html");
-const pdfDestination = ref("analysis.pdf");
-const docxDestination = ref("analysis.docx");
 const summary = ref<RunSummary>({ values: [] });
 const runState = ref<"idle" | "running" | "success" | "failure">("idle");
 const previewState = ref<"idle" | "running" | "success" | "failure">("idle");
@@ -28,6 +47,8 @@ let runRequest = 0;
 let htmlRequest = 0;
 let pdfRequest = 0;
 let docxRequest = 0;
+let navigationRequest = 0;
+let pendingEdit: Promise<void> = Promise.resolve();
 
 function mappings(): string[] {
 	return inputOverrides.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
@@ -44,6 +65,9 @@ function resetResults() {
 }
 
 function invalidateInputResults() {
+	bufferRevision++;
+	previewRequest++;
+	pending.value = false;
 	resetResults();
 	preview.value = "";
 	previewState.value = "idle";
@@ -54,30 +78,232 @@ function validationChanged() {
 	void refresh();
 }
 
-async function openProject() {
-	const result = await props.rpc.request.openProject({ path: projectPath.value });
-	if (!result.ok) { status.value = result.error.message; return; }
-	const listing = await props.rpc.request.listProjectFiles();
-	if (listing.ok) files.value = listing.files.map(file => file.path);
-	status.value = `Project ready: ${result.root}`;
+async function syncWorkbench() {
+	const result = await props.rpc.request.getWorkbench();
+	if (result.ok) workbench.value = result.state;
 }
 
-async function openDocument() {
-	const result = await props.rpc.request.openDocument({ path: filePath.value });
-	if (!result.ok) { status.value = result.error.message; return; }
+async function syncRecents() {
+	const result = await props.rpc.request.getRecents();
+	if (result.ok) recents.value = result.projects;
+}
+
+async function loadProject() {
+	const listing = await props.rpc.request.listProjectFiles();
+	files.value = listing.ok ? listing.files.map(file => file.path) : [];
+	await syncWorkbench();
+	await syncRecents();
+}
+
+async function restore(root: string) {
+	if (root === projectRoot.value) return;
+	await pendingEdit;
+	const request = ++navigationRequest;
+	const recent = recents.value.find(item => item.root === root);
+	const result = await props.rpc.request.restoreProject({ root });
+	if (request !== navigationRequest) return;
+	if (!result.ok) { if (result.error.code !== "DESKTOP_CANCELLED") status.value = result.error.message; await syncRecents(); return; }
+	clearView();
+	inputOverrides.value = "";
+	projectRoot.value = result.root;
+	explorerWidth.value = recent?.explorerWidth ?? 220;
+	previewWidth.value = recent?.previewWidth ?? 44;
+	await loadProject();
+	if (result.state.active) {
+		const active = await props.rpc.request.selectTab({ path: result.state.active });
+		if (active.ok) document.value = active.document;
+	} else document.value = null;
+	status.value = "Project restored without unsaved text or report results.";
+}
+
+async function clearRecents() {
+	const result = await props.rpc.request.clearSession();
+	if (result.ok) recents.value = result.projects;
+}
+
+function setFocusMode(mode: "none" | "editor" | "preview") {
+	const next = focusMode.value === mode ? "none" : mode;
+	if (focusMode.value === "none" && next !== "none") focusInvoker = window.document.activeElement instanceof HTMLElement ? window.document.activeElement : null;
+	focusMode.value = next;
+	if (focusMode.value === "editor") requestAnimationFrame(() => editorElement.value?.focus());
+	else if (focusMode.value === "preview") requestAnimationFrame(() => window.document.querySelector<HTMLIFrameElement>(".preview-pane iframe")?.focus());
+	else focusInvoker?.focus();
+}
+
+async function resizeExplorer(delta: number) {
+	explorerWidth.value = Math.max(160, Math.min(400, explorerWidth.value + delta));
+	await props.rpc.request.setPanelSizes({ explorerWidth: explorerWidth.value, previewWidth: previewWidth.value });
+}
+
+async function resizePreview(delta: number) {
+	previewWidth.value = Math.max(25, Math.min(65, previewWidth.value + delta));
+	await props.rpc.request.setPanelSizes({ explorerWidth: explorerWidth.value, previewWidth: previewWidth.value });
+}
+
+function showPalette() {
+	invoker = window.document.activeElement instanceof HTMLElement ? window.document.activeElement : null;
+	palette.value = true;
+	paletteQuery.value = "";
+	requestAnimationFrame(() => window.document.querySelector<HTMLInputElement>("#command-search")?.focus());
+}
+
+function dismissPalette() {
+	palette.value = false;
+	invoker?.focus();
+}
+
+function cycleTab(direction: number) {
+	const tabs = workbench.value.tabs;
+	const index = tabs.findIndex(tab => tab.path === workbench.value.active);
+	if (index >= 0 && tabs.length > 1) void selectTab(tabs[(index + direction + tabs.length) % tabs.length].path);
+}
+
+const commands = computed(() => [
+	{ name: "Open project", shortcut: "Ctrl/Cmd+O", enabled: true, reason: "", run: openProject },
+	{ name: "Open file", shortcut: "Ctrl/Cmd+Shift+O", enabled: !!projectRoot.value, reason: "Open a project first", run: () => openDocument() },
+	{ name: "Next tab", shortcut: "Ctrl/Cmd+Alt+Right", enabled: workbench.value.tabs.length > 1, reason: "Open another tab first", run: () => cycleTab(1) },
+	{ name: "Previous tab", shortcut: "Ctrl/Cmd+Alt+Left", enabled: workbench.value.tabs.length > 1, reason: "Open another tab first", run: () => cycleTab(-1) },
+	{ name: "Save active tab", shortcut: "Ctrl/Cmd+S", enabled: !!document.value?.dirty, reason: "No unsaved active tab", run: save },
+	{ name: "Format active tab", shortcut: "", enabled: !!document.value, reason: "Open a document first", run: format },
+	{ name: "Run entry", shortcut: "Ctrl/Cmd+Enter", enabled: !!workbench.value.entry, reason: "Designate an entry first", run: runAnalysis },
+	{ name: "Preview entry", shortcut: "Ctrl/Cmd+Shift+Enter", enabled: !!workbench.value.entry, reason: "Designate an entry first", run: refresh },
+	{ name: "Search project", shortcut: "Ctrl/Cmd+Shift+F", enabled: !!projectRoot.value, reason: "Open a project first", run: () => { sidePanel.value = "explorer"; requestAnimationFrame(() => window.document.querySelector<HTMLInputElement>("#project-search")?.focus()); } },
+	{ name: "Focus editor", shortcut: "", enabled: !!document.value, reason: "Open a document first", run: () => setFocusMode("editor") },
+	{ name: "Focus preview", shortcut: "", enabled: !!workbench.value.entry, reason: "Designate an entry first", run: () => setFocusMode("preview") },
+	{ name: "Save HTML…", shortcut: "", enabled: !!workbench.value.entry, reason: "Designate an entry first", run: saveHtml },
+	{ name: "Export PDF…", shortcut: "", enabled: !!workbench.value.entry, reason: "Designate an entry first", run: exportPdf },
+	{ name: "Export DOCX…", shortcut: "", enabled: !!workbench.value.entry, reason: "Designate an entry first", run: exportDocx },
+	{ name: "Clear recent projects", shortcut: "", enabled: !!recents.value.length, reason: "History is empty", run: clearRecents }
+]);
+const matchingCommands = computed(() => commands.value.filter(command => command.name.toLowerCase().includes(paletteQuery.value.toLowerCase())));
+
+function onKeydown(event: KeyboardEvent) {
+	if (event.key === "Escape") {
+		if (palette.value) dismissPalette();
+		else if (focusMode.value !== "none") setFocusMode("none");
+		return;
+	}
+	const modifier = event.ctrlKey || event.metaKey;
+	if (!modifier) return;
+	if (event.altKey && (event.key === "ArrowRight" || event.key === "ArrowLeft")) {
+		event.preventDefault(); cycleTab(event.key === "ArrowRight" ? 1 : -1); return;
+	}
+	if (event.altKey) return;
+	if (event.shiftKey && event.key.toLowerCase() === "p") { event.preventDefault(); showPalette(); return; }
+	let command: string | undefined;
+	if (event.key.toLowerCase() === "o" && !event.shiftKey) command = "Open project";
+	else if (event.key.toLowerCase() === "o" && event.shiftKey) command = "Open file";
+	else if (event.key.toLowerCase() === "s" && !event.shiftKey) command = "Save active tab";
+	else if (event.key.toLowerCase() === "f" && event.shiftKey) command = "Search project";
+	else if (event.key === "Enter") command = event.shiftKey ? "Preview entry" : "Run entry";
+	if (!command) return;
+	event.preventDefault();
+	const selected = commands.value.find(item => item.name === command);
+	if (selected?.enabled) void selected.run();
+}
+
+onMounted(() => { window.addEventListener("keydown", onKeydown); void syncRecents(); });
+onUnmounted(() => window.removeEventListener("keydown", onKeydown));
+
+function clearView() {
 	bufferRevision++;
-	document.value = result.document;
+	previewRequest++;
 	preview.value = "";
 	previewState.value = "idle";
 	analysis.value = { diagnostics: [], completions: [] };
 	inputConfiguration.value = { inputs: [], diagnostics: [] };
-	inputOverrides.value = "";
 	resetResults();
-	status.value = `Opened ${result.document.path}`;
-	await refresh();
+}
+
+async function openProject() {
+	await pendingEdit;
+	const request = ++navigationRequest;
+	const result = await props.rpc.request.pickProject();
+	if (request !== navigationRequest) return;
+	if (!result.ok) { status.value = result.error.message; return; }
+	if (result.cancelled) return;
+	if (result.root === projectRoot.value) return;
+	clearView();
+	inputOverrides.value = "";
+	document.value = null;
+	projectRoot.value = result.root ?? "";
+	await loadProject();
+	const recent = recents.value.find(item => item.root === projectRoot.value);
+	explorerWidth.value = recent?.explorerWidth ?? 220;
+	previewWidth.value = recent?.previewWidth ?? 44;
+	status.value = "Project ready. Open an .amx file from the explorer.";
+}
+
+async function activate(result: Awaited<ReturnType<typeof props.rpc.request.openDocument>>) {
+	if (!result.ok) { status.value = result.error.message; return; }
+	if (document.value && editorElement.value) selections.set(document.value.path, {
+		start: editorElement.value.selectionStart, end: editorElement.value.selectionEnd, scroll: editorElement.value.scrollTop
+	});
+	clearView();
+	document.value = result.document;
+	requestAnimationFrame(() => {
+		const selection = selections.get(result.document.path);
+		if (!selection || document.value?.path !== result.document.path || !editorElement.value) return;
+		editorElement.value.setSelectionRange(selection.start, selection.end);
+		editorElement.value.scrollTop = selection.scroll;
+	});
+	await syncWorkbench();
+	status.value = `Active: ${result.document.path.split(/[\\/]/).pop()}`;
+}
+
+async function openDocument(path?: string) {
+	const request = ++navigationRequest;
+	if (path) {
+		const result = await props.rpc.request.openDocument({ path });
+		if (request === navigationRequest) await activate(result);
+		return;
+	}
+	const result = await props.rpc.request.pickDocument();
+	if (request !== navigationRequest) return;
+	if (!result.ok) { status.value = result.error.message; return; }
+	if (result.cancelled || !result.document) return;
+	await activate({ ok: true, document: result.document });
+}
+
+async function selectTab(path: string) {
+	await pendingEdit;
+	const request = ++navigationRequest;
+	const result = await props.rpc.request.selectTab({ path });
+	if (request === navigationRequest) await activate(result);
+}
+
+async function designateEntry(path: string) {
+	const result = await props.rpc.request.setEntry({ path });
+	if (result.ok) { workbench.value = result.state; clearView(); status.value = "Entry document designated."; }
+	else status.value = result.error.message;
+}
+
+async function closeTab(path: string) {
+	await pendingEdit;
+	await syncWorkbench();
+	const tab = workbench.value.tabs.find(item => item.path === path);
+	const action = tab?.dirty || tab?.conflict
+		? window.confirm("Save changes before closing? Cancel keeps this tab open.") ? "save" : window.confirm("Discard changes and close? Cancel keeps this tab open.") ? "discard" : "cancel"
+		: "discard";
+	const result = await props.rpc.request.closeTab({ path, action });
+	if (!result.ok) { status.value = result.error.message; await syncWorkbench(); return; }
+	if (action === "cancel") return;
+	workbench.value = result.state;
+	clearView();
+	const next = result.state.active;
+	document.value = null;
+	if (next) await selectTab(next);
+	status.value = result.state.entry ? "Tab closed." : "Entry closed. Designate an entry to report.";
+}
+
+async function reload() {
+	await pendingEdit;
+	if (!document.value || (document.value.dirty && !window.confirm("Discard unsaved changes and reload?"))) return;
+	await activate(await props.rpc.request.reloadTab({ action: "discard" }));
 }
 
 async function refresh() {
+	await pendingEdit;
 	if (!document.value) return;
 	const revision = bufferRevision;
 	const request = ++previewRequest;
@@ -122,32 +348,43 @@ async function refresh() {
 
 async function updateText(text: string) {
 	if (!document.value) return;
+	const path = document.value.path;
 	const revision = ++bufferRevision;
 	previewRequest++;
 	pending.value = false;
 	preview.value = "";
 	previewState.value = "running";
 	resetResults();
-	const result = await props.rpc.request.updateBuffer({ text });
+	const write = props.rpc.request.updateBuffer({ text, path, sequence: revision });
+	pendingEdit = write.then(() => undefined, () => undefined);
+	const result = await write;
 	if (!isCurrent(revision)) return;
 	if (!result.ok) { status.value = result.error.message; return; }
 	document.value = result.document;
-	await refresh();
+	await syncWorkbench();
 }
 
 async function save() {
+	await pendingEdit;
 	const result = await props.rpc.request.saveDocument();
 	status.value = result.ok ? "Saved." : result.error.message;
 	if (result.ok) document.value = result.document;
+	else {
+		const latest = await props.rpc.request.readDocument();
+		if (latest.ok) document.value = latest.document;
+	}
+	await syncWorkbench();
 }
 
 async function format() {
+	await pendingEdit;
 	const result = await props.rpc.request.formatBuffer();
 	if (!result.ok) { status.value = result.error.message; return; }
 	await updateText(result.text);
 }
 
 async function runAnalysis() {
+	await pendingEdit;
 	if (!document.value) return;
 	const revision = bufferRevision;
 	const request = ++runRequest;
@@ -177,13 +414,19 @@ async function runAnalysis() {
 }
 
 async function saveHtml() {
+	await pendingEdit;
 	if (!document.value) return;
+	const started = bufferRevision;
+	const destination = await props.rpc.request.pickDestination({ extension: ".html" });
+	if (!isCurrent(started)) return;
+	if (!destination.ok) { exportStatus.value = destination.error.message; return; }
+	if (destination.cancelled || !destination.path) return;
 	const revision = bufferRevision;
 	const request = ++htmlRequest;
 	exportStatus.value = "Saving HTML…";
 	let result: Awaited<ReturnType<typeof props.rpc.request.saveHtml>>;
 	try {
-		result = await props.rpc.request.saveHtml({ path: htmlDestination.value, inputMappings: mappings(), validation: validation.value });
+		result = await props.rpc.request.saveHtml({ path: destination.path, inputMappings: mappings(), validation: validation.value });
 	} catch (error) {
 		if (isCurrent(revision) && request === htmlRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : "HTML save request failed.";
 		return;
@@ -197,13 +440,19 @@ async function saveHtml() {
 }
 
 async function exportPdf() {
+	await pendingEdit;
 	if (!document.value) return;
+	const started = bufferRevision;
+	const destination = await props.rpc.request.pickDestination({ extension: ".pdf" });
+	if (!isCurrent(started)) return;
+	if (!destination.ok) { exportStatus.value = destination.error.message; return; }
+	if (destination.cancelled || !destination.path) return;
 	const revision = bufferRevision;
 	const request = ++pdfRequest;
 	exportStatus.value = "Preparing PDF…";
 	let result: Awaited<ReturnType<typeof props.rpc.request.exportPdf>>;
 	try {
-		result = await props.rpc.request.exportPdf({ path: pdfDestination.value, inputMappings: mappings(), validation: validation.value });
+		result = await props.rpc.request.exportPdf({ path: destination.path, inputMappings: mappings(), validation: validation.value });
 	} catch (error) {
 		if (isCurrent(revision) && request === pdfRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : "PDF export request failed.";
 		return;
@@ -217,13 +466,19 @@ async function exportPdf() {
 }
 
 async function exportDocx() {
+	await pendingEdit;
 	if (!document.value) return;
+	const started = bufferRevision;
+	const destination = await props.rpc.request.pickDestination({ extension: ".docx" });
+	if (!isCurrent(started)) return;
+	if (!destination.ok) { exportStatus.value = destination.error.message; return; }
+	if (destination.cancelled || !destination.path) return;
 	const revision = bufferRevision;
 	const request = ++docxRequest;
 	exportStatus.value = "Preparing DOCX…";
 	let result: Awaited<ReturnType<typeof props.rpc.request.exportDocx>>;
 	try {
-		result = await props.rpc.request.exportDocx({ path: docxDestination.value, inputMappings: mappings(), validation: validation.value });
+		result = await props.rpc.request.exportDocx({ path: destination.path, inputMappings: mappings(), validation: validation.value });
 	} catch (error) {
 		if (isCurrent(revision) && request === docxRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : "DOCX export request failed.";
 		return;
@@ -244,15 +499,24 @@ function displayDiagnostic(item: TextDiagnostic): string {
 
 <template>
 	<main>
-		<header><span class="wordmark">OpenAMX</span><span class="eyebrow">AUTHORING FOUNDATION / V0.4</span></header>
+		<header><span class="wordmark">OpenAMX</span><span class="eyebrow">WORKBENCH</span><Button type="button" @click="showPalette">Commands…</Button></header>
 		<section class="toolbar" aria-label="Project controls">
-			<input v-model="projectPath" aria-label="Project path" placeholder="Project folder path" @keyup.enter="openProject">
 			<Button type="button" @click="openProject">Open project</Button>
-			<input v-model="filePath" aria-label="Document path" placeholder="Entry .amx path" @keyup.enter="openDocument">
-			<Button type="button" @click="openDocument">Open file</Button>
+			<Button type="button" :disabled="!projectRoot" @click="openDocument()">Open file</Button>
+			<span class="project-label">{{ projectRoot || "No project" }}</span>
+			<select v-if="recents.length" aria-label="Recent projects" @change="restore(($event.target as HTMLSelectElement).value)"><option value="">Recent projects</option><option v-for="recent in recents" :key="recent.root" :value="recent.root">{{ recent.root }}</option></select>
+			<Button v-if="recents.length" type="button" @click="clearRecents">Clear history</Button>
 		</section>
-		<section class="workflow" aria-label="Analysis workflow">
-			<div class="workflow-grid">
+		<div class="panel-controls" aria-label="Workbench layout">
+			<button v-for="panel in ['explorer', 'inputs', 'export'] as const" :key="panel" :aria-pressed="sidePanel === panel" @click="sidePanel = panel">{{ panel }}</button>
+			<button v-for="panel in ['preview', 'diagnostics', 'results'] as const" :key="panel" :aria-pressed="detailPanel === panel" @click="detailPanel = panel">{{ panel }}</button>
+			<button :aria-pressed="focusMode === 'editor'" @click="setFocusMode('editor')">Focus editor</button>
+			<button :aria-pressed="focusMode === 'preview'" @click="setFocusMode('preview')">Focus preview</button>
+			<button title="Narrow explorer" aria-label="Narrow explorer" @click="resizeExplorer(-24)">−</button><button title="Widen explorer" aria-label="Widen explorer" @click="resizeExplorer(24)">+</button>
+			<button title="Narrow preview" aria-label="Narrow preview" @click="resizePreview(-5)">−</button><button title="Widen preview" aria-label="Widen preview" @click="resizePreview(5)">+</button>
+		</div>
+		<section class="workflow" :class="{ 'mobile-hidden': sidePanel !== 'inputs' && sidePanel !== 'export' }" aria-label="Analysis workflow">
+			<div class="workflow-grid" :class="{ 'mobile-hidden': sidePanel === 'export' }">
 				<label class="mapping-control">Per-run input paths <span>one name=path mapping per line</span><textarea v-model="inputOverrides" :disabled="!document" aria-label="Per-run input mappings" spellcheck="false" placeholder="assets=data/assets.json" @input="invalidateInputResults" @change="refresh"></textarea></label>
 				<div class="run-controls">
 					<label>Validation <select v-model="validation" :disabled="!document" @change="validationChanged"><option value="aggregate">Aggregate</option><option value="fail-fast">Fail fast</option></select></label>
@@ -265,26 +529,29 @@ function displayDiagnostic(item: TextDiagnostic): string {
 					<p v-if="!inputConfiguration.inputs.length" class="muted">No declared inputs.</p>
 				</div>
 			</div>
-			<div class="export-row">
-				<label>HTML destination <input v-model="htmlDestination" :disabled="!document" aria-label="HTML destination"></label><Button :disabled="!document" type="button" @click="saveHtml">Save HTML</Button>
-				<label>PDF destination <input v-model="pdfDestination" :disabled="!document" aria-label="PDF destination"></label><Button :disabled="!document" type="button" @click="exportPdf">Export PDF</Button>
-				<label>DOCX destination <input v-model="docxDestination" :disabled="!document" aria-label="DOCX destination"></label><Button :disabled="!document" type="button" @click="exportDocx">Export DOCX</Button>
+			<div class="export-row" :class="{ 'mobile-hidden': sidePanel !== 'export' }">
+				<Button :disabled="!workbench.entry" type="button" @click="saveHtml">Save HTML…</Button>
+				<Button :disabled="!workbench.entry" type="button" @click="exportPdf">Export PDF…</Button>
+				<Button :disabled="!workbench.entry" type="button" @click="exportDocx">Export DOCX…</Button>
 				<span class="export-status" aria-live="polite">{{ exportStatus }}</span>
 			</div>
 		</section>
-		<div class="workbench">
-			<aside><p class="kicker">LOCAL MODULES</p><button v-for="file in files" :key="file" class="file" @click="filePath = file; void openDocument()">{{ file }}</button><p v-if="!files.length" class="muted">No project loaded.</p></aside>
+		<div class="workbench" :class="`focus-${focusMode}`" :style="{ '--explorer-width': `${explorerWidth}px`, '--preview-width': `${previewWidth}%` }">
+			<aside :class="{ 'mobile-hidden': sidePanel !== 'explorer' }"><p class="kicker">PROJECT FILES</p><input id="project-search" v-model="search" aria-label="Search project files" placeholder="Search files"><div v-for="[folder, entries] in groupedFiles" :key="folder"><p class="folder">{{ folder }}</p><button v-for="file in entries" :key="file" class="file" :class="{ selected: workbench.active?.endsWith(file) }" @click="openDocument(file)">{{ file.split('/').pop() }}</button></div><p v-if="!files.length" class="muted">No project files.</p><p v-else-if="!visibleFiles.length" class="muted">No matching files.</p></aside>
 			<section class="editor-pane" aria-label="AMX editor">
+				<nav class="tabs" aria-label="Open tabs"><div v-for="tab in workbench.tabs" :key="tab.path" class="tab"><button :aria-current="workbench.active === tab.path ? 'page' : undefined" @click="selectTab(tab.path)">{{ tab.path.split(/[\\/]/).pop() }} <span v-if="workbench.entry === tab.path">Entry</span><span v-if="tab.dirty">*</span><span v-if="tab.conflict">!</span></button><button title="Close tab" :aria-label="`Close ${tab.path}`" @click="closeTab(tab.path)">×</button></div></nav>
 				<div class="pane-header"><strong>{{ document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><Button :disabled="!document || pending" type="button" @click="format">Format</Button><Button :disabled="!document || !document.dirty" type="button" @click="save">Save</Button></span></div>
-				<textarea :value="document?.text ?? ''" :disabled="!document" spellcheck="false" aria-label="AMX source" @input="updateText(($event.target as HTMLTextAreaElement).value)"></textarea>
-				<div class="diagnostics" aria-live="polite"><p v-for="(item, index) in [...analysis.diagnostics, ...inputConfiguration.diagnostics]" :key="`${item.code}-${item.line}-${index}`"><strong>{{ item.code }}</strong> {{ displayDiagnostic(item) }} <span v-if="item.line">({{ item.line }}:{{ item.column }})</span></p><p v-if="![...analysis.diagnostics, ...inputConfiguration.diagnostics].length" class="muted">{{ status }}</p></div>
+				<div v-if="document" class="entry-actions"><Button :disabled="workbench.entry === document.path" @click="designateEntry(document.path)">Set as entry</Button><Button @click="reload">Reload…</Button><span v-if="workbench.entry && workbench.entry !== document.path">Reports use {{ workbench.entry.split(/[\\/]/).pop() }}</span></div>
+				<textarea ref="editorElement" :value="document?.text ?? ''" :disabled="!document" spellcheck="false" aria-label="AMX source" @input="updateText(($event.target as HTMLTextAreaElement).value)"></textarea>
+				<div class="diagnostics" :class="{ 'mobile-hidden': detailPanel !== 'diagnostics' }" aria-live="polite"><p v-for="(item, index) in [...analysis.diagnostics, ...inputConfiguration.diagnostics]" :key="`${item.code}-${item.line}-${index}`"><strong>{{ item.code }}</strong> {{ displayDiagnostic(item) }} <span v-if="item.line">({{ item.line }}:{{ item.column }})</span></p><p v-if="![...analysis.diagnostics, ...inputConfiguration.diagnostics].length" class="muted">{{ status }}</p></div>
 			</section>
-			<section class="preview-pane" aria-label="Live HTML preview"><div class="pane-header"><strong>LIVE PREVIEW</strong><span class="state" :class="`state-${previewState}`">{{ previewState }}</span></div><iframe :srcdoc="preview" sandbox="" title="OpenAMX live HTML preview"></iframe></section>
+			<section class="preview-pane" :class="{ 'mobile-hidden': detailPanel !== 'preview' }" aria-label="Live HTML preview"><div class="pane-header"><strong>ENTRY PREVIEW · {{ workbench.entry?.split(/[\\/]/).pop() ?? 'No entry' }}</strong><span class="state" :class="`state-${previewState}`">{{ previewState }}</span></div><iframe :srcdoc="preview" sandbox="" title="OpenAMX live HTML preview"></iframe></section>
 		</div>
-		<section class="result-strip" aria-label="Analysis result">
+		<section class="result-strip" :class="{ 'mobile-hidden': detailPanel !== 'results' }" aria-label="Analysis result">
 			<div><strong>RUN RESULT</strong><span class="state" :class="`state-${runState}`">{{ runState }}</span></div>
 			<p v-for="item in summary.values" :key="item.name"><code>{{ item.name }}</code><span>{{ item.value }}</span></p>
 			<p v-if="!summary.values.length" class="muted">No current result values.</p>
 		</section>
+		<div v-if="palette" class="palette-backdrop" @click.self="dismissPalette"><section class="palette" role="dialog" aria-modal="true" aria-label="Commands"><input id="command-search" v-model="paletteQuery" aria-label="Search commands" placeholder="Find a command"><div v-for="command in matchingCommands" :key="command.name"><button :disabled="!command.enabled" :title="command.enabled ? command.shortcut : command.reason" @click="dismissPalette(); command.run()">{{ command.name }} <small>{{ command.enabled ? command.shortcut : command.reason }}</small></button></div><p v-if="!matchingCommands.length">No matching commands.</p><button @click="dismissPalette">Close</button></section></div>
 	</main>
 </template>

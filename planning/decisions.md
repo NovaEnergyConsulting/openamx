@@ -1,5 +1,28 @@
 # Planning Decisions
 
+## V0.5 Sprint 029 Follow-Up Authorization (2026-09-30)
+
+- The Lead Developer approved using an audited cross-platform native save picker in Bun and confirmed Save All / Discard All / Cancel on dirty project switch and quit, with a vetoable native close/quit hook. This is authorization of the existing Sprint 028 policy, not approval of an alternate typed-path fallback or relaxed acceptance criteria.
+- The Bun service now preflights all known tab conflicts before Save All; the project is committed only after confirmation and successful saves. The generated Electrobun `before-quit` veto has been wired for a native prompt and guarded retry. This is direct-test evidence, not proof that all native window-close paths invoke `before-quit` on release hosts.
+- The proposed `tinyfiledialogs-node@1.1.8` dependency was rejected pending cross-platform/source audit: npm publishes linux x64/arm64, Windows x64, macOS arm64 prebuilds but no macOS x64, and its package tarball has binary addons but no native source. No new dependency, platform waiver, or save-picker implementation is approved from that candidate.
+
+## V0.5 Sprint 029 Lead Developer Approval (2026-09-30)
+
+- The Lead Developer approved the changes made on Sprint 029. No explicit exception to the Sprint 028 contract or closure of Sprint 029's previously recorded acceptance blockers was given; retain those items as open until separately resolved or explicitly decided.
+
+## V0.5 Sprint 029 Initial Builder Disposition (2026-09-30; See Follow-Up Above)
+
+- No deviation from the approved Sprint 028 policy is proposed or approved. The current native picker is limited to existing paths; explicit existing-output export retains destination validation and atomic writes, but is **not** accepted as the required create-new save dialog. Preserve the existing main-process report operations for direct callers while leaving the new UI workflow blocked pending a Lead Developer-approved implementation path.
+- Use the project's generated Electrobun 2.0.1 SDK for API capability checks, not the unrelated cached Electrobun 1.16.0 copy. Its `openFileDialog` decodes structured paths; it has no `saveFileDialog`. The SDK exposes a `before-quit` approval API, but its window-close/quit behavior has not been integrated or verified on a native host. Do not infer native acceptance from the WSL2 Vite/browser shim.
+- The workbench retains the existing textarea as Sprint 029's basic editing surface. Main-process tabs and relative session metadata are a candidate boundary for Sprint 030, contingent on resolving Sprint 029 workflow blockers; no editor-component selection or report identity redesign was made.
+
+## V0.5 Sprint 029 Architect Handoff (2026-09-30)
+
+- Sprint 028's approved `docs/language-spec-v0.5.md` section 5 is normative for the desktop shell; Sprint 029 preparation is not approval to change those product rules. Extend the existing typed main-process service from one current document to per-tab state with separate active and explicitly designated entry. Run/preview/export use the entry's unsaved text, and dirty dependencies must be saved before use.
+- Native dialogs return untrusted path intents. All containment, symlink, extension, conflict and atomic destination validation remains in main-process operations. Explorer listings and project/session restore must reject ignored or substituted paths. Persist local session metadata only, never text or input secrets in project files.
+- The workbench shell may retain the existing basic editor surface for Sprint 029. The named full editor and its keyboard/IME/screen-reader/bundle/license proof are Sprint 030's gated choice; Sprint 031 branding, Sprint 033 VS Code tooling and Sprint 034 visual sign-off are separate.
+- Preserve open native macOS 14+, Windows 11+, native Ubuntu 24.04+, Hutch package/launch, broad Office and project license/Marketplace tracks. Do not infer release acceptance from a successful direct desktop test or WSL2 evidence.
+
 ## V0.5 Sprint 028 Approved Contract Choices (2026-09-30)
 
 - The Lead Developer explicitly approved the [V0.5 contract](../docs/language-spec-v0.5.md) and [review manifest](sprints/0028-v05-product-ux-branding-compatibility-contract/visual-review.md) on 2026-09-30. The Sprint 028 gate is satisfied for Sprints 029, 031 and 033; their own criteria remain in force. Retain version-1 `inputs`, local/per-run mapping precedence and CLI working-directory paths; add only optional portable project `report` and frontmatter `report`, with field-by-field overrides and visible source by default. CLI report commands opt in via explicit `--project-root`; no implicit discovery.
