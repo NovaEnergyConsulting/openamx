@@ -1,5 +1,18 @@
 # Planning Questions (Sprint 002)
 
+## V0.5 Open-Item Ledger for Sprint 031 Handoff (2026-09-30)
+
+| Item | Status and decision | Owner / closure evidence |
+| --- | --- | --- |
+| Sprint 028 contract and visual-checklist approval | Resolved by explicit Lead Developer approval; no new report-policy question | Sprint 031 implements approved rules; Sprint 034 reviews actual outputs |
+| Sprint 029 dependency decision for editor work | Resolved: Lead Developer authorized Sprint 030 while Sprint 029 stayed OPEN | Decision recorded in `planning/decisions.md`; not Sprint 029 acceptance |
+| Sprint 030 editor selection and sprint close | Resolved: CodeMirror approved, sprint CLOSED with exceptions | Lead Developer closeout in `planning/state.md`; do not call outstanding criteria passed |
+| Sprint 029 native project/save/close and populated accessibility checks | OPEN; not a Sprint 031 dependency | Sprint 029 desktop follow-up and Lead Developer native review; real new/existing save/cancel/no-write, Open Project, close/quit and populated viewport/focus evidence on supported hosts, or explicit exception disposition |
+| Sprint 030 AMX token coloring, static import completion/linking, UI/RPC/request/export state and IME/screen-reader/zoom proof | OPEN; not a Sprint 031 dependency | Separate Lead Developer-approved desktop remediation owner before full Sprint 034 feature acceptance; focused implemented behavior/tests plus available native/a11y evidence or explicit documented exceptions |
+| Native V0.4 platform/Hutch, broad Office, project license/Marketplace | OPEN separate release-engineering tracks | Release owners; direct target-host/package/Office and license/publication decisions, not report/desktop unit tests |
+
+Do not convert OPEN items into passes by transferring them into Sprint 031 or by running only WSL2/direct tests. The earlier question lists below are historical; this ledger is the current disposition and identifies which decisions are closed versus which evidence/implementation remains outstanding.
+
 ## Sprint 030 Closed-Sprint Follow-Up Ownership (2026-09-30)
 
 - Lead Developer closed Sprint 030 after an integrated UI check with recorded exceptions. Which later sprint or explicit follow-up owns AMX-specific fence/token coloring, source-order/import-aware completion and linking, comprehensive desktop UI/feedback tests, revision-labelled export state, and native IME/screen-reader/200%-zoom evidence before V0.5 feature acceptance? Sprint 034's final visual review does not automatically implement or certify missing behavior; keep each exception open until assigned and verified.

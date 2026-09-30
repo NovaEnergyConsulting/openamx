@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.5 Sprint 031 Architect Preparation and Prior-Item Disposition (2026-09-30)
+
+- Prepared the four Sprint 031 documents in `planning/sprints/0031-shared-report-identity-html-presentation/` against the approved Sprint 028 report contract. Sprint 031 Builder work is next: shared resolved identity/content model, portable config/overrides, safe local logo and branded offline HTML; Sprint 032 applies the model to PDF/DOCX. Sprint 031 has no Sprint 029/030 entry dependency and no report identity feature is claimed implemented by this preparation.
+- **Resolved decision items (no longer blocking Sprint 031):** Sprint 028 identity/visual contract was approved; the Lead Developer explicitly dispositioned the Sprint 029 dependency for Sprint 030, approved CodeMirror and closed Sprint 030 with exceptions. These are decisions, not proof that Sprint 029 acceptance or every Sprint 030 criterion passed.
+- **OPEN product acceptance:** Sprint 029 native Open Project/save-destination/window-close/quit and populated workbench/accessibility verification remain owned by the Sprint 029 desktop follow-up and Lead Developer native review. Sprint 030 AMX token highlighting, import-aware static analysis/completion, UI/RPC state coverage, revision-labelled export feedback and native IME/screen-reader/200% zoom proof remain exceptions requiring a separately approved desktop remediation owner before Sprint 034 can assert full V0.5 feature acceptance. Sprint 031 does not inherit or silently close these items.
+- **OPEN separate release-engineering tracks:** native macOS 14+, Windows 11+ and native Ubuntu 24.04+ checks, Hutch package/native-launch reliability, broad Office compatibility, and project license/Marketplace remain unverified. Sprint 034 records their actual dispositions separately from V0.5 feature acceptance; no WSL2 or direct build substitutes for native evidence.
+
 ## Sprint 030 Lead Developer Closeout (2026-09-30)
 
 - **Disposition: CLOSED by explicit Lead Developer direction, with acceptance exceptions.** The Lead Developer manually checked the integrated UI and reported that the CodeMirror editor works as expected. This approves the delivered editor experience on the available WSL2 host; it is not evidence that every item of the original Sprint 030 acceptance checklist passed. The delivered integration, pinned MIT packages, 745.66 kB / 256.73 kB gzip Vite bundle, focused desktop checks, root build and 188-test regression are recorded below. No Hutch verification is claimed, as directed.

@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.5 Sprint 031 Handoff and Residual Ownership (2026-09-30)
+
+- Sprint 031 depends on the accepted Sprint 028 contract only; the Lead Developer's Sprint 030 closeout does not impose desktop residuals on report identity/HTML. Preserve a trusted shared preparation model with one evaluated document, final narrative context, immutable view emissions and validated portable identity. PDF/DOCX presentation remains Sprint 032, CLI/docs integration acceptance remains Sprint 034.
+- Close the decision questions already explicitly answered: Sprint 029-to-030 dependency was authorized without accepting Sprint 029, CodeMirror selection was approved, and Sprint 030 was closed with documented exceptions. Historical pending-question text remains as an audit trail, not a reopened decision.
+- Assign unresolved Sprint 029 native picker/project/quit and populated accessibility checks to the Sprint 029 desktop follow-up and Lead Developer native review. Assign Sprint 030's unfinished AMX token coloring, static import completion/linking, revision/export UI and accessibility/test proof to a separately authorized desktop remediation follow-up before full Sprint 034 V0.5 feature acceptance; the Lead Developer must approve scope/owner before declaring those criteria resolved. Neither is made Sprint 031 scope nor silently waived by a closed sprint label.
+- Keep inherited V0.4 target-native/Hutch, Office round-trip/broad compatibility, and license/Marketplace issues as separate release-owner tracks. Sprint 034 must report them independently and never call unavailable evidence passed.
+
 ## Sprint 030 Closed With Recorded Exceptions (2026-09-30)
 
 - Lead Developer tested the integrated UI, reported the CodeMirror editor works as expected, and directed Sprint 030 to close. Record **CLOSED with acceptance exceptions**, not "all criteria passed": AMX-token coloring, pure import-aware completion/linking, full editor/UI/request-state coverage, revision-labelled export feedback and native IME/screen-reader/200%-zoom proof remain unverified or unfinished. Do not reinterpret this direction as a Sprint 029 acceptance, native release-platform approval, or Sprint 034 visual sign-off. Assign and verify these exceptions separately before a full V0.5 feature-acceptance claim.
