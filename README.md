@@ -116,6 +116,20 @@ Use `--validation fail-fast` to stop at the first ordered input diagnostic;
 aggregate validation is the default. `render` accepts the same mappings and
 adds `--out` for the HTML destination.
 
+Export an offline PDF or editable DOCX report. Both commands analyze once,
+prepare the complete report before writing, and require an existing parent:
+
+```bash
+bun run dist/cli.js export docx examples/typed-asset-analysis.amx --out out/analysis.docx \
+  --input asset=examples/typed-asset.json \
+  --input screenings=examples/typed-screenings.csv \
+  --input reviewedAt=examples/typed-reviewed-at.json
+```
+
+DOCX contains editable semantic headings, paragraphs, lists, tables, and
+static chart images. Interactive charts, editable chart data, pixel parity,
+and broad native Office compatibility are not promised.
+
 ---
 
 ## Example files
@@ -153,6 +167,7 @@ or chained `else if`. A record constructor directly in a `match` arm remains a
 known core parser limitation and is not claimed as supported. Editor
 diagnostics cover parsing, static checks, and local module links, not CSV/JSON
 runtime validation. Modules and data files are local and entry-root-contained;
-there are no remote packages, units/currency, tables/charts, Word/PDF export,
-or broad multi-file workflows. The Asset Management library remains
-provisional pending domain review.
+there are no remote packages, units/currency, or broad multi-file workflows.
+DOCX/PDF exports are local and offline; DOCX charts are static images and
+office compatibility beyond package inspection remains open. The Asset
+Management library remains provisional pending domain review.

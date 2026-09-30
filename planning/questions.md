@@ -1,5 +1,27 @@
 # Planning Questions (Sprint 002)
 
+## V0.4 Sprint 026 Approval Resolution (2026-09-30)
+
+- The Lead Developer approved implementation and confirmed sufficient schedule for the stretch. The native platform/Hutch residual remains open but is not silently waived.
+- The selected feasibility direction is a maintained semantic DOCX generator. Verify its exact package/runtime compatibility, license, semantic OOXML structure, local SVG/PNG chart behavior, and available office/parser round trip during implementation.
+- Sprint 027 must report the final DOCX disposition and all unavailable native-office/cross-platform checks; it must not claim interactive charts, pixel parity, or broad office compatibility without evidence.
+
+## V0.4 Sprint 026 Delivered Resolution (2026-09-30)
+
+- The selected approach is `docx@9.8.1` with MIT licensing; package inspection and focused semantic tests passed on Bun 1.4.2 under Ubuntu 24.04.4 WSL2.
+- Supported entry points are the root CLI `export docx` command and the desktop main-process `exportDocx` RPC/workbench action. Both preserve the shared analysis boundary and safe-write guarantees.
+- Remaining evidence gaps are native Office/LibreOffice round trips, official macOS/Windows/native Ubuntu verification, and cross-platform Office compatibility. Sprint 027 must record these as limitations rather than treating WSL2/package inspection as release-owner proof.
+
+## V0.4 Sprint 026 Questions To Resolve
+
+- Has the Lead Developer explicitly approved the optional DOCX stretch after reviewing the open Sprint 025 native platform matrix and remaining core release risk?
+- Which local/offline DOCX approach best supports editable headings, paragraphs, lists, tables, static chart images, Bun compatibility, round-trip inspection, deterministic ordering, maintenance, and licensing?
+- Which document structure and style mapping preserves report/source/view order without duplicating HTML/PDF semantics, and how are page breaks, captions, null/empty values, and long tables represented?
+- Which CLI and/or desktop entry point is justified by the selected adapter, and how will explicit `.docx` destination validation and no-write behavior be shared?
+- What exact office/parser tool, OS, runtime, package versions, and license evidence are available for verification, and what compatibility remains unverified?
+
+Resolve these only after the stretch entry gate is approved. If evidence or schedule risk is unfavorable, record a concrete deferral and do not add production dependencies.
+
 ## V0.4 Sprint 025 Questions To Resolve
 
 - What exact configuration schema/version and validation behavior should `.openamx/project.json` and ignored `.openamx/local.json` expose, including unknown keys, missing files, permissions, and private-path redaction?

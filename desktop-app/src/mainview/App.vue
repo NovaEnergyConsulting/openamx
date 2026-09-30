@@ -14,6 +14,7 @@ const inputOverrides = ref("");
 const validation = ref<"aggregate" | "fail-fast">("aggregate");
 const htmlDestination = ref("analysis.html");
 const pdfDestination = ref("analysis.pdf");
+const docxDestination = ref("analysis.docx");
 const summary = ref<RunSummary>({ values: [] });
 const runState = ref<"idle" | "running" | "success" | "failure">("idle");
 const previewState = ref<"idle" | "running" | "success" | "failure">("idle");
@@ -26,6 +27,7 @@ let previewRequest = 0;
 let runRequest = 0;
 let htmlRequest = 0;
 let pdfRequest = 0;
+let docxRequest = 0;
 
 function mappings(): string[] {
 	return inputOverrides.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
@@ -214,6 +216,26 @@ async function exportPdf() {
 	} else exportStatus.value = `Saved ${result.path} (${result.bytes.toLocaleString()} bytes)`;
 }
 
+async function exportDocx() {
+	if (!document.value) return;
+	const revision = bufferRevision;
+	const request = ++docxRequest;
+	exportStatus.value = "Preparing DOCX…";
+	let result: Awaited<ReturnType<typeof props.rpc.request.exportDocx>>;
+	try {
+		result = await props.rpc.request.exportDocx({ path: docxDestination.value, inputMappings: mappings(), validation: validation.value });
+	} catch (error) {
+		if (isCurrent(revision) && request === docxRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : "DOCX export request failed.";
+		return;
+	}
+	if (!isCurrent(revision) || request !== docxRequest) return;
+	if (!result.ok) { exportStatus.value = result.error.message; return; }
+	if (result.diagnostics.length) {
+		analysis.value = { ...analysis.value, diagnostics: result.diagnostics };
+		exportStatus.value = "DOCX export failed.";
+	} else exportStatus.value = `Saved ${result.path} (${result.bytes.toLocaleString()} bytes)`;
+}
+
 function displayDiagnostic(item: TextDiagnostic): string {
 	const context = [item.inputName, item.dataPath, item.dataLine ? `data line ${item.dataLine}` : ""].filter(Boolean).join(" · ");
 	return context ? `${item.message} (${context})` : item.message;
@@ -246,6 +268,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 			<div class="export-row">
 				<label>HTML destination <input v-model="htmlDestination" :disabled="!document" aria-label="HTML destination"></label><Button :disabled="!document" type="button" @click="saveHtml">Save HTML</Button>
 				<label>PDF destination <input v-model="pdfDestination" :disabled="!document" aria-label="PDF destination"></label><Button :disabled="!document" type="button" @click="exportPdf">Export PDF</Button>
+				<label>DOCX destination <input v-model="docxDestination" :disabled="!document" aria-label="DOCX destination"></label><Button :disabled="!document" type="button" @click="exportDocx">Export DOCX</Button>
 				<span class="export-status" aria-live="polite">{{ exportStatus }}</span>
 			</div>
 		</section>

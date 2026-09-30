@@ -37,6 +37,7 @@ export interface DesktopRPCClient {
 		previewBuffer(params?: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ html: string; diagnostics: TextAnalysis["diagnostics"] }>>;
 		saveHtml(params: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ path: string; diagnostics: TextDiagnostic[] }>>;
 		exportPdf(params: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ path: string; bytes: number; diagnostics: TextDiagnostic[] }>>;
+		exportDocx(params: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ path: string; bytes: number; diagnostics: TextDiagnostic[] }>>;
 	};
 }
 
@@ -64,6 +65,7 @@ export type DesktopRPCSchema = {
 			previewBuffer: { params: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ html: string; diagnostics: TextAnalysis["diagnostics"] }> };
 			saveHtml: { params: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ path: string; diagnostics: TextDiagnostic[] }> };
 			exportPdf: { params: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ path: string; bytes: number; diagnostics: TextDiagnostic[] }> };
+			exportDocx: { params: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ path: string; bytes: number; diagnostics: TextDiagnostic[] }> };
 		};
 	}>;
 	webview: RPCSchema;

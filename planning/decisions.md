@@ -1,5 +1,19 @@
 # Planning Decisions
 
+## V0.4 Sprint 026 Approval Decision (2026-09-30)
+
+- The Lead Developer explicitly approved Sprint 026 implementation and confirmed sufficient time to bring the optional stretch into scope. The approval does not waive Sprint 025's open native platform matrix or Hutch residual and does not make DOCX a V0.4 core gate.
+- The bounded comparison selects a maintained semantic DOCX generator over hand-authored OOXML for lower maintenance risk. The selected candidate must now prove Bun compatibility, local/offline generation, semantic editability, static chart-image insertion, package licensing, and inspectable OOXML structure before final acceptance.
+- The adapter will consume the evaluated document and immutable `Environment.viewEmissions` through a shared report traversal. CLI and desktop entry points will reuse their existing main-process/CLI analysis and safe atomic-write boundaries.
+- Final delivery must record exact dependency/runtime/OS/tool versions, license evidence, semantic package inspection, no-write behavior, supported entry points, and unverified cross-platform office compatibility.
+
+## V0.4 Sprint 026 Delivered Outcome (2026-09-30)
+
+- Selected and shipped `docx@9.8.1` (MIT) for semantic OOXML generation. The test-only package inspector uses `jszip@3.10.1` (MIT). The package runs in the Bun 1.4.2 root and desktop main-process pipelines on this Linux/WSL2 host.
+- `src/renderer/reportDocx.ts` consumes the evaluated `OpenAmxDocument` and `Environment.viewEmissions` directly. Its output is editable WordprocessingML for headings, narrative paragraphs, bullet lists, tables, captions, and chart data; charts are static local SVG images with a required local PNG fallback. No second evaluation path or remote resource is used.
+- CLI and desktop both use explicit `.docx` destination validation and atomic same-directory writes. Focused tests inspect OOXML content/order/media and verify invalid destinations, analysis failures, and existing-destination preservation.
+- Exact byte identity and visual parity are not guaranteed. Native Office/LibreOffice round-trip checks and official macOS 14+, Windows 11+, and native Ubuntu 24.04+ checks were unavailable; no cross-platform compatibility claim is made. DOCX remains outside the V0.4 core gate.
+
 ## V0.4 Sprint 024 Builder Outcome
 
 - Added the isolated typed desktop session/RPC boundary in `desktop-app/`. Main-process handlers own project root canonicalization, symlink-aware containment, safe local `.amx` listing, open/read/update/save, conflict detection, formatting, static analysis, and current-buffer HTML preview.
@@ -14,6 +28,13 @@
 - Current-buffer execution passes the supplied entry text plus file-backed URI through the existing loader/checker/input/evaluator path. The desktop calls the shared renderer and Sprint 023 PDF adapter after that barrier; it must not duplicate or re-evaluate core semantics.
 - Run/preview/export responses are typed, bounded, and stateful. The webview remains incapable of direct filesystem, module/input loading, evaluation, shell, or PDF access. Invalid analysis and pre-rename export failures preserve no-write guarantees.
 - Official acceptance targets remain macOS 14+, Windows 11+, and Ubuntu 24.04+. The WSL2/Hutch timeout residual is recorded but cannot substitute for owner checks or be silently claimed as passed.
+
+## V0.4 Sprint 026 Preparation
+
+- Sprint 026 is an optional stretch only. Sprint 025's native macOS 14+, Windows 11+, and Ubuntu 24.04+ acceptance remains open, so no DOCX implementation may begin without explicit Lead Developer confirmation that core V0.4 must-haves are on track and approval to spend stretch scope.
+- The sprint may end successfully as `deferred` after a bounded feasibility comparison. It must not delay PDF, desktop, platform, example, or release acceptance, and DOCX must never become a V0.4 core gate.
+- If delivered, DOCX reuses the shared evaluated report model and produces semantic editable headings, paragraphs, lists, tables, and static chart images locally/offline. It does not promise interactive charts, pixel parity, PDF conversion, or cross-platform office compatibility without evidence.
+- Any approved entry point uses explicit `.docx` destination validation, complete pre-write preparation, same-directory temporary output, atomic rename, and existing-destination preservation on pre-rename failure. Dependencies/assets require recorded licenses and no remote content.
 
 ## V0.4 Sprint 025 Builder Outcome
 

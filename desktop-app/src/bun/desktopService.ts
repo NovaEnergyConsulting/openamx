@@ -9,6 +9,8 @@ import { loadEntryModule } from "../../../src/runtime/moduleLoader";
 import { renderHtml } from "../../../src/renderer/renderHtml";
 import { preparePdfReport, serializePdfReport } from "../../../src/renderer/reportPdf";
 import { preparePdfDestination, writePdfAtomically } from "../../../src/runtime/pdfDestination";
+import { prepareDocxReport, serializeDocxReport } from "../../../src/renderer/reportDocx";
+import { prepareDocxDestination, writeDocxAtomically } from "../../../src/runtime/docxDestination";
 import { resolveDesktopInputs, validateDesktopDestination, writeDesktopHtml } from "./desktopWorkflow";
 import { createPingResponse, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type OpenDocument, type ProjectFile, type RunSummary, type TextAnalysis, type TextDiagnostic } from "../shared/rpc";
 
@@ -278,6 +280,25 @@ export function createDesktopService(initialRoot?: string): DesktopService {
 				return { ok: true, path: destination.path, bytes: bytes.length, diagnostics: [] };
 			} catch (error) {
 				return { ok: true, path: "", bytes: 0, diagnostics: diagnostics(error, current?.path, privatePaths) };
+				}
+			},
+			async exportDocx({ path, inputMappings = [], validation }: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }) {
+				let privatePaths: string[] = [];
+				try {
+					const document = requireCurrent();
+					const resolved = resolveDesktopInputs(requireRoot(), document.text, inputMappings, validation);
+					privatePaths = resolved.privatePaths;
+					if (resolved.configuration.diagnostics.length) return { ok: true, path: "", bytes: 0, diagnostics: resolved.configuration.diagnostics };
+					const loaded = await loadEntryModule(document.path, { entryText: document.text, inputMappings: resolved.mappings, validation });
+					const inputPaths = resolved.mappings.map(mapping => mapping.slice(mapping.indexOf("=") + 1));
+					const validated = validateDesktopDestination(requireRoot(), path, ".docx", [document.path, ...inputPaths]);
+					const destination = await prepareDocxDestination(validated.path, document.path, resolved.mappings);
+					const report = prepareDocxReport(loaded.doc, loaded.env);
+					const bytes = await serializeDocxReport(report);
+					await writeDocxAtomically(destination, bytes);
+					return { ok: true, path: destination.path, bytes: bytes.length, diagnostics: [] };
+				} catch (error) {
+					return { ok: true, path: "", bytes: 0, diagnostics: diagnostics(error, current?.path, privatePaths) };
 				}
 			}
 		}

@@ -1,5 +1,14 @@
 # Planning State
 
+## Sprint 026 Builder Outcome (2026-09-30)
+
+- **Disposition: delivered stretch.** The Lead Developer explicitly approved the optional DOCX stretch on 2026-09-30 and confirmed that time was available to bring it into scope. The open Sprint 025 native platform matrix and Hutch package/launch residual remain recorded as core-release residuals and were not waived or weakened.
+- Added shared local/offline `docx@9.8.1` report generation using the evaluated document and immutable view emissions. The adapter preserves narrative/source/view order and emits editable headings, paragraphs, bullet lists, declaration-order tables, captions, null/empty text, and static SVG chart images with a local PNG fallback. It never re-evaluates AMX or rereads inputs/modules.
+- Added additive `openamx export docx <input> --out <path>` and desktop `exportDocx` main-process RPC/workbench action. DOCX destinations require exact lowercase `.docx`, existing parents, containment/conflict/symlink checks, complete preparation before writing, same-directory temporary files, atomic rename, cleanup, and existing-destination preservation on pre-rename failure.
+- Dependency/license evidence: `docx@9.8.1` is MIT; test-only `jszip@3.10.1` is MIT. No remote content, macros, templates, fonts, or unverified assets are shipped. Embedded charts use generated local SVG and the library-required local 1x1 PNG fallback.
+- Verification on this host: Ubuntu 24.04.4 LTS under Microsoft WSL2, x86_64; Bun 1.4.2; Node 24.20.0; Hutch 0.27.1; Electrobun 2.0.1. Root `bun run build` passed; full `bun test` passed with 188 tests, 778 assertions, 0 failures across 13 files; focused DOCX tests passed with 4 tests and 24 assertions; desktop RPC, direct Vue typecheck, Vite build, and `git diff --check` passed.
+- Package inspection verified editable OOXML headings/paragraphs/lists/tables, report order, table content, relationships, SVG media, and PNG fallback. Native Microsoft Office/LibreOffice round trips, macOS/Windows/native Ubuntu checks, visual parity, and broad cross-platform Office compatibility remain unverified. DOCX remains non-blocking for V0.4 core acceptance.
+
 ## Sprint 022 Completion (2026-09-30)
 
 - Sprint 022 is complete for its owned renderer, formatter, and direct VS Code authoring scope. `renderHtml` consumes immutable `Environment.viewEmissions`, places each shown view after its owning escaped AMX source at the original document position, and never re-evaluates the document or reads final bindings for view data.
@@ -20,6 +29,8 @@
 - Sprint 024/025 integration boundary: invoke the exported typed report adapter from the desktop main process after the shared loader/evaluation barrier, passing a file-backed entry/current-buffer context and validated input mappings; keep path checks, filesystem authority, and RPC validation in the main process.
 - Sprint 025: Desktop Analysis Workflow and Platform Acceptance — Builder implementation delivered; official release-owner platform acceptance remains open. Sprint 024's typed desktop foundation remains the implementation boundary.
 - Sprint folder: planning/sprints/0025-desktop-analysis-platform-acceptance/
+- Sprint 026: Editable DOCX Export (stretch) — Architect documentation prepared conditionally. Do not start implementation until the Lead Developer confirms core V0.4 must-haves are on track and explicitly approves the stretch; DOCX remains non-blocking.
+- Sprint folder: planning/sprints/0026-editable-docx-export/
 - Sprint 024: Desktop Application Foundation — Architect preparation complete; Builder execution is next. Sprint 023 is complete and its typed PDF adapter is available for later desktop integration.
 - Sprint folder: planning/sprints/0024-desktop-application-foundation/
 

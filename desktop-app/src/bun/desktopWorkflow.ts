@@ -162,7 +162,7 @@ export function resolveDesktopInputs(root: string, text: string, rawOverrides: s
 	};
 }
 
-export function validateDesktopDestination(root: string, target: string, extension: ".html" | ".pdf", conflicts: string[]): { path: string; parent: string } {
+export function validateDesktopDestination(root: string, target: string, extension: ".html" | ".pdf" | ".docx", conflicts: string[]): { path: string; parent: string } {
 	if (typeof target !== "string" || !target || target.length > MAX_PATH_LENGTH || extname(target) !== extension) outputError("AMX6001", `Destination must use an explicit exact lowercase ${extension} path.`);
 	const canonicalRoot = realpathSync(root);
 	const absolute = isAbsolute(target) ? resolve(target) : resolve(canonicalRoot, target);

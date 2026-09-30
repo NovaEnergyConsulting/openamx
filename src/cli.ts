@@ -15,6 +15,8 @@ import { loadEntryModule } from "./runtime/moduleLoader";
 import { serializeOutputs, writeOutputs } from "./runtime/outputData";
 import { preparePdfReport, serializePdfReport } from "./renderer/reportPdf";
 import { preparePdfDestination, writePdfAtomically } from "./runtime/pdfDestination";
+import { prepareDocxReport, serializeDocxReport } from "./renderer/reportDocx";
+import { prepareDocxDestination, writeDocxAtomically } from "./runtime/docxDestination";
 
 const cli = cac("openamx");
 
@@ -52,13 +54,24 @@ function reportAmxError(error: AmxError): void {
 
 cli
   .command("export <format> <input>", "Export an .amx file to an offline report")
-  .option("--out <path>", "Output PDF file path")
+  .option("--out <path>", "Output PDF or DOCX file path")
   .option("--input <mapping>", "Map a logical input to a data file", { type: [String] })
   .option("--validation <mode>", "Validation mode: aggregate or fail-fast")
   .action(async (format: string, input: string, options: { out?: string; input?: string[]; validation?: string }) => {
     try {
-      if (format !== "pdf") throw new AmxError({ code: "AMX6001", message: `Unsupported export format '${format}'; use 'pdf'` });
       const inputMappings = suppliedMappings(options, "input");
+      if (format === "docx") {
+        const destination = await prepareDocxDestination(options.out, input, inputMappings);
+        const { doc, env } = await loadEntryModule(input, {
+          inputMappings,
+          validation: options.validation as "aggregate" | "fail-fast" | undefined
+        });
+        const bytes = await serializeDocxReport(prepareDocxReport(doc, env));
+        await writeDocxAtomically(destination, bytes);
+        console.log(`Exported DOCX to ${destination.path}`);
+        return;
+      }
+      if (format !== "pdf") throw new AmxError({ code: "AMX6001", message: `Unsupported export format '${format}'; use 'pdf' or 'docx'` });
       const destination = await preparePdfDestination(options.out, input, inputMappings);
       const { doc, env } = await loadEntryModule(input, {
         inputMappings,
