@@ -66,7 +66,7 @@ const rpc = createRPC<DesktopRPCSchema["bun"], DesktopRPCSchema["webview"]>({
 });
 
 new BrowserWindow({
-	title: "OpenAMX Desktop Spike",
+	title: "OpenAMX",
 	url: "views://mainview/index.html",
 	rpc,
 	frame: {
