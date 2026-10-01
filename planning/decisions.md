@@ -1,5 +1,21 @@
 # Planning Decisions
 
+## V0.6 Sprint 035 Lead Developer Ratification (2026-10-01)
+
+- The Lead Developer ratified `planning/openamxV06ProductUXContract.md` without amendment and authorized Sprint 036.
+- Accepted active-document operation identity: `{ canonicalActiveUri, projectGeneration, documentRevision, inputSettingsRevision, jobId }`; only the matching current identity may publish results. Active AMX document replaces desktop designated-entry state.
+- Accepted source-overlay approach: keep the existing loader/parser/checker/evaluator, add an optional map of open unsaved module source keyed by existing canonical contained file paths, prefer it for reachable imports, and preserve no-overlay CLI behavior. The Sprint 035 proof implementation is in `src/runtime/moduleLoader.ts`.
+- Accepted cancellable-job approach: trusted Bun workers perform cancellable/supersedable preview/run, input-validation, and report-preparation/serialization work; the main process owns identity checks, path/destination validation, and final atomic writes. Workers and typed progress/results are bounded, local paths are redacted, and stale/cancelled work cannot commit. Bun Worker termination remains experimental; Sprint 036 must validate real job cleanup and limitations rather than claim unsupported cancellation guarantees.
+- Sprint 035 is **ACCEPTED WITH RECORDED EXCEPTIONS**, not a claim that native APIs or a grid candidate passed. Native behavior is assigned to Lead Developer host evidence before the dependent native acceptance in Sprints 037-039/042. Data-editor candidate/100k viewport proof is assigned to Lead Developer / Sprint 041 Builder before Sprint 041 selection or implementation. Production worker cleanup/performance is assigned to Sprint 036/042 evidence. Each residual includes impact and fallback in `planning/state.md` and Sprint 035 acceptance.
+
+## V0.6 Sprint 035 Builder Evidence (2026-10-01)
+
+- Superseded by `V0.6 Sprint 035 Lead Developer Ratification` above. The prior Builder record is retained as an accurate pre-decision snapshot; the Lead Developer subsequently ratified the contract and accepted the three Sprint 036 entry approaches.
+- The optional `ModuleLoadOptions.sourceOverlay` proof accepts only existing canonical paths, limits the map to 100 modules, requires every key below the canonical entry root, and takes precedence for reachable imported dependencies while retaining `entryText` for the entry. No existing caller was changed. Focused module/CLI regressions pass; Lead Developer acceptance remains required before Sprint 036.
+- Cancellation evidence supports only this proposal: combine worker termination for non-yielding CPU phases with request identity/supersession checks; keep destination validation and final atomic writes in the main process. Bun 1.4.2 documents Worker termination as experimental, and the current test uses a synthetic busy loop rather than the parser/input/report pipeline. Do not treat this as an accepted cancellable-job architecture.
+- `vxe-table@4.22.3` is the leading candidate for a bounded next proof because public metadata/docs indicate MIT, Vue 3, virtual scroll, keyboard/edit support, and undo/redo; this is not a selection. Its Bun/Vite host build, bundle impact, memory, actual 100k-row viewport, and pinned dependency graph remain untested. RevoGrid Community lacks demonstrated built-in history because documentation assigns it to Pro. JSON editor options do not yet prove exact invalid-text preservation plus large-data behavior. Lead Developer acceptance is pending any future selected component.
+- The review harness uses the contract token intent with measured higher-contrast neutral divider fallbacks in the prototype only. No change to the authoritative V0.6 or V0.5 token contract is approved by this proof.
+
 ## V0.6 Product Discovery Decisions (2026-10-01)
 
 - V0.6 is a desktop UX-quality milestone, not a packaging/release milestone. All selected desktop tracks are must-haves and there is no fixed sprint/date budget. No AMX language semantics change.

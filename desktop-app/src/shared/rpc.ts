@@ -11,9 +11,9 @@ export type DesktopRPCResponse<T> = { ok: true } & T | { ok: false; error: Deskt
 export interface ProjectFile { path: string; kind: "module"; }
 export interface OpenDocument { path: string; text: string; diskHash: string; dirty: boolean; conflict: boolean; revision: number; }
 export interface TabState { path: string; dirty: boolean; conflict: boolean; revision: number; }
-export interface WorkbenchState { tabs: TabState[]; active?: string; entry?: string; generation: number; }
+export interface WorkbenchState { tabs: TabState[]; active?: string; generation: number; }
 export type TransitionAction = "save-all" | "discard-all" | "cancel";
-export interface RecentProject { root: string; active?: string; entry?: string; explorerWidth?: number; previewWidth?: number; }
+export interface RecentProject { root: string; active?: string; explorerWidth?: number; previewWidth?: number; }
 export interface TextDiagnostic { code: string; message: string; file?: string; line?: number; column?: number; inputName?: string; dataPath?: string; dataLine?: number; dataColumn?: number; }
 export interface TextAnalysis {
 	diagnostics: TextDiagnostic[];
@@ -41,7 +41,6 @@ export interface DesktopRPCClient {
 		clearSession(): Promise<DesktopRPCResponse<{ projects: RecentProject[] }>>;
 		restoreProject(params: { root: string }): Promise<DesktopRPCResponse<{ root: string; state: WorkbenchState }>>;
 		setPanelSizes(params: { explorerWidth: number; previewWidth: number }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
-		setEntry(params: { path: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		closeTab(params: { path: string; action: "save" | "discard" | "cancel" }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		reloadTab(params: { action: "discard" | "cancel" }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		listProjectFiles(): Promise<DesktopRPCResponse<{ files: ProjectFile[] }>>;
@@ -83,7 +82,6 @@ export type DesktopRPCSchema = {
 			clearSession: { params: Record<string, never>; response: DesktopRPCResponse<{ projects: RecentProject[] }> };
 			restoreProject: { params: { root: string }; response: DesktopRPCResponse<{ root: string; state: WorkbenchState }> };
 			setPanelSizes: { params: { explorerWidth: number; previewWidth: number }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
-			setEntry: { params: { path: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			closeTab: { params: { path: string; action: "save" | "discard" | "cancel" }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			reloadTab: { params: { action: "discard" | "cancel" }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			listProjectFiles: { params: Record<string, never>; response: DesktopRPCResponse<{ files: ProjectFile[] }> };

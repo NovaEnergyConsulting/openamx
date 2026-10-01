@@ -13,7 +13,7 @@
 
 **Smallest setup:** `tests/modules.test.ts` creates an entry file containing deliberately non-executable saved text, a local `asset.amx` module exporting a record type, a JSON record input, and a CSV record-list input. It passes the modified entry text and explicit input mappings to `loadEntryModule`.
 
-**Command:** `cd /home/cgamez/Programming/experiments/openamx && bun test tests/modules.test.ts -t 'current entry text|current-buffer'`.
+**Command:** `cd /home/cgamez/Programming/openamx && bun test tests/modules.test.ts -t 'current entry text|current-buffer'`.
 
 **Observed result:** 3 tests passed. The current buffer imports the local type, maps and validates the JSON and CSV data, evaluates the expected value, and leaves the saved entry bytes unchanged. An invalid JSON record returns `AMX4003` with the entry file and the input declaration's original-document line 5. An existing sibling module outside the canonical entry root is rejected with `AMX5001` and the containment message.
 

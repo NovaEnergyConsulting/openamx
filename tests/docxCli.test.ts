@@ -12,7 +12,7 @@ async function fixtureDirectory(): Promise<string> {
 }
 
 async function runCli(...arguments_: string[]) {
-  const command = Bun.spawnSync(['bun', 'run', 'src/cli.ts', ...arguments_], { cwd: '/home/cgamez/Programming/experiments/openamx' });
+  const command = Bun.spawnSync(['bun', 'run', 'src/cli.ts', ...arguments_], { cwd: '/home/cgamez/Programming/openamx' });
   return {
     exitCode: command.exitCode,
     stdout: new TextDecoder().decode(command.stdout),

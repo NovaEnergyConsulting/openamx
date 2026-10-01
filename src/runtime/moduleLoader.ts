@@ -45,6 +45,7 @@ export interface LoadedEntryModule {
 
 export interface ModuleLoadOptions {
   entryText?: string;
+  sourceOverlay?: ReadonlyMap<string, string>;
   inputMappings?: string[];
   validation?: ValidationMode;
   outputMappings?: string[];
@@ -92,6 +93,22 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
   const realEntry = realpathOrFail(absoluteEntry, 'AMX5001', `Entry module '${entryPath}' could not be read`, entryPath);
   const entryRoot = path.dirname(realEntry);
 
+  if (options.sourceOverlay) {
+    if (options.sourceOverlay.size > 100) {
+      moduleError('AMX5001', 'Source overlay exceeds the 100-module limit', undefined, entryPath);
+    }
+    for (const overlayPath of options.sourceOverlay.keys()) {
+      if (!path.isAbsolute(overlayPath)) {
+        moduleError('AMX5001', 'Source overlay paths must be canonical absolute paths', undefined, entryPath);
+      }
+      const canonicalOverlayPath = realpathOrFail(overlayPath, 'AMX5001', 'Source overlay module could not be read', entryPath);
+      const relativeToRoot = path.relative(entryRoot, canonicalOverlayPath);
+      if (canonicalOverlayPath !== overlayPath || relativeToRoot === '' || relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+        moduleError('AMX5001', 'Source overlay paths must be canonical and contained by the entry directory tree', undefined, entryPath);
+      }
+    }
+  }
+
   const resolved = new Map<string, ModuleRecord>();
   const visiting: string[] = [];
   const evaluationOrder: string[] = [];
@@ -110,9 +127,12 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
 
     let doc: OpenAmxDocument;
     try {
+      const overlayText = options.sourceOverlay?.get(canonicalPath);
       doc = canonicalPath === realEntry && options.entryText !== undefined
         ? parseDocumentText(options.entryText)
-        : await parseDocument(canonicalPath);
+        : overlayText !== undefined
+          ? parseDocumentText(overlayText)
+          : await parseDocument(canonicalPath);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       visiting.pop();

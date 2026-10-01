@@ -2,7 +2,7 @@
 
 ## Authority and Outcome
 
-This contract defines the approved product and user-experience requirements for OpenAMX V0.6. The V0.2-V0.5 specifications retain authority over existing language, data, visualization, report identity, and export semantics.
+This contract defines the Lead Developer-ratified product and user-experience requirements for OpenAMX V0.6 (ratified 2026-10-01). The V0.2-V0.5 specifications retain authority over existing language, data, visualization, report identity, and export semantics.
 
 V0.6 turns the accepted-with-exceptions V0.5 desktop prototype into a complete, coherent authoring experience. It is a desktop UX-quality milestone, not a native packaging or public-release milestone. The release must replace manual path entry, designated-entry workflow, crowded controls, and disconnected actions with reliable project, authoring, data, preview, and export workflows.
 

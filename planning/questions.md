@@ -1,5 +1,11 @@
 # Planning Questions (Sprint 002)
 
+## V0.6 Sprint 035 Lead Developer Disposition (2026-10-01)
+
+- Resolved: the Lead Developer ratified the V0.6 contract without amendment and accepted the active-document identity, source-overlay, and cancellable-job approaches. Sprint 036 is authorized.
+- Still OPEN for dependent work: native API/host evidence (Lead Developer; required before native acceptance in Sprints 037-039/042); selected data-editor component and 100k viewport proof (Lead Developer / Sprint 041 Builder; required before Sprint 041 selection/implementation); full worker cleanup/latency and preview/webview performance (Sprint 036/042 Builder). See recorded owners, impacts and fallbacks in `planning/state.md`.
+- Sprint 035 disposition: **ACCEPTED WITH RECORDED EXCEPTIONS**. These exceptions are not passed tests or scope waivers for their dependent sprints.
+
 ## V0.6 Sprint 035 Feasibility and Contract Questions (2026-10-01)
 
 - Which bounded contained source-provider shape lets `loadEntryModule` prefer every relevant open unsaved AMX buffer while preserving canonical imports, cycles, diagnostics, evaluation order, and unchanged CLI behavior?

@@ -1,12 +1,30 @@
 # Planning State
 
-## V0.6 Master Plan and Product/UX Contract Prepared (2026-10-01)
+## V0.6 Master Plan and Product/UX Contract Ratified (2026-10-01)
 
 - Added `planning/plan-openamxV06MasterSprintPlan.md` and `planning/openamxV06ProductUXContract.md` from the completed V0.6 product-discovery interview. The proposal contains nine sprints, 035-043, with no fixed date or sprint cap.
 - V0.6 is a desktop UX-quality milestone: active-document live preview, complete project lifecycle, input/report settings, AMX intelligence, structured CSV/JSON editing, export parity, and onboarding/help. It preserves V0.2-V0.5 language and CLI semantics and does not claim native packaging or public-release readiness.
-- No V0.6 production code, dependency, sprint folder, state migration, or version metadata has been changed. Sprint 035 remains unprepared and inactive until the Lead Developer approves both planning artifacts.
-- Required next gate: review and approve the master plan and contract, then customize `planning/sprints/0000-sprint-template/` for Sprint 035 contract ratification, prototypes, measurements, and feasibility proofs.
+- The Lead Developer ratified the product/UX contract on 2026-10-01. No product-scope amendment was requested. The master sprint plan remains the approved roadmap.
+- Sprint 035 is accepted with recorded exceptions and Sprint 036 is authorized. Native release, licensing, Office, deferred V0.5, and accessibility residuals remain as below.
 - Separate residuals remain OPEN: native macOS/Windows/native Ubuntu and Hutch packaging/launch, broad Office, project license/Marketplace, V0.5 mobile report overflow, VS Code apply-time code-action remediation, and formal accessibility certification.
+
+## V0.6 Sprint 035 Architect Preparation (2026-10-01)
+
+- Prepared the four Sprint 035 artifacts in `planning/sprints/0035-v06-product-ux-contract-feasibility/` for V0.6 contract ratification, reviewable low-fidelity frames, feasibility proofs, candidate decisions, performance budgets, and the component/browser evidence harness.
+- Sprint 035 is a gate and evidence sprint only. It must not implement the V0.6 workbench, project lifecycle, editor intelligence, structured data editor, settings, preview, export, onboarding, or recovery features. Production work begins only after the documented proofs and Lead Developer decisions are recorded.
+- Required gate outputs are compatibility/state/flow/menu/token documentation; source-overlay and cancellation/worker proofs; native API, editor-analysis, CodeMirror, virtual-grid/JSON-tree, and test-harness comparisons; required viewport/theme frames; and host-relative performance evidence.
+- Sprint 036 remains blocked until the active-document request identity, contained source-overlay boundary, and cancellable-job approach are accepted. Unavailable native/platform/viewer/formal-accessibility/release checks remain explicitly outside this sprint's acceptance.
+
+## V0.6 Sprint 035 Builder Outcome and Lead Developer Acceptance (2026-10-01)
+
+- **Disposition: ACCEPTED WITH RECORDED EXCEPTIONS by explicit Lead Developer direction (2026-10-01).** The Lead Developer ratified `planning/openamxV06ProductUXContract.md`, accepted the active-document request identity, contained source-overlay approach, and cancellable-job approach, and authorized Sprint 036. Builder evidence is in [Sprint 035 builder evidence](sprints/0035-v06-product-ux-contract-feasibility/builder-evidence.md), the contract traceability package in [contract evidence](sprints/0035-v06-product-ux-contract-feasibility/contract-evidence.md), and 36 low-fidelity frames in [the frame index](sprints/0035-v06-product-ux-contract-feasibility/frames/README.md). No design references were present in `planning/v06-design-inputs/`.
+- Added an optional canonical/contained source overlay to `loadEntryModule` and focused tests; `bun test tests/modules.test.ts` passed (33 tests, 108 assertions). Existing CLI behavior remains on the no-overlay path. Bun Worker termination, VS Code-free local analysis, and frame harness interactions each have isolated evidence; their limitations are recorded and no technical approach is Lead Developer-accepted yet.
+- Available-host perf sample: 100-file listing 0.462 ms; 100,000-row CSV parse/type-validation 79.345 ms, 1,388,899-byte fixture, 42,944,841-byte process heap delta. This is not a virtual-grid first-viewport measurement. First-viewport, debounce, end-to-end cancellation, and webview background-task budgets remain unmeasured.
+- Native menus/Open/Reveal/save/focus/window lifecycle remain **UNAVAILABLE**. Owner: Lead Developer, to provide an SDK-enabled host. Impact: native behavior in Sprints 037-039 and 042 cannot be accepted from source inspection/browser evidence. Fallback: keep each native gate blocked until direct host evidence; this exception does not block Sprint 036.
+- Data-editor candidate and 100k-row viewport proof remain **BLOCKED**. Owner: Lead Developer / Sprint 041 Builder. Impact: Sprint 041 cannot select/install a grid or claim scale acceptance. Fallback: complete a pinned Vue/Bun/Vite proof of a maintained candidate before Sprint 041 implementation; no hand-rolled virtualization.
+- Full production worker cleanup/cancellation and end-to-end responsiveness remain unmeasured. Owner: Sprint 036 Builder, then Sprint 042 Builder. Impact: final live-preview/export performance acceptance remains open. Fallback: use accepted worker/job boundary and record any phase that cannot be terminated; do not report unverified latency as a pass.
+- Desktop direct Vue typecheck and production Vite checks were blocked by the absent generated `.hutch/devkit`; no native packaging claim is made. The prior full root suite result was 196/205 before the Lead Developer corrected the CLI test working directories; the rerun result is recorded in the Sprint 035 evidence after verification.
+- Native/release/accessibility/Office/license/Marketplace residuals remain separate and unverified. Sprint 036 is authorized only for its documented foundation scope; Sprint 041 and native-dependent acceptance retain their listed gates.
 
 ## Sprint 034 Builder Outcome (2026-10-01)
 

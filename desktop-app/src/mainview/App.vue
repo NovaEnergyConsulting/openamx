@@ -167,14 +167,14 @@ const commands = computed(() => [
 	{ name: "Previous tab", shortcut: "Ctrl/Cmd+Alt+Left", enabled: workbench.value.tabs.length > 1, reason: "Open another tab first", run: () => cycleTab(-1) },
 	{ name: "Save active tab", shortcut: "Ctrl/Cmd+S", enabled: !!document.value?.dirty, reason: "No unsaved active tab", run: save },
 	{ name: "Format active tab", shortcut: "", enabled: !!document.value, reason: "Open a document first", run: format },
-	{ name: "Run entry", shortcut: "Ctrl/Cmd+Enter", enabled: !!workbench.value.entry, reason: "Designate an entry first", run: runAnalysis },
-	{ name: "Preview entry", shortcut: "Ctrl/Cmd+Shift+Enter", enabled: !!workbench.value.entry, reason: "Designate an entry first", run: refresh },
+	{ name: "Run active document", shortcut: "Ctrl/Cmd+Enter", enabled: !!workbench.value.active, reason: "Open an AMX document first", run: runAnalysis },
+	{ name: "Preview active document", shortcut: "Ctrl/Cmd+Shift+Enter", enabled: !!workbench.value.active, reason: "Open an AMX document first", run: refresh },
 	{ name: "Search project", shortcut: "Ctrl/Cmd+Shift+F", enabled: !!projectRoot.value, reason: "Open a project first", run: () => { sidePanel.value = "explorer"; requestAnimationFrame(() => window.document.querySelector<HTMLInputElement>("#project-search")?.focus()); } },
 	{ name: "Focus editor", shortcut: "", enabled: !!document.value, reason: "Open a document first", run: () => setFocusMode("editor") },
-	{ name: "Focus preview", shortcut: "", enabled: !!workbench.value.entry, reason: "Designate an entry first", run: () => setFocusMode("preview") },
-	{ name: "Save HTML…", shortcut: "", enabled: !!workbench.value.entry, reason: "Designate an entry first", run: saveHtml },
-	{ name: "Export PDF…", shortcut: "", enabled: !!workbench.value.entry, reason: "Designate an entry first", run: exportPdf },
-	{ name: "Export DOCX…", shortcut: "", enabled: !!workbench.value.entry, reason: "Designate an entry first", run: exportDocx },
+	{ name: "Focus preview", shortcut: "", enabled: !!workbench.value.active, reason: "Open an AMX document first", run: () => setFocusMode("preview") },
+	{ name: "Save HTML…", shortcut: "", enabled: !!workbench.value.active, reason: "Open an AMX document first", run: saveHtml },
+	{ name: "Export PDF…", shortcut: "", enabled: !!workbench.value.active, reason: "Open an AMX document first", run: exportPdf },
+	{ name: "Export DOCX…", shortcut: "", enabled: !!workbench.value.active, reason: "Open an AMX document first", run: exportDocx },
 	{ name: "Clear recent projects", shortcut: "", enabled: !!recents.value.length, reason: "History is empty", run: clearRecents }
 ]);
 const matchingCommands = computed(() => commands.value.filter(command => command.name.toLowerCase().includes(paletteQuery.value.toLowerCase())));
@@ -197,7 +197,7 @@ function onKeydown(event: KeyboardEvent) {
 	else if (event.key.toLowerCase() === "o" && event.shiftKey) command = "Open file";
 	else if (event.key.toLowerCase() === "s" && !event.shiftKey) command = "Save active tab";
 	else if (event.key.toLowerCase() === "f" && event.shiftKey) command = "Search project";
-	else if (event.key === "Enter") command = event.shiftKey ? "Preview entry" : "Run entry";
+	else if (event.key === "Enter") command = event.shiftKey ? "Preview active document" : "Run active document";
 	if (!command) return;
 	event.preventDefault();
 	const selected = commands.value.find(item => item.name === command);
@@ -295,12 +295,6 @@ async function selectTab(path: string) {
 	if (request === navigationRequest) await activate(result);
 }
 
-async function designateEntry(path: string) {
-	const result = await props.rpc.request.setEntry({ path });
-	if (result.ok) { workbench.value = result.state; clearView(); status.value = "Entry document designated."; }
-	else status.value = result.error.message;
-}
-
 async function closeTab(path: string) {
 	await pendingEdit;
 	await syncWorkbench();
@@ -316,7 +310,7 @@ async function closeTab(path: string) {
 	const next = result.state.active;
 	document.value = null;
 	if (next) await selectTab(next);
-	status.value = result.state.entry ? "Tab closed." : "Entry closed. Designate an entry to report.";
+	status.value = result.state.active ? "Tab closed." : "No active document.";
 }
 
 async function reload() {
@@ -569,22 +563,22 @@ function displayDiagnostic(item: TextDiagnostic): string {
 				</div>
 			</div>
 			<div class="export-row" :class="{ 'mobile-hidden': sidePanel !== 'export' }">
-				<Button :disabled="!workbench.entry" type="button" @click="saveHtml">Save HTML…</Button>
-				<Button :disabled="!workbench.entry" type="button" @click="exportPdf">Export PDF…</Button>
-				<Button :disabled="!workbench.entry" type="button" @click="exportDocx">Export DOCX…</Button>
+				<Button :disabled="!workbench.active" type="button" @click="saveHtml">Save HTML…</Button>
+				<Button :disabled="!workbench.active" type="button" @click="exportPdf">Export PDF…</Button>
+				<Button :disabled="!workbench.active" type="button" @click="exportDocx">Export DOCX…</Button>
 				<span class="export-status" aria-live="polite">{{ exportStatus }}</span>
 			</div>
 		</section>
 		<div class="workbench" :class="`focus-${focusMode}`" :style="{ '--explorer-width': `${explorerWidth}px`, '--preview-width': `${previewWidth}%` }">
 			<aside :class="{ 'mobile-hidden': sidePanel !== 'explorer' }"><p class="kicker">PROJECT FILES</p><input id="project-search" v-model="search" aria-label="Search project files" placeholder="Search files"><div v-for="[folder, entries] in groupedFiles" :key="folder"><p class="folder">{{ folder }}</p><button v-for="file in entries" :key="file" class="file" :class="{ selected: workbench.active?.endsWith(file) }" @click="openDocument(file)">{{ file.split('/').pop() }}</button></div><p v-if="!files.length" class="muted">No project files.</p><p v-else-if="!visibleFiles.length" class="muted">No matching files.</p></aside>
 			<section class="editor-pane" aria-label="AMX editor">
-				<nav class="tabs" aria-label="Open tabs"><div v-for="tab in workbench.tabs" :key="tab.path" class="tab"><button :aria-current="workbench.active === tab.path ? 'page' : undefined" @click="selectTab(tab.path)">{{ tab.path.split(/[\\/]/).pop() }} <span v-if="workbench.entry === tab.path">Entry</span><span v-if="tab.dirty">*</span><span v-if="tab.conflict">!</span></button><button title="Close tab" :aria-label="`Close ${tab.path}`" @click="closeTab(tab.path)">×</button></div></nav>
+				<nav class="tabs" aria-label="Open tabs"><div v-for="tab in workbench.tabs" :key="tab.path" class="tab"><button :aria-current="workbench.active === tab.path ? 'page' : undefined" @click="selectTab(tab.path)">{{ tab.path.split(/[\\/]/).pop() }} <span v-if="workbench.active === tab.path">Active</span><span v-if="tab.dirty">*</span><span v-if="tab.conflict">!</span></button><button title="Close tab" :aria-label="`Close ${tab.path}`" @click="closeTab(tab.path)">×</button></div></nav>
 				<div class="pane-header"><strong>{{ document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><Button :disabled="!document" type="button" @click="editorElement?.openSearch()">Find</Button><Button :disabled="!document || pending" type="button" @click="format">Format</Button><Button :disabled="!document || !document.dirty" type="button" @click="save">Save</Button></span></div>
-				<div v-if="document" class="entry-actions"><Button :disabled="workbench.entry === document.path" @click="designateEntry(document.path)">Set as entry</Button><Button @click="reload">Reload…</Button><span v-if="workbench.entry && workbench.entry !== document.path">Reports use {{ workbench.entry.split(/[\\/]/).pop() }}</span></div>
+				<div v-if="document" class="entry-actions"><Button @click="reload">Reload…</Button></div>
 				<CodeEditor v-if="document" ref="editorElement" :path="document.path" :text="document.text" @change="updateText" />
 				<div class="diagnostics" :class="{ 'mobile-hidden': detailPanel !== 'diagnostics' }" aria-live="polite"><p v-for="(item, index) in staticAnalysis.diagnostics" :key="`static-${item.code}-${item.line}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Static · {{ item.code }} {{ item.file?.split(/[\\/]/).pop() }} ({{ item.line }}:{{ item.column }}) {{ displayDiagnostic(item) }}</button></p><p v-for="(item, index) in [...analysis.diagnostics, ...inputConfiguration.diagnostics]" :key="`${item.code}-${item.line}-${index}`"><strong>Run · {{ item.code }}</strong> {{ displayDiagnostic(item) }} <span v-if="item.line">({{ item.line }}:{{ item.column }})</span></p><p v-if="![...staticAnalysis.diagnostics, ...analysis.diagnostics, ...inputConfiguration.diagnostics].length" class="muted">No current diagnostics.</p></div>
 			</section>
-			<section class="preview-pane" :class="{ 'mobile-hidden': detailPanel !== 'preview' }" aria-label="Live HTML preview"><div class="pane-header"><strong>ENTRY PREVIEW · {{ workbench.entry?.split(/[\\/]/).pop() ?? 'No entry' }}</strong><span class="state" :class="`state-${previewState}`">{{ previewState }}</span></div><iframe :srcdoc="preview" sandbox="" title="OpenAMX live HTML preview"></iframe></section>
+			<section class="preview-pane" :class="{ 'mobile-hidden': detailPanel !== 'preview' }" aria-label="Live HTML preview"><div class="pane-header"><strong>ACTIVE DOCUMENT PREVIEW · {{ workbench.active?.split(/[\\/]/).pop() ?? 'No document' }}</strong><span class="state" :class="`state-${previewState}`">{{ previewState }}</span></div><iframe :srcdoc="preview" sandbox="" title="OpenAMX live HTML preview"></iframe></section>
 		</div>
 		<section class="result-strip" :class="{ 'mobile-hidden': detailPanel !== 'results' }" aria-label="Analysis result">
 			<div><strong>RUN RESULT</strong><span class="state" :class="`state-${runState}`">{{ runState }}</span></div>

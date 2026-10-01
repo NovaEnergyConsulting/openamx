@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, afterEach } from "bun:test";
-import { rm, mkdir } from "fs/promises";
+import { rm, mkdir, realpath } from "fs/promises";
 import { loadEntryModule } from "../src/runtime/moduleLoader";
 import { AmxError } from "../src/diagnostics/errors";
 
@@ -120,6 +120,35 @@ describe("Sprint 015 modules, imports, and exports", () => {
     const { env } = await loadEntryModule(entry);
     const values = env.toObject() as { leftShared: number[]; rightShared: number[] };
     expect(values.leftShared).toBe(values.rightShared);
+  });
+
+  it("prefers contained unsaved imported modules and leaves their files unchanged", async () => {
+    const dir = await makeDir();
+    const dependencyPath = await write(dir, "lib.amx", "```amx\nexport let value: Number = 1\n```\n");
+    const entryPath = await write(dir, "entry.amx", "```amx\nimport { value } from \"./lib.amx\"\nlet result: Number = value\n```\n");
+    const diskText = await Bun.file(dependencyPath).text();
+    const canonicalDependencyPath = await realpath(dependencyPath);
+    const { env } = await loadEntryModule(entryPath, {
+      sourceOverlay: new Map([[canonicalDependencyPath, "```amx\nexport let value: Number = 2\n```\n"]])
+    });
+
+    expect(env.toObject()).toMatchObject({ value: 2, result: 2 });
+    expect(await Bun.file(dependencyPath).text()).toBe(diskText);
+  });
+
+  it("uses saved dependency text when no overlay is supplied and rejects outside overlay paths", async () => {
+    const dir = await makeDir();
+    const dependencyPath = await write(dir, "lib.amx", "```amx\nexport let value: Number = 3\n```\n");
+    const entryPath = await write(dir, "entry.amx", "```amx\nimport { value } from \"./lib.amx\"\n```\n");
+    const { env } = await loadEntryModule(entryPath);
+    expect(env.toObject()).toMatchObject({ value: 3 });
+
+    const outsidePath = await writeRootFile("```amx\nexport let secret: Number = 9\n```\n");
+    const canonicalOutsidePath = await realpath(outsidePath);
+    await expectAmxError(loadEntryModule(entryPath, {
+      sourceOverlay: new Map([[canonicalOutsidePath, "```amx\nexport let secret: Number = 9\n```\n"]])
+    }), "AMX5001");
+    expect(await Bun.file(dependencyPath).text()).toContain("value: Number = 3");
   });
 
   it("rejects assignment to and redeclaration of an immutable imported binding", async () => {

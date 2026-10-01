@@ -118,7 +118,6 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 	let current: SessionDocument | undefined;
 	const tabs = new Map<string, SessionDocument>();
 	const editSequences = new Map<string, number>();
-	let entryPath: string | undefined;
 	let generation = 0;
 	let recents: RecentProject[] = [];
 	try {
@@ -132,7 +131,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				try { return allowedFile(item.root, resolve(item.root, path)) ? relative(item.root, resolve(item.root, path)) : undefined; }
 				catch { return undefined; }
 			}
-			return { root: item.root, active: safePath(item.active), entry: safePath(item.entry),
+			return { root: item.root, active: safePath(item.active) ?? safePath(item.entry),
 				explorerWidth: typeof item.explorerWidth === "number" && item.explorerWidth >= 160 && item.explorerWidth <= 400 ? item.explorerWidth : undefined,
 				previewWidth: typeof item.previewWidth === "number" && item.previewWidth >= 25 && item.previewWidth <= 65 ? item.previewWidth : undefined };
 		});
@@ -149,36 +148,39 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		const prior = recents.find(item => item.root === projectRoot);
 		recents = [{ root: projectRoot,
 			active: current ? relative(projectRoot, current.path) : undefined,
-			entry: entryPath ? relative(projectRoot, entryPath) : undefined,
 			explorerWidth: prior?.explorerWidth, previewWidth: prior?.previewWidth }, ...recents.filter(item => item.root !== projectRoot)].slice(0, 10);
 		persist();
 	}
 
 	function state(): WorkbenchState {
-		return { tabs: [...tabs.values()].map(({ path, dirty, conflict, revision }) => ({ path, dirty, conflict, revision })), active: current?.path, entry: entryPath, generation };
+		return { tabs: [...tabs.values()].map(({ path, dirty, conflict, revision }) => ({ path, dirty, conflict, revision })), active: current?.path, generation };
 	}
 
-	function requireEntry(): SessionDocument {
-		const document = entryPath && tabs.get(entryPath);
-		if (!document) throw new Error("Designate an entry tab before running or exporting.");
+	function requireActive(): { document: SessionDocument; sourceOverlay: ReadonlyMap<string, string> } {
+		const document = requireCurrent();
+		const sourceOverlay = new Map<string, string>();
 		const visited = new Set<string>();
-		function checkImports(file: string, text: string) {
+		function collectOpenModules(file: string, text: string) {
 			if (visited.has(file)) return;
 			visited.add(file);
-			for (const node of parseDocumentText(text).nodes) {
+			const openTab = tabs.get(file);
+			if (openTab) sourceOverlay.set(file, openTab.text);
+			let parsed;
+			try { parsed = parseDocumentText(text); }
+			catch { return; }
+			for (const node of parsed.nodes) {
 				if (node.type !== "executableCodeBlock") continue;
 				for (const statement of node.statements) {
 					if (statement.type !== "importDeclaration") continue;
-					const dependency = within(dirname(file), statement.path);
+					const dependency = within(requireRoot(), resolve(dirname(file), statement.path));
 					if (!dependency) continue;
 					const tab = tabs.get(dependency);
-					if (tab?.dirty || tab?.conflict) throw new Error(`Save unsaved dependency ${relative(requireRoot(), dependency)} before reporting.`);
-					if (!visited.has(dependency)) checkImports(dependency, readFileSync(dependency, "utf8"));
+					if (!visited.has(dependency)) collectOpenModules(dependency, tab?.text ?? readFileSync(dependency, "utf8"));
 				}
 			}
 		}
-		checkImports(document.path, document.text);
-		return document;
+		collectOpenModules(document.path, document.text);
+		return { document, sourceOverlay };
 	}
 
 	function requireRoot(): string {
@@ -262,7 +264,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				if (!prepared.ok) throw new Error(prepared.error.message);
 				if (!prepared.ready) throw new Error("Project change cancelled.");
 			}
-			if (projectRoot !== canonical) { tabs.clear(); editSequences.clear(); current = undefined; entryPath = undefined; generation++; }
+			if (projectRoot !== canonical) { tabs.clear(); editSequences.clear(); current = undefined; generation++; }
 			projectRoot = canonical;
 		},
 		request: {
@@ -284,10 +286,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					if (started !== generation || action === "cancel") return { ok: true, cancelled: true };
 					service.setProjectRoot(candidate, action);
 					if (switching && recent) {
-						for (const savedPath of [recent.entry, recent.active]) {
-							if (savedPath) await service.request.openDocument({ path: savedPath });
-						}
-						if (recent.entry && tabs.has(resolve(candidate, recent.entry))) entryPath = resolve(candidate, recent.entry);
+						if (recent.active) await service.request.openDocument({ path: recent.active });
 					}
 					record();
 					return { ok: true, cancelled: false, root: candidate };
@@ -308,7 +307,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				try {
 					if (![".html", ".pdf", ".docx"].includes(extension)) throw new Error("Invalid destination type.");
 					const started = generation;
-					const document = requireEntry();
+					const { document } = requireActive();
 					const path = await picker?.choose({ directory: false, extension, root: requireRoot() });
 					if (!path) return { ok: true, cancelled: true };
 					if (started !== generation || !tabs.has(document.path)) return { ok: true, cancelled: true };
@@ -334,10 +333,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					if (projectRoot === root && [...tabs.values()].some(tab => tab.dirty || tab.conflict)) throw new Error("Project is already open with unsaved tabs.");
 					service.setProjectRoot(root, action);
 				} catch (error) { return errorResult<{ root: string; state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error))); }
-				for (const path of [saved.entry, saved.active]) {
-					if (path) await service.request.openDocument({ path });
-				}
-				if (saved.entry && tabs.has(resolve(root, saved.entry))) entryPath = resolve(root, saved.entry);
+				if (saved.active) await service.request.openDocument({ path: saved.active });
 				record();
 				return { ok: true, root, state: state() };
 			},
@@ -365,7 +361,6 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					current = tabs.get(file) ?? readEntry(file);
 					tabs.set(file, current);
 					refreshConflicts();
-					entryPath ??= file;
 					record();
 					return { ok: true, document: current };
 				} catch (error) {
@@ -393,12 +388,6 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					return prepared.ok ? { ok: true, ready: prepared.ready } : errorResult<{ ready: boolean }>(prepared.error);
 				} catch (error) { return errorResult<{ ready: boolean }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},
-			async setEntry({ path }: { path: string }) {
-				if (!tabs.has(path)) return errorResult<{ state: WorkbenchState }>(projectError("Entry must be an open project tab."));
-				entryPath = path;
-				record();
-				return { ok: true, state: state() };
-			},
 			async closeTab({ path, action }: { path: string; action: "save" | "discard" | "cancel" }) {
 				const tab = tabs.get(path);
 				if (!tab || !["save", "discard", "cancel"].includes(action)) return errorResult<{ state: WorkbenchState }>(projectError("Invalid tab close request."));
@@ -410,7 +399,6 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					}
 				}
 				tabs.delete(path);
-				if (entryPath === path) entryPath = undefined;
 				if (current?.path === path) current = tabs.values().next().value;
 				generation++;
 				record();
@@ -491,7 +479,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			},
 			async getInputConfiguration({ inputMappings = [] }: { inputMappings?: string[] } = {}) {
 				try {
-					const document = requireEntry();
+					const { document } = requireActive();
 					const resolved = resolveDesktopInputs(requireRoot(), document.text, inputMappings);
 					return { ok: true, configuration: resolved.configuration };
 				} catch (error) {
@@ -501,7 +489,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			async runBuffer({ inputMappings = [], validation }: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" } = {}) {
 				let privatePaths: string[] = [];
 				try {
-					const document = requireEntry();
+					const { document, sourceOverlay } = requireActive();
 					const resolved = resolveDesktopInputs(requireRoot(), document.text, inputMappings, validation);
 					privatePaths = resolved.privatePaths;
 					if (resolved.configuration.diagnostics.length) {
@@ -509,6 +497,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					}
 					const loaded = await loadEntryModule(document.path, {
 						entryText: document.text,
+						sourceOverlay,
 						inputMappings: resolved.mappings,
 						validation
 					});
@@ -520,11 +509,11 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			async previewBuffer({ inputMappings = [], validation }: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" } = {}) {
 				let privatePaths: string[] = [];
 				try {
-					const document = requireEntry();
+					const { document, sourceOverlay } = requireActive();
 					const resolved = resolveDesktopInputs(requireRoot(), document.text, inputMappings, validation);
 					privatePaths = resolved.privatePaths;
 					if (resolved.configuration.diagnostics.length) return { ok: true, html: "", diagnostics: resolved.configuration.diagnostics };
-					const loaded = await loadEntryModule(document.path, { entryText: document.text, inputMappings: resolved.mappings, validation });
+					const loaded = await loadEntryModule(document.path, { entryText: document.text, sourceOverlay, inputMappings: resolved.mappings, validation });
 					const report = await prepareReport(loaded.doc, loaded.env, { file: document.path, projectRoot: requireRoot() });
 					const html = renderPreparedHtml(report);
 					if (html.length > MAX_HTML) return errorResult<{ html: string; diagnostics: TextAnalysis["diagnostics"] }>(projectError(`Preview exceeds the ${MAX_HTML}-character limit.`));
@@ -536,11 +525,11 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			async saveHtml({ path, inputMappings = [], validation }: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }) {
 			let privatePaths: string[] = [];
 			try {
-				const document = requireEntry();
+				const { document, sourceOverlay } = requireActive();
 				const resolved = resolveDesktopInputs(requireRoot(), document.text, inputMappings, validation);
 				privatePaths = resolved.privatePaths;
 				if (resolved.configuration.diagnostics.length) return { ok: true, path: "", diagnostics: resolved.configuration.diagnostics };
-				const loaded = await loadEntryModule(document.path, { entryText: document.text, inputMappings: resolved.mappings, validation });
+				const loaded = await loadEntryModule(document.path, { entryText: document.text, sourceOverlay, inputMappings: resolved.mappings, validation });
 				const report = await prepareReport(loaded.doc, loaded.env, { file: document.path, projectRoot: requireRoot() });
 				const html = renderPreparedHtml(report);
 				if (html.length > MAX_HTML) throw new Error(`HTML output exceeds the ${MAX_HTML}-character limit.`);
@@ -554,11 +543,11 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			async exportPdf({ path, inputMappings = [], validation }: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }) {
 			let privatePaths: string[] = [];
 			try {
-				const document = requireEntry();
+				const { document, sourceOverlay } = requireActive();
 				const resolved = resolveDesktopInputs(requireRoot(), document.text, inputMappings, validation);
 				privatePaths = resolved.privatePaths;
 				if (resolved.configuration.diagnostics.length) return { ok: true, path: "", bytes: 0, diagnostics: resolved.configuration.diagnostics };
-				const loaded = await loadEntryModule(document.path, { entryText: document.text, inputMappings: resolved.mappings, validation });
+				const loaded = await loadEntryModule(document.path, { entryText: document.text, sourceOverlay, inputMappings: resolved.mappings, validation });
 				const inputPaths = resolved.mappings.map(mapping => mapping.slice(mapping.indexOf("=") + 1));
 				const validated = validateDesktopDestination(requireRoot(), path, ".pdf", [document.path, ...inputPaths]);
 				const destination = await preparePdfDestination(validated.path, document.path, resolved.mappings);
@@ -574,11 +563,11 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			async exportDocx({ path, inputMappings = [], validation }: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }) {
 				let privatePaths: string[] = [];
 				try {
-					const document = requireEntry();
+					const { document, sourceOverlay } = requireActive();
 					const resolved = resolveDesktopInputs(requireRoot(), document.text, inputMappings, validation);
 					privatePaths = resolved.privatePaths;
 					if (resolved.configuration.diagnostics.length) return { ok: true, path: "", bytes: 0, diagnostics: resolved.configuration.diagnostics };
-					const loaded = await loadEntryModule(document.path, { entryText: document.text, inputMappings: resolved.mappings, validation });
+					const loaded = await loadEntryModule(document.path, { entryText: document.text, sourceOverlay, inputMappings: resolved.mappings, validation });
 					const inputPaths = resolved.mappings.map(mapping => mapping.slice(mapping.indexOf("=") + 1));
 					const validated = validateDesktopDestination(requireRoot(), path, ".docx", [document.path, ...inputPaths]);
 					const destination = await prepareDocxDestination(validated.path, document.path, resolved.mappings);

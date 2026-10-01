@@ -5,7 +5,7 @@ import { join } from 'node:path';
 const directories: string[] = [];
 
 function runCli(...arguments_: string[]) {
-  const result = Bun.spawnSync(['bun', 'run', 'src/cli.ts', ...arguments_], { cwd: '/home/cgamez/Programming/experiments/openamx' });
+  const result = Bun.spawnSync(['bun', 'run', 'src/cli.ts', ...arguments_], { cwd: '/home/cgamez/Programming/openamx' });
   return { exitCode: result.exitCode, stderr: new TextDecoder().decode(result.stderr) };
 }
 

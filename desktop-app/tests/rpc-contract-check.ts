@@ -99,7 +99,9 @@ mkdirSync(dataRoot);
 const entrySource = `# Analysis\n\n\`\`\`amx\nimport { Row, addTen } from "./nested/module.amx"\ninput amounts: Number[]\ninput rows: Row[]\nexport let result: Number = addTen(sum(amounts) + sum(for row in rows {\n  return row.amount\n}))\n\`\`\`\n`;
 const savedSource = `# Analysis\n\n\`\`\`amx\nimport { Row, addTen } from "./nested/module.amx"\ninput amounts: Number[]\ninput rows: Row[]\nexport let result: Number = addTen(1)\n\`\`\`\n`;
 writeFileSync(entry, savedSource);
-writeFileSync(join(root, "nested", "module.amx"), `\`\`\`amx\nexport type Row {\n  amount: Number\n}\nexport fn addTen(value: Number): Number = value + 10\n\`\`\`\n`);
+const dependencyPath = join(root, "nested", "module.amx");
+const savedDependencySource = `\`\`\`amx\nexport type Row {\n  amount: Number\n}\nexport fn addTen(value: Number): Number = value + 10\n\`\`\`\n`;
+writeFileSync(dependencyPath, savedDependencySource);
 writeFileSync(join(dataRoot, "amounts.json"), "[2, 3]");
 writeFileSync(join(dataRoot, "rows.csv"), "amount\n4\n6\n");
 const reopened = await service.request.openDocument({ path: entry });
@@ -110,29 +112,38 @@ const unsaved = await service.request.updateBuffer({ text: entrySource });
 assert.equal(unsaved.ok, true);
 const openedDependency = await service.request.openDocument({ path: join(root, "nested", "module.amx") });
 assert.equal(openedDependency.ok, true);
-const dirtyDependency = await service.request.updateBuffer({ text: "# unsaved dependency\n" });
+const overlayDependencySource = `\`\`\`amx\nexport type Row {\n  amount: Number\n}\nexport fn addTen(value: Number): Number = value + 20\n\`\`\`\n`;
+const dirtyDependency = await service.request.updateBuffer({ text: overlayDependencySource });
 assert.equal(dirtyDependency.ok, true);
-const blocked = await service.request.runBuffer();
-assert.equal(blocked.ok, true);
-if (!blocked.ok) throw new Error(blocked.error.message);
-assert.match(blocked.diagnostics[0]?.message ?? "", /Save unsaved dependency nested\/module\.amx/);
+const activeReport = await service.request.selectTab({ path: entry });
+assert.equal(activeReport.ok, true);
+const overlayRun = await service.request.runBuffer({
+	inputMappings: [`amounts=${join(dataRoot, "amounts.json")}`, `rows=${join(dataRoot, "rows.csv")}`]
+});
+assert.equal(overlayRun.ok, true);
+if (!overlayRun.ok) throw new Error(overlayRun.error.message);
+assert.deepEqual(overlayRun.diagnostics, []);
+assert.deepEqual(overlayRun.summary.values.find(value => value.name === "result"), { name: "result", value: 35 });
+assert.equal(readFileSync(dependencyPath, "utf8"), savedDependencySource);
 const unchangedEntry = await service.request.selectTab({ path: entry });
 assert.equal(unchangedEntry.ok, true);
 if (!unchangedEntry.ok) throw new Error(unchangedEntry.error.message);
 assert.equal(unchangedEntry.document.text, entrySource);
-const blockedPreview = await service.request.previewBuffer();
-assert.equal(blockedPreview.ok, true);
-if (!blockedPreview.ok) throw new Error(blockedPreview.error.message);
-assert.equal(blockedPreview.html, "");
-await service.request.selectTab({ path: join(root, "nested", "module.amx") });
+const overlayPreview = await service.request.previewBuffer({
+	inputMappings: [`amounts=${join(dataRoot, "amounts.json")}`, `rows=${join(dataRoot, "rows.csv")}`]
+});
+assert.equal(overlayPreview.ok, true);
+if (!overlayPreview.ok) throw new Error(overlayPreview.error.message);
+assert.deepEqual(overlayPreview.diagnostics, []);
+assert.ok(overlayPreview.html.length > 0);
+await service.request.selectTab({ path: dependencyPath });
 await service.request.reloadTab({ action: "discard" });
 const activeModule = await service.request.readDocument();
 assert.equal(activeModule.ok, true);
 const workbench = await service.request.getWorkbench();
 assert.equal(workbench.ok, true);
 if (!workbench.ok) throw new Error(workbench.error.message);
-assert.equal(workbench.state.entry, entry);
-assert.equal(workbench.state.active, join(root, "nested", "module.amx"));
+assert.equal(workbench.state.active, dependencyPath);
 await service.request.selectTab({ path: entry });
 const invalidValidation = await service.request.runBuffer({ validation: "invalid" as "aggregate" });
 assert.equal(invalidValidation.ok, true);
@@ -368,7 +379,7 @@ assert.equal((await picked.request.closeTab({ path: entry, action: "discard" }))
 const noEntry = await picked.request.runBuffer();
 assert.equal(noEntry.ok, true);
 if (!noEntry.ok) throw new Error(noEntry.error.message);
-assert.match(noEntry.diagnostics[0]?.message ?? "", /Designate an entry/);
+assert.match(noEntry.diagnostics[0]?.message ?? "", /Open an \.amx document first/);
 console.log("Sprint 029 picker, tab guard and entry assertions passed");
 
 const sessionFile = join(root, "private-session.json");
@@ -432,7 +443,7 @@ const poisonedSession = createDesktopService(undefined, undefined, sessionFile);
 const safeRecents = await poisonedSession.request.getRecents();
 assert.equal(safeRecents.ok, true);
 if (!safeRecents.ok) throw new Error(safeRecents.error.message);
-assert.deepEqual(safeRecents.projects, [{ root, active: undefined, entry: undefined, explorerWidth: undefined, previewWidth: undefined }]);
+assert.deepEqual(safeRecents.projects, [{ root, active: undefined, explorerWidth: undefined, previewWidth: undefined }]);
 console.log("Sprint 029 external conflict and substituted session assertions passed");
 
 const transitionService = createDesktopService(root);
@@ -544,7 +555,6 @@ const pickedState = await pickedRecent.request.getWorkbench();
 assert.equal(pickedState.ok, true);
 if (!pickedState.ok) throw new Error(pickedState.error.message);
 assert.equal(pickedState.state.active, entry);
-assert.equal(pickedState.state.entry, entry);
 assert.equal((await pickedRecent.request.readDocument()).ok, true);
 console.log("Sprint 029 native project selection restores validated recent tabs");
 

@@ -1,0 +1,15 @@
+# Sprint 036 Acceptance Criteria
+
+Sprint 036 is complete when:
+
+- Typed desktop state no longer uses a designated entry as the analysis/run/preview/export target. The active AMX document controls these operations; project generation, per-tab text/revision/conflict state, and supported file-kind metadata remain distinct.
+- Every operation is bound to `{ canonicalActiveUri, projectGeneration, documentRevision, inputSettingsRevision, jobId }`, with monotonically increasing trusted job IDs. Tests prove only a matching current request can publish preview, run result, diagnostics, or export status after tab/project/input changes.
+- The accepted source overlay prefers every open unsaved reachable AMX dependency; unopened dependencies use canonical disk reads. Tests cover unsaved entry and imported dependencies, nested imports, saved fallback, containment/symlink rejection, cycles, exports, evaluation order, original source locations, input entry semantics, no disk writes, and no-overlay CLI compatibility.
+- Trusted Bun workers/jobs implement the accepted start/progress/cancel/supersede/result boundary for preview/run, data input read/validation, and report preparation/serialization. Exact per-phase interruption/cooperative behavior, cleanup, memory/resource release, message limits, and redaction are recorded; any unsupported guarantee is `BLOCKED`/`UNAVAILABLE`, not pass.
+- A cancelled or superseded worker cannot publish a current success, mutate current workbench state, or commit an output. Final main-process identity/destination/conflict checks and atomic writes remain authoritative; tests prove existing destinations survive cancellation/failure/stale identity.
+- The webview receives only typed, bounded, redacted operation state/results. Boundary tests prove it gains no filesystem, process, loader/input-loader, evaluator, or export-adapter authority.
+- In-memory JSON/CSV APIs reuse the existing strict parser, validator, and serializer rules. Tests prove duplicate JSON keys, malformed input, CSV quoting/newlines/header rules, type/default/null/DateTime behavior, diagnostic order/codes/locations, and file-backed CLI behavior remain unchanged.
+- Focused root and desktop direct tests pass. Root `bun run build` and `bun test` pass; desktop direct RPC/typecheck/Vite checks pass where the generated Electrobun SDK is available; shared-core changes retain VS Code compile/Extension Development Host tests. Every unavailable check is recorded exactly.
+- `planning/state.md`, `planning/decisions.md`, and `planning/questions.md` record results, selected implementation details, performance observations, limitations, and gates for Sprint 037-042. Sprint 041 remains blocked until its selected grid/JSON-tree candidate proof is accepted.
+
+Sprint 036 does not claim native platform/release, Hutch package, data-editor scale, formal accessibility, or Office acceptance.
