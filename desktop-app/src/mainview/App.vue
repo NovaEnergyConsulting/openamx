@@ -1,34 +1,28 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import type { DesktopRPCClient, InputConfiguration, OpenDocument, RecentProject, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
+import type { DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
 import { Button } from "@/components/ui/button";
 import CodeEditor from "./CodeEditor.vue";
+import CommandPalette from "./components/CommandPalette.vue";
+import ProjectExplorer from "./components/ProjectExplorer.vue";
+import WelcomeView from "./components/WelcomeView.vue";
+import WorkbenchTabs from "./components/WorkbenchTabs.vue";
+import type { DrawerDock, ShellCommand, ShellFocusMode, ShellTheme } from "./shell";
 
 const props = defineProps<{ rpc: DesktopRPCClient }>();
 const document = ref<OpenDocument | null>(null);
 const workbench = ref<WorkbenchState>({ tabs: [], generation: 0, inputSettingsRevision: 0 });
 const projectRoot = ref("");
 const recents = ref<RecentProject[]>([]);
-const search = ref("");
 const palette = ref(false);
-const paletteQuery = ref("");
-const focusMode = ref<"none" | "editor" | "preview">("none");
-const sidePanel = ref<"explorer" | "inputs" | "export">("explorer");
-const detailPanel = ref<"preview" | "diagnostics" | "results">("preview");
+const focusMode = ref<ShellFocusMode>("none");
+const drawerDock = ref<DrawerDock>((localStorage.getItem("openamx.drawer-dock") as DrawerDock) || "bottom");
+const theme = ref<ShellTheme>((localStorage.getItem("openamx.theme") as ShellTheme) || "system");
 const explorerWidth = ref(220);
 const previewWidth = ref(44);
 const editorElement = ref<InstanceType<typeof CodeEditor> | null>(null);
 let invoker: HTMLElement | null = null;
 let focusInvoker: HTMLElement | null = null;
-const visibleFiles = computed(() => files.value.filter(file => file.toLowerCase().includes(search.value.toLowerCase())));
-const groupedFiles = computed(() => {
-	const groups = new Map<string, string[]>();
-	for (const file of visibleFiles.value) {
-		const folder = file.includes("/") ? file.slice(0, file.lastIndexOf("/")) : ".";
-		groups.set(folder, [...(groups.get(folder) ?? []), file]);
-	}
-	return [...groups];
-});
 const preview = ref("");
 const analysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
 const staticAnalysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
@@ -41,7 +35,7 @@ const previewState = ref<"idle" | "running" | "success" | "failure" | "cancelled
 const activeJobId = ref<number | null>(null);
 const jobStage = ref("");
 const exportStatus = ref("");
-const files = ref<string[]>([]);
+const files = ref<ProjectFile[]>([]);
 const status = ref("Open a project and an .amx file to begin.");
 const pending = ref(false);
 let bufferRevision = 0;
@@ -53,10 +47,7 @@ let staticRequest = 0;
 let pendingEdit: Promise<void> = Promise.resolve();
 let pendingInputSettings: Promise<void> = Promise.resolve();
 
-function mappings(): string[] {
-	return inputOverrides.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-}
-
+function mappings(): string[] { return inputOverrides.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean); }
 function syncInputSettings(): Promise<void> {
 	const inputMappings = mappings();
 	const selectedValidation = validation.value;
@@ -66,42 +57,18 @@ function syncInputSettings(): Promise<void> {
 	});
 	return pendingInputSettings;
 }
-
-function cancelActiveJob() {
-	const jobId = activeJobId.value;
-	if (jobId === null) return;
-	activeJobId.value = null;
-	jobStage.value = "";
-	void props.rpc.request.cancelJob({ jobId });
-}
-
+function cancelActiveJob() { const jobId = activeJobId.value; if (jobId === null) return; activeJobId.value = null; jobStage.value = ""; void props.rpc.request.cancelJob({ jobId }); }
 async function executeJob(operation: "run" | "preview" | "html" | "pdf" | "docx", destination?: string) {
-	await pendingEdit;
-	await pendingInputSettings;
-	if (!workbench.value.requestIdentity) await syncWorkbench();
-	const identity = workbench.value.requestIdentity;
-	if (!identity) throw new Error("Open an active AMX document before starting a job.");
-	const started = await props.rpc.request.startJob({ operation, identity, destination });
-	if (!started.ok) throw new Error(started.error.message);
-	let job = started.job;
-	const jobId = job.identity.jobId;
-	activeJobId.value = jobId;
-	jobStage.value = job.stage ?? "";
+	await pendingEdit; await pendingInputSettings; if (!workbench.value.requestIdentity) await syncWorkbench();
+	const identity = workbench.value.requestIdentity; if (!identity) throw new Error("Open an active AMX document before starting a job.");
+	const started = await props.rpc.request.startJob({ operation, identity, destination }); if (!started.ok) throw new Error(started.error.message);
+	let job = started.job; const jobId = job.identity.jobId; activeJobId.value = jobId; jobStage.value = job.stage ?? "";
 	for (let attempt = 0; ["running", "committing"].includes(job.status) && attempt < 600; attempt++) {
-		await new Promise(resolve => setTimeout(resolve, 50));
-		if (activeJobId.value !== jobId) return undefined;
-		const polled = await props.rpc.request.getJob({ jobId });
-		if (!polled.ok) throw new Error(polled.error.message);
-		job = polled.job;
-		jobStage.value = job.stage ?? "";
+		await new Promise(resolve => setTimeout(resolve, 50)); if (activeJobId.value !== jobId) return undefined;
+		const polled = await props.rpc.request.getJob({ jobId }); if (!polled.ok) throw new Error(polled.error.message); job = polled.job; jobStage.value = job.stage ?? "";
 	}
-	if (["running", "committing"].includes(job.status)) {
-		void props.rpc.request.cancelJob({ jobId });
-		throw new Error("The desktop job did not complete before its polling limit.");
-	}
-	if (activeJobId.value === jobId) activeJobId.value = null;
-	jobStage.value = "";
-	return job;
+	if (["running", "committing"].includes(job.status)) { void props.rpc.request.cancelJob({ jobId }); throw new Error("The desktop job did not complete before its polling limit."); }
+	if (activeJobId.value === jobId) activeJobId.value = null; jobStage.value = ""; return job;
 }
 
 function isCurrent(revision: number): boolean {
@@ -147,7 +114,7 @@ async function syncRecents() {
 
 async function loadProject() {
 	const listing = await props.rpc.request.listProjectFiles();
-	files.value = listing.ok ? listing.files.map(file => file.path) : [];
+	files.value = listing.ok ? listing.files : [];
 	await syncWorkbench();
 	await syncRecents();
 	return listing.ok ? undefined : listing.error.message;
@@ -201,8 +168,6 @@ async function resizePreview(delta: number) {
 function showPalette() {
 	invoker = window.document.activeElement instanceof HTMLElement ? window.document.activeElement : null;
 	palette.value = true;
-	paletteQuery.value = "";
-	requestAnimationFrame(() => window.document.querySelector<HTMLInputElement>("#command-search")?.focus());
 }
 
 function dismissPalette() {
@@ -216,24 +181,23 @@ function cycleTab(direction: number) {
 	if (index >= 0 && tabs.length > 1) void selectTab(tabs[(index + direction + tabs.length) % tabs.length].path);
 }
 
-const commands = computed(() => [
-	{ name: "Open project", shortcut: "Ctrl/Cmd+O", enabled: true, reason: "", run: openProject },
-	{ name: "Open file", shortcut: "Ctrl/Cmd+Shift+O", enabled: !!projectRoot.value, reason: "Open a project first", run: () => openDocument() },
-	{ name: "Next tab", shortcut: "Ctrl/Cmd+Alt+Right", enabled: workbench.value.tabs.length > 1, reason: "Open another tab first", run: () => cycleTab(1) },
-	{ name: "Previous tab", shortcut: "Ctrl/Cmd+Alt+Left", enabled: workbench.value.tabs.length > 1, reason: "Open another tab first", run: () => cycleTab(-1) },
-	{ name: "Save active tab", shortcut: "Ctrl/Cmd+S", enabled: !!document.value?.dirty, reason: "No unsaved active tab", run: save },
-	{ name: "Format active tab", shortcut: "", enabled: !!document.value, reason: "Open a document first", run: format },
-	{ name: "Run active document", shortcut: "Ctrl/Cmd+Enter", enabled: !!workbench.value.active, reason: "Open an AMX document first", run: runAnalysis },
-	{ name: "Preview active document", shortcut: "Ctrl/Cmd+Shift+Enter", enabled: !!workbench.value.active, reason: "Open an AMX document first", run: refresh },
-	{ name: "Search project", shortcut: "Ctrl/Cmd+Shift+F", enabled: !!projectRoot.value, reason: "Open a project first", run: () => { sidePanel.value = "explorer"; requestAnimationFrame(() => window.document.querySelector<HTMLInputElement>("#project-search")?.focus()); } },
-	{ name: "Focus editor", shortcut: "", enabled: !!document.value, reason: "Open a document first", run: () => setFocusMode("editor") },
-	{ name: "Focus preview", shortcut: "", enabled: !!workbench.value.active, reason: "Open an AMX document first", run: () => setFocusMode("preview") },
-	{ name: "Save HTML…", shortcut: "", enabled: !!workbench.value.active, reason: "Open an AMX document first", run: saveHtml },
-	{ name: "Export PDF…", shortcut: "", enabled: !!workbench.value.active, reason: "Open an AMX document first", run: exportPdf },
-	{ name: "Export DOCX…", shortcut: "", enabled: !!workbench.value.active, reason: "Open an AMX document first", run: exportDocx },
-	{ name: "Clear recent projects", shortcut: "", enabled: !!recents.value.length, reason: "History is empty", run: clearRecents }
+const commands = computed<ShellCommand[]>(() => [
+	{ id: "project.open", label: "Open project", shortcut: "Ctrl/Cmd+O", enabled: true, run: openProject },
+	{ id: "file.open", label: "Open file", shortcut: "Ctrl/Cmd+Shift+O", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => openDocument() },
+	{ id: "tab.next", label: "Next tab", shortcut: "Ctrl/Cmd+Alt+Right", enabled: workbench.value.tabs.length > 1, disabledReason: "Open another tab first", run: () => cycleTab(1) },
+	{ id: "tab.previous", label: "Previous tab", shortcut: "Ctrl/Cmd+Alt+Left", enabled: workbench.value.tabs.length > 1, disabledReason: "Open another tab first", run: () => cycleTab(-1) },
+	{ id: "document.save", label: "Save active tab", shortcut: "Ctrl/Cmd+S", enabled: !!document.value?.dirty, disabledReason: "No unsaved active tab", run: save },
+	{ id: "document.format", label: "Format active tab", enabled: !!document.value, disabledReason: "Open an AMX document first", run: format },
+	{ id: "document.run", label: "Run active document", shortcut: "Ctrl/Cmd+Enter", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: runAnalysis },
+	{ id: "document.preview", label: "Refresh preview", shortcut: "Ctrl/Cmd+Shift+Enter", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: refresh },
+	{ id: "project.search", label: "Search project", shortcut: "Ctrl/Cmd+Shift+F", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => requestAnimationFrame(() => window.document.querySelector<HTMLInputElement>("#project-search")?.focus()) },
+	{ id: "view.focus-editor", label: "Focus editor", enabled: !!document.value, disabledReason: "Open a document first", run: () => setFocusMode("editor") },
+	{ id: "view.focus-preview", label: "Focus preview", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: () => setFocusMode("preview") },
+	{ id: "document.export-html", label: "Export HTML", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: saveHtml },
+	{ id: "document.export-pdf", label: "Export PDF", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: exportPdf },
+	{ id: "document.export-docx", label: "Export DOCX", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: exportDocx },
+	{ id: "project.clear-recents", label: "Clear recent projects", enabled: !!recents.value.length, disabledReason: "History is empty", run: clearRecents }
 ]);
-const matchingCommands = computed(() => commands.value.filter(command => command.name.toLowerCase().includes(paletteQuery.value.toLowerCase())));
 
 function onKeydown(event: KeyboardEvent) {
 	if (event.key === "Escape") {
@@ -256,11 +220,39 @@ function onKeydown(event: KeyboardEvent) {
 	else if (event.key === "Enter") command = event.shiftKey ? "Preview active document" : "Run active document";
 	if (!command) return;
 	event.preventDefault();
-	const selected = commands.value.find(item => item.name === command);
+	const selected = commands.value.find(item => item.label === command);
 	if (selected?.enabled) void selected.run();
 }
 
-onMounted(() => { window.addEventListener("keydown", onKeydown); void syncRecents(); });
+function setTheme(next: ShellTheme) {
+	theme.value = next;
+	localStorage.setItem("openamx.theme", next);
+	window.document.documentElement.dataset.theme = next;
+}
+
+function setDrawerDock(next: DrawerDock) {
+	drawerDock.value = next;
+	localStorage.setItem("openamx.drawer-dock", next);
+}
+
+function dragDivider(event: PointerEvent, divider: "explorer" | "preview") {
+	const start = event.clientX;
+	const initial = divider === "explorer" ? explorerWidth.value : previewWidth.value;
+	const width = window.document.querySelector<HTMLElement>(".workbench")?.clientWidth ?? 1;
+	const move = (moveEvent: PointerEvent) => {
+		if (divider === "explorer") explorerWidth.value = Math.max(160, Math.min(400, initial + moveEvent.clientX - start));
+		else previewWidth.value = Math.max(25, Math.min(65, initial - ((moveEvent.clientX - start) / width) * 100));
+	};
+	const finish = () => {
+		window.removeEventListener("pointermove", move);
+		window.removeEventListener("pointerup", finish);
+		void props.rpc.request.setPanelSizes({ explorerWidth: explorerWidth.value, previewWidth: previewWidth.value });
+	};
+	window.addEventListener("pointermove", move);
+	window.addEventListener("pointerup", finish, { once: true });
+}
+
+onMounted(() => { setTheme(theme.value); window.addEventListener("keydown", onKeydown); void syncRecents(); });
 onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 function clearView() {
@@ -553,7 +545,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 }
 </script>
 
-<template>
+<!-- Legacy Sprint 036 surface retained only as source context during the shell migration.
 	<main>
 		<header><span class="wordmark">OpenAMX</span><span class="eyebrow">WORKBENCH</span><Button type="button" @click="showPalette">Commands…</Button></header>
 		<section class="toolbar" aria-label="Project controls">
@@ -611,5 +603,30 @@ function displayDiagnostic(item: TextDiagnostic): string {
 			<p v-if="!summary.values.length" class="muted">No current result values.</p>
 		</section>
 		<div v-if="palette" class="palette-backdrop" @click.self="dismissPalette"><section class="palette" role="dialog" aria-modal="true" aria-label="Commands"><input id="command-search" v-model="paletteQuery" aria-label="Search commands" placeholder="Find a command"><div v-for="command in matchingCommands" :key="command.name"><button :disabled="!command.enabled" :title="command.enabled ? command.shortcut : command.reason" @click="dismissPalette(); command.run()">{{ command.name }} <small>{{ command.enabled ? command.shortcut : command.reason }}</small></button></div><p v-if="!matchingCommands.length">No matching commands.</p><button @click="dismissPalette">Close</button></section></div>
+	</main>
+-->
+
+<template>
+	<main :class="`theme-${theme}`">
+		<header class="app-header">
+			<span class="wordmark">OpenAMX</span><span class="project-label">{{ projectRoot || "Welcome" }}</span><span class="header-spacer"></span>
+			<select v-model="theme" aria-label="Theme" @change="setTheme(theme)"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+			<button type="button" @click="showPalette">Commands</button>
+		</header>
+		<WelcomeView v-if="!projectRoot" :recents="recents" :status="status" @open-project="openProject" @restore="restore" @clear-recents="clearRecents" @open-help="status = 'Help and shortcut reference will be completed in Sprint 043.'" />
+		<div v-else class="workbench" :class="[`focus-${focusMode}`, `drawer-${drawerDock}`]" :style="{ '--explorer-width': `${explorerWidth}px`, '--preview-width': `${previewWidth}%` }">
+			<ProjectExplorer :files="files" :workbench="workbench" @open="openDocument" />
+			<div class="divider divider-explorer" role="separator" aria-label="Resize explorer" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'explorer')"></div>
+			<section class="editor-pane" aria-label="Document editor">
+				<WorkbenchTabs :workbench="workbench" @select="selectTab" @close="closeTab" />
+				<div class="pane-header"><strong>{{ document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><button :disabled="!document" type="button" @click="editorElement?.openSearch()">Find</button><button :disabled="!document || pending" type="button" @click="format">Format</button><button :disabled="!document || !document.dirty" type="button" @click="save">Save</button></span></div>
+				<CodeEditor v-if="document?.kind === 'amx'" ref="editorElement" :path="document.path" :text="document.text" @change="updateText" />
+				<div v-else class="file-kind-shell"><strong>{{ document?.kind ?? "document" }}</strong><p>This file shell preserves active-tab identity. Structured editing arrives in Sprint 041.</p></div>
+			</section>
+			<div class="divider divider-preview" role="separator" aria-label="Resize contextual pane" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'preview')"></div>
+			<section class="preview-pane" aria-label="Live HTML preview"><div class="pane-header"><strong>PREVIEW</strong><span class="state" :class="`state-${previewState}`">{{ previewState }}</span><span class="actions"><button type="button" :aria-pressed="focusMode === 'editor'" @click="setFocusMode('editor')">Source</button><button type="button" :aria-pressed="focusMode === 'preview'" @click="setFocusMode('preview')">Preview</button></span></div><iframe v-if="document?.kind === 'amx'" :srcdoc="preview" sandbox="" title="OpenAMX live HTML preview"></iframe><div v-else class="file-kind-shell"><strong>Context</strong><p>Select an AMX document to show its live report preview.</p></div></section>
+			<section class="runtime-drawer" aria-label="Runtime drawer"><div class="drawer-heading"><strong>RUNTIME</strong><span class="state" :class="`state-${runState}`">{{ runState }}</span><span class="actions"><button type="button" :aria-pressed="drawerDock === 'bottom'" @click="setDrawerDock('bottom')">Bottom</button><button type="button" :aria-pressed="drawerDock === 'right'" @click="setDrawerDock('right')">Right</button><button v-if="activeJobId !== null" type="button" @click="cancelActiveJob">Cancel</button></span></div><p class="runtime-status" role="status" aria-live="polite">{{ status }}<span v-if="jobStage"> · {{ jobStage }}</span></p><div class="runtime-details"><p v-for="(item, index) in staticAnalysis.diagnostics" :key="`static-${item.code}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Static {{ item.code }}: {{ displayDiagnostic(item) }}</button></p><p v-for="(item, index) in analysis.diagnostics" :key="`run-${item.code}-${index}`">Run {{ item.code }}: {{ displayDiagnostic(item) }}</p><p v-for="item in summary.values" :key="item.name"><code>{{ item.name }}</code> {{ item.value }}</p><p v-if="!analysis.diagnostics.length && !staticAnalysis.diagnostics.length && !summary.values.length" class="muted">No runtime details.</p></div></section>
+		</div>
+		<CommandPalette :open="palette" :commands="commands" @dismiss="dismissPalette" />
 	</main>
 </template>

@@ -14,6 +14,12 @@
 - OPEN with existing owners: native Electrobun menus/dialogs/window lifecycle and native target platforms remain unavailable; no grid candidate or first 100,000-row viewport proof was selected; Hutch packaging/launch, Office, license/Marketplace and formal accessibility remain separate residuals. Do not treat this Builder evidence as closing them.
 - Sprint 037 handoff is unblocked for the typed operation/RPC foundation. It must retain identity guards, use `cleanupPending` only as close-state evidence, keep parsed data values/private paths out of webview results, and keep output validation/commit authority in Bun.
 
+## V0.6 Sprint 037 Residuals (2026-10-01)
+
+- Which direct SDK-enabled host can exercise native File/Edit/View/Help menus, native dialogs/window lifecycle, and host focus restoration against the shared command registry? Owner: Lead Developer/native acceptance.
+- Which bridge-backed component/browser harness can mount the production Vue entry with deterministic fake RPC state for populated/empty, 1024x720/larger, reduced-motion, focus restoration, theme, divider, and drawer evidence? Owner: Sprint 043 acceptance harness. The plain Vite page cannot construct `Electroview`.
+- Create Project, starter installation, recovery restoration, lifecycle operations, autosave, and trash are deliberately unavailable pending Sprint 038; do not reinterpret disabled welcome routing as implemented behavior.
+
 ## V0.6 Sprint 035 Feasibility and Contract Questions (2026-10-01)
 
 - Which bounded contained source-provider shape lets `loadEntryModule` prefer every relevant open unsaved AMX buffer while preserving canonical imports, cycles, diagnostics, evaluation order, and unchanged CLI behavior?

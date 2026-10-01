@@ -41,6 +41,19 @@
 - A 3,250,001-character, 250,000-row JSON validation job acknowledged cancellation in 0.72 ms after being observed running; worker `close` was observed and no active resources remained. Repeated process RSS deltas varied from -17,141,760 to +22,085,632 bytes and are not isolated worker heap measurements. Worker termination is experimental and non-cooperative; cancellation does not interrupt an atomic rename already started. See evidence for phases and limits.
 - **Recorded exceptions:** no native Electrobun menus/dialog/window checks or native release-host checks were available or attempted; native behavior remains with the Lead Developer/native acceptance owners. No grid/JSON editor candidate or 100,000-row viewport was selected or proved; that remains Sprint 041's gate. Hutch package/launch, Office, license/Marketplace and formal accessibility claims remain separate and open. Existing Vite >500 kB chunk warning remains.
 
+## V0.6 Sprint 037 Architect Preparation (2026-10-01)
+
+- Prepared the four Sprint 037 artifacts in `planning/sprints/0037-v06-workbench-shell-themes-menus-welcome/` for the focused workbench shell, explorer/tabs/content panes, runtime drawer, command registry, themes, responsive layout, welcome view, file-kind shells, and component/browser evidence.
+- Sprint 036 delivered the active-document/job/RPC foundation and is complete with recorded exceptions. Sprint 037 must consume those typed contracts without reintroducing designated-entry state or duplicating trusted main-process authority.
+- Sprint 037 does not implement project lifecycle/autosave/trash/recovery, Inputs/report settings, AMX intelligence, structured data editing, final preview/export UX, or onboarding completion. Those remain in Sprints 038-043.
+- Native menus/dialogs/window lifecycle remain unavailable from the Sprint 035 host evidence and must remain explicitly blocked until direct SDK-enabled host proof. Sprint 038 may begin after shell interaction/state evidence is recorded and project-lifecycle boundaries are stable.
+
+## V0.6 Sprint 037 Builder Outcome (2026-10-01)
+
+- **Disposition: COMPLETE WITH RECORDED EXCEPTIONS.** The desktop shell now composes focused welcome, command-palette, explorer, tabs, AMX/non-AMX content, contextual preview, and runtime-drawer components through typed shell models while retaining the accepted Sprint 036 RPC/job authority boundary. Direct dividers, focus mode, bottom/right drawer docking, and machine-local theme/layout preferences are implemented; the legacy workflow strip and visible format-action buttons are removed.
+- Desktop `bun run test` and `bunx vue-tsc --noEmit` passed. Direct Vite build passed with 47 modules and a 712.73 kB / 247.04 kB gzip JS bundle; the pre-existing >500 kB warning remains. Exact evidence is in `planning/sprints/0037-v06-workbench-shell-themes-menus-welcome/builder-evidence.md`.
+- Browser-only Vite could not mount the production entry because the Electrobun bridge is unavailable; no screenshot or native-host behavior is claimed. Native menus/dialogs/window behavior remains **UNAVAILABLE**. Create/lifecycle/autosave/trash/recovery and complete browser acceptance harness remain Sprint 038/043 work. Sprint 038 is unblocked by the stable shell boundary.
+
 ## Sprint 034 Builder Outcome (2026-10-01)
 
 - Added the runnable typed example `examples/v05-asset-screening.amx`, tested project identity sample `examples/v05-project.json`, focused production CLI coverage, CLI version alignment, and CLI diagnostic path redaction. Report preparation now rejects decoded logo formats that do not match `.png`/`.jpg`; a regression found PNG bytes under `.jpg` were previously accepted.

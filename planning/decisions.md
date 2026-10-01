@@ -15,6 +15,12 @@
 - Keep cancellation truthful by retaining a worker handle until its `close` event and exposing `cleanupPending` separately from cancelled/superseded acknowledgement. Bun Worker termination remains experimental; final destination validation and atomic writes stay in the main process, and an atomic rename already underway is not interruptible.
 - No Lead Developer decision gate was crossed or changed. These are additive foundation APIs; no new product rule, AMX syntax, CLI semantic or VS Code behavior was introduced.
 
+## V0.6 Sprint 037 Builder Decisions (2026-10-01)
+
+- Keep shell presentation state typed in the webview and retain all project, document, job, destination, and filesystem authority in the existing Bun RPC service. `App.vue` composes focused shell components but does not add a second document or job model.
+- Use stable command IDs with enabled predicates and disabled reasons as the shared webview registry for palette and shortcuts. Native menu integration remains intentionally unavailable rather than inferred from registry source.
+- Persist only theme and drawer docking preferences locally in the webview plus the existing bounded service panel sizes. Do not persist document text, mappings, private paths, recovery content, or project lifecycle state.
+
 ## V0.6 Sprint 035 Builder Evidence (2026-10-01)
 
 - Superseded by `V0.6 Sprint 035 Lead Developer Ratification` above. The prior Builder record is retained as an accurate pre-decision snapshot; the Lead Developer subsequently ratified the contract and accepted the three Sprint 036 entry approaches.
