@@ -184,7 +184,7 @@ export function validateDesktopDestination(root: string, target: string, extensi
 	return { path: destination, parent: canonicalParent };
 }
 
-export async function writeDesktopHtml(root: string, target: string, entryPath: string, inputPaths: string[], contents: string): Promise<string> {
+export async function writeDesktopHtml(root: string, target: string, entryPath: string, inputPaths: string[], contents: string, beforeCommit?: () => void): Promise<string> {
 	const prepared = validateDesktopDestination(root, target, ".html", [entryPath, ...inputPaths]);
 	const temporary = join(prepared.parent, `.${basename(prepared.path)}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`);
 	let handle: Awaited<ReturnType<typeof open>> | undefined;
@@ -194,6 +194,7 @@ export async function writeDesktopHtml(root: string, target: string, entryPath: 
 		await handle.sync();
 		await handle.close();
 		handle = undefined;
+		beforeCommit?.();
 		await rename(temporary, prepared.path);
 		return prepared.path;
 	} catch (error) {

@@ -6,7 +6,7 @@ import CodeEditor from "./CodeEditor.vue";
 
 const props = defineProps<{ rpc: DesktopRPCClient }>();
 const document = ref<OpenDocument | null>(null);
-const workbench = ref<WorkbenchState>({ tabs: [], generation: 0 });
+const workbench = ref<WorkbenchState>({ tabs: [], generation: 0, inputSettingsRevision: 0 });
 const projectRoot = ref("");
 const recents = ref<RecentProject[]>([]);
 const search = ref("");
@@ -36,8 +36,10 @@ const inputConfiguration = ref<InputConfiguration>({ inputs: [], diagnostics: []
 const inputOverrides = ref("");
 const validation = ref<"aggregate" | "fail-fast">("aggregate");
 const summary = ref<RunSummary>({ values: [] });
-const runState = ref<"idle" | "running" | "success" | "failure">("idle");
-const previewState = ref<"idle" | "running" | "success" | "failure">("idle");
+const runState = ref<"idle" | "running" | "success" | "failure" | "cancelled" | "stale">("idle");
+const previewState = ref<"idle" | "running" | "success" | "failure" | "cancelled" | "stale">("idle");
+const activeJobId = ref<number | null>(null);
+const jobStage = ref("");
 const exportStatus = ref("");
 const files = ref<string[]>([]);
 const status = ref("Open a project and an .amx file to begin.");
@@ -49,9 +51,57 @@ let exportRequest = 0;
 let navigationRequest = 0;
 let staticRequest = 0;
 let pendingEdit: Promise<void> = Promise.resolve();
+let pendingInputSettings: Promise<void> = Promise.resolve();
 
 function mappings(): string[] {
 	return inputOverrides.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+}
+
+function syncInputSettings(): Promise<void> {
+	const inputMappings = mappings();
+	const selectedValidation = validation.value;
+	pendingInputSettings = pendingInputSettings.then(async () => {
+		const result = await props.rpc.request.setInputSettings({ inputMappings, validation: selectedValidation });
+		if (result.ok) workbench.value = result.state;
+	});
+	return pendingInputSettings;
+}
+
+function cancelActiveJob() {
+	const jobId = activeJobId.value;
+	if (jobId === null) return;
+	activeJobId.value = null;
+	jobStage.value = "";
+	void props.rpc.request.cancelJob({ jobId });
+}
+
+async function executeJob(operation: "run" | "preview" | "html" | "pdf" | "docx", destination?: string) {
+	await pendingEdit;
+	await pendingInputSettings;
+	if (!workbench.value.requestIdentity) await syncWorkbench();
+	const identity = workbench.value.requestIdentity;
+	if (!identity) throw new Error("Open an active AMX document before starting a job.");
+	const started = await props.rpc.request.startJob({ operation, identity, destination });
+	if (!started.ok) throw new Error(started.error.message);
+	let job = started.job;
+	const jobId = job.identity.jobId;
+	activeJobId.value = jobId;
+	jobStage.value = job.stage ?? "";
+	for (let attempt = 0; ["running", "committing"].includes(job.status) && attempt < 600; attempt++) {
+		await new Promise(resolve => setTimeout(resolve, 50));
+		if (activeJobId.value !== jobId) return undefined;
+		const polled = await props.rpc.request.getJob({ jobId });
+		if (!polled.ok) throw new Error(polled.error.message);
+		job = polled.job;
+		jobStage.value = job.stage ?? "";
+	}
+	if (["running", "committing"].includes(job.status)) {
+		void props.rpc.request.cancelJob({ jobId });
+		throw new Error("The desktop job did not complete before its polling limit.");
+	}
+	if (activeJobId.value === jobId) activeJobId.value = null;
+	jobStage.value = "";
+	return job;
 }
 
 function isCurrent(revision: number): boolean {
@@ -66,6 +116,7 @@ function resetResults() {
 }
 
 function invalidateInputResults() {
+	cancelActiveJob();
 	bufferRevision++;
 	previewRequest++;
 	pending.value = false;
@@ -76,7 +127,12 @@ function invalidateInputResults() {
 
 function validationChanged() {
 	invalidateInputResults();
-	void refresh();
+	void syncInputSettings().then(() => refresh());
+}
+
+function inputMappingsChanged() {
+	invalidateInputResults();
+	void syncInputSettings();
 }
 
 async function syncWorkbench() {
@@ -208,6 +264,7 @@ onMounted(() => { window.addEventListener("keydown", onKeydown); void syncRecent
 onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 function clearView() {
+	cancelActiveJob();
 	bufferRevision++;
 	previewRequest++;
 	staticRequest++;
@@ -321,6 +378,7 @@ async function reload() {
 
 async function refresh() {
 	await pendingEdit;
+	await syncInputSettings();
 	if (!document.value) return;
 	const revision = bufferRevision;
 	const request = ++previewRequest;
@@ -328,11 +386,11 @@ async function refresh() {
 	previewState.value = "running";
 	pending.value = true;
 	const selectedInputs = mappings();
-	let rendered: Awaited<ReturnType<typeof props.rpc.request.previewBuffer>>;
+	let rendered: Awaited<ReturnType<typeof executeJob>>;
 	let configured: Awaited<ReturnType<typeof props.rpc.request.getInputConfiguration>>;
 	try {
 		[rendered, configured] = await Promise.all([
-			props.rpc.request.previewBuffer({ inputMappings: selectedInputs, validation: validation.value }),
+			executeJob("preview"),
 			props.rpc.request.getInputConfiguration({ inputMappings: selectedInputs })
 		]);
 	} catch (error) {
@@ -350,14 +408,21 @@ async function refresh() {
 		return;
 	}
 	if (configured.ok) inputConfiguration.value = configured.configuration;
-	if (rendered.ok) {
-		preview.value = rendered.html;
+	if (!rendered) {
+		previewState.value = "cancelled";
+		pending.value = false;
+		return;
+	}
+	if (rendered.status === "succeeded" && rendered.result?.kind === "preview") {
+		preview.value = rendered.result.html ?? "";
 		analysis.value = { diagnostics: rendered.diagnostics, completions: [] };
-		previewState.value = rendered.diagnostics.length ? "failure" : "success";
+		previewState.value = "success";
+	} else if (rendered.status === "cancelled" || rendered.status === "superseded") {
+		previewState.value = rendered.status === "cancelled" ? "cancelled" : "stale";
 	} else {
 		preview.value = "";
 		previewState.value = "failure";
-		analysis.value = { diagnostics: [{ code: rendered.error.code, message: rendered.error.message }], completions: [] };
+		analysis.value = { diagnostics: rendered.diagnostics, completions: [] };
 	}
 	const issues = [...analysis.value.diagnostics, ...inputConfiguration.value.diagnostics];
 	status.value = issues.length ? `${issues.length} issue(s)` : "Preview reflects the current buffer.";
@@ -411,6 +476,7 @@ async function format() {
 
 async function runAnalysis() {
 	await pendingEdit;
+	await syncInputSettings();
 	if (!document.value) return;
 	const revision = bufferRevision;
 	const request = ++runRequest;
@@ -419,9 +485,9 @@ async function runAnalysis() {
 	previewState.value = "idle";
 	runState.value = "running";
 	summary.value = { values: [] };
-	let result: Awaited<ReturnType<typeof props.rpc.request.runBuffer>>;
+	let result: Awaited<ReturnType<typeof executeJob>>;
 	try {
-		result = await props.rpc.request.runBuffer({ inputMappings: mappings(), validation: validation.value });
+		result = await executeJob("run");
 	} catch (error) {
 		if (isCurrent(revision) && request === runRequest) {
 			runState.value = "failure";
@@ -431,97 +497,55 @@ async function runAnalysis() {
 		return;
 	}
 	if (!isCurrent(revision) || request !== runRequest) return;
-	if (!result.ok) {
-		runState.value = "failure";
-		analysis.value = { ...analysis.value, diagnostics: [{ code: result.error.code, message: result.error.message }] };
+	if (!result) { runState.value = "cancelled"; return; }
+	if (result.status === "cancelled" || result.status === "superseded") {
+		runState.value = result.status === "cancelled" ? "cancelled" : "stale";
 		return;
 	}
-	summary.value = result.summary;
+	if (result.status !== "succeeded" || result.result?.kind !== "run") {
+		runState.value = "failure";
+		analysis.value = { ...analysis.value, diagnostics: result.diagnostics };
+		return;
+	}
+	summary.value = result.result.summary ?? { values: [] };
 	analysis.value = { ...analysis.value, diagnostics: result.diagnostics };
 	runState.value = result.diagnostics.length ? "failure" : "success";
 	status.value = result.diagnostics.length ? "Analysis failed for the current buffer." : "Analysis completed for the current buffer.";
 }
 
-async function saveHtml() {
+async function exportDocument(format: "html" | "pdf" | "docx", extension: ".html" | ".pdf" | ".docx") {
 	await pendingEdit;
+	await syncInputSettings();
 	if (!document.value) return;
 	const started = bufferRevision;
 	const request = ++exportRequest;
-	exportStatus.value = "Choosing HTML destination…";
-	const destination = await props.rpc.request.pickDestination({ extension: ".html" });
+	const label = format.toUpperCase();
+	exportStatus.value = `Choosing ${label} destination…`;
+	const destination = await props.rpc.request.pickDestination({ extension });
 	if (!isCurrent(started) || request !== exportRequest) return;
 	if (!destination.ok) { exportStatus.value = destination.error.message; return; }
 	if (destination.cancelled || !destination.path) { exportStatus.value = ""; return; }
 	const revision = bufferRevision;
-	exportStatus.value = "Saving HTML…";
-	let result: Awaited<ReturnType<typeof props.rpc.request.saveHtml>>;
+	exportStatus.value = `Preparing ${label}…`;
+	let result: Awaited<ReturnType<typeof executeJob>>;
 	try {
-		result = await props.rpc.request.saveHtml({ path: destination.path, inputMappings: mappings(), validation: validation.value });
+		result = await executeJob(format, destination.path);
 	} catch (error) {
-		if (isCurrent(revision) && request === exportRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : "HTML save request failed.";
+		if (isCurrent(revision) && request === exportRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : `${label} export request failed.`;
 		return;
 	}
 	if (!isCurrent(revision) || request !== exportRequest) return;
-	if (!result.ok) { exportStatus.value = result.error.message; return; }
-	if (result.diagnostics.length) {
+	if (!result) { exportStatus.value = "Export cancelled."; return; }
+	if (result.status === "cancelled" || result.status === "superseded") { exportStatus.value = result.status === "cancelled" ? "Export cancelled." : "Export superseded."; return; }
+	if (result.status !== "succeeded" || result.result?.kind !== "export") {
 		analysis.value = { ...analysis.value, diagnostics: result.diagnostics };
-		exportStatus.value = "HTML save failed.";
-	} else exportStatus.value = `Saved ${result.path}`;
+		exportStatus.value = `${label} export failed.`;
+	} else exportStatus.value = `Saved ${result.result.path} (${(result.result.bytes ?? 0).toLocaleString()} bytes)`;
 }
 
-async function exportPdf() {
-	await pendingEdit;
-	if (!document.value) return;
-	const started = bufferRevision;
-	const request = ++exportRequest;
-	exportStatus.value = "Choosing PDF destination…";
-	const destination = await props.rpc.request.pickDestination({ extension: ".pdf" });
-	if (!isCurrent(started) || request !== exportRequest) return;
-	if (!destination.ok) { exportStatus.value = destination.error.message; return; }
-	if (destination.cancelled || !destination.path) { exportStatus.value = ""; return; }
-	const revision = bufferRevision;
-	exportStatus.value = "Preparing PDF…";
-	let result: Awaited<ReturnType<typeof props.rpc.request.exportPdf>>;
-	try {
-		result = await props.rpc.request.exportPdf({ path: destination.path, inputMappings: mappings(), validation: validation.value });
-	} catch (error) {
-		if (isCurrent(revision) && request === exportRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : "PDF export request failed.";
-		return;
-	}
-	if (!isCurrent(revision) || request !== exportRequest) return;
-	if (!result.ok) { exportStatus.value = result.error.message; return; }
-	if (result.diagnostics.length) {
-		analysis.value = { ...analysis.value, diagnostics: result.diagnostics };
-		exportStatus.value = "PDF export failed.";
-	} else exportStatus.value = `Saved ${result.path} (${result.bytes.toLocaleString()} bytes)`;
-}
-
-async function exportDocx() {
-	await pendingEdit;
-	if (!document.value) return;
-	const started = bufferRevision;
-	const request = ++exportRequest;
-	exportStatus.value = "Choosing DOCX destination…";
-	const destination = await props.rpc.request.pickDestination({ extension: ".docx" });
-	if (!isCurrent(started) || request !== exportRequest) return;
-	if (!destination.ok) { exportStatus.value = destination.error.message; return; }
-	if (destination.cancelled || !destination.path) { exportStatus.value = ""; return; }
-	const revision = bufferRevision;
-	exportStatus.value = "Preparing DOCX…";
-	let result: Awaited<ReturnType<typeof props.rpc.request.exportDocx>>;
-	try {
-		result = await props.rpc.request.exportDocx({ path: destination.path, inputMappings: mappings(), validation: validation.value });
-	} catch (error) {
-		if (isCurrent(revision) && request === exportRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : "DOCX export request failed.";
-		return;
-	}
-	if (!isCurrent(revision) || request !== exportRequest) return;
-	if (!result.ok) { exportStatus.value = result.error.message; return; }
-	if (result.diagnostics.length) {
-		analysis.value = { ...analysis.value, diagnostics: result.diagnostics };
-		exportStatus.value = "DOCX export failed.";
-	} else exportStatus.value = `Saved ${result.path} (${result.bytes.toLocaleString()} bytes)`;
-}
+const saveHtml = () => exportDocument("html", ".html");
+const exportPdf = () => exportDocument("pdf", ".pdf");
+const exportDocx = () => exportDocument("docx", ".docx");
 
 function displayDiagnostic(item: TextDiagnostic): string {
 	const context = [item.inputName, item.dataPath, item.dataLine ? `data line ${item.dataLine}` : ""].filter(Boolean).join(" · ");
@@ -550,11 +574,12 @@ function displayDiagnostic(item: TextDiagnostic): string {
 		</div>
 		<section class="workflow" :class="{ 'mobile-hidden': sidePanel !== 'inputs' && sidePanel !== 'export' }" aria-label="Analysis workflow">
 			<div class="workflow-grid" :class="{ 'mobile-hidden': sidePanel === 'export' }">
-				<label class="mapping-control">Per-run input paths <span>one name=path mapping per line</span><textarea v-model="inputOverrides" :disabled="!document" aria-label="Per-run input mappings" spellcheck="false" placeholder="assets=data/assets.json" @input="invalidateInputResults" @change="refresh"></textarea></label>
+				<label class="mapping-control">Per-run input paths <span>one name=path mapping per line</span><textarea v-model="inputOverrides" :disabled="!document" aria-label="Per-run input mappings" spellcheck="false" placeholder="assets=data/assets.json" @input="inputMappingsChanged" @change="refresh"></textarea></label>
 				<div class="run-controls">
 					<label>Validation <select v-model="validation" :disabled="!document" @change="validationChanged"><option value="aggregate">Aggregate</option><option value="fail-fast">Fail fast</option></select></label>
 					<div class="button-row"><Button :disabled="!document || runState === 'running'" type="button" @click="runAnalysis">{{ runState === "running" ? "Running…" : "Run analysis" }}</Button><Button :disabled="!document || pending" type="button" @click="refresh">Refresh preview</Button></div>
-					<p class="workflow-status">{{ status }}</p>
+					<p class="workflow-status">{{ status }}<span v-if="jobStage"> · {{ jobStage }}</span></p>
+					<Button v-if="activeJobId !== null" type="button" @click="cancelActiveJob">Cancel current job</Button>
 				</div>
 				<div class="configuration" aria-label="Input configuration sources">
 					<strong>INPUT SOURCES</strong>

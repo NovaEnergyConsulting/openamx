@@ -8,10 +8,36 @@ export interface PingResponse {
 
 export interface DesktopRPCError { code: string; message: string; }
 export type DesktopRPCResponse<T> = { ok: true } & T | { ok: false; error: DesktopRPCError };
-export interface ProjectFile { path: string; kind: "module"; }
-export interface OpenDocument { path: string; text: string; diskHash: string; dirty: boolean; conflict: boolean; revision: number; }
-export interface TabState { path: string; dirty: boolean; conflict: boolean; revision: number; }
-export interface WorkbenchState { tabs: TabState[]; active?: string; generation: number; }
+export type DocumentKind = "amx" | "csv" | "json" | "settings" | "external-data" | "html-output" | "pdf-output" | "docx-output";
+export type ProjectFileKind = Exclude<DocumentKind, "external-data">;
+export interface ProjectFile { path: string; kind: ProjectFileKind; }
+export interface OpenDocument { path: string; kind: DocumentKind; text: string; diskHash: string; dirty: boolean; conflict: boolean; revision: number; }
+export interface TabState { path: string; kind: DocumentKind; dirty: boolean; conflict: boolean; revision: number; }
+export interface ActiveDocumentRequestIdentity {
+	canonicalActiveUri: string;
+	projectGeneration: number;
+	documentRevision: number;
+	inputSettingsRevision: number;
+}
+export interface DesktopJobIdentity extends ActiveDocumentRequestIdentity { jobId: number; }
+export type DesktopJobOperation = "run" | "preview" | "html" | "pdf" | "docx";
+export type DesktopJobStatus = "running" | "committing" | "succeeded" | "failed" | "cancelled" | "superseded";
+export interface DesktopJobResult {
+	kind: "run" | "preview" | "export";
+	summary?: RunSummary;
+	html?: string;
+	path?: string;
+	bytes?: number;
+}
+export interface DesktopJobSnapshot {
+	identity: DesktopJobIdentity;
+	operation: DesktopJobOperation;
+	status: DesktopJobStatus;
+	stage?: string;
+	result?: DesktopJobResult;
+	diagnostics: TextDiagnostic[];
+}
+export interface WorkbenchState { tabs: TabState[]; active?: string; generation: number; inputSettingsRevision: number; requestIdentity?: ActiveDocumentRequestIdentity; }
 export type TransitionAction = "save-all" | "discard-all" | "cancel";
 export interface RecentProject { root: string; active?: string; explorerWidth?: number; previewWidth?: number; }
 export interface TextDiagnostic { code: string; message: string; file?: string; line?: number; column?: number; inputName?: string; dataPath?: string; dataLine?: number; dataColumn?: number; }
@@ -35,6 +61,10 @@ export interface DesktopRPCClient {
 		openDocument(params: { path: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		selectTab(params: { path: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		getWorkbench(): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		setInputSettings(params: { inputMappings: string[]; validation: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		startJob(params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
+		getJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
+		cancelJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		prepareTransition(params: { action: TransitionAction }): Promise<DesktopRPCResponse<{ ready: boolean; state: WorkbenchState }>>;
 		confirmQuit(): Promise<DesktopRPCResponse<{ ready: boolean }>>;
 		getRecents(): Promise<DesktopRPCResponse<{ projects: RecentProject[] }>>;
@@ -76,6 +106,10 @@ export type DesktopRPCSchema = {
 			openDocument: { params: { path: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			selectTab: { params: { path: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			getWorkbench: { params: Record<string, never>; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			setInputSettings: { params: { inputMappings: string[]; validation: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			startJob: { params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
+			getJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
+			cancelJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			prepareTransition: { params: { action: TransitionAction }; response: DesktopRPCResponse<{ ready: boolean; state: WorkbenchState }> };
 			confirmQuit: { params: Record<string, never>; response: DesktopRPCResponse<{ ready: boolean }> };
 			getRecents: { params: Record<string, never>; response: DesktopRPCResponse<{ projects: RecentProject[] }> };

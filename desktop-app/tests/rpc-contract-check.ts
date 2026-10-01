@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
+import { pathToFileURL } from "node:url";
 import { createPingResponse } from "../src/shared/rpc";
 import { createDesktopService } from "../src/bun/desktopService";
 import { chooseSaveDestination, saveDialogCommand } from "../src/bun/nativeSaveDialog";
@@ -40,6 +41,27 @@ assert.equal(project.ok, true);
 const opened = await service.request.openDocument({ path: entry });
 assert.equal(opened.ok, true);
 if (!opened.ok) throw new Error(opened.error.message);
+const initialWorkbench = await service.request.getWorkbench();
+assert.equal(initialWorkbench.ok, true);
+if (!initialWorkbench.ok) throw new Error(initialWorkbench.error.message);
+assert.deepEqual(initialWorkbench.state.requestIdentity, {
+	canonicalActiveUri: pathToFileURL(entry).href,
+	projectGeneration: initialWorkbench.state.generation,
+	documentRevision: opened.document.revision,
+	inputSettingsRevision: 0
+});
+const changedSettings = await service.request.setInputSettings({ inputMappings: [], validation: "fail-fast" });
+assert.equal(changedSettings.ok, true);
+if (!changedSettings.ok) throw new Error(changedSettings.error.message);
+assert.equal(changedSettings.state.inputSettingsRevision, 1);
+const sameSettings = await service.request.setInputSettings({ inputMappings: [], validation: "fail-fast" });
+assert.equal(sameSettings.ok, true);
+if (!sameSettings.ok) throw new Error(sameSettings.error.message);
+assert.equal(sameSettings.state.inputSettingsRevision, 1);
+const resetSettings = await service.request.setInputSettings({ inputMappings: [], validation: "aggregate" });
+assert.equal(resetSettings.ok, true);
+if (!resetSettings.ok) throw new Error(resetSettings.error.message);
+assert.equal(resetSettings.state.inputSettingsRevision, 2);
 const changed = await service.request.updateBuffer({ text: "# Unsaved\n\n```amx\nlet value = 42\n```\n" });
 assert.equal(changed.ok, true);
 if (!changed.ok) throw new Error(changed.error.message);
@@ -136,6 +158,58 @@ assert.equal(overlayPreview.ok, true);
 if (!overlayPreview.ok) throw new Error(overlayPreview.error.message);
 assert.deepEqual(overlayPreview.diagnostics, []);
 assert.ok(overlayPreview.html.length > 0);
+
+const jobMappings = [`amounts=${join(dataRoot, "amounts.json")}`, `rows=${join(dataRoot, "rows.csv")}`];
+const jobSettings = await service.request.setInputSettings({ inputMappings: jobMappings, validation: "aggregate" });
+assert.equal(jobSettings.ok, true);
+if (!jobSettings.ok) throw new Error(jobSettings.error.message);
+const runIdentity = jobSettings.state.requestIdentity;
+assert.ok(runIdentity);
+if (!runIdentity) throw new Error("Active document request identity was not available.");
+const startedRun = await service.request.startJob({ operation: "run", identity: runIdentity });
+assert.equal(startedRun.ok, true);
+if (!startedRun.ok) throw new Error(startedRun.error.message);
+let completedRun = startedRun.job;
+for (let attempt = 0; attempt < 100 && ["running", "committing"].includes(completedRun.status); attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 10));
+	const polled = await service.request.getJob({ jobId: startedRun.job.identity.jobId });
+	assert.equal(polled.ok, true);
+	if (!polled.ok) throw new Error(polled.error.message);
+	completedRun = polled.job;
+}
+assert.equal(completedRun.status, "succeeded");
+assert.equal(completedRun.identity.jobId, startedRun.job.identity.jobId);
+assert.deepEqual(completedRun.result, { kind: "run", summary: { values: [{ name: "result", value: 35 }] } });
+
+const cancelledPdf = join(root, "cancelled-report.pdf");
+writeFileSync(cancelledPdf, "preserve-before-cancel");
+const jobStartState = await service.request.getWorkbench();
+assert.equal(jobStartState.ok, true);
+if (!jobStartState.ok) throw new Error(jobStartState.error.message);
+if (!jobStartState.state.requestIdentity) throw new Error("Active document request identity was not available.");
+const pendingExport = await service.request.startJob({ operation: "pdf", identity: jobStartState.state.requestIdentity, destination: cancelledPdf });
+if (!pendingExport.ok) throw new Error(pendingExport.error.message);
+if (!pendingExport.ok) throw new Error(pendingExport.error.message);
+const cancelledExport = await service.request.cancelJob({ jobId: pendingExport.job.identity.jobId });
+assert.equal(cancelledExport.ok, true);
+if (!cancelledExport.ok) throw new Error(cancelledExport.error.message);
+assert.equal(cancelledExport.job.status, "cancelled");
+assert.equal(readFileSync(cancelledPdf, "utf8"), "preserve-before-cancel");
+
+const previewStartState = await service.request.getWorkbench();
+assert.equal(previewStartState.ok, true);
+if (!previewStartState.ok) throw new Error(previewStartState.error.message);
+if (!previewStartState.state.requestIdentity) throw new Error("Active document request identity was not available.");
+const pendingPreview = await service.request.startJob({ operation: "preview", identity: previewStartState.state.requestIdentity });
+assert.equal(pendingPreview.ok, true);
+if (!pendingPreview.ok) throw new Error(pendingPreview.error.message);
+await service.request.updateBuffer({ path: entry, text: `${entrySource}\n# newer revision\n` });
+const supersededPreview = await service.request.getJob({ jobId: pendingPreview.job.identity.jobId });
+assert.equal(supersededPreview.ok, true);
+if (!supersededPreview.ok) throw new Error(supersededPreview.error.message);
+assert.equal(supersededPreview.job.status, "superseded");
+await service.request.updateBuffer({ path: entry, text: entrySource });
+
 await service.request.selectTab({ path: dependencyPath });
 await service.request.reloadTab({ action: "discard" });
 const activeModule = await service.request.readDocument();
@@ -158,6 +232,8 @@ assert.deepEqual(run.diagnostics, []);
 assert.deepEqual(run.summary.values.find(value => value.name === "result"), { name: "result", value: 25 });
 assert.deepEqual(run.summary.values.map(value => value.name), ["result"]);
 assert.equal(readFileSync(entry, "utf8"), savedSource);
+const resetOperationSettings = await service.request.setInputSettings({ inputMappings: [], validation: "aggregate" });
+assert.equal(resetOperationSettings.ok, true);
 
 const projectConfigDirectory = join(root, ".openamx");
 mkdirSync(projectConfigDirectory);
@@ -379,7 +455,7 @@ assert.equal((await picked.request.closeTab({ path: entry, action: "discard" }))
 const noEntry = await picked.request.runBuffer();
 assert.equal(noEntry.ok, true);
 if (!noEntry.ok) throw new Error(noEntry.error.message);
-assert.match(noEntry.diagnostics[0]?.message ?? "", /Open an \.amx document first/);
+assert.match(noEntry.diagnostics[0]?.message ?? "", /Open an active AMX document/);
 console.log("Sprint 029 picker, tab guard and entry assertions passed");
 
 const sessionFile = join(root, "private-session.json");
@@ -573,3 +649,4 @@ assert.equal(multiState.ok, true);
 if (!multiState.ok) throw new Error(multiState.error.message);
 assert.equal(multiState.state.tabs.filter(tab => tab.dirty).length, 2);
 console.log("Sprint 029 multi-tab save preflight assertions passed");
+console.log("Final active resources:", process.getActiveResourcesInfo());

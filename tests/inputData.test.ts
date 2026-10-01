@@ -5,7 +5,7 @@ import * as path from 'path';
 import { InputDeclarationNode, TypeDeclarationNode } from '../src/ast/types';
 import { AmxError } from '../src/diagnostics/errors';
 import { parseStatements } from '../src/parser/parseStatements';
-import { loadInputValues } from '../src/runtime/inputData';
+import { describeInputSchema, loadInputValues, validateInputText } from '../src/runtime/inputData';
 
 let directory = '';
 
@@ -22,6 +22,34 @@ async function createInput(source: string, filename: string, contents: string | 
 afterEach(async () => {
   if (directory) await rm(directory, { recursive: true, force: true });
   directory = '';
+});
+
+describe('Sprint 036 in-memory input validation', () => {
+  it('reuses strict JSON conversion, defaults, field order, and duplicate-key diagnostics', () => {
+    const statements = parseStatements('type Row {\n  id: String\n  score: Number = 4\n}\ninput rows: Row[]');
+    const declaration = statements.find((statement): statement is InputDeclarationNode => statement.type === 'inputDeclaration')!;
+    const types = new Map(statements.filter((statement): statement is TypeDeclarationNode => statement.type === 'typeDeclaration').map(type => [type.name, type]));
+    expect(describeInputSchema(declaration, types)).toEqual({
+      name: 'rows', type: 'Row[]', acceptedFormats: ['json', 'csv'],
+      fields: [{ name: 'id', type: 'String', optional: false, hasDefault: false }, { name: 'score', type: 'Number', optional: false, hasDefault: true }]
+    });
+
+    const valid = validateInputText('[{"score":2,"id":"A"}]', 'json', declaration, types, 'aggregate', { file: 'entry.amx', dataFile: 'virtual.json' });
+    expect(valid).toEqual({ value: [{ id: 'A', score: 2 }], diagnostics: [] });
+    const invalid = validateInputText('[{"id":"A","id":"B"}]', 'json', declaration, types, 'aggregate', { file: 'entry.amx', dataFile: 'virtual.json' });
+    expect(invalid.value).toBeUndefined();
+    expect(invalid.diagnostics[0]).toMatchObject({ code: 'AMX4003', inputName: 'rows', dataPath: '/0/id', dataFile: 'virtual.json' });
+  });
+
+  it('reuses RFC 4180 CSV parsing and preserves diagnostic locations in memory', () => {
+    const statements = parseStatements('type Row {\n  name: String\n  score: Number\n}\ninput rows: Row[]');
+    const declaration = statements.find((statement): statement is InputDeclarationNode => statement.type === 'inputDeclaration')!;
+    const types = new Map(statements.filter((statement): statement is TypeDeclarationNode => statement.type === 'typeDeclaration').map(type => [type.name, type]));
+    const valid = validateInputText('name,score\r\n"North,\nStation",2\r\n', 'csv', declaration, types);
+    expect(valid).toEqual({ value: [{ name: 'North,\nStation', score: 2 }], diagnostics: [] });
+    const invalid = validateInputText('name,score\nStation,nope\n', 'csv', declaration, types);
+    expect(invalid.diagnostics[0]).toMatchObject({ code: 'AMX4003', inputName: 'rows', dataPath: 'record[1].score', recordNumber: 1 });
+  });
 });
 
 async function captureError(promise: Promise<unknown>): Promise<AmxError> {

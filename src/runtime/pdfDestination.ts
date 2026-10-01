@@ -43,7 +43,7 @@ export async function preparePdfDestination(
   return { path: canonicalDestination, parent: canonicalParent };
 }
 
-export async function writePdfAtomically(destination: PdfDestination, bytes: Uint8Array): Promise<void> {
+export async function writePdfAtomically(destination: PdfDestination, bytes: Uint8Array, beforeCommit?: () => void): Promise<void> {
   const temporary = path.join(destination.parent, `.${path.basename(destination.path)}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`);
   let handle: Awaited<ReturnType<typeof open>> | undefined;
   try {
@@ -52,6 +52,7 @@ export async function writePdfAtomically(destination: PdfDestination, bytes: Uin
     await handle.sync();
     await handle.close();
     handle = undefined;
+    beforeCommit?.();
     await rename(temporary, destination.path);
   } catch (error) {
     if (handle) await handle.close().catch(() => undefined);

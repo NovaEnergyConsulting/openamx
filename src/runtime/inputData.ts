@@ -144,6 +144,92 @@ class StrictJsonParser {
 
 class StopValidation {}
 
+export type InputTextFormat = 'json' | 'csv';
+
+export interface InputTextValidationResult {
+  value?: unknown;
+  diagnostics: AmxDiagnostic[];
+}
+
+export interface InputSchemaField {
+  name: string;
+  type: string;
+  optional: boolean;
+  hasDefault: boolean;
+}
+
+export interface InputSchema {
+  name: string;
+  type: string;
+  acceptedFormats: InputTextFormat[];
+  fields?: InputSchemaField[];
+}
+
+export function describeInputSchema(declaration: InputDeclarationNode, types: Map<string, TypeDeclarationNode>): InputSchema {
+  const recordType = declaration.annotation.type === 'listType'
+    && declaration.annotation.element?.type === 'namedType'
+    ? types.get(declaration.annotation.element.name!)
+    : undefined;
+  const csvCompatible = !!recordType && recordType.fields.every(field => isCsvScalar(field.annotation));
+  return {
+    name: declaration.name,
+    type: typeName(declaration.annotation),
+    acceptedFormats: csvCompatible ? ['json', 'csv'] : ['json'],
+    ...(recordType ? { fields: recordType.fields.map(field => ({
+      name: field.name,
+      type: typeName(field.annotation),
+      optional: field.optional,
+      hasDefault: field.defaultExpression !== undefined
+    })) } : {})
+  };
+}
+
+export function validateInputText(
+  text: string,
+  format: InputTextFormat,
+  declaration: InputDeclarationNode,
+  types: Map<string, TypeDeclarationNode>,
+  mode: ValidationMode = 'aggregate',
+  context: Pick<AmxDiagnostic, 'file' | 'dataFile'> = {}
+): InputTextValidationResult {
+  if (mode !== 'aggregate' && mode !== 'fail-fast') {
+    return { diagnostics: [inputError('AMX4001', `Unsupported validation mode '${safeText(String(mode))}'`, { ...context, inputName: declaration.name })] };
+  }
+  const diagnostics: AmxDiagnostic[] = [];
+  const report = (diagnostic: AmxDiagnostic): void => {
+    diagnostics.push(diagnostic);
+    if (mode === 'fail-fast') throw new StopValidation();
+  };
+  const validationContext = { ...context, inputName: declaration.name, declarationSource: declaration.source };
+  const environment = new Environment(types);
+  let value: unknown;
+  try {
+    if (format === 'json') {
+      let parsed: unknown;
+      try {
+        parsed = new StrictJsonParser(text).parse();
+      } catch (error) {
+        if (error instanceof StopValidation) throw error;
+        const issue = error as JsonIssue;
+        const location = offsetLocation(text, issue.offset);
+        report(inputError(issue.duplicate ? 'AMX4003' : 'AMX4002', issue.message, {
+          ...validationContext,
+          dataPath: issue.dataPath || '',
+          dataLine: location.line,
+          dataColumn: location.column
+        }));
+        return { value: undefined, diagnostics };
+      }
+      value = convertJson(parsed, declaration.annotation, '', declaration.source, types, environment, report, validationContext);
+    } else {
+      value = convertCsv(text, declaration.annotation, declaration.source, types, environment, report, validationContext);
+    }
+  } catch (error) {
+    if (!(error instanceof StopValidation)) throw error;
+  }
+  return { value, diagnostics };
+}
+
 export async function loadInputValues(
   declarations: InputDeclarationNode[],
   types: Map<string, TypeDeclarationNode>,
@@ -185,7 +271,6 @@ export async function loadInputValues(
     }
 
     const values = new Map<string, unknown>();
-    const environment = new Environment(types);
     for (const declaration of declarations) {
       const filePath = mappings.get(declaration.name);
       if (!filePath) {
@@ -220,28 +305,10 @@ export async function loadInputValues(
         continue;
       }
 
-      const context = { file: entryFile, inputName: declaration.name, dataFile: filePath, declarationSource: declaration.source };
-      if (extension === '.json') {
-        let parsed: unknown;
-        try {
-          parsed = new StrictJsonParser(text).parse();
-        } catch (error) {
-          const issue = error as JsonIssue;
-          const location = offsetLocation(text, issue.offset);
-          report(inputError(issue.duplicate ? 'AMX4003' : 'AMX4002', issue.message, {
-            ...context,
-            dataPath: issue.dataPath || '',
-            dataLine: location.line,
-            dataColumn: location.column
-          }));
-          continue;
-        }
-        const value = convertJson(parsed, declaration.annotation, '', declaration.source, types, environment, report, context);
-        values.set(declaration.name, value);
-      } else {
-        const value = convertCsv(text, declaration.annotation, declaration.source, types, environment, report, context);
-        values.set(declaration.name, value);
-      }
+      const validated = validateInputText(text, extension.slice(1) as InputTextFormat, declaration, types, mode, { file: entryFile, dataFile: filePath });
+      diagnostics.push(...validated.diagnostics);
+      if (validated.diagnostics.length > 0 && mode === 'fail-fast') throw new StopValidation();
+      values.set(declaration.name, validated.value);
     }
     if (diagnostics.length) throwInputErrors(diagnostics);
     return values;
