@@ -1,5 +1,16 @@
 # Planning Decisions
 
+## Sprint 033 Direct Provider Implementation (2026-10-01)
+
+- Share the extension's existing canonical, explicit-export import traversal with read-only navigation, locating declarations by checked keyword/name tokens in the original buffer. Recompute from current open documents rather than persisting a workspace index. Match references by resolved URI and declaration-token range; withhold nested uses whose scope/location the parser cannot establish. Hover uses escaped plain text and checker-confirmed binding types only where available.
+- Restrict the initial quick fix to the checker's exact `AMX3001` unknown-visualization diagnostic and one preceding visible view, with same-document-only `WorkspaceEdit` assembled after a document-version/token/live-diagnostic recheck in `resolveCodeAction`. The VS Code 1.85 edit API has no apply-time version precondition; retain this as an explicit acceptance-review limitation rather than promising stale-proof application. Local VSIX verification used `--skip-license` only after the Lead Developer approved proceeding past the known missing-license warning; no project license or Marketplace decision was made.
+
+## V0.5 Sprint 033 Architect Handoff (2026-10-01)
+
+- Sprint 033 owns the direct Node-host extension providers described in the approved V0.5 contract; it depends on Sprint 028, not on the Sprint 029/030 desktop acceptance or Sprint 032 viewer review. Reuse parser/checker/read-only contained module facts and extend them for unsaved dependency buffers and exact symbol identity; withhold uncertain results rather than returning guessed locations or edits.
+- Limit code actions to deterministic diagnostic/range/version-checked `WorkspaceEdit` results with no auto-apply, evaluator, input load, LSP process or arbitrary filesystem writes. Extend the existing formatting/completion/diagnostic host suite, and only describe/package functionality supported by actual Extension Development Host evidence.
+- The Sprint 031 shared-preparation remediation and Sprint 032 automated report work are recorded as implemented below, not as Sprint 034 Lead Developer visual approval or broad Office compatibility. Keep Sprint 029/030 product exceptions, native/Hutch release checks and unresolved license/Marketplace publication independent of Sprint 033 acceptance.
+
 ## Sprint 031 Remediation Authorization and Sprint 032 Continuation (2026-10-01)
 
 - The Lead Developer selected Option 1: complete the Sprint 031 remediation before Sprint 032 presentation work. The accepted implementation boundary is `PreparedReport`: trusted callers prepare validated project/frontmatter identity, bounded sanitized logo bytes, final narrative substitutions and immutable ordered source/view emissions once; HTML/PDF/DOCX serialize only that value.

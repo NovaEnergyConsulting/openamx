@@ -2,12 +2,16 @@ import * as vscode from 'vscode';
 import { registerCompletionProvider } from './providers/completion';
 import { clearDiagnosticsForDocument, createDiagnostics, updateDiagnostics } from './providers/diagnostics';
 import { registerFormattingProvider } from './providers/formatting';
+import { registerNavigationProviders } from './providers/navigation';
+import { registerCodeActions } from './providers/codeActions';
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = createDiagnostics();
   context.subscriptions.push(diagnostics);
   context.subscriptions.push(registerFormattingProvider());
   context.subscriptions.push(registerCompletionProvider());
+  context.subscriptions.push(...registerNavigationProviders());
+  context.subscriptions.push(registerCodeActions());
 
   const update = (document: vscode.TextDocument) => updateDiagnostics(diagnostics, document);
   for (const document of vscode.workspace.textDocuments) update(document);

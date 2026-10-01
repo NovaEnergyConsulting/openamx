@@ -1,10 +1,13 @@
 # OpenAMX for VS Code
 
-OpenAMX 0.4.0 adds formatting for executable `amx` fences, V0.3 keyword/type,
-function, imported-symbol, and in-scope variable completion, plus parser,
-static-check, local-module diagnostics, and V0.4 view completion for `.amx`
-documents. It requires VS Code 1.85.0 or newer. Editor analysis does not load
-CSV/JSON inputs or run the document, so runtime validation remains a CLI concern.
+OpenAMX 0.4.0 supports executable-fence formatting, source-order completion,
+parser/static/local-module diagnostics, hover, go-to-definition, document outline,
+references and a diagnostic-backed quick fix for a missing `show` name when one
+preceding view is visible. Read-only navigation follows explicit contained exports
+and open unsaved dependency buffers; uncertain symbols, non-executable fences and
+standard-library functions without source targets do not navigate. It requires
+VS Code 1.85.0 or newer. Editor analysis does not run documents or load CSV/JSON
+inputs; runtime validation remains a CLI concern.
 
 Current status: the V0.4 feature set is verified on the available Linux/WSL2
 host, but the project remains OPEN pending official native macOS, Windows, and

@@ -1,5 +1,20 @@
 # Planning Questions (Sprint 002)
 
+## Sprint 033 Builder Answers and Residual (2026-10-01)
+
+- Parser locations are one-based UTF-16; declaration statements start at their keyword and imports/fields/selected expression uses carry token locations. Original-buffer token validation supports CRLF and non-BMP prefixes; unsupported function-body/iterator spans are withheld. Checked graph exports/explicit import edges use canonical contained files, reject symlinked path segments and prefer open unsaved VS Code dependencies; reanalysis on every request plus existing diagnostic refresh handles edits/close without a global index. Duplicate declarations and cycle/outside/unknown imports do not get fabricated targets.
+- The only safe proposed fix is a unique prior view for the exact unknown `show` diagnostic. Its edit is constructed during resolution after checking version/token/live diagnostic, with no automatic application or dependency write. **Open acceptance question for Sprint 034/Lead Developer:** does resolve-time guarding meet the sprint's revision-safety intent, given a stale already-resolved `WorkspaceEdit` cannot be made atomically conditional on document version by VS Code 1.85? If strict apply-time protection is required, authorize an alternative guarded command/preview UX before marking that criterion accepted. Additional function/loop scope references require proven parser locations before expansion; no speculative text matching is approved.
+- Local packaging/install and installed-host tests passed; the missing project license was bypassed only for local packaging and Marketplace publication remains unapproved. Sprint 029/030 desktop, Sprint 032 manual visual/Office, native/Hutch and project-license residuals retain their prior owners.
+
+## V0.5 Sprint 033 Provider Proof Questions (2026-10-01)
+
+- Which existing AST/checker source spans prove declaration-token ranges and identity across local scopes, shadowed names and explicit exported imports? Where a token/range is not provable, which provider must return no result instead of relying on raw text matching?
+- How will read-only module analysis prefer each open unsaved dependency buffer over disk, invalidate after edits/close, and still reject symlinks, cycles and files outside the canonical entry root without scanning unrelated workspace files?
+- Which parser/static diagnostics permit a unique, version-checked deterministic code action, and how will Extension Development Host tests prove no stale range or speculative edit is offered after unsaved changes?
+- Which local VSIX package/install/installed-host checks are available in the current environment, and what exact evidence keeps local installation distinct from the open project-license/Marketplace publication decision?
+
+Answer these within the Sprint 033 direct-provider contract or record a concrete blocker. Sprint 032's outstanding viewer/visual review, Sprint 029/030 desktop exceptions and release-engineering residuals retain their existing owners.
+
 ## Sprint 031/Sprint 032 Gate Resolution (2026-10-01)
 
 - **Resolved by Lead Developer Option 1 and Builder evidence:** Sprint 031 remediation is implemented through the shared `PreparedReport` boundary and Sprint 032 adapters consume it without independent identity/assets/evaluation reads. Focused preparation, PDF/DOCX structure and CLI no-write tests plus root/desktop checks are recorded in `planning/state.md`. Sprint 034 retains the separate manual PDF/DOCX viewer and visual-review evidence.

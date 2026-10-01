@@ -3,8 +3,169 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { parseDocumentText } from '../../../src/parser/parseDocument';
+import { declarationRange, tokenRange } from '../providers/symbolRanges';
 
 suite('OpenAMX providers', () => {
+  test('rejects an in-root symlink import without a fabricated definition', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'openamx-navigation-link-'));
+    const entryPath = path.join(directory, 'entry.amx');
+    await fs.writeFile(path.join(directory, 'real.amx'), '```amx\nexport let value = 2\n```');
+    await fs.symlink('real.amx', path.join(directory, 'alias.amx'));
+    await fs.writeFile(entryPath, '```amx\nimport { value } from "./alias.amx"\nlet result = value\n```');
+    try {
+      const entry = await vscode.workspace.openTextDocument(vscode.Uri.file(entryPath));
+      await vscode.window.showTextDocument(entry);
+      assert.equal((await waitForDiagnostics(entry.uri, true))[0].code, 'AMX5001');
+      const definition = await vscode.commands.executeCommand<vscode.Location[]>(
+        'vscode.executeDefinitionProvider', entry.uri, new vscode.Position(2, 14)
+      );
+      assert.equal(definition?.length ?? 0, 0);
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+  test('outlines original record fields and withholds duplicate symbol targets', async () => {
+    const document = await vscode.workspace.openTextDocument({ language: 'amx', content: [
+      '😀 narrative', '```amx', 'type Asset {', 'name: String', '}',
+      'let first: Asset = Asset { name: "one" }', '```'
+    ].join('\r\n') });
+    const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+      'vscode.executeDocumentSymbolProvider', document.uri
+    );
+    assert.equal(symbols?.[0].name, 'Asset');
+    assert.deepEqual(symbols[0].selectionRange, new vscode.Range(2, 5, 2, 10));
+    assert.deepEqual(symbols[0].children[0].selectionRange, new vscode.Range(3, 0, 3, 4));
+    const typeUse = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeDefinitionProvider', document.uri, new vscode.Position(5, 11)
+    );
+    assert.deepEqual(typeUse?.[0].range, symbols[0].selectionRange);
+
+    const ambiguous = await vscode.workspace.openTextDocument({ language: 'amx', content:
+      '```amx\nlet repeat = 1\nlet repeat = 2\nlet result = repeat\n```' });
+    const definition = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeDefinitionProvider', ambiguous.uri, new vscode.Position(3, 16)
+    );
+    assert.equal(definition?.length ?? 0, 0);
+  });
+  test('withholds cyclic targets and shadowed loop uses', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'openamx-navigation-cycle-'));
+    const entryPath = path.join(directory, 'entry.amx');
+    const dependencyPath = path.join(directory, 'dependency.amx');
+    await fs.writeFile(entryPath, '```amx\nimport { other } from "./dependency.amx"\nlet item = 1\nlet result = for item in [2] {\n  return item\n}\n```');
+    await fs.writeFile(dependencyPath, '```amx\nimport { item } from "./entry.amx"\nexport let other = 2\n```');
+    try {
+      const entry = await vscode.workspace.openTextDocument(vscode.Uri.file(entryPath));
+      await vscode.window.showTextDocument(entry);
+      assert.equal((await waitForDiagnostics(vscode.Uri.file(dependencyPath), true))[0].code, 'AMX5003');
+      const cycle = await vscode.commands.executeCommand<vscode.Location[]>(
+        'vscode.executeDefinitionProvider', entry.uri, new vscode.Position(1, 10)
+      );
+      assert.equal(cycle?.length ?? 0, 0);
+      const loop = await vscode.commands.executeCommand<vscode.Location[]>(
+        'vscode.executeDefinitionProvider', entry.uri, new vscode.Position(4, 10)
+      );
+      assert.equal(loop?.length ?? 0, 0);
+      const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+        'vscode.executeDocumentSymbolProvider', entry.uri
+      );
+      assert.ok(symbols?.some(item => item.name === 'item'));
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+  test('offers only a current diagnostic-grounded unique show edit', async () => {
+    const document = await vscode.workspace.openTextDocument({ language: 'amx', content: [
+      '```amx', 'type Item {', 'name: String', '}', 'let rows: Item[] = []',
+      'table report = table(rows) {', 'title: "Report"', 'column name as "Name"', '}', 'show reprot', '```'
+    ].join('\n') });
+    await vscode.window.showTextDocument(document);
+    const diagnostics = await waitForDiagnostics(document.uri, true);
+    assert.equal(diagnostics[0].code, 'AMX3001');
+    const position = new vscode.Range(9, 5, 9, 11);
+    const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+      'vscode.executeCodeActionProvider', document.uri, position, vscode.CodeActionKind.QuickFix.value, 10
+    );
+    const action = actions?.find(item => item.title === "Use visible view 'report'");
+    assert.ok(action?.edit);
+    assert.equal(action.edit.get(document.uri)[0].newText, 'report');
+    assert.equal(document.getText(position), 'reprot');
+    const change = new vscode.WorkspaceEdit();
+    change.replace(document.uri, position, 'report');
+    assert.ok(await vscode.workspace.applyEdit(change));
+    assert.equal((await waitForDiagnostics(document.uri, false)).length, 0);
+    const stale = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+      'vscode.executeCodeActionProvider', document.uri, position, vscode.CodeActionKind.QuickFix.value
+    );
+    assert.ok(!stale?.some(item => item.title === action.title));
+  });
+  test('navigates only parsed tokens and explicitly exported unsaved imports', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'openamx-navigation-'));
+    const dependencyPath = path.join(directory, 'model.amx');
+    const entryPath = path.join(directory, 'entry.amx');
+    await fs.writeFile(dependencyPath, '```amx\nexport let stale = 1\n```');
+    await fs.writeFile(entryPath, '```amx\nimport { fresh } from "./model.amx"\nlet result = fresh\n```');
+    try {
+      const dependency = await vscode.workspace.openTextDocument(vscode.Uri.file(dependencyPath));
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(dependency.uri, new vscode.Range(0, 0, dependency.lineCount, 0), '😀\r\n```amx\r\nexport let fresh: Number = 2\r\n```');
+      assert.ok(await vscode.workspace.applyEdit(edit));
+      const entry = await vscode.workspace.openTextDocument(vscode.Uri.file(entryPath));
+      const definition = await vscode.commands.executeCommand<vscode.Location[]>(
+        'vscode.executeDefinitionProvider', entry.uri, new vscode.Position(2, 14)
+      );
+      assert.equal(definition?.length, 1);
+      assert.equal(definition[0].uri.fsPath, dependencyPath);
+      assert.deepEqual(definition[0].range, new vscode.Range(2, 11, 2, 16));
+      const hover = await vscode.commands.executeCommand<vscode.Hover[]>(
+        'vscode.executeHoverProvider', entry.uri, new vscode.Position(2, 14)
+      );
+      assert.ok(hover?.length);
+      const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+        'vscode.executeDocumentSymbolProvider', dependency.uri
+      );
+      assert.equal(symbols?.[0].name, 'fresh');
+      assert.deepEqual(symbols[0].selectionRange, definition[0].range);
+      const refs = await vscode.commands.executeCommand<vscode.Location[]>(
+        'vscode.executeReferenceProvider', entry.uri, new vscode.Position(2, 14)
+      );
+      assert.equal(refs?.length, 3);
+      const inert = await vscode.commands.executeCommand<vscode.Location[]>(
+        'vscode.executeDefinitionProvider', dependency.uri, new vscode.Position(0, 1)
+      );
+      assert.equal(inert?.length ?? 0, 0);
+      const replacement = new vscode.WorkspaceEdit();
+      replacement.replace(dependency.uri, new vscode.Range(2, 11, 2, 16), 'renamed');
+      assert.ok(await vscode.workspace.applyEdit(replacement));
+      const missing = await vscode.commands.executeCommand<vscode.Location[]>(
+        'vscode.executeDefinitionProvider', entry.uri, new vscode.Position(2, 14)
+      );
+      assert.equal(missing?.length ?? 0, 0);
+      assert.equal((await waitForDiagnostics(entry.uri, true))[0].code, 'AMX5002');
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+  test('locates original UTF-16 tokens in CRLF and unsaved dependency text', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'openamx-symbol-range-'));
+    const dependencyPath = path.join(directory, 'dependency.amx');
+    await fs.writeFile(dependencyPath, '```amx\nexport let stale = 1\n```');
+    try {
+      const dependency = await vscode.workspace.openTextDocument(vscode.Uri.file(dependencyPath));
+      const text = '😀 intro\r\n```amx\r\nexport let fresh: Number = 2\r\n```';
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(dependency.uri, new vscode.Range(0, 0, dependency.lineCount, 0), text);
+      assert.ok(await vscode.workspace.applyEdit(edit));
+      const statement = parseDocumentText(dependency.getText()).nodes[1];
+      assert.equal(statement.type, 'executableCodeBlock');
+      if (statement.type !== 'executableCodeBlock') return;
+      assert.deepEqual(declarationRange(dependency, statement.statements[0]), new vscode.Range(2, 11, 2, 16));
+      assert.deepEqual(tokenRange(dependency, { line: 3, column: 12 }, 'fresh'), new vscode.Range(2, 11, 2, 16));
+      assert.equal(tokenRange(dependency, { line: 3, column: 12 }, 'stale'), undefined);
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
   setup(async () => {
     const extension = vscode.extensions.getExtension('EngineersTools.openamx-vscode');
     assert.ok(extension, 'OpenAMX extension should be available in the test host');

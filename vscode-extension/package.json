@@ -1,7 +1,7 @@
 {
   "name": "openamx-vscode",
   "displayName": "OpenAMX",
-  "description": "Formatting, completion, and parser diagnostics for OpenAMX documents.",
+  "description": "Formatting, completion, static diagnostics, navigation, outline, references and contextual fixes for OpenAMX documents.",
   "version": "0.4.0",
   "publisher": "EngineersTools",
   "repository": {

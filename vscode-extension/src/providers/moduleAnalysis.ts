@@ -30,15 +30,18 @@ export interface EditorAnalysis {
   importedTypes: Map<string, TypeDeclarationNode>;
   importedFunctions: Map<string, FunctionDeclarationNode>;
   importedBindings: Map<string, CheckedType>;
+  bindingTypes?: Map<string, CheckedType>;
+  modules?: Map<string, ModuleRecord>;
 }
 
-interface ModuleRecord {
+export interface ModuleRecord {
   file: string;
   document: OpenAmxDocument;
   checkResult: ModuleCheckResult;
   importedTypes: Map<string, TypeDeclarationNode>;
   importedFunctions: Map<string, FunctionDeclarationNode>;
   importedBindings: Map<string, CheckedType>;
+  importTargets: Map<string, string>;
 }
 
 interface ImportEdge {
@@ -132,10 +135,24 @@ export function analyzeEditorDocument(text: string, entryFile?: string): EditorA
     const importedFunctions = new Map<string, FunctionDeclarationNode>();
     const importedBindings = new Map<string, CheckedType>();
     const importedNames = new Set<string>();
+    const importTargets = new Map<string, string>();
 
     for (const importNode of imports) {
       validateImportPath(importNode, file, entryRoot);
       const targetPath = path.resolve(path.dirname(file), importNode.path);
+      const relativeTarget = path.relative(entryRoot, targetPath);
+      let segment = entryRoot;
+      for (const part of relativeTarget.split(path.sep)) {
+        segment = path.join(segment, part);
+        try {
+          if (fs.lstatSync(segment).isSymbolicLink()) {
+            issue('AMX5001', `Module '${importNode.path}' uses a symbolic link`, file, importNode.pathSource);
+          }
+        } catch (error) {
+          if (error instanceof AmxError) throw error;
+          issue('AMX5001', `Module '${importNode.path}' could not be found`, file, importNode.pathSource);
+        }
+      }
       let targetFile: string;
       try {
         targetFile = fs.realpathSync(targetPath);
@@ -172,6 +189,7 @@ export function analyzeEditorDocument(text: string, entryFile?: string): EditorA
         } else {
           issue('AMX5002', `Module '${importNode.path}' does not export '${importedName.name}'`, file, importedName.source);
         }
+        importTargets.set(importedName.name, targetFile!);
       }
     }
 
@@ -190,7 +208,7 @@ export function analyzeEditorDocument(text: string, entryFile?: string): EditorA
     }
 
     visiting.pop();
-    const record = { file, document, checkResult, importedTypes, importedFunctions, importedBindings };
+    const record = { file, document, checkResult, importedTypes, importedFunctions, importedBindings, importTargets };
     resolved.set(file, record);
     return record;
   };
@@ -200,7 +218,8 @@ export function analyzeEditorDocument(text: string, entryFile?: string): EditorA
     document: result.document,
     importedTypes: result.importedTypes,
     importedFunctions: result.importedFunctions,
-    importedBindings: result.importedBindings
+    importedBindings: result.importedBindings,
+    modules: resolved
   };
 }
 
