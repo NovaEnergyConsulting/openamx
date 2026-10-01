@@ -57,7 +57,8 @@ cli
   .option("--out <path>", "Output PDF or DOCX file path")
   .option("--input <mapping>", "Map a logical input to a data file", { type: [String] })
   .option("--validation <mode>", "Validation mode: aggregate or fail-fast")
-  .action(async (format: string, input: string, options: { out?: string; input?: string[]; validation?: string }) => {
+  .option("--project-root <path>", "Project root for report metadata and logo assets")
+  .action(async (format: string, input: string, options: { out?: string; input?: string[]; validation?: string; projectRoot?: string }) => {
     try {
       const inputMappings = suppliedMappings(options, "input");
       if (format === "docx") {
@@ -66,7 +67,7 @@ cli
           inputMappings,
           validation: options.validation as "aggregate" | "fail-fast" | undefined
         });
-        const bytes = await serializeDocxReport(prepareDocxReport(doc, env));
+        const bytes = await serializeDocxReport(prepareDocxReport(doc, env, { title: undefined, author: undefined }));
         await writeDocxAtomically(destination, bytes);
         console.log(`Exported DOCX to ${destination.path}`);
         return;
@@ -77,7 +78,7 @@ cli
         inputMappings,
         validation: options.validation as "aggregate" | "fail-fast" | undefined
       });
-      const bytes = await serializePdfReport(preparePdfReport(doc, env));
+      const bytes = await serializePdfReport(preparePdfReport(doc, env, {}));
       await writePdfAtomically(destination, bytes);
       console.log(`Exported PDF to ${destination.path}`);
     } catch (err: any) {
@@ -96,7 +97,8 @@ cli
   .option("--input <mapping>", "Map a logical input to a data file", { type: [String] })
   .option("--output <mapping>", "Write an exported value to a JSON or CSV file", { type: [String] })
   .option("--validation <mode>", "Validation mode: aggregate or fail-fast")
-  .action(async (input: string, options: { out?: string; input?: string[]; output?: string[]; validation?: string }) => {
+  .option("--project-root <path>", "Project root for report metadata and logo assets")
+  .action(async (input: string, options: { out?: string; input?: string[]; output?: string[]; validation?: string; projectRoot?: string }) => {
     try {
       const outPath = options.out || input.replace(/\.amx$/, ".html");
       const inputMappings = suppliedMappings(options, "input");
@@ -107,7 +109,7 @@ cli
         outputMappings,
         reservedOutputPath: outputMappings?.length ? outPath : undefined
       });
-      const html = renderHtml(doc, input, env);
+      const html = renderHtml(doc, input, env, { projectRoot: options.projectRoot });
       const serialized = serializeOutputs(outputs, env);
       await writeOutputs([{ path: outPath, contents: html }, ...serialized]);
       console.log(`Rendered to ${outPath}`);

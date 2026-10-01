@@ -28,6 +28,10 @@ export interface PreparedDocxReport {
 export function prepareDocxReport(doc: OpenAmxDocument, env: Environment, options: DocxReportOptions = {}): PreparedDocxReport {
   const children: Array<Paragraph | Table> = [];
   const emissionsByNode = new Map<number, ViewEmission[]>();
+  const metadata = (doc.metadata ?? {}) as Record<string, unknown>;
+  const report = metadata.report && typeof metadata.report === 'object' && !Array.isArray(metadata.report) ? metadata.report as Record<string, unknown> : {};
+  const sourceVisible = report.sourceVisible === undefined ? true : Boolean(report.sourceVisible);
+
   for (const emission of env.viewEmissions) {
     const emissions = emissionsByNode.get(emission.documentNodeIndex) ?? [];
     emissions.push(emission);
@@ -38,16 +42,17 @@ export function prepareDocxReport(doc: OpenAmxDocument, env: Environment, option
     if (node.type === 'narrative') {
       addNarrative(children, node.content, env);
     } else if (node.type === 'executableCodeBlock') {
-      children.push(new Paragraph({
-        style: 'Normal',
-        children: [new TextRun({ text: formatAmx(node.content), font: 'Courier New', size: 18 })]
-      }));
+      if (sourceVisible) {
+        children.push(new Paragraph({
+          style: 'Normal',
+          children: [new TextRun({ text: formatAmx(node.content), font: 'Courier New', size: 18 })]
+        }));
+      }
       for (const emission of emissionsByNode.get(nodeIndex) ?? []) addEmission(children, emission);
     }
   }
 
-  const metadata = doc.metadata as Record<string, unknown> | undefined;
-  const title = options.title ?? (typeof metadata?.title === 'string' ? metadata.title : 'OpenAMX Document');
+  const title = options.title ?? (typeof metadata.title === 'string' ? metadata.title : typeof report.title === 'string' ? report.title : 'OpenAMX Document');
   const document = new Document({
     title,
     creator: options.author ?? 'OpenAMX',

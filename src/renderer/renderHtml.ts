@@ -1,3 +1,5 @@
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { marked } from 'marked';
 import { OpenAmxDocument } from '../ast/types';
 import { parseExpression } from '../parser/parseExpression';
@@ -6,6 +8,23 @@ import { evaluateDocumentEnvironment } from '../runtime/evaluateDocument';
 import { Environment } from '../runtime/environment';
 import type { ViewDataValue, ViewEmission, TableViewEmission, ChartViewEmission } from '../runtime/environment';
 import { formatAmx } from '../formatter/formatAmx';
+
+export interface ReportIdentityOptions {
+  report?: Record<string, unknown>;
+  projectRoot?: string;
+}
+
+export interface ResolvedReportIdentity {
+  organization?: string;
+  logo?: string;
+  logoAlt?: string;
+  accent?: string;
+  author?: string;
+  status?: string;
+  classification?: string;
+  footer?: string;
+  sourceVisible: boolean;
+}
 
 /**
  * Render an OpenAmxDocument to a complete standalone HTML5 document.
@@ -18,8 +37,9 @@ import { formatAmx } from '../formatter/formatAmx';
  * - Output is deterministic for the supported Markdown subset.
  * - Errors inside {{ }} (e.g. AMX1004) are surfaced with the same AmxError semantics.
  */
-export function renderHtml(doc: OpenAmxDocument, file?: string, env?: Environment): string {
+export function renderHtml(doc: OpenAmxDocument, file?: string, env?: Environment, options?: ReportIdentityOptions): string {
   const environment = env ?? evaluateDocumentEnvironment(doc, file);
+  const resolvedReport = resolveReportIdentity(doc, options?.projectRoot, options?.report);
   const emissionsByNode = new Map<number, ViewEmission[]>();
   for (const emission of environment.viewEmissions) {
     const emissions = emissionsByNode.get(emission.documentNodeIndex) ?? [];
@@ -28,17 +48,23 @@ export function renderHtml(doc: OpenAmxDocument, file?: string, env?: Environmen
   }
 
   const bodyFragments: string[] = [];
+  const sourceVisible = resolvedReport.sourceVisible !== false;
+  const header = renderReportHeader(resolvedReport, file);
+
+  if (header) {
+    bodyFragments.push(header);
+  }
 
   for (const [nodeIndex, node] of doc.nodes.entries()) {
     if (node.type === 'narrative') {
       const substituted = substituteInlines(node.content, environment, file, node.source?.line);
-      // marked.parse returns string | Promise<string> in v14 depending on configuration.
-      // For our deterministic sync usage (no async extensions) it is always a string.
       const htmlFragment = marked.parse(substituted) as string;
       bodyFragments.push(htmlFragment);
     } else if (node.type === 'executableCodeBlock') {
-      const formatted = formatAmx(node.content);
-      bodyFragments.push(`<pre><code class="language-amx">${escapeHtml(formatted)}</code></pre>`);
+      if (sourceVisible) {
+        const formatted = formatAmx(node.content);
+        bodyFragments.push(`<pre><code class="language-amx">${escapeHtml(formatted)}</code></pre>`);
+      }
       for (const emission of emissionsByNode.get(nodeIndex) ?? []) {
         bodyFragments.push(renderViewEmission(emission));
       }
@@ -51,16 +77,15 @@ export function renderHtml(doc: OpenAmxDocument, file?: string, env?: Environmen
       : 'OpenAMX Document';
 
   const bodyHtml = bodyFragments.join('');
-
   const escapedTitle = escapeHtml(title);
-
+  const accentStyle = resolvedReport.accent ? `<style>:root{--openamx-accent:${resolvedReport.accent};}</style>` : '';
   const viewAssets = environment.viewEmissions.length > 0 ? renderViewAssets() : '';
 
   return `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>${escapedTitle}</title>${viewAssets ? `\n${viewAssets}` : ''}
+  <title>${escapedTitle}</title>${accentStyle ? `\n${accentStyle}` : ''}${viewAssets ? `\n${viewAssets}` : ''}
 </head>
 <body>
 ${bodyHtml}</body>
@@ -170,6 +195,113 @@ function renderViewAssets(): string {
 <script>
 document.addEventListener('DOMContentLoaded',()=>{for(const root of document.querySelectorAll('[data-view].openamx-table')){const table=root.querySelector('table[id$="-interactive"]'),body=table?.querySelector('tbody'),filter=root.querySelector('[data-filter]'),size=root.querySelector('[data-page-size]'),status=root.querySelector('[data-status]'),pageLabel=root.querySelector('[data-page-label]');if(!table||!body||!filter||!size||!status||!pageLabel)continue;const payload=JSON.parse(document.getElementById(root.dataset.view+'-data').textContent),rows=[...body.querySelectorAll('tr')],original=rows.map((row,index)=>({row,index,text:row.textContent?.toLowerCase()??''}));let page=0,pageSize=25,sortField='',ascending=true;const update=()=>{let visible=original.filter(item=>item.text.includes(filter.value.toLowerCase()));if(sortField){visible.sort((a,b)=>{const av=payload.rows[a.index][sortField],bv=payload.rows[b.index][sortField];if(av===null&&bv!==null)return 1;if(av!==null&&bv===null)return -1;let result=av===bv?0:av<bv?-1:1;return (ascending?result:-result)||a.index-b.index})}visible.forEach(item=>body.appendChild(item.row));const pages=Math.max(1,Math.ceil(visible.length/pageSize));page=Math.min(page,pages-1);rows.forEach(row=>row.hidden=true);visible.slice(page*pageSize,(page+1)*pageSize).forEach(item=>item.row.hidden=false);status.textContent=visible.length===0?(filter.value?'No matching rows':'No rows'):'Showing '+(page*pageSize+1)+'-'+Math.min((page+1)*pageSize,visible.length)+' of '+visible.length+' rows';pageLabel.textContent='Page '+(page+1)+' of '+pages;root.querySelector('[data-page="previous"]').disabled=page===0;root.querySelector('[data-page="next"]').disabled=page>=pages-1};filter.addEventListener('input',()=>{page=0;update()});size.addEventListener('change',()=>{pageSize=Number(size.value);page=0;update()});root.querySelectorAll('[data-sort]').forEach(button=>button.addEventListener('click',()=>{const next=button.dataset.sort??'';ascending=sortField===next?!ascending:true;sortField=next;table.querySelectorAll('th').forEach(th=>th.setAttribute('aria-sort',th.querySelector('button')===button?(ascending?'ascending':'descending'):'none'));page=0;update()}));root.querySelector('[data-page="previous"]').addEventListener('click',()=>{page--;update()});root.querySelector('[data-page="next"]').addEventListener('click',()=>{page++;update()});update()}});
 </script>`;
+}
+
+function renderReportHeader(report: ResolvedReportIdentity, _file?: string): string {
+  const org = report.organization?.trim();
+  const author = report.author?.trim();
+  const status = report.status?.trim();
+  const classification = report.classification?.trim();
+  const footer = report.footer?.trim();
+  const logo = report.logo?.trim();
+
+  if (!org && !author && !status && !classification && !logo && !footer) {
+    return '';
+  }
+
+  const logoMarkup = logo ? `<img class="openamx-report-logo" src="${escapeHtml(logo)}" alt="${escapeHtml(report.logoAlt ?? 'Report logo')}" />` : '';
+  const meta = [
+    org ? `<div class="openamx-report-attr">${escapeHtml(org)}</div>` : '',
+    author ? `<div class="openamx-report-attr">Author: ${escapeHtml(author)}</div>` : '',
+    status ? `<div class="openamx-report-attr">Status: ${escapeHtml(status)}</div>` : '',
+    classification ? `<div class="openamx-report-attr">Classification: ${escapeHtml(classification)}</div>` : '',
+    footer ? `<div class="openamx-report-attr">${escapeHtml(footer)}</div>` : '',
+  ].filter(Boolean).join('');
+
+  return `<header class="openamx-report-header"><div class="openamx-report-identity">${logoMarkup}<div class="openamx-report-meta">${meta || '<div class="openamx-report-attr">OpenAMX report</div>'}</div></div></header>`;
+}
+
+function resolveReportIdentity(doc: OpenAmxDocument, projectRoot?: string, override?: Record<string, unknown>): ResolvedReportIdentity {
+  const metadata = (doc.metadata ?? {}) as Record<string, unknown>;
+  const frontMatterReport = isRecord(metadata.report) ? metadata.report : {};
+  const configReport = readProjectReportConfig(projectRoot);
+  const merged = { ...configReport, ...frontMatterReport, ...override };
+  const sourceVisible = merged.sourceVisible === undefined ? true : Boolean(merged.sourceVisible);
+  const logo = typeof merged.logo === 'string' ? merged.logo : undefined;
+
+  return {
+    organization: stringOrUndefined(merged.organization),
+    logo: resolveLogoPath(projectRoot, logo),
+    logoAlt: stringOrUndefined(merged.logoAlt),
+    accent: stringOrUndefined(merged.accent),
+    author: stringOrUndefined(merged.author),
+    status: stringOrUndefined(merged.status),
+    classification: stringOrUndefined(merged.classification),
+    footer: stringOrUndefined(merged.footer),
+    sourceVisible,
+  };
+}
+
+function stringOrUndefined(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readProjectReportConfig(projectRoot?: string): Record<string, unknown> {
+  if (!projectRoot || !existsSync(projectRoot)) {
+    return {};
+  }
+
+  const configPath = resolve(projectRoot, '.openamx', 'project.json');
+  if (!existsSync(configPath)) {
+    return {};
+  }
+
+  try {
+    const raw = readFileSync(configPath, 'utf8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return isRecord(parsed.report) ? parsed.report : {};
+  } catch {
+    return {};
+  }
+}
+
+function resolveLogoPath(projectRoot: string | undefined, logo: string | undefined): string | undefined {
+  if (!logo) {
+    return undefined;
+  }
+
+  if (/^data:/i.test(logo)) {
+    return logo;
+  }
+
+  const resolved = projectRoot ? resolve(projectRoot, logo) : resolve(logo);
+  if (!existsSync(resolved)) {
+    return undefined;
+  }
+
+  try {
+    const stat = statSync(resolved);
+    if (!stat.isFile()) {
+      return undefined;
+    }
+  } catch {
+    return undefined;
+  }
+
+  const base64 = readFileSync(resolved).toString('base64');
+  const extension = logo.split('.').pop()?.toLowerCase();
+  const mime = extension === 'svg'
+    ? 'image/svg+xml'
+    : extension === 'jpg' || extension === 'jpeg'
+      ? 'image/jpeg'
+      : extension === 'png'
+        ? 'image/png'
+        : 'application/octet-stream';
+  return `data:${mime};base64,${base64}`;
 }
 
 function substituteInlines(

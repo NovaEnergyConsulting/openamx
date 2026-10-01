@@ -142,6 +142,31 @@ describe("renderer - title and determinism", () => {
     expect(html).toContain("<title>My Report</title>");
   });
 
+  it("applies resolved report identity metadata and hides source when explicitly disabled", () => {
+    const doc: OpenAmxDocument = parseDocumentText(`---
+title: My Report
+report:
+  organization: "Acme Utilities"
+  author: "A. Analyst"
+  footer: "Confidential"
+  accent: "#123456"
+  sourceVisible: false
+---
+
+# Hi
+
+\`\`\`amx
+let value = 1
+\`\`\`
+`);
+    const html = renderHtml(doc, undefined, undefined, { report: doc.metadata.report as Record<string, unknown> });
+    expect(html).toContain("Acme Utilities");
+    expect(html).toContain("A. Analyst");
+    expect(html).toContain("Confidential");
+    expect(html).toContain("#123456");
+    expect(html).not.toContain('<pre><code class="language-amx">');
+  });
+
   it("falls back to 'OpenAMX Document' when no title", () => {
     const doc = makeDocFromBody("# Hi", {});
     const html = renderHtml(doc);

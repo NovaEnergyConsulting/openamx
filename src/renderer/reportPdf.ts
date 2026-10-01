@@ -33,6 +33,10 @@ pdfmake.setFonts({
 export function preparePdfReport(doc: OpenAmxDocument, env: Environment, options: PdfReportOptions = {}): PreparedPdfReport {
   const content: unknown[] = [];
   const emissionsByNode = new Map<number, ViewEmission[]>();
+  const metadata = (doc.metadata ?? {}) as Record<string, unknown>;
+  const report = metadata.report && typeof metadata.report === 'object' && !Array.isArray(metadata.report) ? metadata.report as Record<string, unknown> : {};
+  const sourceVisible = report.sourceVisible === undefined ? true : Boolean(report.sourceVisible);
+
   for (const emission of env.viewEmissions) {
     const emissions = emissionsByNode.get(emission.documentNodeIndex) ?? [];
     emissions.push(emission);
@@ -43,13 +47,12 @@ export function preparePdfReport(doc: OpenAmxDocument, env: Environment, options
     if (node.type === 'narrative') {
       addNarrative(content, node.content, env);
     } else if (node.type === 'executableCodeBlock') {
-      content.push({ text: formatAmx(node.content), style: 'source' });
+      if (sourceVisible) content.push({ text: formatAmx(node.content), style: 'source' });
       for (const emission of emissionsByNode.get(nodeIndex) ?? []) addEmission(content, emission);
     }
   }
 
-  const metadata = doc.metadata as Record<string, unknown> | undefined;
-  const title = options.title ?? (typeof metadata?.title === 'string' ? metadata.title : 'OpenAMX Document');
+  const title = options.title ?? (typeof metadata.title === 'string' ? metadata.title : typeof report.title === 'string' ? report.title : 'OpenAMX Document');
   return {
     definition: {
       info: { title, author: options.author ?? 'OpenAMX' },
