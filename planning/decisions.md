@@ -8,6 +8,13 @@
 - Accepted cancellable-job approach: trusted Bun workers perform cancellable/supersedable preview/run, input-validation, and report-preparation/serialization work; the main process owns identity checks, path/destination validation, and final atomic writes. Workers and typed progress/results are bounded, local paths are redacted, and stale/cancelled work cannot commit. Bun Worker termination remains experimental; Sprint 036 must validate real job cleanup and limitations rather than claim unsupported cancellation guarantees.
 - Sprint 035 is **ACCEPTED WITH RECORDED EXCEPTIONS**, not a claim that native APIs or a grid candidate passed. Native behavior is assigned to Lead Developer host evidence before the dependent native acceptance in Sprints 037-039/042. Data-editor candidate/100k viewport proof is assigned to Lead Developer / Sprint 041 Builder before Sprint 041 selection or implementation. Production worker cleanup/performance is assigned to Sprint 036/042 evidence. Each residual includes impact and fallback in `planning/state.md` and Sprint 035 acceptance.
 
+## V0.6 Sprint 036 Builder Decisions (2026-10-01)
+
+- Preserve the Lead Developer-accepted identity, overlay and worker boundaries. Add `inputInspection` as an opt-in `loadEntryModule` mode that shares canonical import resolution and unsaved source overlays, validates supplied JSON/CSV in memory, returns schema/diagnostics/export metadata, and skips AMX evaluation. Default loader and CLI behavior remain unchanged.
+- Add `validate-data` to the existing typed worker job protocol. The Bun service validates the active identity and bounded request before worker creation; the worker never returns parsed data values or external mapped-data paths. The result advertises only schemas for explicitly exported values and formats supported by the existing serializers.
+- Keep cancellation truthful by retaining a worker handle until its `close` event and exposing `cleanupPending` separately from cancelled/superseded acknowledgement. Bun Worker termination remains experimental; final destination validation and atomic writes stay in the main process, and an atomic rename already underway is not interruptible.
+- No Lead Developer decision gate was crossed or changed. These are additive foundation APIs; no new product rule, AMX syntax, CLI semantic or VS Code behavior was introduced.
+
 ## V0.6 Sprint 035 Builder Evidence (2026-10-01)
 
 - Superseded by `V0.6 Sprint 035 Lead Developer Ratification` above. The prior Builder record is retained as an accurate pre-decision snapshot; the Lead Developer subsequently ratified the contract and accepted the three Sprint 036 entry approaches.

@@ -161,7 +161,8 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				try { return allowedFile(item.root, resolve(item.root, path)) ? relative(item.root, resolve(item.root, path)) : undefined; }
 				catch { return undefined; }
 			}
-			return { root: item.root, active: safePath(item.active) ?? safePath(item.entry),
+			const legacy = item as RecentProject & { entry?: unknown };
+			return { root: item.root, active: safePath(item.active) ?? safePath(legacy.entry),
 				explorerWidth: typeof item.explorerWidth === "number" && item.explorerWidth >= 160 && item.explorerWidth <= 400 ? item.explorerWidth : undefined,
 				previewWidth: typeof item.previewWidth === "number" && item.previewWidth >= 25 && item.previewWidth <= 65 ? item.previewWidth : undefined };
 		});
@@ -238,6 +239,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			identity: job.identity,
 			operation: job.operation,
 			status: job.status,
+			cleanupPending: !!job.worker,
 			stage: job.stage,
 			result: job.result,
 			diagnostics: job.diagnostics.slice(0, 100)
@@ -249,8 +251,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		job.status = status;
 		job.stage = undefined;
 		job.result = undefined;
-		job.worker?.terminate();
-		job.worker = undefined;
+		if (job.worker) void job.worker.terminate();
 	}
 
 	function invalidateStaleJobs(): void {
@@ -335,17 +336,39 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			job.stage = undefined;
 			return;
 		}
+		if (message.result.kind === "data-validation") {
+			job.result = {
+				kind: "data-validation", valid: message.result.valid, schema: message.result.schema,
+				outputs: message.result.outputs,
+				...(message.result.outputsTruncated ? { outputsTruncated: true } : {})
+			};
+			job.diagnostics = message.result.diagnostics;
+			job.status = "succeeded";
+			job.stage = undefined;
+			return;
+		}
 		job.stage = "prepared";
 		void commitJobExport(job, message.result).catch(error => failJob(job, error));
 	}
 
-	function beginJob(operation: DesktopJobOperation, identity: ActiveDocumentRequestIdentity, destination?: string): DesktopRPCResponse<{ job: DesktopJobSnapshot }> {
+	function beginJob(
+		operation: DesktopJobOperation,
+		identity: ActiveDocumentRequestIdentity,
+		destination?: string,
+		inputInspection?: { name: string; format: "json" | "csv"; text: string }
+	): DesktopRPCResponse<{ job: DesktopJobSnapshot }> {
 		let worker: Worker | undefined;
 		try {
 			const { document, sourceOverlay } = requireActive();
 			if (!document.path.endsWith(".amx")) throw new Error("Run, preview, and report export require an active .amx document.");
 			if (!identityMatchesCurrent(identity)) return errorResult({ code: "DESKTOP_STALE", message: "The active document or settings changed before the job started." });
-			if (!["run", "preview", "html", "pdf", "docx"].includes(operation)) throw new Error("Unsupported desktop job operation.");
+			if (!["run", "preview", "html", "pdf", "docx", "validate-data"].includes(operation)) throw new Error("Unsupported desktop job operation.");
+			if (operation === "validate-data") {
+				if (!inputInspection || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(inputInspection.name)
+					|| (inputInspection.format !== "json" && inputInspection.format !== "csv")
+					|| typeof inputInspection.text !== "string" || inputInspection.text.length > 20_000_000)
+					throw new Error("In-memory data inspection exceeds its request bounds or has an invalid input.");
+			} else if (inputInspection) throw new Error("Input inspection is valid only for a validate-data job.");
 			const extension = operation === "html" ? ".html" : operation === "pdf" ? ".pdf" : operation === "docx" ? ".docx" : undefined;
 			if (extension && (!destination || extname(destination) !== extension)) throw new Error(`A ${extension} destination is required.`);
 			for (const job of jobs.values()) if (job.status === "running") terminateJob(job, "superseded");
@@ -353,7 +376,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			const jobId = ++nextJobId;
 			latestJobId = jobId;
 			const job: ActiveJob = {
-				identity: { ...identity, jobId }, operation, status: "running", stage: "starting", diagnostics: [],
+				identity: { ...identity, jobId }, operation, status: "running", cleanupPending: false, stage: "starting", diagnostics: [],
 				documentPath: document.path, projectRoot: requireRoot(), inputPaths: resolved.mappings.map(mapping => mapping.slice(mapping.indexOf("=") + 1)),
 				privatePaths: resolved.privatePaths, sourcePaths: [...sourceOverlay.keys()], destination
 			};
@@ -376,7 +399,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			const request: WorkerJobRequest = {
 				kind: "start", jobId, operation, entryPath: document.path, entryText: document.text,
 				projectRoot: job.projectRoot, sourceOverlay: [...sourceOverlay],
-				inputMappings: resolved.mappings, validation: activeValidation
+				inputMappings: resolved.mappings, validation: activeValidation, inputInspection
 			};
 			worker.postMessage(request);
 			return { ok: true, job: snapshotJob(job) };
@@ -641,8 +664,8 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				}
 				return { ok: true, state: state() };
 			},
-			async startJob({ operation, identity, destination }: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string }) {
-				return beginJob(operation, identity, destination);
+			async startJob({ operation, identity, destination, inputInspection }: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string } }) {
+				return beginJob(operation, identity, destination, inputInspection);
 			},
 			async getJob({ jobId }: { jobId: number }) {
 				if (!Number.isSafeInteger(jobId) || jobId < 1) return errorResult<{ job: DesktopJobSnapshot }>(projectError("Invalid job identifier."));

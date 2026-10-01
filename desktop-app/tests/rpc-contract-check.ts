@@ -181,6 +181,198 @@ assert.equal(completedRun.status, "succeeded");
 assert.equal(completedRun.identity.jobId, startedRun.job.identity.jobId);
 assert.deepEqual(completedRun.result, { kind: "run", summary: { values: [{ name: "result", value: 35 }] } });
 
+const validDataJob = await service.request.startJob({
+	operation: "validate-data", identity: runIdentity,
+	inputInspection: { name: "rows", format: "json", text: "[{\"amount\":8}]" }
+});
+assert.equal(validDataJob.ok, true);
+if (!validDataJob.ok) throw new Error(validDataJob.error.message);
+let validatedData = validDataJob.job;
+for (let attempt = 0; attempt < 100 && validatedData.status === "running"; attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 10));
+	const polled = await service.request.getJob({ jobId: validDataJob.job.identity.jobId });
+	assert.equal(polled.ok, true);
+	if (!polled.ok) throw new Error(polled.error.message);
+	validatedData = polled.job;
+}
+assert.equal(validatedData.status, "succeeded");
+assert.deepEqual(validatedData.result, {
+	kind: "data-validation", valid: true,
+	schema: {
+		name: "rows", type: "Row[]", acceptedFormats: ["json", "csv"],
+		fields: [{ name: "amount", type: "Number", optional: false, hasDefault: false }]
+		},
+	outputs: [{ name: "result", type: "Number", formats: ["json"] }]
+});
+assert.deepEqual(validatedData.diagnostics, []);
+
+const privateDataSentinel = "PRIVATE_DATA_SENTINEL";
+const invalidDataJob = await service.request.startJob({
+	operation: "validate-data", identity: runIdentity,
+	inputInspection: { name: "rows", format: "json", text: `[{"amount":"${privateDataSentinel}"}]` }
+});
+assert.equal(invalidDataJob.ok, true);
+if (!invalidDataJob.ok) throw new Error(invalidDataJob.error.message);
+let invalidData = invalidDataJob.job;
+for (let attempt = 0; attempt < 100 && invalidData.status === "running"; attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 10));
+	const polled = await service.request.getJob({ jobId: invalidDataJob.job.identity.jobId });
+	assert.equal(polled.ok, true);
+	if (!polled.ok) throw new Error(polled.error.message);
+	invalidData = polled.job;
+}
+assert.equal(invalidData.status, "succeeded");
+assert.equal(invalidData.result?.kind, "data-validation");
+if (invalidData.result?.kind !== "data-validation") throw new Error("Expected data validation metadata.");
+assert.equal(invalidData.result.valid, false);
+assert.equal(invalidData.diagnostics[0]?.code, "AMX4003");
+assert.equal(JSON.stringify(invalidData).includes(privateDataSentinel), false);
+assert.equal(JSON.stringify(invalidData.diagnostics).includes(dataRoot), false);
+
+const largeValidationText = `[${Array.from({ length: 100_000 }, () => "{\"amount\":1}").join(",")}]`;
+const staleDataJob = await service.request.startJob({
+	operation: "validate-data", identity: runIdentity,
+	inputInspection: { name: "rows", format: "json", text: largeValidationText }
+});
+assert.equal(staleDataJob.ok, true);
+if (!staleDataJob.ok) throw new Error(staleDataJob.error.message);
+await service.request.updateBuffer({ path: entry, text: `${entrySource}\n# invalidate in-flight data work\n` });
+const staleDataResult = await service.request.getJob({ jobId: staleDataJob.job.identity.jobId });
+assert.equal(staleDataResult.ok, true);
+if (!staleDataResult.ok) throw new Error(staleDataResult.error.message);
+assert.equal(staleDataResult.job.status, "superseded");
+await service.request.updateBuffer({ path: entry, text: entrySource });
+
+const cancellationInput = `[${Array.from({ length: 250_000 }, () => "{\"amount\":1}").join(",")}]`;
+const cancellationWorkbench = await service.request.getWorkbench();
+assert.equal(cancellationWorkbench.ok, true);
+if (!cancellationWorkbench.ok || !cancellationWorkbench.state.requestIdentity) throw new Error("Active identity unavailable before cancellation test.");
+const cancellationStart = performance.now();
+const cancellationRssBefore = process.memoryUsage().rss;
+const cancellingDataJob = await service.request.startJob({
+	operation: "validate-data", identity: cancellationWorkbench.state.requestIdentity,
+	inputInspection: { name: "rows", format: "json", text: cancellationInput }
+});
+assert.equal(cancellingDataJob.ok, true);
+if (!cancellingDataJob.ok) throw new Error(cancellingDataJob.error.message);
+let cancellationSnapshot = cancellingDataJob.job;
+for (let attempt = 0; attempt < 200 && cancellationSnapshot.status === "running" && cancellationSnapshot.stage === "starting"; attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 10));
+	const polled = await service.request.getJob({ jobId: cancellingDataJob.job.identity.jobId });
+	assert.equal(polled.ok, true);
+	if (!polled.ok) throw new Error(polled.error.message);
+	cancellationSnapshot = polled.job;
+}
+assert.ok(cancellationSnapshot.status === "running" && cancellationSnapshot.stage !== "starting", JSON.stringify(cancellationSnapshot));
+const cancellationAckStart = performance.now();
+const cancelledDataJob = await service.request.cancelJob({ jobId: cancellingDataJob.job.identity.jobId });
+const cancellationAckMs = performance.now() - cancellationAckStart;
+assert.equal(cancelledDataJob.ok, true);
+if (!cancelledDataJob.ok) throw new Error(cancelledDataJob.error.message);
+assert.equal(cancelledDataJob.job.status, "cancelled");
+assert.ok(cancellationAckMs < 250, `Cancellation acknowledgement took ${cancellationAckMs.toFixed(2)} ms`);
+assert.equal(cancelledDataJob.job.result, undefined);
+let cleanupSnapshot = cancelledDataJob.job;
+for (let attempt = 0; attempt < 200 && cleanupSnapshot.cleanupPending; attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 5));
+	const polled = await service.request.getJob({ jobId: cancellingDataJob.job.identity.jobId });
+	assert.equal(polled.ok, true);
+	if (!polled.ok) throw new Error(polled.error.message);
+	cleanupSnapshot = polled.job;
+}
+assert.equal(cleanupSnapshot.cleanupPending, false);
+const cancellationRssDelta = process.memoryUsage().rss - cancellationRssBefore;
+assert.ok(JSON.stringify(invalidData).length < 4096);
+console.log(`Sprint 036 real JSON validation cancellation: ack=${cancellationAckMs.toFixed(2)} ms; payload=${cancellationInput.length} chars; RSS delta=${cancellationRssDelta} bytes; worker close observed`);
+
+const tabSwitchWorkbench = await service.request.getWorkbench();
+assert.equal(tabSwitchWorkbench.ok, true);
+if (!tabSwitchWorkbench.ok || !tabSwitchWorkbench.state.requestIdentity) throw new Error("Active identity unavailable before tab-switch test.");
+const pendingTabJob = await service.request.startJob({
+	operation: "validate-data", identity: tabSwitchWorkbench.state.requestIdentity,
+	inputInspection: { name: "rows", format: "json", text: largeValidationText }
+});
+assert.equal(pendingTabJob.ok, true);
+if (!pendingTabJob.ok) throw new Error(pendingTabJob.error.message);
+await service.request.selectTab({ path: dependencyPath });
+const switchedTabJob = await service.request.getJob({ jobId: pendingTabJob.job.identity.jobId });
+assert.equal(switchedTabJob.ok, true);
+if (!switchedTabJob.ok) throw new Error(switchedTabJob.error.message);
+assert.equal(switchedTabJob.job.status, "superseded");
+await service.request.selectTab({ path: entry });
+
+const generationRoot = join(root, "generation-project");
+mkdirSync(generationRoot);
+const generationEntry = join(generationRoot, "report.amx");
+writeFileSync(generationEntry, "```amx\nexport let total: Number = 1 + 2\n```\n");
+const nextGenerationRoot = join(root, "next-generation-project");
+mkdirSync(nextGenerationRoot);
+writeFileSync(join(nextGenerationRoot, "next.amx"), "```amx\nlet next: Number = 1\n```\n");
+const generationService = createDesktopService();
+assert.equal((await generationService.request.openProject({ path: generationRoot })).ok, true);
+assert.equal((await generationService.request.openDocument({ path: generationEntry })).ok, true);
+const generationState = await generationService.request.getWorkbench();
+assert.equal(generationState.ok, true);
+if (!generationState.ok || !generationState.state.requestIdentity) throw new Error("Active identity unavailable before project-switch test.");
+const protectedPdf = join(generationRoot, "existing.pdf");
+writeFileSync(protectedPdf, "preserve-across-project-switch");
+const projectSwitchJob = await generationService.request.startJob({
+	operation: "pdf", identity: generationState.state.requestIdentity, destination: protectedPdf
+});
+assert.equal(projectSwitchJob.ok, true);
+if (!projectSwitchJob.ok) throw new Error(projectSwitchJob.error.message);
+assert.equal((await generationService.request.openProject({ path: nextGenerationRoot })).ok, true);
+const supersededProjectJob = await generationService.request.getJob({ jobId: projectSwitchJob.job.identity.jobId });
+assert.equal(supersededProjectJob.ok, true);
+if (!supersededProjectJob.ok) throw new Error(supersededProjectJob.error.message);
+assert.equal(supersededProjectJob.job.status, "superseded");
+assert.equal(readFileSync(protectedPdf, "utf8"), "preserve-across-project-switch");
+let projectCleanup = supersededProjectJob.job;
+for (let attempt = 0; attempt < 200 && projectCleanup.cleanupPending; attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 5));
+	const polled = await generationService.request.getJob({ jobId: projectSwitchJob.job.identity.jobId });
+	assert.equal(polled.ok, true);
+	if (!polled.ok) throw new Error(polled.error.message);
+	projectCleanup = polled.job;
+}
+assert.equal(projectCleanup.cleanupPending, false);
+
+const metadataRoot = join(root, "bounded-schema-project");
+mkdirSync(metadataRoot);
+const metadataEntry = join(metadataRoot, "report.amx");
+const metadataType = join(metadataRoot, "types.amx");
+const wideFields = Array.from({ length: 501 }, (_, index) => `  field${index}: String`).join("\n");
+const exportedValues = Array.from({ length: 101 }, (_, index) => `export let value${index}: Number = ${index}`).join("\n");
+writeFileSync(metadataType, ["```amx", `export type Row {\n${wideFields}\n}`, "```", ""].join("\n"));
+writeFileSync(metadataEntry, ["```amx", "import { Row } from \"./types.amx\"", "input rows: Row[]", exportedValues, "```", ""].join("\n"));
+const metadataService = createDesktopService();
+assert.equal((await metadataService.request.openProject({ path: metadataRoot })).ok, true);
+assert.equal((await metadataService.request.openDocument({ path: metadataEntry })).ok, true);
+const metadataState = await metadataService.request.getWorkbench();
+assert.equal(metadataState.ok, true);
+if (!metadataState.ok || !metadataState.state.requestIdentity) throw new Error("Active identity unavailable before metadata-bound test.");
+const boundedMetadataJob = await metadataService.request.startJob({
+	operation: "validate-data", identity: metadataState.state.requestIdentity,
+	inputInspection: { name: "rows", format: "json", text: "[]" }
+});
+assert.equal(boundedMetadataJob.ok, true);
+if (!boundedMetadataJob.ok) throw new Error(boundedMetadataJob.error.message);
+let boundedMetadata = boundedMetadataJob.job;
+for (let attempt = 0; attempt < 100 && boundedMetadata.status === "running"; attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 10));
+	const polled = await metadataService.request.getJob({ jobId: boundedMetadataJob.job.identity.jobId });
+	assert.equal(polled.ok, true);
+	if (!polled.ok) throw new Error(polled.error.message);
+	boundedMetadata = polled.job;
+}
+assert.equal(boundedMetadata.status, "succeeded");
+if (boundedMetadata.result?.kind !== "data-validation") throw new Error("Expected bounded schema result.");
+assert.equal(boundedMetadata.result.schema.fields?.length, 500);
+assert.equal(boundedMetadata.result.schema.truncated, true);
+assert.equal(boundedMetadata.result.outputs?.length, 100);
+assert.equal(boundedMetadata.result.outputsTruncated, true);
+assert.ok(JSON.stringify(boundedMetadata).length < 200_000);
+
 const cancelledPdf = join(root, "cancelled-report.pdf");
 writeFileSync(cancelledPdf, "preserve-before-cancel");
 const jobStartState = await service.request.getWorkbench();
@@ -322,32 +514,41 @@ assert.equal(failFast.diagnostics.length, 1);
 
 writeFileSync(projectAmounts, "[1]");
 writeFileSync(join(dataRoot, "rows.csv"), "amount\n4\n6\n");
+const previewStartedAt = performance.now();
 const previewWithInputs = await service.request.previewBuffer();
+const previewDurationMs = performance.now() - previewStartedAt;
 assert.equal(previewWithInputs.ok, true);
 if (!previewWithInputs.ok) throw new Error(previewWithInputs.error.message);
 assert.deepEqual(previewWithInputs.diagnostics, []);
 const reportDirectory = join(root, "reports");
 mkdirSync(reportDirectory);
 const htmlPath = join(reportDirectory, "analysis.html");
+const htmlStartedAt = performance.now();
 const htmlSave = await service.request.saveHtml({ path: "reports/analysis.html" });
+const htmlDurationMs = performance.now() - htmlStartedAt;
 assert.equal(htmlSave.ok, true);
 if (!htmlSave.ok) throw new Error(htmlSave.error.message);
 assert.equal(htmlSave.path, htmlPath);
 assert.equal(readFileSync(htmlPath, "utf8"), previewWithInputs.html);
 const pdfPath = join(reportDirectory, "analysis.pdf");
+const pdfStartedAt = performance.now();
 const pdfExport = await service.request.exportPdf({ path: "reports/analysis.pdf" });
+const pdfDurationMs = performance.now() - pdfStartedAt;
 assert.equal(pdfExport.ok, true);
 if (!pdfExport.ok) throw new Error(pdfExport.error.message);
 assert.equal(pdfExport.path, pdfPath);
 assert.ok(pdfExport.bytes > 1000);
 assert.match(readFileSync(pdfPath).toString("utf8", 0, 4), /^%PDF$/);
 const docxPath = join(reportDirectory, "analysis.docx");
+const docxStartedAt = performance.now();
 const docxExport = await service.request.exportDocx({ path: "reports/analysis.docx" });
+const docxDurationMs = performance.now() - docxStartedAt;
 assert.equal(docxExport.ok, true);
 if (!docxExport.ok) throw new Error(docxExport.error.message);
 assert.equal(docxExport.path, docxPath);
 assert.ok(docxExport.bytes > 1000);
 assert.match(readFileSync(docxPath).toString("utf8", 0, 2), /^PK$/);
+console.log(`Sprint 036 real pipelines: preview=${previewDurationMs.toFixed(1)} ms/${previewWithInputs.html.length} chars; HTML=${htmlDurationMs.toFixed(1)} ms/${Buffer.byteLength(readFileSync(htmlPath, "utf8"))} bytes; PDF=${pdfDurationMs.toFixed(1)} ms/${pdfExport.bytes} bytes; DOCX=${docxDurationMs.toFixed(1)} ms/${docxExport.bytes} bytes`);
 
 const invalidSource = "```amx\nlet incomplete =\n```\n";
 await service.request.updateBuffer({ text: invalidSource });

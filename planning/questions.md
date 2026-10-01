@@ -6,6 +6,14 @@
 - Still OPEN for dependent work: native API/host evidence (Lead Developer; required before native acceptance in Sprints 037-039/042); selected data-editor component and 100k viewport proof (Lead Developer / Sprint 041 Builder; required before Sprint 041 selection/implementation); full worker cleanup/latency and preview/webview performance (Sprint 036/042 Builder). See recorded owners, impacts and fallbacks in `planning/state.md`.
 - Sprint 035 disposition: **ACCEPTED WITH RECORDED EXCEPTIONS**. These exceptions are not passed tests or scope waivers for their dependent sprints.
 
+## V0.6 Sprint 036 Builder Resolutions and Residuals (2026-10-01)
+
+- Resolved: active-document identity and worker lifecycle remain on the Lead Developer-accepted Sprint 035 boundary. Direct jobs bind canonical URI, project generation, document revision, input/settings revision and assigned job ID; tests cover edits, tab changes, project changes, cancellation and stale no-write behavior.
+- Resolved: the optional source-overlay production path remains in the existing loader and preserves no-overlay CLI behavior. A trusted `validate-data` job now reuses that module graph for schema-aware in-memory JSON/CSV validation and serializer-derived explicit-export metadata.
+- Resolved: cancellation acknowledgement and worker cleanup are separate observable states. On this host a real 250,000-row JSON validation acknowledged cancellation in 0.72 ms and emitted worker close; repeated process RSS deltas were noisy (-17,141,760 to +22,085,632 bytes). Bun termination remains experimental/non-cooperative, and an atomic rename already underway cannot be interrupted.
+- OPEN with existing owners: native Electrobun menus/dialogs/window lifecycle and native target platforms remain unavailable; no grid candidate or first 100,000-row viewport proof was selected; Hutch packaging/launch, Office, license/Marketplace and formal accessibility remain separate residuals. Do not treat this Builder evidence as closing them.
+- Sprint 037 handoff is unblocked for the typed operation/RPC foundation. It must retain identity guards, use `cleanupPending` only as close-state evidence, keep parsed data values/private paths out of webview results, and keep output validation/commit authority in Bun.
+
 ## V0.6 Sprint 035 Feasibility and Contract Questions (2026-10-01)
 
 - Which bounded contained source-provider shape lets `loadEntryModule` prefer every relevant open unsaved AMX buffer while preserving canonical imports, cycles, diagnostics, evaluation order, and unchanged CLI behavior?

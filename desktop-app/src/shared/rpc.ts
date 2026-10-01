@@ -20,19 +20,37 @@ export interface ActiveDocumentRequestIdentity {
 	inputSettingsRevision: number;
 }
 export interface DesktopJobIdentity extends ActiveDocumentRequestIdentity { jobId: number; }
-export type DesktopJobOperation = "run" | "preview" | "html" | "pdf" | "docx";
+export type DesktopJobOperation = "run" | "preview" | "html" | "pdf" | "docx" | "validate-data";
 export type DesktopJobStatus = "running" | "committing" | "succeeded" | "failed" | "cancelled" | "superseded";
+export interface DataInputSchema {
+	name: string;
+	type: string;
+	acceptedFormats: Array<"json" | "csv">;
+	fields?: Array<{ name: string; type: string; optional: boolean; hasDefault: boolean }>;
+	truncated?: boolean;
+}
+export interface DataOutputSchema {
+	name: string;
+	type: string;
+	formats: Array<"json" | "csv">;
+	truncated?: boolean;
+}
 export interface DesktopJobResult {
-	kind: "run" | "preview" | "export";
+	kind: "run" | "preview" | "export" | "data-validation";
 	summary?: RunSummary;
 	html?: string;
 	path?: string;
 	bytes?: number;
+	valid?: boolean;
+	schema?: DataInputSchema;
+	outputs?: DataOutputSchema[];
+	outputsTruncated?: boolean;
 }
 export interface DesktopJobSnapshot {
 	identity: DesktopJobIdentity;
 	operation: DesktopJobOperation;
 	status: DesktopJobStatus;
+	cleanupPending: boolean;
 	stage?: string;
 	result?: DesktopJobResult;
 	diagnostics: TextDiagnostic[];
@@ -62,7 +80,7 @@ export interface DesktopRPCClient {
 		selectTab(params: { path: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		getWorkbench(): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		setInputSettings(params: { inputMappings: string[]; validation: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
-		startJob(params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
+		startJob(params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string } }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		getJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		cancelJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		prepareTransition(params: { action: TransitionAction }): Promise<DesktopRPCResponse<{ ready: boolean; state: WorkbenchState }>>;
@@ -107,7 +125,7 @@ export type DesktopRPCSchema = {
 			selectTab: { params: { path: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			getWorkbench: { params: Record<string, never>; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			setInputSettings: { params: { inputMappings: string[]; validation: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
-			startJob: { params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
+			startJob: { params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string } }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			getJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			cancelJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			prepareTransition: { params: { action: TransitionAction }; response: DesktopRPCResponse<{ ready: boolean; state: WorkbenchState }> };

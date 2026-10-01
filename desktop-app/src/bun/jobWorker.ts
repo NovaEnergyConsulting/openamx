@@ -1,5 +1,5 @@
 /// <reference types="bun" />
-import { AmxError } from "../../../src/diagnostics/errors";
+import { AmxError, type AmxDiagnostic } from "../../../src/diagnostics/errors";
 import { loadEntryModule } from "../../../src/runtime/moduleLoader";
 import { prepareReport } from "../../../src/renderer/reportPreparation";
 import { renderPreparedHtml } from "../../../src/renderer/renderHtml";
@@ -15,6 +15,9 @@ const MAX_OVERLAY_MODULES = 100;
 const MAX_OVERLAY_TEXT = 20_000_000;
 const MAX_HTML = 8_000_000;
 const MAX_BINARY_EXPORT = 32_000_000;
+const MAX_INSPECTION_TEXT = 20_000_000;
+const MAX_SCHEMA_FIELDS = 500;
+const MAX_SCHEMA_TEXT = 100;
 
 function send(message: WorkerJobMessage, transfer: Transferable[] = []): void {
 	self.postMessage(message, transfer);
@@ -39,7 +42,7 @@ function summarize(loaded: Awaited<ReturnType<typeof loadEntryModule>>): RunSumm
 
 function failureDiagnostics(error: unknown): TextDiagnostic[] {
 	if (error instanceof AmxError) {
-		const diagnostics = error.diagnostics?.length ? error.diagnostics : [error];
+		const diagnostics: AmxDiagnostic[] = error.diagnostics?.length ? error.diagnostics : [error];
 		return diagnostics.slice(0, 100).map(item => ({
 			code: item.code.slice(0, 32), message: item.message.slice(0, 1000), file: item.file?.slice(0, 4096),
 			line: item.line, column: item.column, inputName: item.inputName?.slice(0, 100),
@@ -60,6 +63,14 @@ function validateRequest(request: WorkerJobRequest): void {
 	}
 	if (overlayTextLength > MAX_OVERLAY_TEXT) throw new Error("Worker overlay exceeds its total text limit.");
 	if (request.inputMappings.some(mapping => mapping.length > 8192)) throw new Error("Worker input mapping exceeds its limit.");
+	if (request.operation === "validate-data") {
+		const inspection = request.inputInspection;
+		if (!inspection || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(inspection.name)
+			|| (inspection.format !== "json" && inspection.format !== "csv") || inspection.text.length > MAX_INSPECTION_TEXT)
+			throw new Error("In-memory data inspection exceeds its request bounds or has an invalid input.");
+	} else if (request.inputInspection) {
+		throw new Error("Input inspection is valid only for a validate-data job.");
+	}
 }
 
 async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
@@ -69,9 +80,44 @@ async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
 		entryText: request.entryText,
 		sourceOverlay: new Map(request.sourceOverlay),
 		inputMappings: request.inputMappings,
-		validation: request.validation
+		validation: request.validation,
+		inputInspection: request.inputInspection
 	});
 	if (request.operation === "run") return { kind: "run", summary: summarize(loaded), diagnostics: [] };
+	if (request.operation === "validate-data") {
+		if (!loaded.inputInspection) throw new Error("Input inspection did not return schema metadata.");
+		const inputSchema = loaded.inputInspection.schema;
+		const fields = inputSchema.fields;
+		const inputTruncated = inputSchema.name.length > MAX_SCHEMA_TEXT || inputSchema.type.length > MAX_SCHEMA_TEXT
+			|| (fields?.length ?? 0) > MAX_SCHEMA_FIELDS
+			|| !!fields?.some(field => field.name.length > MAX_SCHEMA_TEXT || field.type.length > MAX_SCHEMA_TEXT);
+		const outputsTruncated = loaded.inputInspection.outputs.length > 100;
+		return {
+			kind: "data-validation",
+			valid: loaded.inputInspection.valid,
+			schema: {
+				name: inputSchema.name.slice(0, MAX_SCHEMA_TEXT),
+				type: inputSchema.type.slice(0, MAX_SCHEMA_TEXT),
+				acceptedFormats: inputSchema.acceptedFormats,
+				...(fields ? { fields: fields.slice(0, MAX_SCHEMA_FIELDS).map(field => ({
+					name: field.name.slice(0, MAX_SCHEMA_TEXT), type: field.type.slice(0, MAX_SCHEMA_TEXT),
+					optional: field.optional, hasDefault: field.hasDefault
+				})) } : {}),
+				...(inputTruncated ? { truncated: true } : {})
+			},
+			outputs: loaded.inputInspection.outputs.slice(0, 100).map(output => ({
+				name: output.name.slice(0, MAX_SCHEMA_TEXT), type: output.type.slice(0, MAX_SCHEMA_TEXT),
+				formats: output.formats,
+				...(output.name.length > MAX_SCHEMA_TEXT || output.type.length > MAX_SCHEMA_TEXT ? { truncated: true } : {})
+			})),
+			...(outputsTruncated ? { outputsTruncated: true } : {}),
+			diagnostics: loaded.inputInspection.diagnostics.slice(0, 100).map(item => ({
+				code: item.code.slice(0, 32), message: item.message.slice(0, 1000),
+				line: item.line, column: item.column, inputName: item.inputName?.slice(0, 100),
+				dataPath: item.dataPath?.slice(0, 500), dataLine: item.dataLine, dataColumn: item.dataColumn
+			}))
+		};
+	}
 
 	send({ kind: "progress", jobId: request.jobId, stage: "preparing-report" });
 	const prepared = await prepareReport(loaded.doc, loaded.env, { file: request.entryPath, projectRoot: request.projectRoot });

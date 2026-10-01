@@ -16,6 +16,12 @@ export interface SerializedOutput {
   contents: string;
 }
 
+export interface OutputSchema {
+  name: string;
+  type: string;
+  formats: Array<'json' | 'csv'>;
+}
+
 function typeName(type: CheckedType): string {
   if (type.kind === 'named') return type.name;
   if (type.kind === 'null') return 'null';
@@ -28,6 +34,34 @@ function isPrimitive(type: CheckedType): boolean {
 
 function isCsvScalar(type: CheckedType): boolean {
   return isPrimitive(type) || (type.kind === 'nullable' && isPrimitive(type.element));
+}
+
+function supportsJson(type: CheckedType, recordTypes: Map<string, TypeDeclarationNode>, visiting = new Set<string>()): boolean {
+  if (type.kind === 'nullable' || type.kind === 'list') return supportsJson(type.element, recordTypes, visiting);
+  if (type.kind !== 'named') return false;
+  if (isPrimitive(type)) return true;
+  const declaration = recordTypes.get(type.name);
+  if (!declaration || visiting.has(type.name)) return false;
+  const next = new Set(visiting).add(type.name);
+  return declaration.fields.every(field => supportsJson(checkedType(field.annotation), recordTypes, next));
+}
+
+function supportsCsv(type: CheckedType, recordTypes: Map<string, TypeDeclarationNode>): boolean {
+  if (type.kind !== 'list' || type.element.kind !== 'named') return false;
+  const declaration = recordTypes.get(type.element.name);
+  return !!declaration && declaration.fields.every(field => isCsvScalar(checkedType(field.annotation)));
+}
+
+export function describeOutputSchemas(
+  exportedBindings: Map<string, CheckedType>,
+  recordTypes: Map<string, TypeDeclarationNode>
+): OutputSchema[] {
+  return [...exportedBindings].flatMap(([name, type]) => {
+    const formats: Array<'json' | 'csv'> = [];
+    if (supportsJson(type, recordTypes)) formats.push('json');
+    if (supportsCsv(type, recordTypes)) formats.push('csv');
+    return formats.length ? [{ name, type: typeName(type), formats }] : [];
+  });
 }
 
 function assertJsonShape(type: CheckedType, recordTypes: Map<string, TypeDeclarationNode>, outputName: string): void {

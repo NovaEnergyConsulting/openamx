@@ -4,7 +4,7 @@ import { TypeDeclarationNode } from '../src/ast/types';
 import { AmxError } from '../src/diagnostics/errors';
 import { parseStatements } from '../src/parser/parseStatements';
 import { Environment } from '../src/runtime/environment';
-import { prepareOutputs, serializeOutputs } from '../src/runtime/outputData';
+import { describeOutputSchemas, prepareOutputs, serializeOutputs } from '../src/runtime/outputData';
 import type { CheckedType } from '../src/typechecker/checkDocument';
 
 const directories: string[] = [];
@@ -39,6 +39,20 @@ function captureError(action: () => unknown, code: string): AmxError {
 }
 
 describe('Sprint 017 output serialization', () => {
+  it('describes only explicitly exported values with supported JSON and CSV formats', () => {
+    const recordTypes = types('type Row {\n  id: String\n  amount: Number?\n}\ntype Nested {\n  child: Row\n}');
+    const exported = new Map<string, CheckedType>([
+      ['rows', { kind: 'list', element: { kind: 'named', name: 'Row' } }],
+      ['nested', { kind: 'named', name: 'Nested' }],
+      ['notExportable', { kind: 'named', name: 'Missing' }]
+    ]);
+
+    expect(describeOutputSchemas(exported, recordTypes)).toEqual([
+      { name: 'rows', type: 'Row[]', formats: ['json', 'csv'] },
+      { name: 'nested', type: 'Nested', formats: ['json'] }
+    ]);
+  });
+
   it('writes deterministic JSON with declaration-order fields, DateTime, null, and final LF', () => {
     const recordTypes = types('type Item {\n  label: String\n  created: DateTime\n  note: String?\n  values: Number[]\n}');
     const environment = new Environment(recordTypes);

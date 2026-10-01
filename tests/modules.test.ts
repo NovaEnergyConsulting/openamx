@@ -151,6 +151,39 @@ describe("Sprint 015 modules, imports, and exports", () => {
     expect(await Bun.file(dependencyPath).text()).toContain("value: Number = 3");
   });
 
+  it("inspects mapped data in memory against imported types without evaluating AMX or writing files", async () => {
+    const dir = await makeDir();
+    const dependencyPath = await write(dir, "types.amx", [
+      "```amx", "export type Row {", "  id: String", "  amount: Number", "}", "```", ""
+    ].join("\n"));
+    const entryPath = await write(dir, "entry.amx", [
+      "```amx", "import { Row } from \"./types.amx\"", "input rows: Row[]", "let forbidden: Number = 1 / 0", "```", ""
+    ].join("\n"));
+    const canonicalDependencyPath = await realpath(dependencyPath);
+    const diskText = await Bun.file(dependencyPath).text();
+    const inspection = await loadEntryModule(entryPath, {
+      sourceOverlay: new Map([[canonicalDependencyPath, [
+        "```amx", "export type Row {", "  id: String", "  amount: Number = 4", "}", "```", ""
+      ].join("\n")]]),
+      inputInspection: { name: "rows", format: "json", text: "[{\"id\":\"A\"}]" }
+    });
+
+    expect(inspection.inputInspection).toEqual({
+      schema: {
+        name: "rows", type: "Row[]", acceptedFormats: ["json", "csv"],
+        fields: [
+          { name: "id", type: "String", optional: false, hasDefault: false },
+          { name: "amount", type: "Number", optional: false, hasDefault: true }
+        ]
+      },
+      valid: true,
+      diagnostics: [],
+      outputs: []
+    });
+    expect(inspection.env.toObject()).toEqual({});
+    expect(await Bun.file(dependencyPath).text()).toBe(diskText);
+  });
+
   it("rejects assignment to and redeclaration of an immutable imported binding", async () => {
     const dir = await makeDir();
     await write(dir, "lib.amx", "```amx\nexport let value: Number = 1\n```\n");

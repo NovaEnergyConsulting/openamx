@@ -11,9 +11,9 @@ import { parseDocument, parseDocumentText } from '../parser/parseDocument';
 import { checkDocument, checkingActivated, CheckedType, ModuleCheckResult } from '../typechecker/checkDocument';
 import { evaluateStatements } from './evaluateExpression';
 import { Environment } from './environment';
-import { moduleError, staticError } from '../diagnostics/errors';
-import { loadInputValues, ValidationMode } from './inputData';
-import { prepareOutputs, PreparedOutput } from './outputData';
+import { moduleError, staticError, throwInputErrors, type AmxDiagnostic } from '../diagnostics/errors';
+import { describeInputSchema, loadInputValues, validateInputText, type InputSchema, type InputTextFormat, ValidationMode } from './inputData';
+import { describeOutputSchemas, prepareOutputs, type OutputSchema, PreparedOutput } from './outputData';
 import type { ViewEmission } from './environment';
 
 /**
@@ -41,6 +41,14 @@ export interface LoadedEntryModule {
   env: Environment;
   outputs: PreparedOutput[];
   viewEmissions: readonly ViewEmission[];
+  inputInspection?: EntryInputInspection;
+}
+
+export interface EntryInputInspection {
+  schema: InputSchema;
+  valid: boolean;
+  diagnostics: AmxDiagnostic[];
+  outputs: OutputSchema[];
 }
 
 export interface ModuleLoadOptions {
@@ -48,6 +56,7 @@ export interface ModuleLoadOptions {
   sourceOverlay?: ReadonlyMap<string, string>;
   inputMappings?: string[];
   validation?: ValidationMode;
+  inputInspection?: { name: string; format: InputTextFormat; text: string };
   outputMappings?: string[];
   reservedOutputPath?: string;
 }
@@ -244,6 +253,37 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     entryTypes,
     options.reservedOutputPath
   );
+  if (options.inputInspection) {
+    const declaration = inputDeclarations.find(input => input.name === options.inputInspection!.name);
+    if (!declaration) {
+      throwInputErrors([{
+        code: 'AMX4001',
+        message: `Unknown logical input '${options.inputInspection.name}'`,
+        file: entryPath,
+        inputName: options.inputInspection.name
+      }]);
+    }
+    const validation = validateInputText(
+      options.inputInspection.text,
+      options.inputInspection.format,
+      declaration,
+      entryTypes,
+      options.validation ?? 'aggregate',
+      { file: entryPath }
+    );
+    return {
+      doc: entryRecord.doc,
+      env: new Environment(entryTypes),
+      outputs,
+      viewEmissions: [],
+      inputInspection: {
+        schema: describeInputSchema(declaration, entryTypes),
+        valid: validation.diagnostics.length === 0,
+        diagnostics: validation.diagnostics,
+        outputs: describeOutputSchemas(entryRecord.checkResult.exportedBindings, entryTypes)
+      }
+    };
+  }
   const inputValues = await loadInputValues(
     inputDeclarations,
     entryTypes,
