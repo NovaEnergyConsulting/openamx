@@ -6,6 +6,7 @@
 - What local-only recovery storage shape can preserve unsaved contained and explicitly opened external buffers without placing source text, input contents, or private paths in project configuration, and how will startup inspect/restore/discard work without automatic overwrite? Owner: Sprint 038 Builder.
 - Which existing native APIs can directly prove Create/Open/Save/Reveal/window-close/quit behavior on an SDK-enabled host? Owner: Lead Developer/native acceptance. Current picker/service checks are not native-host evidence.
 - How will external mapped input records be derived and exposed privately without returning raw paths broadly or enabling general external browsing? Owner: Sprint 038 Builder / Sprint 039 integration.
+- Which recovery snapshot retention/cleanup behavior safely covers explicitly opened external files, completed Save All/Discard All/close paths, and bounded machine-local preferences without retaining input contents or stale private paths? Owner: Sprint 038 Builder.
 
 ## V0.6 Sprint 035 Lead Developer Disposition (2026-10-01)
 

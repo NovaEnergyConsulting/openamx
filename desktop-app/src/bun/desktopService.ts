@@ -14,7 +14,7 @@ import { prepareDocxReport, serializeDocxReport } from "../../../src/renderer/re
 import { prepareDocxDestination, writeDocxAtomically } from "../../../src/runtime/docxDestination";
 import { prepareReport } from "../../../src/renderer/reportPreparation";
 import { resolveDesktopInputs, validateDesktopDestination, writeDesktopHtml } from "./desktopWorkflow";
-import { createPingResponse, type ActiveDocumentRequestIdentity, type DesktopJobIdentity, type DesktopJobOperation, type DesktopJobResult, type DesktopJobSnapshot, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type DocumentKind, type OpenDocument, type ProjectFile, type ProjectFileKind, type RunSummary, type TextAnalysis, type TextDiagnostic, type WorkbenchState, type RecentProject, type TransitionAction } from "../shared/rpc";
+import { createPingResponse, type ActiveDocumentRequestIdentity, type DesktopJobIdentity, type DesktopJobOperation, type DesktopJobResult, type DesktopJobSnapshot, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type DocumentKind, type OpenDocument, type ProjectFile, type ProjectFileKind, type RecoveryItem, type RunSummary, type TextAnalysis, type TextDiagnostic, type WorkbenchState, type RecentProject, type TransitionAction } from "../shared/rpc";
 import type { WorkerJobMessage, WorkerJobRequest, WorkerJobResult } from "./jobProtocol";
 
 const MAX_TEXT = 2_000_000;
@@ -117,6 +117,12 @@ interface SessionDocument extends OpenDocument {
 	path: string;
 }
 
+interface RecoverySnapshot {
+	root: string;
+	active?: string;
+	documents: Array<{ path: string; text: string; diskHash: string; revision: number }>;
+}
+
 interface ActiveJob extends DesktopJobSnapshot {
 	worker?: Worker;
 	documentPath: string;
@@ -153,6 +159,8 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 	let latestJobId = 0;
 	const jobs = new Map<number, ActiveJob>();
 	let recents: RecentProject[] = [];
+	const recoveryFile = sessionFile ? `${sessionFile}.recovery.json` : undefined;
+	let recovery: RecoverySnapshot | undefined;
 	try {
 		const stored: unknown = sessionFile && existsSync(sessionFile) ? JSON.parse(readFileSync(sessionFile, "utf8")) : [];
 		if (Array.isArray(stored)) recents = stored.slice(0, 10).filter((item): item is RecentProject =>
@@ -170,11 +178,48 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				previewWidth: typeof item.previewWidth === "number" && item.previewWidth >= 25 && item.previewWidth <= 65 ? item.previewWidth : undefined };
 		});
 	} catch { recents = []; }
+	try {
+		const stored: unknown = recoveryFile && existsSync(recoveryFile) ? JSON.parse(readFileSync(recoveryFile, "utf8")) : undefined;
+		if (stored && typeof stored === "object" && typeof (stored as { root?: unknown }).root === "string" && Array.isArray((stored as { documents?: unknown }).documents)) {
+			const candidate = (stored as { root: string }).root;
+			if (existsSync(candidate) && !lstatSync(candidate).isSymbolicLink() && realpathSync(candidate) === candidate && statSync(candidate).isDirectory()) {
+				const documents = (stored as RecoverySnapshot).documents.slice(0, 10).filter(item =>
+					typeof item?.path === "string" && typeof item.text === "string" && item.text.length <= MAX_TEXT &&
+					typeof item.diskHash === "string" && typeof item.revision === "number" && allowedFile(candidate, resolve(candidate, item.path))
+				);
+				if (documents.length) recovery = { root: candidate, active: typeof (stored as RecoverySnapshot).active === "string" ? (stored as RecoverySnapshot).active : undefined, documents };
+			}
+		}
+	} catch { recovery = undefined; }
 
 	function persist() {
 		if (!sessionFile) return;
 		mkdirSync(dirname(sessionFile), { recursive: true, mode: 0o700 });
 		writeFileSync(sessionFile, JSON.stringify(recents), { encoding: "utf8", mode: 0o600 });
+	}
+
+	function persistRecovery() {
+		if (!recoveryFile) return;
+		const documents = projectRoot ? [...tabs.values()].filter(tab => tab.dirty && ["amx", "csv", "json"].includes(tab.kind) && allowedFile(projectRoot!, tab.path)).slice(0, 10).map(tab => ({
+			path: relative(projectRoot!, tab.path), text: tab.text, diskHash: tab.diskHash, revision: tab.revision
+		})) : [];
+		if (!projectRoot || !documents.length || documents.reduce((total, item) => total + item.text.length, 0) > 5_000_000) {
+			recovery = undefined;
+			try { if (existsSync(recoveryFile)) unlinkSync(recoveryFile); } catch {}
+			return;
+		}
+		recovery = { root: projectRoot, active: current ? relative(projectRoot, current.path) : undefined, documents };
+		let temporary: string | undefined;
+		try {
+			mkdirSync(dirname(recoveryFile), { recursive: true, mode: 0o700 });
+			temporary = `${recoveryFile}.${randomUUID()}.tmp`;
+			const handle = openSync(temporary, "wx", 0o600);
+			try { writeFileSync(handle, JSON.stringify(recovery), "utf8"); fsyncSync(handle); }
+			finally { closeSync(handle); }
+			renameSync(temporary, recoveryFile);
+			temporary = undefined;
+		} catch { /* Recovery failure must not prevent editing or saving. */ }
+		finally { if (temporary) { try { unlinkSync(temporary); } catch {} } }
 	}
 
 	function record() {
@@ -495,6 +540,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			document.diskHash = hash(document.text);
 			document.dirty = false;
 			document.conflict = false;
+			persistRecovery();
 			return { ok: true, document };
 		} catch (error) { return errorResult(projectError(error instanceof Error ? error.message : String(error))); }
 		finally { if (temporary) { try { unlinkSync(temporary); } catch {} } }
@@ -547,6 +593,32 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		return { id, path, kind, directory, payloadPath };
 	}
 
+	function createTarget(root: string, path: string): string {
+		if (typeof path !== "string" || !path || path.length > 1024 || path.includes("\\") || path.startsWith("/")) throw new Error("Project path must be a bounded relative path.");
+		const parts = path.split("/");
+		if (parts.some(part => !part || part === "." || part === ".." || part.startsWith(".") || IGNORED.has(part))) throw new Error("Project path contains an unsupported segment.");
+		const target = resolve(root, path);
+		if (relative(root, target).startsWith("..") || existsSync(target)) throw new Error("Project destination is unavailable.");
+		const parent = dirname(target);
+		const canonicalParent = within(root, parent);
+		if (!canonicalParent || !statSync(canonicalParent).isDirectory()) throw new Error("Project destination parent must be an existing contained directory.");
+		return target;
+	}
+
+	function writeNewFile(path: string, text: string): void {
+		let temporary: string | undefined;
+		try {
+			temporary = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
+			const handle = openSync(temporary, "wx", 0o600);
+			try {
+				writeFileSync(handle, text, "utf8");
+				fsyncSync(handle);
+			} finally { closeSync(handle); }
+			renameSync(temporary, path);
+			temporary = undefined;
+		} finally { if (temporary) { try { unlinkSync(temporary); } catch {} } }
+	}
+
 	function prepareTransition(action: TransitionAction): DesktopRPCResponse<{ ready: boolean; state: WorkbenchState }> {
 		refreshConflicts();
 		if (action === "cancel") return { ok: true, ready: false, state: state() };
@@ -574,7 +646,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				if (!prepared.ok) throw new Error(prepared.error.message);
 				if (!prepared.ready) throw new Error("Project change cancelled.");
 			}
-			if (projectRoot !== canonical) { cancelAutosave(); tabs.clear(); editSequences.clear(); current = undefined; generation++; invalidateStaleJobs(); }
+			if (projectRoot !== canonical) { cancelAutosave(); tabs.clear(); editSequences.clear(); current = undefined; generation++; invalidateStaleJobs(); persistRecovery(); }
 			projectRoot = canonical;
 		},
 		request: {
@@ -630,6 +702,38 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				recents = [];
 				persist();
 				return { ok: true, projects: recents };
+			},
+			async getRecovery() {
+				const items: RecoveryItem[] = recovery?.documents.map(item => ({ path: item.path, kind: documentKind(item.path) as "amx" | "csv" | "json" })).filter((item): item is RecoveryItem => !!item.kind) ?? [];
+				return { ok: true, available: !!recovery && !!items.length, root: recovery?.root, items };
+			},
+			async resolveRecovery({ action }: { action: "restore" | "discard" }) {
+				try {
+					if (action !== "restore" && action !== "discard") throw new Error("Invalid recovery action.");
+					if (!recovery) return { ok: true, state: state() };
+					if (action === "discard") {
+						recovery = undefined;
+						if (recoveryFile && existsSync(recoveryFile)) unlinkSync(recoveryFile);
+						return { ok: true, state: state() };
+					}
+					if ([...tabs.values()].some(tab => tab.dirty || tab.conflict)) throw new Error("Resolve current unsaved tabs before restoring recovery.");
+					const snapshot = recovery;
+					service.setProjectRoot(snapshot.root, "discard-all");
+					for (const item of snapshot.documents) {
+						const path = within(snapshot.root, item.path);
+						if (!path || !allowedFile(snapshot.root, path) || !["amx", "csv", "json"].includes(documentKind(path) ?? "")) continue;
+						const document = readEntry(path);
+						document.text = item.text;
+						document.dirty = hash(document.text) !== document.diskHash;
+						document.revision = Math.max(1, item.revision + 1);
+						tabs.set(path, document);
+					}
+					const active = snapshot.active && within(snapshot.root, snapshot.active);
+					current = active ? tabs.get(active) : tabs.values().next().value;
+					persistRecovery();
+					record();
+					return { ok: true, root: projectRoot, state: state() };
+				} catch (error) { return errorResult<{ root?: string; state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},
 			async restoreProject({ root }: { root: string }) {
 				const saved = recents.find(item => item.root === root);
@@ -818,6 +922,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				generation++;
 				invalidateStaleJobs();
 				record();
+				persistRecovery();
 				return { ok: true, state: state() };
 			},
 			async reloadTab({ action }: { action: "discard" | "cancel" }) {
@@ -829,6 +934,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					fresh.revision = tab.revision + 1;
 					tabs.set(tab.path, fresh);
 					current = fresh;
+					persistRecovery();
 					return { ok: true, document: fresh };
 				} catch (error) { return errorResult<{ document: OpenDocument }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},
@@ -855,6 +961,48 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				} catch (error) {
 					return errorResult<{ files: ProjectFile[] }>(projectError(error instanceof Error ? error.message : String(error)));
 				}
+			},
+			async createProjectFile({ path, kind }: { path: string; kind: "amx" | "csv" | "json" }) {
+				try {
+					const root = requireRoot();
+					const target = createTarget(root, path);
+					if (documentKind(target) !== kind) throw new Error("Project file extension does not match its requested kind.");
+					const text = kind === "amx" ? "# New Document\n\n```amx\n\n```\n" : kind === "csv" ? "\n" : "{}\n";
+					writeNewFile(target, text);
+					const document = readEntry(target);
+					current = document;
+					tabs.set(target, document);
+					generation++;
+					invalidateStaleJobs();
+					record();
+					return { ok: true, document, state: state() };
+				} catch (error) { return errorResult<{ document: OpenDocument; state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error))); }
+			},
+			async createProjectFolder({ path }: { path: string }) {
+				try {
+					const target = createTarget(requireRoot(), path);
+					mkdirSync(target, { recursive: false, mode: 0o700 });
+					return { ok: true, state: state() };
+				} catch (error) { return errorResult<{ state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error))); }
+			},
+			async duplicateProjectFile({ source, destination }: { source: string; destination: string }) {
+				try {
+					const root = requireRoot();
+					const original = within(root, source);
+					if (!original || !allowedFile(root, original) || !["amx", "csv", "json"].includes(documentKind(original) ?? "")) throw new Error("Only contained editable project files can be duplicated.");
+					const target = createTarget(root, destination);
+					if (extname(target) !== extname(original)) throw new Error("Duplicate destination must retain the source extension.");
+					const text = readFileSync(original, "utf8");
+					if (text.length > MAX_TEXT) throw new Error(`Document exceeds the ${MAX_TEXT}-character limit.`);
+					writeNewFile(target, text);
+					const document = readEntry(target);
+					current = document;
+					tabs.set(target, document);
+					generation++;
+					invalidateStaleJobs();
+					record();
+					return { ok: true, document, state: state() };
+				} catch (error) { return errorResult<{ document: OpenDocument; state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},
 			async deleteProjectFile({ path }: { path: string }) {
 				try {
@@ -935,6 +1083,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					document.revision++;
 					invalidateStaleJobs();
 					scheduleAutosave(document);
+					persistRecovery();
 					return { ok: true, document };
 				} catch (error) { return errorResult<{ document: OpenDocument }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},

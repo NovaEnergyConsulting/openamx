@@ -77,6 +77,35 @@ assert.equal(readFileSync(autosaveEntry, "utf8"), invalidAutosaveText);
 assert.deepEqual(await autosaveService.request.setAutosave({ enabled: false, delayMs: 100 }), { ok: true, enabled: false, delayMs: 100 });
 console.log("Sprint 038 autosave assertions passed");
 
+const recoveryRoot = mkdtempSync(join(tmpdir(), "openamx-recovery-"));
+const recoveryEntry = join(recoveryRoot, "draft.amx");
+const recoverySession = join(recoveryRoot, "local-session.json");
+writeFileSync(recoveryEntry, "```amx\nlet value = 1\n```\n");
+const recoverySource = createDesktopService(undefined, undefined, recoverySession);
+assert.equal((await recoverySource.request.openProject({ path: recoveryRoot })).ok, true);
+assert.equal((await recoverySource.request.openDocument({ path: recoveryEntry })).ok, true);
+const recoveryText = "```amx\nlet value =\n```\n";
+assert.equal((await recoverySource.request.updateBuffer({ text: recoveryText })).ok, true);
+const recoveryListing = await recoverySource.request.getRecovery();
+assert.equal(recoveryListing.ok, true);
+if (!recoveryListing.ok) throw new Error(recoveryListing.error.message);
+assert.deepEqual(recoveryListing.items, [{ path: "draft.amx", kind: "amx" }]);
+assert.equal(readFileSync(recoveryEntry, "utf8"), "```amx\nlet value = 1\n```\n");
+const recoveryRestart = createDesktopService(undefined, undefined, recoverySession);
+const restartListing = await recoveryRestart.request.getRecovery();
+assert.equal(restartListing.ok, true);
+if (!restartListing.ok) throw new Error(restartListing.error.message);
+assert.equal(restartListing.available, true);
+const restoredRecovery = await recoveryRestart.request.resolveRecovery({ action: "restore" });
+assert.equal(restoredRecovery.ok, true);
+const restoredRecoveryDocument = await recoveryRestart.request.readDocument();
+assert.equal(restoredRecoveryDocument.ok, true);
+if (!restoredRecoveryDocument.ok) throw new Error(restoredRecoveryDocument.error.message);
+assert.equal(restoredRecoveryDocument.document.text, recoveryText);
+assert.equal(readFileSync(recoveryEntry, "utf8"), "```amx\nlet value = 1\n```\n");
+assert.equal((await recoveryRestart.request.resolveRecovery({ action: "discard" })).ok, true);
+console.log("Sprint 038 recovery assertions passed");
+
 const trashRoot = mkdtempSync(join(tmpdir(), "openamx-trash-"));
 const trashEntry = join(trashRoot, "recover.amx");
 writeFileSync(trashEntry, "```amx\nlet value = 1\n```\n");
@@ -94,6 +123,22 @@ assert.equal((await trashService.request.deleteProjectFile({ path: "recover.amx"
 assert.equal((await trashService.request.emptyTrash()).ok, true);
 assert.deepEqual(await trashService.request.listTrash(), { ok: true, items: [] });
 console.log("Sprint 038 trash and restore assertions passed");
+
+const fileOperationsRoot = mkdtempSync(join(tmpdir(), "openamx-file-operations-"));
+const fileOperationsService = createDesktopService();
+assert.equal((await fileOperationsService.request.openProject({ path: fileOperationsRoot })).ok, true);
+assert.equal((await fileOperationsService.request.createProjectFolder({ path: "notes" })).ok, true);
+const createdAmx = await fileOperationsService.request.createProjectFile({ path: "notes/draft.amx", kind: "amx" });
+assert.equal(createdAmx.ok, true);
+if (!createdAmx.ok) throw new Error(createdAmx.error.message);
+assert.match(readFileSync(join(fileOperationsRoot, "notes", "draft.amx"), "utf8"), /# New Document/);
+const duplicatedAmx = await fileOperationsService.request.duplicateProjectFile({ source: "notes/draft.amx", destination: "notes/draft-copy.amx" });
+assert.equal(duplicatedAmx.ok, true);
+assert.equal(readFileSync(join(fileOperationsRoot, "notes", "draft-copy.amx"), "utf8"), readFileSync(join(fileOperationsRoot, "notes", "draft.amx"), "utf8"));
+assert.equal((await fileOperationsService.request.createProjectFile({ path: "notes/draft.amx", kind: "amx" })).ok, false);
+assert.equal((await fileOperationsService.request.createProjectFolder({ path: ".openamx/hidden" })).ok, false);
+assert.equal((await fileOperationsService.request.duplicateProjectFile({ source: "notes/draft.amx", destination: "../outside.amx" })).ok, false);
+console.log("Sprint 038 file operation assertions passed");
 
 const root = mkdtempSync(join(tmpdir(), "openamx-desktop-"));
 mkdirSync(join(root, "nested"));

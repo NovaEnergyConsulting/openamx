@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import type { DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
+import type { DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
 import { Button } from "@/components/ui/button";
 import CodeEditor from "./CodeEditor.vue";
 import CommandPalette from "./components/CommandPalette.vue";
@@ -14,6 +14,7 @@ const document = ref<OpenDocument | null>(null);
 const workbench = ref<WorkbenchState>({ tabs: [], generation: 0, inputSettingsRevision: 0 });
 const projectRoot = ref("");
 const recents = ref<RecentProject[]>([]);
+const recovery = ref<RecoveryItem[]>([]);
 const palette = ref(false);
 const focusMode = ref<ShellFocusMode>("none");
 const drawerDock = ref<DrawerDock>((localStorage.getItem("openamx.drawer-dock") as DrawerDock) || "bottom");
@@ -112,6 +113,26 @@ async function syncRecents() {
 	if (result.ok) recents.value = result.projects;
 }
 
+async function syncRecovery() {
+	const result = await props.rpc.request.getRecovery();
+	if (result.ok) recovery.value = result.items;
+}
+
+async function resolveRecovery(action: "restore" | "discard") {
+	const result = await props.rpc.request.resolveRecovery({ action });
+	if (!result.ok) { status.value = result.error.message; return; }
+	if (action === "discard") { await syncRecovery(); status.value = "Discarded recovery snapshots."; return; }
+	if (!result.root) { status.value = "No recovery snapshot is available."; return; }
+	clearView();
+	projectRoot.value = result.root;
+	workbench.value = result.state;
+	const active = await props.rpc.request.readDocument();
+	if (active.ok) document.value = active.document;
+	const listingError = await loadProject();
+	await syncRecovery();
+	status.value = listingError ?? "Restored unsaved buffers without writing them to disk.";
+}
+
 async function loadProject() {
 	const listing = await props.rpc.request.listProjectFiles();
 	files.value = listing.ok ? listing.files : [];
@@ -184,6 +205,9 @@ function cycleTab(direction: number) {
 const commands = computed<ShellCommand[]>(() => [
 	{ id: "project.open", label: "Open project", shortcut: "Ctrl/Cmd+O", enabled: true, run: openProject },
 	{ id: "project.create", label: "Create project", enabled: true, run: createProject },
+	{ id: "project.new-amx", label: "New AMX file", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => createProjectFile("amx") },
+	{ id: "project.new-folder", label: "New folder", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: createProjectFolder },
+	{ id: "project.duplicate-file", label: "Duplicate active file", enabled: !!document.value && ["amx", "csv", "json"].includes(document.value.kind), disabledReason: "Open an editable project file first", run: duplicateProjectFile },
 	{ id: "file.open", label: "Open file", shortcut: "Ctrl/Cmd+Shift+O", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => openDocument() },
 	{ id: "tab.next", label: "Next tab", shortcut: "Ctrl/Cmd+Alt+Right", enabled: workbench.value.tabs.length > 1, disabledReason: "Open another tab first", run: () => cycleTab(1) },
 	{ id: "tab.previous", label: "Previous tab", shortcut: "Ctrl/Cmd+Alt+Left", enabled: workbench.value.tabs.length > 1, disabledReason: "Open another tab first", run: () => cycleTab(-1) },
@@ -253,7 +277,7 @@ function dragDivider(event: PointerEvent, divider: "explorer" | "preview") {
 	window.addEventListener("pointerup", finish, { once: true });
 }
 
-onMounted(() => { setTheme(theme.value); window.addEventListener("keydown", onKeydown); void syncRecents(); });
+onMounted(() => { setTheme(theme.value); window.addEventListener("keydown", onKeydown); void syncRecents(); void syncRecovery(); });
 onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 function clearView() {
@@ -365,6 +389,41 @@ async function openDocument(path?: string) {
 	if (!result.ok) { status.value = result.error.message; return; }
 	if (result.cancelled || !result.document) return;
 	await activate({ ok: true, document: result.document });
+}
+
+async function createProjectFile(kind: "amx" | "csv" | "json") {
+	const path = window.prompt(`New ${kind.toUpperCase()} file path`, `untitled.${kind}`)?.trim();
+	if (!path) return;
+	const result = await props.rpc.request.createProjectFile({ path, kind });
+	if (!result.ok) { status.value = result.error.message; return; }
+	clearView();
+	document.value = result.document;
+	workbench.value = result.state;
+	const listingError = await loadProject();
+	status.value = listingError ?? `Created ${path}.`;
+}
+
+async function createProjectFolder() {
+	const path = window.prompt("New folder path")?.trim();
+	if (!path) return;
+	const result = await props.rpc.request.createProjectFolder({ path });
+	if (!result.ok) { status.value = result.error.message; return; }
+	workbench.value = result.state;
+	const listingError = await loadProject();
+	status.value = listingError ?? `Created ${path}.`;
+}
+
+async function duplicateProjectFile() {
+	if (!document.value) return;
+	const destination = window.prompt("Duplicate file path")?.trim();
+	if (!destination) return;
+	const result = await props.rpc.request.duplicateProjectFile({ source: document.value.path, destination });
+	if (!result.ok) { status.value = result.error.message; return; }
+	clearView();
+	document.value = result.document;
+	workbench.value = result.state;
+	const listingError = await loadProject();
+	status.value = listingError ?? `Created ${destination}.`;
 }
 
 async function selectTab(path: string) {
@@ -643,9 +702,9 @@ function displayDiagnostic(item: TextDiagnostic): string {
 			<select v-model="theme" aria-label="Theme" @change="setTheme(theme)"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
 			<button type="button" @click="showPalette">Commands</button>
 		</header>
-		<WelcomeView v-if="!projectRoot" :recents="recents" :status="status" @open-project="openProject" @create-project="createProject" @restore="restore" @clear-recents="clearRecents" @open-help="status = 'Help and shortcut reference will be completed in Sprint 043.'" />
+		<WelcomeView v-if="!projectRoot" :recents="recents" :recovery="recovery" :status="status" @open-project="openProject" @create-project="createProject" @restore="restore" @restore-recovery="resolveRecovery('restore')" @discard-recovery="resolveRecovery('discard')" @clear-recents="clearRecents" @open-help="status = 'Help and shortcut reference will be completed in Sprint 043.'" />
 		<div v-else class="workbench" :class="[`focus-${focusMode}`, `drawer-${drawerDock}`]" :style="{ '--explorer-width': `${explorerWidth}px`, '--preview-width': `${previewWidth}%` }">
-			<ProjectExplorer :files="files" :workbench="workbench" @open="openDocument" />
+			<ProjectExplorer :files="files" :workbench="workbench" @open="openDocument" @create-amx="createProjectFile('amx')" @create-folder="createProjectFolder" />
 			<div class="divider divider-explorer" role="separator" aria-label="Resize explorer" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'explorer')"></div>
 			<section class="editor-pane" aria-label="Document editor">
 				<WorkbenchTabs :workbench="workbench" @select="selectTab" @close="closeTab" />

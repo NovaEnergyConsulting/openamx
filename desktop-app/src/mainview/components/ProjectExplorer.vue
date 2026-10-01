@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 import type { ProjectFile, WorkbenchState } from "../../shared/rpc";
 
 const props = defineProps<{ files: ProjectFile[]; workbench: WorkbenchState }>();
-const emit = defineEmits<{ open: [path: string] }>();
+const emit = defineEmits<{ open: [path: string]; createAmx: []; createFolder: [] }>();
 const search = ref("");
 const visibleFiles = computed(() => props.files.filter(file => file.path.toLowerCase().includes(search.value.toLowerCase())));
 const groupedFiles = computed(() => {
@@ -19,6 +19,7 @@ const groupedFiles = computed(() => {
 <template>
 	<aside class="explorer" aria-label="Project explorer">
 		<div class="section-heading"><span>PROJECT</span><span>{{ files.length }}</span></div>
+		<div class="explorer-actions"><button type="button" @click="emit('createAmx')">New AMX</button><button type="button" @click="emit('createFolder')">New folder</button></div>
 		<input id="project-search" v-model="search" aria-label="Search project files" placeholder="Search files">
 		<div v-for="[folder, entries] in groupedFiles" :key="folder">
 			<p class="folder">{{ folder }}</p>

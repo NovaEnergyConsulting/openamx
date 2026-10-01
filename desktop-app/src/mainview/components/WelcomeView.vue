@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { RecentProject } from "../../shared/rpc";
+import type { RecentProject, RecoveryItem } from "../../shared/rpc";
 
-defineProps<{ recents: RecentProject[]; status: string }>();
-const emit = defineEmits<{ openProject: []; createProject: []; restore: [root: string]; clearRecents: []; openHelp: [] }>();
+defineProps<{ recents: RecentProject[]; recovery: RecoveryItem[]; status: string }>();
+const emit = defineEmits<{ openProject: []; createProject: []; restore: [root: string]; restoreRecovery: []; discardRecovery: []; clearRecents: []; openHelp: [] }>();
 </script>
 
 <template>
@@ -21,6 +21,6 @@ const emit = defineEmits<{ openProject: []; createProject: []; restore: [root: s
 			<button v-for="recent in recents" :key="recent.root" class="recent-project" type="button" @click="emit('restore', recent.root)">{{ recent.root }}</button>
 			<p v-if="!recents.length" class="muted">No validated recent projects.</p>
 		</section>
-		<div class="welcome-notices"><span>Recovery: no snapshots to restore</span><span>Release notes available from Help</span></div>
+		<div class="welcome-notices"><span v-if="!recovery.length">Recovery: no snapshots to restore</span><span v-else>Recovery: {{ recovery.length }} unsaved file{{ recovery.length === 1 ? '' : 's' }} available <button type="button" @click="emit('restoreRecovery')">Restore</button><button type="button" @click="emit('discardRecovery')">Discard</button></span><span>Release notes available from Help</span></div>
 	</section>
 </template>

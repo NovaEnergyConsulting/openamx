@@ -13,6 +13,7 @@ export type DocumentKind = "amx" | "csv" | "json" | "settings" | "external-data"
 export type ProjectFileKind = Exclude<DocumentKind, "external-data">;
 export interface ProjectFile { path: string; kind: ProjectFileKind; }
 export interface TrashItem { id: string; path: string; kind: ProjectFileKind; }
+export interface RecoveryItem { path: string; kind: "amx" | "csv" | "json"; }
 export interface OpenDocument { path: string; kind: DocumentKind; text: string; diskHash: string; dirty: boolean; conflict: boolean; revision: number; }
 export interface TabState { path: string; kind: DocumentKind; dirty: boolean; conflict: boolean; revision: number; }
 export interface ActiveDocumentRequestIdentity {
@@ -93,11 +94,16 @@ export interface DesktopRPCClient {
 		confirmQuit(): Promise<DesktopRPCResponse<{ ready: boolean }>>;
 		getRecents(): Promise<DesktopRPCResponse<{ projects: RecentProject[] }>>;
 		clearSession(): Promise<DesktopRPCResponse<{ projects: RecentProject[] }>>;
+		getRecovery(): Promise<DesktopRPCResponse<{ available: boolean; root?: string; items: RecoveryItem[] }>>;
+		resolveRecovery(params: { action: "restore" | "discard" }): Promise<DesktopRPCResponse<{ root?: string; state: WorkbenchState }>>;
 		restoreProject(params: { root: string }): Promise<DesktopRPCResponse<{ root: string; state: WorkbenchState }>>;
 		setPanelSizes(params: { explorerWidth: number; previewWidth: number }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		closeTab(params: { path: string; action: "save" | "discard" | "cancel" }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		reloadTab(params: { action: "discard" | "cancel" }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		listProjectFiles(): Promise<DesktopRPCResponse<{ files: ProjectFile[] }>>;
+		createProjectFile(params: { path: string; kind: "amx" | "csv" | "json" }): Promise<DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }>>;
+		createProjectFolder(params: { path: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		duplicateProjectFile(params: { source: string; destination: string }): Promise<DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }>>;
 		deleteProjectFile(params: { path: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		listTrash(): Promise<DesktopRPCResponse<{ items: TrashItem[] }>>;
 		restoreTrash(params: { id: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
@@ -146,11 +152,16 @@ export type DesktopRPCSchema = {
 			confirmQuit: { params: Record<string, never>; response: DesktopRPCResponse<{ ready: boolean }> };
 			getRecents: { params: Record<string, never>; response: DesktopRPCResponse<{ projects: RecentProject[] }> };
 			clearSession: { params: Record<string, never>; response: DesktopRPCResponse<{ projects: RecentProject[] }> };
+			getRecovery: { params: Record<string, never>; response: DesktopRPCResponse<{ available: boolean; root?: string; items: RecoveryItem[] }> };
+			resolveRecovery: { params: { action: "restore" | "discard" }; response: DesktopRPCResponse<{ root?: string; state: WorkbenchState }> };
 			restoreProject: { params: { root: string }; response: DesktopRPCResponse<{ root: string; state: WorkbenchState }> };
 			setPanelSizes: { params: { explorerWidth: number; previewWidth: number }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			closeTab: { params: { path: string; action: "save" | "discard" | "cancel" }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			reloadTab: { params: { action: "discard" | "cancel" }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			listProjectFiles: { params: Record<string, never>; response: DesktopRPCResponse<{ files: ProjectFile[] }> };
+			createProjectFile: { params: { path: string; kind: "amx" | "csv" | "json" }; response: DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }> };
+			createProjectFolder: { params: { path: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			duplicateProjectFile: { params: { source: string; destination: string }; response: DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }> };
 			deleteProjectFile: { params: { path: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			listTrash: { params: Record<string, never>; response: DesktopRPCResponse<{ items: TrashItem[] }> };
 			restoreTrash: { params: { id: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
