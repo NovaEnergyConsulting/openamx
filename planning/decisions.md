@@ -1,5 +1,16 @@
 # Planning Decisions
 
+## V0.6 Product Discovery Decisions (2026-10-01)
+
+- V0.6 is a desktop UX-quality milestone, not a packaging/release milestone. All selected desktop tracks are must-haves and there is no fixed sprint/date budget. No AMX language semantics change.
+- The active AMX tab replaces designated-entry desktop state and owns analysis, preview, power Run, and export. Live preview uses all relevant open unsaved module buffers, is debounced by default, supports pause/cancel, and retains a clearly stale last-good preview after an invalid edit.
+- Desktop remains the only changed product surface. Narrow backward-compatible shared loader/data/editor APIs and internal VS Code-provider extraction are approved only to prevent duplicated semantics; CLI and VS Code behavior must remain compatible.
+- The workbench uses a contained relevant-file explorer, adjustable source/context split, bottom/right runtime drawer, native menus, command palette, contextual icons, system/light/dark themes, and a 1024x720 minimum. Remove the crowded workflow strip, dead wide-window selectors, entry controls, separate format buttons, and plus/minus resizing.
+- Project scope includes create, duplicate, drag/move, rename, delete, reveal/open, project-local trash, delayed autosave for every explicitly editable file, disk-conflict checks, and local crash recovery. Rename/move updates relative AMX imports transactionally; delete remains recoverable until Empty Trash.
+- AMX authoring requires exact fence-aware highlighting, completion, inline diagnostics, hover, definition, references, rename, and deterministic code actions through shared parser/checker/link facts. CSV/JSON requires virtualized structured and raw editing with mapped AMX schema validation, targeting supported 100,000-row data and 100 relevant project files.
+- Declared inputs use picker-backed contextual slots and persist privately by default, with explicit portable-default promotion. Report settings edit effective project defaults and current-document overrides. One Export workflow owns HTML, PDF, DOCX, and explicitly exported JSON/CSV values and may use an explicitly selected validated destination outside the project.
+- Local/offline operation, no telemetry, typed main-process/worker authority, bounded/redacted payloads, atomic writes, practical keyboard/focus/contrast quality, and available-host UX acceptance remain required. Native platform release certification, Hutch, Office, license/Marketplace, report-mobile overflow, VS Code apply-time remediation, and formal WCAG certification stay separate.
+
 ## Sprint 034 Builder Findings (2026-10-01)
 
 - CLI `--version` had drifted to `0.3.0` while root/extension package metadata remained `0.4.0`; it now reports `0.4.0`. Package metadata remains `0.4.0` because V0.5 has not been released.

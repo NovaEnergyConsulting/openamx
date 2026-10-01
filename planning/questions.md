@@ -1,5 +1,18 @@
 # Planning Questions (Sprint 002)
 
+## V0.6 Sprint 035 Feasibility and Contract Questions (2026-10-01)
+
+- Which bounded contained source-provider shape lets `loadEntryModule` prefer every relevant open unsaved AMX buffer while preserving canonical imports, cycles, diagnostics, evaluation order, and unchanged CLI behavior?
+- Does cooperative abort, Bun worker termination, or a combined job boundary provide prompt cancellation and cleanup for preview/run, data validation, and report preparation while keeping final filesystem writes in the main process?
+- Which Electrobun 2.0.1 and available-host APIs support native menus, Open/Reveal, focus restoration, save selection, and window lifecycle without adding webview filesystem/process authority?
+- What smallest VS Code-independent editor-analysis API can preserve current provider behavior while supplying CodeMirror symbols, ranges, completion, diagnostics, navigation, rename, and actions over unsaved module overlays?
+- Which maintained Vue-compatible virtual CSV grid and JSON tree/editor meet the 100,000-row, raw/structured, keyboard, undo, license, bundle, and memory requirements on the actual Bun/Vite host?
+- Which structured JSON/YAML editing approach preserves unrelated `.openamx/project.json` keys and AMX frontmatter content while applying validated input/report settings with conflict-safe atomic writes?
+- What measured available-host budgets replace or confirm the initial targets for project listing, first usable 100,000-row viewport, preview debounce, cancellation acknowledgement, and webview main-thread responsiveness?
+- Which component/browser harness can exercise populated RPC states, keyboard/focus, light/dark themes, drawer/split behavior, and deterministic 1024x720/larger screenshots without presenting browser-shim evidence as native release proof?
+
+Resolve these in Sprint 035 through bounded evidence and record the selected approaches before their dependent implementation sprints. They are technical proof gates, not permission to reduce the approved V0.6 product scope silently.
+
 ## Sprint 034 Final Disposition Questions (2026-10-01)
 
 - After reviewing the generated F0-F6 desktop/HTML/PDF/DOCX evidence, does the Lead Developer sign `Approved`, `Approved with recorded exceptions`, or `Rejected`? Record reviewer/date/environment/viewer/artifact hashes and an owner/date for every exception; unavailable observation is `Blocked`, not pass.

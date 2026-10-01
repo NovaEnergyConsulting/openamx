@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.6 Master Plan and Product/UX Contract Prepared (2026-10-01)
+
+- Added `planning/plan-openamxV06MasterSprintPlan.md` and `planning/openamxV06ProductUXContract.md` from the completed V0.6 product-discovery interview. The proposal contains nine sprints, 035-043, with no fixed date or sprint cap.
+- V0.6 is a desktop UX-quality milestone: active-document live preview, complete project lifecycle, input/report settings, AMX intelligence, structured CSV/JSON editing, export parity, and onboarding/help. It preserves V0.2-V0.5 language and CLI semantics and does not claim native packaging or public-release readiness.
+- No V0.6 production code, dependency, sprint folder, state migration, or version metadata has been changed. Sprint 035 remains unprepared and inactive until the Lead Developer approves both planning artifacts.
+- Required next gate: review and approve the master plan and contract, then customize `planning/sprints/0000-sprint-template/` for Sprint 035 contract ratification, prototypes, measurements, and feasibility proofs.
+- Separate residuals remain OPEN: native macOS/Windows/native Ubuntu and Hutch packaging/launch, broad Office, project license/Marketplace, V0.5 mobile report overflow, VS Code apply-time code-action remediation, and formal accessibility certification.
+
 ## Sprint 034 Builder Outcome (2026-10-01)
 
 - Added the runnable typed example `examples/v05-asset-screening.amx`, tested project identity sample `examples/v05-project.json`, focused production CLI coverage, CLI version alignment, and CLI diagnostic path redaction. Report preparation now rejects decoded logo formats that do not match `.png`/`.jpg`; a regression found PNG bytes under `.jpg` were previously accepted.
