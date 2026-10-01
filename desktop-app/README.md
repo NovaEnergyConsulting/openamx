@@ -1,6 +1,6 @@
 # OpenAMX Desktop Analysis Workbench
 
-This isolated Electrobun + Bun + Vue 3 + shadcn-vue application provides project editing, entry-buffer analysis/run, HTML preview/save, and PDF/DOCX export. The Bun main process owns project paths, configuration, file reads/writes, module loading, parsing, checking, input validation, evaluation, rendering, and report generation. The Vue webview receives bounded typed payloads and has no filesystem, Bun/Node, shell, evaluator, module-loader, input-loader, PDF, or DOCX capability.
+This isolated Electrobun + Bun + Vue 3 + shadcn-vue application provides project editing, entry-buffer analysis/run, HTML preview/save, and PDF/DOCX export. Report operations use the selected project root for V0.5 report identity and the shared prepared-report path. The Bun main process owns project paths, configuration, file reads/writes, module loading, parsing, checking, input validation, evaluation, rendering, and report generation. The Vue webview receives bounded typed payloads and has no filesystem, Bun/Node, shell, evaluator, module-loader, input-loader, PDF, or DOCX capability. V0.5 is accepted with native desktop and visual exceptions deferred to V0.6; separate native release gates remain open. See `planning/state.md`.
 
 shadcn-vue components and helpers are application source under `src/mainview/components` and `src/mainview/lib`. `.hutch/devkit` is reserved for Hutch-generated Electrobun SDK files; never place application components there because Hutch may replace that projection.
 
@@ -55,6 +55,11 @@ Portable defaults live in `.openamx/project.json` and use paths relative to the 
 	"inputs": {
 		"assets": "data/assets.json",
 		"screenings": "data/screenings.csv"
+	},
+	"report": {
+		"organization": "Example Utilities",
+		"accent": "#146C94",
+		"footer": "Illustrative report"
 	}
 }
 ```
@@ -62,6 +67,9 @@ Portable defaults live in `.openamx/project.json` and use paths relative to the 
 Machine-local overrides use the same schema in ignored `.openamx/local.json`. Create it explicitly; the application never creates or overwrites configuration files. On POSIX systems, it must be owned by the current user with group/other access disabled (for example, `chmod 600 .openamx/local.json`). Local paths may be absolute or project-relative. Per-run overrides are entered one `name=path` mapping per line. Precedence is per-run, local, then project. Relative paths resolve from the project root; project-default paths must remain inside it. Local and per-run data files may be outside the root. URL/network paths are unsupported, and private paths are redacted from diagnostics.
 
 Both configuration files accept only `version: 1` and an `inputs` object of logical names to paths; unknown keys, invalid names, unsupported extensions, insecure or incorrectly owned POSIX local files, and invalid project paths are reported without rewriting the file. Missing configuration files mean no defaults. Core aggregate and fail-fast validation behavior is preserved.
+The portable `.openamx/project.json` accepts `version: 1`, `inputs`, and the optional V0.5 `report` identity object. The ignored `.openamx/local.json` accepts only `version: 1` and `inputs`; report identity cannot be overridden locally. Unknown keys, invalid names, unsupported extensions, insecure or incorrectly owned POSIX local files, and invalid project paths are reported without rewriting the file. Missing configuration files mean no defaults. Core aggregate and fail-fast validation behavior is preserved.
+
+Report `report` values may also be overridden field by field in the entry document's YAML frontmatter. `sourceVisible` defaults to true; setting it false hides only the formatted source listing, not values, views or other report content. A logo must be a contained local PNG/JPEG asset with descriptive alt text, and is validated and re-encoded by the main process before output.
 
 ## Outputs and Limits
 
@@ -70,6 +78,7 @@ HTML preview, HTML save, PDF export, and DOCX export analyze the designated entr
 ## Verification Status
 
 The Sprint 026 builder environment was Ubuntu 24.04.4 LTS under WSL2 (Linux x86_64), Bun 1.4.2, and Node 24.20.0. This is not native Ubuntu release-owner evidence. macOS 14+, Windows 11+, and native Ubuntu 24.04+ build/launch checks remain required. The PDF adapter uses pdfmake 0.3.11 and bundled Roboto fonts; retain the recorded Apache 2.0 font notice with redistributed font assets. DOCX uses `docx` 9.8.1 (MIT), embeds local SVG chart media with a local PNG fallback, and has package-structure evidence on this host; native Office round trips remain unverified. Marketplace publication remains deferred pending an explicit project license decision.
+Recorded direct desktop verification is on Ubuntu 24.04 under WSL2, not native Ubuntu release-owner evidence. macOS 14+, Windows 11+, and native Ubuntu 24.04+ build/launch checks remain required. The PDF adapter uses pdfmake 0.3.11 and bundled Roboto fonts; retain the recorded Apache 2.0 font notice with redistributed font assets. DOCX uses `docx` 9.8.1 (MIT), embeds local SVG chart media with a local PNG fallback, and has package-structure evidence; native Office round trips remain unverified. Sprint 029 native project/save/close and populated accessibility checks, Sprint 030 editor exceptions, and Sprint 034 visual sign-off remain open. Marketplace publication remains deferred pending an explicit project license decision.
 
 ## Native Prerequisites
 

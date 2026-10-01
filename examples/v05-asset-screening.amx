@@ -1,0 +1,51 @@
+---
+title: Branded Asset Screening Snapshot
+report:
+  author: "Reliability Team"
+  status: "Illustrative"
+---
+
+# Asset Screening Snapshot
+
+Asset **{{ asset.name }}** has an illustrative screening total of {{ totalScore }}.
+The values below preserve the order of the supplied screening records.
+
+```amx
+import { Asset, FailureMode } from "./libraries/asset-management.amx"
+import { Screening } from "./libraries/screening.amx"
+
+input asset: Asset
+input screenings: Screening[]
+
+type ScreeningResult {
+  assetId: String
+  score: Number
+  note?: String? = null
+}
+
+fn screeningScore(severity: Number, occurrence: Number): Number = severity * occurrence
+
+let scores: Number[] = for screening in screenings {
+  return screeningScore(screening.severity, screening.occurrence)
+}
+let totalScore: Number = sum(scores)
+let results: ScreeningResult[] = for screening in screenings {
+  return ScreeningResult { assetId: screening.assetId, score: screeningScore(screening.severity, screening.occurrence), note: screening.note }
+}
+
+table screeningRegister = table(results) {
+  title: "Screening register"
+  column assetId as "Asset ID"
+  column score as "Illustrative score"
+  column note as "Observation"
+}
+
+chart screeningScores = bar(scores) {
+  title: "Score by screening"
+  description: "Illustrative severity multiplied by occurrence"
+  series "Score"
+}
+
+show screeningRegister
+show screeningScores
+```

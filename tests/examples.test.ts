@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp, rm } from "fs/promises";
+import { cp, mkdir, mkdtemp, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import * as path from "path";
 import { parseDocument } from "../src/parser/parseDocument";
@@ -180,6 +180,48 @@ describe("V0.2 canonical examples", () => {
       expect(invalidJson.stderr).toContain("AMX4003");
       expect(invalidJson.stderr).toContain("/id");
       expect(await Bun.file(invalidJsonPath).exists()).toBe(false);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("V0.5 branded example", () => {
+  it("runs typed inputs, contained imports, views, and all report formats", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "openamx-v05-example-"));
+    try {
+      await mkdir(path.join(directory, ".openamx"), { recursive: true });
+      await cp("examples/libraries", path.join(directory, "libraries"), { recursive: true });
+      await Bun.write(path.join(directory, "v05-asset-screening.amx"), await Bun.file("examples/v05-asset-screening.amx").text());
+      await writeFile(path.join(directory, ".openamx", "project.json"), await Bun.file("examples/v05-project.json").text());
+
+      const entry = path.join(directory, "v05-asset-screening.amx");
+      const asset = path.resolve("examples/typed-asset.json");
+      const screenings = path.resolve("examples/typed-screenings.csv");
+      const mappings = ["--input", `asset=${asset}`, "--input", `screenings=${screenings}`];
+      const run = await runCli("run", entry, ...mappings);
+      expect(run.exitCode).toBe(0);
+      expect(run.stdout).toContain('"scores": [\n    16,\n    18,\n    4\n  ]');
+      expect(run.stdout).toContain('"totalScore": 38');
+
+      const htmlPath = path.join(directory, "screening.html");
+      const render = await runCli("render", entry, "--out", htmlPath, "--project-root", directory, ...mappings);
+      expect(render.exitCode).toBe(0);
+      const html = await Bun.file(htmlPath).text();
+      expect(html).toContain("OpenAMX Example");
+      expect(html).toContain("Illustrative sample");
+      expect(html).toContain("illustrative screening total of 38");
+      expect(html).toContain("Screening register");
+      expect(html).toContain("Score by screening");
+      expect(html.indexOf("The values below preserve")).toBeLessThan(html.indexOf("Screening register"));
+      expect(html.indexOf("Screening register")).toBeLessThan(html.indexOf("Score by screening"));
+
+      for (const format of ["pdf", "docx"] as const) {
+        const output = path.join(directory, `screening.${format}`);
+        const exported = await runCli("export", format, entry, "--out", output, "--project-root", directory, ...mappings);
+        expect(exported.exitCode).toBe(0);
+        expect((await Bun.file(output).bytes()).byteLength).toBeGreaterThan(1000);
+      }
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

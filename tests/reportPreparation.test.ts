@@ -64,4 +64,51 @@ let value = 7
       await expect(prepareReport(parseDocumentText('# Report'), new Environment(), { projectRoot: root })).rejects.toMatchObject({ code: 'AMX6001' });
     }
   });
+
+  it('rejects logo bytes whose decoded format does not match the declared extension', async () => {
+    const root = await fixtureRoot();
+    await writeFile(join(root, 'logo.jpg'), png);
+    await writeFile(join(root, '.openamx', 'project.json'), JSON.stringify({
+      version: 1,
+      inputs: {},
+      report: { logo: 'logo.jpg', logoAlt: 'Logo' }
+    }));
+    await expect(prepareReport(parseDocumentText('# Report'), new Environment(), { projectRoot: root }))
+      .rejects.toMatchObject({ code: 'AMX6001' });
+  });
+
+  it('rejects missing, malformed, and oversized logo assets', async () => {
+    const root = await fixtureRoot();
+    await writeFile(join(root, 'malformed.png'), Buffer.from('not an image'));
+    await writeFile(join(root, 'oversized.png'), Buffer.alloc(256 * 1024 + 1));
+    for (const logo of ['missing.png', 'malformed.png', 'oversized.png']) {
+      await writeFile(join(root, '.openamx', 'project.json'), JSON.stringify({
+        version: 1,
+        inputs: {},
+        report: { logo, logoAlt: 'Logo' }
+      }));
+      await expect(prepareReport(parseDocumentText('# Report'), new Environment(), { projectRoot: root }))
+        .rejects.toMatchObject({ code: 'AMX6001' });
+    }
+  });
+
+  it('rejects invalid report fields and does not let frontmatter mask project errors', async () => {
+    const root = await fixtureRoot();
+    const invalidFrontmatter = [
+      '---\nreport:\n  sourceVisible: "false"\n---\n# Report',
+      '---\nreport:\n  unknownField: "value"\n---\n# Report'
+    ];
+    for (const text of invalidFrontmatter) {
+      await expect(prepareReport(parseDocumentText(text), new Environment(), { projectRoot: root }))
+        .rejects.toMatchObject({ code: 'AMX6001' });
+    }
+    await writeFile(join(root, '.openamx', 'project.json'), JSON.stringify({
+      version: 1,
+      inputs: {},
+      report: { invalidProjectField: 'must fail' }
+    }));
+    const masked = parseDocumentText('---\nreport:\n  organization: "Override"\n---\n# Report');
+    await expect(prepareReport(masked, new Environment(), { projectRoot: root }))
+      .rejects.toMatchObject({ code: 'AMX6001' });
+  });
 });

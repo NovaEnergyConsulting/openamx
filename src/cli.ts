@@ -9,6 +9,7 @@
  */
 
 import { cac } from "cac";
+import { basename, relative, resolve, sep } from "node:path";
 import { renderPreparedHtml } from "./renderer/renderHtml";
 import { AmxDiagnostic, AmxError } from "./diagnostics/errors";
 import { loadEntryModule } from "./runtime/moduleLoader";
@@ -32,12 +33,11 @@ function reportAmxError(error: AmxError): void {
     code: error.code, message: error.message, file: error.file, line: error.line, column: error.column
   }];
   for (const diagnostic of diagnostics) {
-    console.error(`${diagnostic.code}: ${diagnostic.message}`);
-    if (diagnostic.file) console.error(`File: ${diagnostic.file}`);
+    console.error(`${diagnostic.code}: ${displayDiagnosticMessage(diagnostic)}`);
+    if (diagnostic.file) console.error(`File: ${displayDiagnosticPath(diagnostic.file)}`);
     if (diagnostic.line !== undefined) console.error(`Line: ${diagnostic.line}`);
     if (diagnostic.column !== undefined) console.error(`Column: ${diagnostic.column}`);
     if (diagnostic.inputName) console.error(`Input: ${diagnostic.inputName}`);
-    if (diagnostic.dataFile) console.error(`Data file: ${diagnostic.dataFile}`);
     if (diagnostic.dataPath !== undefined) console.error(`Data: ${diagnostic.dataPath || '/'}`);
     if (diagnostic.dataLine !== undefined) console.error(`Data line: ${diagnostic.dataLine}`);
     if (diagnostic.dataColumn !== undefined) console.error(`Data column: ${diagnostic.dataColumn}`);
@@ -51,6 +51,25 @@ function reportAmxError(error: AmxError): void {
       console.error(`Field declaration: ${diagnostic.fieldSource.line}:${diagnostic.fieldSource.column}`);
     }
   }
+}
+
+function displayDiagnosticMessage(diagnostic: AmxDiagnostic): string {
+  let message = diagnostic.message;
+  for (const file of [diagnostic.file, diagnostic.dataFile]) {
+    if (file) message = message.replaceAll(file, displayDiagnosticPath(file));
+  }
+  return message.replace(/(['"])((?:[A-Za-z]:[\\/]|\/)[^'"]*)\1/g, (_match, quote: string, file: string) =>
+    `${quote}${displayDiagnosticPath(file)}${quote}`
+  );
+}
+
+function displayDiagnosticPath(file: string): string {
+  const absolute = resolve(file);
+  const fromWorkingDirectory = relative(process.cwd(), absolute);
+  if (fromWorkingDirectory && fromWorkingDirectory !== '..' && !fromWorkingDirectory.startsWith(`..${sep}`)) {
+    return fromWorkingDirectory;
+  }
+  return basename(absolute);
 }
 
 cli
@@ -155,6 +174,6 @@ cli
   });
 
 cli.help();
-cli.version("0.3.0");
+cli.version("0.4.0");
 
 cli.parse();

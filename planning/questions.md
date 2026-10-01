@@ -1,5 +1,22 @@
 # Planning Questions (Sprint 002)
 
+## Sprint 034 Final Disposition Questions (2026-10-01)
+
+- After reviewing the generated F0-F6 desktop/HTML/PDF/DOCX evidence, does the Lead Developer sign `Approved`, `Approved with recorded exceptions`, or `Rejected`? Record reviewer/date/environment/viewer/artifact hashes and an owner/date for every exception; unavailable observation is `Blocked`, not pass.
+- Does the Sprint 033 resolve-time document/token/live-diagnostic recheck provide an acceptable bounded safeguard for the current VS Code 1.85 quick fix, or must a guarded command/preview flow be scoped before that provider criterion can close?
+- What is the explicit product disposition for the still-open Sprint 029 native picker/project/quit/accessibility and Sprint 030 editor/analysis/accessibility exceptions? Assign remediation or approved exception; Sprint 034 cannot erase them by documentation.
+- Which native target hosts, named PDF/DOCX viewer/OOXML checks and package/Office tools are actually available for final verification, and which native/Hutch/Office/license/Marketplace checks remain separate release-owner blockers after Sprint 034?
+
+These were the Sprint 034 decision questions. The Lead Developer's V0.5 feature acceptance and V0.6 deferral are recorded under Builder Evidence Status below; the separate release-engineering gates remain OPEN.
+
+### Builder Evidence Status (2026-10-01)
+
+- Root/desktop/extension automated checks and temporary F0-F6 report generation are recorded in [Sprint 034 builder evidence](sprints/0034-v05-cli-docs-examples-acceptance-release-record/builder-evidence.md). The Lead Developer accepted V0.5 with known product/visual exceptions deferred to V0.6 on 2026-10-01; this does not constitute release approval.
+- Builder browser observations found source-visible F1/F3 horizontal overflow at 360 px. F2 hidden source measured 345 px content width and 345 px document width with its table and chart retained. Preserve these as V0.6 remediation/review work, not V0.5 passes.
+- The PDF artifact was opened in Chrome's built-in viewer; no standalone PDF/Office application, DOCX viewer, or native desktop review was available. OOXML and automated checks are not substitutes for those observations.
+- Sprint 033 apply-time safety, Sprint 029 native/accessibility work, Sprint 030 editor exceptions, F1/F3 overflow and unavailable named viewer/native desktop observations are accepted exceptions deferred to V0.6. Accountable owner: Lead Developer/project maintainers; recheck at V0.6 acceptance (calendar date TBD).
+- Native platforms, Hutch, broad Office, project license and Marketplace remain independent OPEN release-engineering gates. V0.5 acceptance does not close or waive them.
+
 ## Sprint 033 Builder Answers and Residual (2026-10-01)
 
 - Parser locations are one-based UTF-16; declaration statements start at their keyword and imports/fields/selected expression uses carry token locations. Original-buffer token validation supports CRLF and non-BMP prefixes; unsupported function-body/iterator spans are withheld. Checked graph exports/explicit import edges use canonical contained files, reject symlinked path segments and prefer open unsaved VS Code dependencies; reanalysis on every request plus existing diagnostic refresh handles edits/close without a global index. Duplicate declarations and cycle/outside/unknown imports do not get fabricated targets.
@@ -44,9 +61,9 @@ The prior open-item ledger remains in force: Sprint 029 native workflow, Sprint 
 
 Do not convert OPEN items into passes by transferring them into Sprint 031 or by running only WSL2/direct tests. The earlier question lists below are historical; this ledger is the current disposition and identifies which decisions are closed versus which evidence/implementation remains outstanding.
 
-## Sprint 030 Closed-Sprint Follow-Up Ownership (2026-09-30)
+## Sprint 030 Closed-Sprint Follow-Up Ownership (2026-09-30; assigned to V0.6)
 
-- Lead Developer closed Sprint 030 after an integrated UI check with recorded exceptions. Which later sprint or explicit follow-up owns AMX-specific fence/token coloring, source-order/import-aware completion and linking, comprehensive desktop UI/feedback tests, revision-labelled export state, and native IME/screen-reader/200%-zoom evidence before V0.5 feature acceptance? Sprint 034's final visual review does not automatically implement or certify missing behavior; keep each exception open until assigned and verified.
+- Lead Developer closed Sprint 030 after an integrated UI check with recorded exceptions. On 2026-10-01, those product exceptions were accepted for V0.5 and deferred to the V0.6 backlog: AMX-specific fence/token coloring, source-order/import-aware completion and linking, desktop UI/feedback tests, revision-labelled export state, and native IME/screen-reader/200%-zoom evidence. Accountable owner: Lead Developer/project maintainers; plan and verify in V0.6, recheck at V0.6 acceptance (calendar date TBD). This assignment is not evidence that the criteria passed.
 
 ## Sprint 030 Isolated Editor Proof Gate (2026-09-30)
 

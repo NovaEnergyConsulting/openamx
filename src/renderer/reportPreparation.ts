@@ -136,6 +136,8 @@ async function prepareLogo(path: string, alt: string, projectRoot: string | unde
   try {
     const image = sharp(bytes, { animated: false, limitInputPixels: 1_048_576 });
     const metadata = await image.metadata();
+    const expectedFormat = path.endsWith('.jpg') ? 'jpeg' : 'png';
+    if (metadata.format !== expectedFormat) fail('AMX6001', 'Report logo file extension does not match its image format', file);
     if (!metadata.width || !metadata.height || metadata.width > 1024 || metadata.height > 1024 || metadata.width * metadata.height > 1_048_576 || (metadata.pages ?? 1) > 1) fail('AMX6001', 'Report logo dimensions are invalid', file);
     const sanitized = await image.rotate().png().toBuffer();
     if (sanitized.byteLength > 1024 * 1024) fail('AMX6002', 'Sanitized report logo exceeds 1 MiB', file);

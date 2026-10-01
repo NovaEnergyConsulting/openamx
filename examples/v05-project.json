@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "inputs": {},
+  "report": {
+    "organization": "OpenAMX Example",
+    "accent": "#146C94",
+    "footer": "Illustrative sample"
+  }
+}

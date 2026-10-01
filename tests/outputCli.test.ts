@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'bun:test';
 import { mkdir, rm } from 'fs/promises';
+import { resolve } from 'node:path';
 import { loadEntryModule } from '../src/runtime/moduleLoader';
 
 const directories: string[] = [];
@@ -71,6 +72,16 @@ describe('Sprint 017 CLI outputs', () => {
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain('AMX6001');
     }
+  });
+
+  it('does not expose absolute output destinations in CLI diagnostics', async () => {
+    const directory = await createDirectory();
+    const entry = await write(directory, 'entry.amx', '```amx\nexport let value: Number = 4\nexport let other: Number = 5\n```\n');
+    const output = `${directory}/out.json`;
+    const result = await runCli('run', entry, '--output', `value=${output}`, '--output', `other=${output}`);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('AMX6001');
+    expect(result.stderr).not.toContain(resolve(output));
   });
 
   it('round-trips supported JSON and CSV records through declared Sprint 016 inputs', async () => {

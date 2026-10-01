@@ -1,5 +1,25 @@
 # Planning Decisions
 
+## Sprint 034 Builder Findings (2026-10-01)
+
+- CLI `--version` had drifted to `0.3.0` while root/extension package metadata remained `0.4.0`; it now reports `0.4.0`. Package metadata remains `0.4.0` because V0.5 has not been released.
+- CLI diagnostics now present workspace-relative locations or an external basename, omit raw configured data paths, and redact quoted absolute paths embedded in messages. Focused tests cover external input and output paths without weakening diagnostic codes or no-write behavior.
+- F4 acceptance exposed a real asset-validation gap: Sharp accepted PNG bytes under a `.jpg` suffix. `prepareReport` now rejects a decoded-format/extension mismatch as `AMX6001`; focused asset and metadata tests cover this with other missing/malformed/oversize and invalid-field cases.
+- These are verified acceptance corrections, not a change to the approved V0.5 contract. The Lead Developer's subsequent direction accepts V0.5 with the listed product/visual exceptions deferred to the V0.6 backlog; this does not close the separate release-engineering gates.
+
+## Sprint 034 Lead Developer Acceptance (2026-10-01)
+
+- On 2026-10-01 the Lead Developer directed that V0.5 be marked completed and accepted, with pending features/fixes carried into V0.6; the product is not being released yet. This supersedes the Builder's earlier OPEN/BLOCKED recommendation.
+- Record as accepted with exceptions, not as every criterion passed: F1/F3 mobile source overflow; named DOCX/native desktop visual observations; Sprint 029 native/accessibility gaps; Sprint 030 editor/analysis/accessibility gaps; and Sprint 033's resolve-time-only `WorkspaceEdit` guard. V0.6 backlog owner is the Lead Developer/project maintainers; recheck at V0.6 acceptance, calendar date TBD.
+- Keep native target platforms, Hutch package/native launch, broad Office compatibility, project licensing and Marketplace publication OPEN as separate release-engineering gates. No release-ready or published claim is authorized.
+
+## V0.5 Sprint 034 Final Acceptance Handoff (2026-10-01)
+
+- Sprint 034 is an evidence and disposition sprint, not permission to normalize existing gaps. Use the approved F0-F6 manifest, root/desktop/extension acceptance matrix and signed Lead Developer review form. Update public docs/version metadata only after the claimed behavior has focused evidence; historical specifications remain historical.
+- Require a Lead Developer decision on Sprint 033's `WorkspaceEdit` limitation: VS Code 1.85 offers resolve-time document/token/diagnostic guarding but no apply-time version precondition. Either accept it as a bounded documented exception or authorize a separate guarded command/preview remediation; do not call that criterion fully satisfied without the decision.
+- Treat Sprint 029 native workflow, Sprint 030 editor proof/functionality exceptions and Sprint 032 named viewer/visual evidence as distinct V0.5 product gates. An `Approved with recorded exceptions` result requires named owners/dates/rechecks for each; otherwise state V0.5 feature acceptance is OPEN/BLOCKED.
+- Maintain an independent release-engineering disposition for native targets, Hutch, Office compatibility, project license and Marketplace. Local VSIX installation and WSL2 checks remain supporting evidence only and cannot become publication or native release proof in docs.
+
 ## Sprint 033 Direct Provider Implementation (2026-10-01)
 
 - Share the extension's existing canonical, explicit-export import traversal with read-only navigation, locating declarations by checked keyword/name tokens in the original buffer. Recompute from current open documents rather than persisting a workspace index. Match references by resolved URI and declaration-token range; withhold nested uses whose scope/location the parser cannot establish. Hover uses escaped plain text and checker-confirmed binding types only where available.

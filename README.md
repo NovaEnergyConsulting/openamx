@@ -1,11 +1,15 @@
-# OpenAMX V0.4
+# OpenAMX
 
-Status: release disposition OPEN. The V0.4 language, CLI, desktop workflow, and
-export paths are implemented and verified on the available Linux/WSL2 host, but
-official native macOS 14+, Windows 11+, and native Ubuntu 24.04+ release-owner
-acceptance has not been run. This repository is therefore not claiming a final,
-published V0.4 release; it is documenting the current verified state and the open
-native-platform residuals.
+Status: The V0.5 feature milestone is COMPLETE and accepted with documented
+exceptions deferred to V0.6.
+The CLI, shared report identity, HTML/PDF/DOCX exports, desktop workbench and VS
+Code productivity providers are present. Known visual, native desktop and
+editor/provider limitations remain V0.6 work. This feature acceptance is not a
+release claim. Native macOS 14+, Windows 11+,
+native Ubuntu 24.04+, Hutch packaging/launch, broad Office compatibility, the
+project license and Marketplace publication remain separate OPEN release gates.
+Package versions remain at 0.4.0; this is not a release-ready or publication
+claim.
 
 OpenAMX combines Markdown narrative, executable `amx` fences, and inline
 `{{ expression }}` calculations in plain-text `.amx` documents. The TypeScript
@@ -13,7 +17,10 @@ core remains domain-neutral; asset-management examples use ordinary values.
 See the [V0.2 language specification](docs/language-spec-v0.2.md) for the
 historical contract, the [V0.3 language specification](docs/language-spec-v0.3.md)
 for typed-data workflows, and the [V0.4 language specification](docs/language-spec-v0.4.md)
-for typed visualizations, report exports, and desktop-authoring behavior.
+for typed visualizations and their historical export behavior. The
+[V0.5 product and report contract](docs/language-spec-v0.5.md) defines additive
+report identity, source visibility and product boundaries; it does not mean every
+acceptance or release gate has passed.
 
 ## Install and verify
 
@@ -57,11 +64,13 @@ there is no V0.1 compatibility mode.
 
 ## VS Code Extension
 
-The optional [VS Code extension](vscode-extension/README.md) requires VS Code
-1.85.0 or newer, runs in the Node extension host, and supplies block-only
-formatting, keyword/type/function/imported-symbol/in-scope completion, plus
-parser and static-check diagnostics. Runtime CSV/JSON validation remains a CLI
-concern.
+The [VS Code extension](vscode-extension/README.md) requires VS Code 1.85.0 or
+newer and runs in the Node extension host. The workspace implementation includes
+formatting, completion, static diagnostics, hover, definition, outline,
+references and a diagnostic-backed quick fix. Runtime CSV/JSON validation remains
+a CLI concern. The quick fix is guarded when resolved; VS Code 1.85 cannot attach
+an apply-time document-version precondition, and that limitation still requires a
+Lead Developer disposition.
 
 From the repository root, develop, test, package, and install a local VSIX:
 
@@ -124,8 +133,15 @@ Use `--validation fail-fast` to stop at the first ordered input diagnostic;
 aggregate validation is the default. `render` accepts the same mappings and
 adds `--out` for the HTML destination.
 
-Export an offline PDF or editable DOCX report. Both commands analyze once,
-prepare the complete report before writing, and require an existing parent:
+`render` and `export pdf|docx` accept `--project-root <dir>` to load report
+identity defaults from that project's `.openamx/project.json`. This option does
+not supply input mappings or change their process-working-directory path base;
+`run` does not read project report configuration. Without the option, project
+configuration is not discovered. Frontmatter identity without a logo remains
+available.
+
+Export an offline PDF or editable DOCX report. The commands analyze once, prepare
+the complete report before writing, and require an existing parent:
 
 ```bash
 bun run dist/cli.js export docx examples/typed-asset-analysis.amx --out out/analysis.docx \
@@ -137,6 +153,38 @@ bun run dist/cli.js export docx examples/typed-asset-analysis.amx --out out/anal
 DOCX contains editable semantic headings, paragraphs, lists, tables, and
 static chart images. Interactive charts, editable chart data, pixel parity,
 and broad native Office compatibility are not promised.
+
+Run the V0.5 typed example with its local imports, JSON/CSV inputs, table and
+chart. Copy the sample project config into a temporary project because the CLI
+intentionally does not discover parent projects:
+
+```bash
+review=$(mktemp -d)
+mkdir -p "$review/.openamx"
+cp examples/v05-asset-screening.amx "$review/"
+cp -R examples/libraries "$review/"
+cp examples/v05-project.json "$review/.openamx/project.json"
+bun run dist/cli.js run "$review/v05-asset-screening.amx" \
+  --input asset=examples/typed-asset.json \
+  --input screenings=examples/typed-screenings.csv
+bun run dist/cli.js render "$review/v05-asset-screening.amx" \
+  --out "$review/report.html" --project-root "$review" \
+  --input asset=examples/typed-asset.json \
+  --input screenings=examples/typed-screenings.csv
+bun run dist/cli.js export pdf "$review/v05-asset-screening.amx" \
+  --out "$review/report.pdf" --project-root "$review" \
+  --input asset=examples/typed-asset.json \
+  --input screenings=examples/typed-screenings.csv
+bun run dist/cli.js export docx "$review/v05-asset-screening.amx" \
+  --out "$review/report.docx" --project-root "$review" \
+  --input asset=examples/typed-asset.json \
+  --input screenings=examples/typed-screenings.csv
+```
+
+The example calculation is illustrative, not a domain-standard risk formula.
+`sourceVisible` defaults to true; hiding source is a presentation choice, not a
+confidentiality boundary. Logo assets must be contained local PNG/JPEG files and
+are validated and re-encoded before report output is written.
 
 ---
 
@@ -160,6 +208,10 @@ The canonical examples are:
   computes scores with a typed pure function, and exports summary JSON plus
   result CSV. Its [HTML](examples/typed-asset-analysis.html) is generated by
   the production CLI.
+- [Branded Asset Screening Snapshot](examples/v05-asset-screening.amx) reuses
+  typed inputs, local libraries and V0.4 table/chart constructs;
+  [project identity defaults](examples/v05-project.json) apply only when the
+  CLI receives an explicit `--project-root`.
 
 ```sh
 bun run dist/cli.js run examples/transformer-strategy.amx
