@@ -65,7 +65,7 @@ const rpc = createRPC<DesktopRPCSchema["bun"], DesktopRPCSchema["webview"]>({
 	},
 });
 
-new BrowserWindow({
+const mainWindow = new BrowserWindow({
 	title: "OpenAMX",
 	url: "views://mainview/index.html",
 	rpc,
@@ -74,5 +74,7 @@ new BrowserWindow({
 		height: 800,
 	},
 });
+
+void mainWindow;
 
 console.log(`OpenAMX desktop proof running on Bun ${process.versions.bun ?? "unknown"}`);

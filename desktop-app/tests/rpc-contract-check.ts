@@ -26,6 +26,75 @@ assert.match(webviewSource, /sandbox=""/);
 assert.doesNotMatch(webviewSource, /node:fs|node:child_process|loadEntryModule|loadInputValues|preparePdfReport|serializePdfReport|prepareDocxReport|serializeDocxReport|Bun\./);
 console.log("Typed RPC and webview boundary contract passed (4 assertions)");
 
+const createdProjectRoot = mkdtempSync(join(tmpdir(), "openamx-create-parent-"));
+const createdProjectDirectory = join(createdProjectRoot, "new-project");
+mkdirSync(createdProjectDirectory);
+const creationService = createDesktopService();
+const createdProject = await creationService.request.createProject({ path: createdProjectDirectory });
+assert.equal(createdProject.ok, true);
+if (!createdProject.ok) throw new Error(createdProject.error.message);
+assert.equal(createdProject.root, createdProjectDirectory);
+assert.equal(createdProject.document.path, join(createdProjectDirectory, "report.amx"));
+assert.deepEqual(JSON.parse(readFileSync(join(createdProjectDirectory, ".openamx", "project.json"), "utf8")), { version: 1, inputs: {} });
+assert.match(readFileSync(join(createdProjectDirectory, "report.amx"), "utf8"), /export let title: Text = "New Report"/);
+assert.equal((await creationService.request.listProjectFiles()).ok, true);
+const pickedProjectDirectory = join(createdProjectRoot, "picked-project");
+mkdirSync(pickedProjectDirectory);
+const pickerCreationService = createDesktopService(undefined, { async choose() { return pickedProjectDirectory; } });
+assert.deepEqual(await pickerCreationService.request.pickCreateProject(), { ok: true, cancelled: false, root: pickedProjectDirectory });
+assert.deepEqual(await pickerCreationService.request.getProjectContext(), {
+	ok: true,
+	root: pickedProjectDirectory,
+	state: {
+		tabs: [{ path: join(pickedProjectDirectory, "report.amx"), kind: "amx", dirty: false, conflict: false, revision: 0 }],
+		active: join(pickedProjectDirectory, "report.amx"), generation: 1, inputSettingsRevision: 0,
+		requestIdentity: {
+			canonicalActiveUri: pathToFileURL(join(pickedProjectDirectory, "report.amx")).href,
+			projectGeneration: 1, documentRevision: 0, inputSettingsRevision: 0
+		}
+	}
+});
+const nonEmptyProjectDirectory = join(createdProjectRoot, "non-empty");
+mkdirSync(nonEmptyProjectDirectory);
+writeFileSync(join(nonEmptyProjectDirectory, "existing.txt"), "preserve");
+const rejectedCreation = await creationService.request.createProject({ path: nonEmptyProjectDirectory });
+assert.equal(rejectedCreation.ok, false);
+assert.equal(existsSync(join(nonEmptyProjectDirectory, ".openamx", "project.json")), false);
+assert.equal(readFileSync(join(nonEmptyProjectDirectory, "existing.txt"), "utf8"), "preserve");
+console.log("Sprint 038 project creation assertions passed");
+
+const autosaveRoot = mkdtempSync(join(tmpdir(), "openamx-autosave-"));
+const autosaveEntry = join(autosaveRoot, "invalid.amx");
+writeFileSync(autosaveEntry, "```amx\nlet value = 1\n```\n");
+const autosaveService = createDesktopService();
+assert.equal((await autosaveService.request.openProject({ path: autosaveRoot })).ok, true);
+assert.equal((await autosaveService.request.openDocument({ path: autosaveEntry })).ok, true);
+assert.deepEqual(await autosaveService.request.setAutosave({ enabled: true, delayMs: 100 }), { ok: true, enabled: true, delayMs: 100 });
+const invalidAutosaveText = "```amx\nlet value =\n```\n";
+assert.equal((await autosaveService.request.updateBuffer({ text: invalidAutosaveText })).ok, true);
+await new Promise(resolve => setTimeout(resolve, 150));
+assert.equal(readFileSync(autosaveEntry, "utf8"), invalidAutosaveText);
+assert.deepEqual(await autosaveService.request.setAutosave({ enabled: false, delayMs: 100 }), { ok: true, enabled: false, delayMs: 100 });
+console.log("Sprint 038 autosave assertions passed");
+
+const trashRoot = mkdtempSync(join(tmpdir(), "openamx-trash-"));
+const trashEntry = join(trashRoot, "recover.amx");
+writeFileSync(trashEntry, "```amx\nlet value = 1\n```\n");
+const trashService = createDesktopService();
+assert.equal((await trashService.request.openProject({ path: trashRoot })).ok, true);
+assert.equal((await trashService.request.deleteProjectFile({ path: "recover.amx" })).ok, true);
+assert.equal(existsSync(trashEntry), false);
+const trashItems = await trashService.request.listTrash();
+assert.equal(trashItems.ok, true);
+if (!trashItems.ok) throw new Error(trashItems.error.message);
+assert.deepEqual(trashItems.items.map(item => ({ path: item.path, kind: item.kind })), [{ path: "recover.amx", kind: "amx" }]);
+assert.equal((await trashService.request.restoreTrash({ id: trashItems.items[0]!.id })).ok, true);
+assert.equal(readFileSync(trashEntry, "utf8"), "```amx\nlet value = 1\n```\n");
+assert.equal((await trashService.request.deleteProjectFile({ path: "recover.amx" })).ok, true);
+assert.equal((await trashService.request.emptyTrash()).ok, true);
+assert.deepEqual(await trashService.request.listTrash(), { ok: true, items: [] });
+console.log("Sprint 038 trash and restore assertions passed");
+
 const root = mkdtempSync(join(tmpdir(), "openamx-desktop-"));
 mkdirSync(join(root, "nested"));
 const entry = join(root, "main.amx");
@@ -36,6 +105,7 @@ writeFileSync(outside, "```amx\nlet value = 3\n```");
 symlinkSync(outside, join(root, "nested", "outside.amx"));
 
 const service = createDesktopService();
+assert.deepEqual(await service.request.setAutosave({ enabled: false, delayMs: 500 }), { ok: true, enabled: false, delayMs: 500 });
 const project = await service.request.openProject({ path: root });
 assert.equal(project.ok, true);
 const opened = await service.request.openDocument({ path: entry });

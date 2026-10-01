@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.6 Sprint 038 Builder Interim Evidence (2026-10-01)
+
+- **Disposition: IN PROGRESS.** The first lifecycle slice is implemented and directly verified: trusted picker-backed creation in an existing empty real directory, version-1 project/report scaffold rollback, configurable delayed autosave through the existing conflict-aware atomic writer, and ignored project-local trash/restore/empty operations. Evidence is in [Sprint 038 builder evidence](sprints/0038-v06-project-lifecycle-autosave-trash-recovery/builder-evidence.md).
+- Direct desktop RPC tests pass the new creation, invalid-text autosave, and trash scenarios alongside the established authority, job, conflict, transition, and no-write suite. Vue typecheck and Vite production build pass; Vite reports the existing >500 kB chunk warning (713.15 kB JS / 247.12 kB gzip).
+- Sprint 038 remains incomplete: safe external-input records/opening, complete enumeration policy, create/duplicate/folder/reveal operations, transactional AMX rename/move/import rewrites, nested trash/open-reference handling, recovery snapshots/startup flow, external-file autosave, conflict-resolution UI, and complete lifecycle shell routing are outstanding. Root `bun run build` and `bun test` pass (210 tests, 0 failures across 19 files, 895 assertions); direct native-host checks have not been run for this interim slice.
+- Native menus/dialogs/window behavior, Hutch/package, target-platform, Office, license/Marketplace and formal accessibility remain unavailable or separate; no mock/browser/service result is claimed as native evidence.
+
 ## V0.6 Master Plan and Product/UX Contract Ratified (2026-10-01)
 
 - Added `planning/plan-openamxV06MasterSprintPlan.md` and `planning/openamxV06ProductUXContract.md` from the completed V0.6 product-discovery interview. The proposal contains nine sprints, 035-043, with no fixed date or sprint cap.
@@ -53,6 +60,13 @@
 - **Disposition: COMPLETE WITH RECORDED EXCEPTIONS.** The desktop shell now composes focused welcome, command-palette, explorer, tabs, AMX/non-AMX content, contextual preview, and runtime-drawer components through typed shell models while retaining the accepted Sprint 036 RPC/job authority boundary. Direct dividers, focus mode, bottom/right drawer docking, and machine-local theme/layout preferences are implemented; the legacy workflow strip and visible format-action buttons are removed.
 - Desktop `bun run test` and `bunx vue-tsc --noEmit` passed. Direct Vite build passed with 47 modules and a 712.73 kB / 247.04 kB gzip JS bundle; the pre-existing >500 kB warning remains. Exact evidence is in `planning/sprints/0037-v06-workbench-shell-themes-menus-welcome/builder-evidence.md`.
 - Browser-only Vite could not mount the production entry because the Electrobun bridge is unavailable; no screenshot or native-host behavior is claimed. Native menus/dialogs/window behavior remains **UNAVAILABLE**. Create/lifecycle/autosave/trash/recovery and complete browser acceptance harness remain Sprint 038/043 work. Sprint 038 is unblocked by the stable shell boundary.
+
+## V0.6 Sprint 038 Architect Preparation (2026-10-01)
+
+- Prepared the four Sprint 038 artifacts in `planning/sprints/0038-v06-project-lifecycle-autosave-trash-recovery/` for safe project enumeration, creation and file operations, transactional import rewrites, trash/restore, autosave, conflicts, crash recovery, guarded project/window transitions, and authority evidence.
+- Sprint 037 delivered the typed shell boundary and unblocked Sprint 038. Sprint 038 must preserve Sprint 036 active-document/job identity and Sprint 037 command/state ownership while moving all project and persistence authority through trusted Bun services.
+- Native menus/dialogs/window lifecycle remain unavailable from prior host evidence. Sprint 038 may implement and unit-test the native boundary, but direct native acceptance must remain unavailable or blocked unless an SDK-enabled host provides actual observations.
+- Sprint 039 may begin only after project generation transitions, contained enumeration, atomic lifecycle operations, autosave/conflict rules, trash/restore, recovery, and no-stale-job/no-partial-write evidence are recorded. Inputs/report-settings work is not part of Sprint 038.
 
 ## Sprint 034 Builder Outcome (2026-10-01)
 

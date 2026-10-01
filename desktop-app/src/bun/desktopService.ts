@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { closeSync, existsSync, fchmodSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, fchmodSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { AmxError, type AmxDiagnostic } from "../../../src/diagnostics/errors";
@@ -146,6 +146,9 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 	let inputSettingsKey = JSON.stringify({ inputMappings: [], validation: "aggregate" });
 	let activeInputMappings: string[] = [];
 	let activeValidation: "aggregate" | "fail-fast" = "aggregate";
+	let autosaveEnabled = true;
+	let autosaveDelayMs = 500;
+	const autosaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	let nextJobId = 0;
 	let latestJobId = 0;
 	const jobs = new Map<number, ActiveJob>();
@@ -505,6 +508,45 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		}
 	}
 
+	function cancelAutosave(path?: string) {
+		if (path) {
+			const timer = autosaveTimers.get(path);
+			if (timer) clearTimeout(timer);
+			autosaveTimers.delete(path);
+			return;
+		}
+		for (const timer of autosaveTimers.values()) clearTimeout(timer);
+		autosaveTimers.clear();
+	}
+
+	function scheduleAutosave(document: SessionDocument) {
+		cancelAutosave(document.path);
+		if (!autosaveEnabled || !document.dirty || document.conflict) return;
+		autosaveTimers.set(document.path, setTimeout(() => {
+			autosaveTimers.delete(document.path);
+			if (tabs.get(document.path) === document && document.dirty && !document.conflict) void saveTab(document);
+		}, autosaveDelayMs));
+	}
+
+	function trashRoot(root = requireRoot()): string {
+		return join(root, ".openamx", "trash");
+	}
+
+	function trashItem(id: string) {
+		if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error("Invalid trash item.");
+		const directory = join(trashRoot(), id);
+		const metadataPath = join(directory, "metadata.json");
+		const payloadPath = join(directory, "payload");
+		if (!existsSync(metadataPath) || !existsSync(payloadPath) || lstatSync(directory).isSymbolicLink() || lstatSync(metadataPath).isSymbolicLink() || lstatSync(payloadPath).isSymbolicLink())
+			throw new Error("Trash item is unavailable.");
+		const metadata: unknown = JSON.parse(readFileSync(metadataPath, "utf8"));
+		if (!metadata || typeof metadata !== "object" || typeof (metadata as { path?: unknown }).path !== "string") throw new Error("Trash metadata is invalid.");
+		const path = (metadata as { path: string }).path;
+		const kind = documentKind(path);
+		if (!kind || path.startsWith(".") || path.split(/[\\/]/).some(part => !part || part === "." || part === ".." || part.startsWith("."))) throw new Error("Trash metadata path is invalid.");
+		return { id, path, kind, directory, payloadPath };
+	}
+
 	function prepareTransition(action: TransitionAction): DesktopRPCResponse<{ ready: boolean; state: WorkbenchState }> {
 		refreshConflicts();
 		if (action === "cancel") return { ok: true, ready: false, state: state() };
@@ -532,7 +574,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				if (!prepared.ok) throw new Error(prepared.error.message);
 				if (!prepared.ready) throw new Error("Project change cancelled.");
 			}
-			if (projectRoot !== canonical) { tabs.clear(); editSequences.clear(); current = undefined; generation++; invalidateStaleJobs(); }
+			if (projectRoot !== canonical) { cancelAutosave(); tabs.clear(); editSequences.clear(); current = undefined; generation++; invalidateStaleJobs(); }
 			projectRoot = canonical;
 		},
 		request: {
@@ -622,6 +664,63 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					return errorResult<string>(projectError(error instanceof Error ? error.message : String(error)));
 				}
 			},
+			async createProject({ path, action }: { path: string; action?: TransitionAction }) {
+				let projectConfig: string | undefined;
+				let report: string | undefined;
+				let projectDirectory: string | undefined;
+				try {
+					const candidate = resolve(path);
+					if (!existsSync(candidate) || lstatSync(candidate).isSymbolicLink()) throw new Error("Project creation requires an existing real empty directory.");
+					projectDirectory = realpathSync(candidate);
+					if (!statSync(projectDirectory).isDirectory() || readdirSync(projectDirectory).length) throw new Error("Project creation requires an empty directory.");
+					if (projectRoot !== projectDirectory && [...tabs.values()].some(tab => tab.dirty || tab.conflict)) {
+						if (!action) throw new Error("Save or discard unsaved tabs before creating a project.");
+						const prepared = prepareTransition(action);
+						if (!prepared.ok) throw new Error(prepared.error.message);
+						if (!prepared.ready) throw new Error("Project creation cancelled.");
+					}
+					const internalDirectory = join(projectDirectory, ".openamx");
+					projectConfig = join(internalDirectory, "project.json");
+					report = join(projectDirectory, "report.amx");
+					const configTemporary = join(projectDirectory, `.project.${randomUUID()}.tmp`);
+					const reportTemporary = join(projectDirectory, `.report.${randomUUID()}.tmp`);
+					mkdirSync(internalDirectory, { recursive: false, mode: 0o700 });
+					try {
+						writeFileSync(configTemporary, '{"version":1,"inputs":{}}\n', { encoding: "utf8", mode: 0o600, flag: "wx" });
+						writeFileSync(reportTemporary, '# New Report\n\n```amx\nexport let title: Text = "New Report"\n```\n', { encoding: "utf8", mode: 0o600, flag: "wx" });
+						renameSync(configTemporary, projectConfig);
+						renameSync(reportTemporary, report);
+					} catch (error) {
+						for (const file of [configTemporary, reportTemporary, projectConfig, report]) {
+							try { if (existsSync(file)) unlinkSync(file); } catch {}
+						}
+						try { if (existsSync(internalDirectory) && readdirSync(internalDirectory).length === 0) rmSync(internalDirectory); } catch {}
+						throw error;
+					}
+					service.setProjectRoot(projectDirectory, action);
+					const document = readEntry(report);
+					current = document;
+					tabs.set(report, document);
+					record();
+					return { ok: true, root: projectDirectory, document, state: state() };
+				} catch (error) {
+					return errorResult<{ root: string; document: OpenDocument; state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error)));
+				}
+			},
+			async pickCreateProject() {
+				try {
+					const started = generation;
+					const path = await picker?.choose({ directory: true });
+					if (!path || started !== generation) return { ok: true, cancelled: true };
+					const action = [...tabs.values()].some(tab => tab.dirty || tab.conflict)
+						? await picker?.confirmTransition?.("project") ?? "cancel" : undefined;
+					if (started !== generation || action === "cancel") return { ok: true, cancelled: true };
+					const created = await service.request.createProject({ path, action });
+					return created.ok
+						? { ok: true, cancelled: false, root: created.root }
+						: errorResult<{ cancelled: boolean; root?: string }>(created.error);
+				} catch (error) { return errorResult<{ cancelled: boolean; root?: string }>(projectError(error instanceof Error ? error.message : String(error))); }
+			},
 			async openDocument({ path }: { path: string }) {
 				try {
 					const file = within(requireRoot(), path);
@@ -648,6 +747,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				return { ok: true, document: tab };
 			},
 			async getWorkbench() { refreshConflicts(); return { ok: true, state: state() }; },
+			async getProjectContext() { refreshConflicts(); return { ok: true, root: projectRoot, state: state() }; },
 			async setInputSettings({ inputMappings, validation }: { inputMappings: string[]; validation: "aggregate" | "fail-fast" }) {
 				if (!Array.isArray(inputMappings) || inputMappings.length > 100 || inputMappings.some(mapping => typeof mapping !== "string" || mapping.length > 8192))
 					return errorResult<{ state: WorkbenchState }>(projectError("Input settings exceed their request bounds."));
@@ -663,6 +763,15 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					invalidateStaleJobs();
 				}
 				return { ok: true, state: state() };
+			},
+			async setAutosave({ enabled, delayMs }: { enabled: boolean; delayMs: number }) {
+				if (typeof enabled !== "boolean" || !Number.isSafeInteger(delayMs) || delayMs < 100 || delayMs > 10_000)
+					return errorResult<{ enabled: boolean; delayMs: number }>(projectError("Autosave delay must be between 100 and 10000 milliseconds."));
+				autosaveEnabled = enabled;
+				autosaveDelayMs = delayMs;
+				cancelAutosave();
+				if (enabled) for (const tab of tabs.values()) scheduleAutosave(tab);
+				return { ok: true, enabled: autosaveEnabled, delayMs: autosaveDelayMs };
 			},
 			async startJob({ operation, identity, destination, inputInspection }: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string } }) {
 				return beginJob(operation, identity, destination, inputInspection);
@@ -703,6 +812,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 						if (!saved.ok) return errorResult<{ state: WorkbenchState }>(saved.error);
 					}
 				}
+				cancelAutosave(path);
 				tabs.delete(path);
 				if (current?.path === path) current = tabs.values().next().value;
 				generation++;
@@ -746,6 +856,66 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					return errorResult<{ files: ProjectFile[] }>(projectError(error instanceof Error ? error.message : String(error)));
 				}
 			},
+			async deleteProjectFile({ path }: { path: string }) {
+				try {
+					const root = requireRoot();
+					const source = within(root, path);
+					if (!source || !allowedFile(root, source)) throw new Error("Only visible contained project files can be moved to trash.");
+					const tab = tabs.get(source);
+					if (tab?.dirty || tab?.conflict) throw new Error("Save or resolve the open file before moving it to trash.");
+					const id = randomUUID();
+					const directory = join(trashRoot(root), id);
+					mkdirSync(directory, { recursive: true, mode: 0o700 });
+					const metadata = join(directory, "metadata.json");
+					const payload = join(directory, "payload");
+					writeFileSync(metadata, JSON.stringify({ path: relative(root, source), deletedAt: Date.now() }), { encoding: "utf8", mode: 0o600, flag: "wx" });
+					try { renameSync(source, payload); }
+					catch (error) { rmSync(directory, { recursive: true, force: true }); throw error; }
+					cancelAutosave(source);
+					tabs.delete(source);
+					if (current?.path === source) current = tabs.values().next().value;
+					generation++;
+					invalidateStaleJobs();
+					record();
+					return { ok: true, state: state() };
+				} catch (error) { return errorResult<{ state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error))); }
+			},
+			async listTrash() {
+				try {
+					const root = trashRoot();
+					if (!existsSync(root)) return { ok: true, items: [] };
+					if (lstatSync(root).isSymbolicLink()) throw new Error("Trash directory is invalid.");
+					const items = readdirSync(root, { withFileTypes: true }).flatMap(entry => {
+						if (!entry.isDirectory() || entry.isSymbolicLink()) return [];
+						try { const item = trashItem(entry.name); return [{ id: item.id, path: item.path, kind: item.kind }]; }
+						catch { return []; }
+					});
+					return { ok: true, items: items.sort((left, right) => left.path.localeCompare(right.path)) };
+				} catch (error) { return errorResult<{ items: import("../shared/rpc").TrashItem[] }>(projectError(error instanceof Error ? error.message : String(error))); }
+			},
+			async restoreTrash({ id }: { id: string }) {
+				try {
+					const item = trashItem(id);
+					const destination = resolve(requireRoot(), item.path);
+					if (existsSync(destination) || dirname(destination) !== resolve(requireRoot(), dirname(item.path))) throw new Error("Restore destination is unavailable or collides with an existing file.");
+					if (!lstatSync(item.payloadPath).isFile()) throw new Error("Only regular files can be restored.");
+					renameSync(item.payloadPath, destination);
+					rmSync(item.directory, { recursive: true, force: true });
+					generation++;
+					invalidateStaleJobs();
+					return { ok: true, state: state() };
+				} catch (error) { return errorResult<{ state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error))); }
+			},
+			async emptyTrash() {
+				try {
+					const root = trashRoot();
+					if (existsSync(root)) {
+						if (lstatSync(root).isSymbolicLink()) throw new Error("Trash directory is invalid.");
+						rmSync(root, { recursive: true, force: true });
+					}
+					return { ok: true, state: state() };
+				} catch (error) { return errorResult<{ state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error))); }
+			},
 			async readDocument() {
 				try { return { ok: true, document: requireCurrent() }; }
 				catch (error) { return errorResult<{ document: OpenDocument }>(projectError(error instanceof Error ? error.message : String(error))); }
@@ -764,6 +934,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					document.dirty = hash(text) !== document.diskHash;
 					document.revision++;
 					invalidateStaleJobs();
+					scheduleAutosave(document);
 					return { ok: true, document };
 				} catch (error) { return errorResult<{ document: OpenDocument }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},

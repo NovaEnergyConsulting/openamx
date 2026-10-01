@@ -1,5 +1,11 @@
 # Planning Decisions
 
+## V0.6 Sprint 038 Interim Lifecycle Decisions (2026-10-01)
+
+- Create Project is a trusted Bun operation. The webview invokes only `pickCreateProject`; the native picker returns an untrusted directory that the service requires to be an existing, real, empty directory. The service stages `.openamx/project.json` (`version: 1`, empty `inputs`) and `report.amx`, removes created artifacts on failure, and only changes project generation/current document after the scaffold succeeds.
+- Autosave defaults to enabled but remains configurable with a bounded 100-10,000 ms delay. It reuses the established disk-hash conflict detection and same-directory atomic write path, saving exact invalid text. An unresolved conflict suppresses autosave rather than overwriting disk. Preference persistence and explicitly opened external files remain Sprint 038 work, not implemented policy.
+- Delete is recoverable only for currently supported contained regular project files. The Bun service relocates the file into ignored `.openamx/trash/<uuid>/payload` with relative-path metadata, validates restore metadata/paths/symlinks/collisions, and invalidates the active project generation on delete/restore. Folder deletion, import/reference resolution, and recovery snapshots require later decisions/evidence before being claimed.
+
 ## V0.6 Sprint 035 Lead Developer Ratification (2026-10-01)
 
 - The Lead Developer ratified `planning/openamxV06ProductUXContract.md` without amendment and authorized Sprint 036.

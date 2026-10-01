@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.6 Sprint 038 Remaining Lifecycle Questions (2026-10-01)
+
+- How will transactional AMX rename/move derive every contained dependent import and validate revisions, collisions, path substitutions, cycles, and rollback before any filesystem mutation? Owner: Sprint 038 Builder. Do not infer this from single-file trash behavior.
+- What local-only recovery storage shape can preserve unsaved contained and explicitly opened external buffers without placing source text, input contents, or private paths in project configuration, and how will startup inspect/restore/discard work without automatic overwrite? Owner: Sprint 038 Builder.
+- Which existing native APIs can directly prove Create/Open/Save/Reveal/window-close/quit behavior on an SDK-enabled host? Owner: Lead Developer/native acceptance. Current picker/service checks are not native-host evidence.
+- How will external mapped input records be derived and exposed privately without returning raw paths broadly or enabling general external browsing? Owner: Sprint 038 Builder / Sprint 039 integration.
+
 ## V0.6 Sprint 035 Lead Developer Disposition (2026-10-01)
 
 - Resolved: the Lead Developer ratified the V0.6 contract without amendment and accepted the active-document identity, source-overlay, and cancellable-job approaches. Sprint 036 is authorized.

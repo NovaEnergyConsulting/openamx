@@ -8,9 +8,11 @@ export interface PingResponse {
 
 export interface DesktopRPCError { code: string; message: string; }
 export type DesktopRPCResponse<T> = { ok: true } & T | { ok: false; error: DesktopRPCError };
+export interface DesktopRequestOptions { maxRequestTime?: number; }
 export type DocumentKind = "amx" | "csv" | "json" | "settings" | "external-data" | "html-output" | "pdf-output" | "docx-output";
 export type ProjectFileKind = Exclude<DocumentKind, "external-data">;
 export interface ProjectFile { path: string; kind: ProjectFileKind; }
+export interface TrashItem { id: string; path: string; kind: ProjectFileKind; }
 export interface OpenDocument { path: string; kind: DocumentKind; text: string; diskHash: string; dirty: boolean; conflict: boolean; revision: number; }
 export interface TabState { path: string; kind: DocumentKind; dirty: boolean; conflict: boolean; revision: number; }
 export interface ActiveDocumentRequestIdentity {
@@ -73,13 +75,17 @@ export interface DesktopRPCClient {
 	request: {
 		ping(params: { nonce: string }): Promise<PingResponse>;
 		openProject(params: { path: string }): Promise<DesktopRPCResponse<{ root: string }>>;
-		pickProject(): Promise<DesktopRPCResponse<{ cancelled: boolean; root?: string }>>;
-		pickDocument(): Promise<DesktopRPCResponse<{ cancelled: boolean; document?: OpenDocument }>>;
-		pickDestination(params: { extension: ".html" | ".pdf" | ".docx" }): Promise<DesktopRPCResponse<{ cancelled: boolean; path?: string }>>;
+		createProject(params: { path: string; action?: TransitionAction }): Promise<DesktopRPCResponse<{ root: string; document: OpenDocument; state: WorkbenchState }>>;
+		pickCreateProject(params?: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; root?: string }>>;
+		pickProject(params?: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; root?: string }>>;
+		pickDocument(params?: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; document?: OpenDocument }>>;
+		pickDestination(params: { extension: ".html" | ".pdf" | ".docx" }, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; path?: string }>>;
 		openDocument(params: { path: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		selectTab(params: { path: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		getWorkbench(): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		getProjectContext(): Promise<DesktopRPCResponse<{ root?: string; state: WorkbenchState }>>;
 		setInputSettings(params: { inputMappings: string[]; validation: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		setAutosave(params: { enabled: boolean; delayMs: number }): Promise<DesktopRPCResponse<{ enabled: boolean; delayMs: number }>>;
 		startJob(params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string } }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		getJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		cancelJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
@@ -92,6 +98,10 @@ export interface DesktopRPCClient {
 		closeTab(params: { path: string; action: "save" | "discard" | "cancel" }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		reloadTab(params: { action: "discard" | "cancel" }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		listProjectFiles(): Promise<DesktopRPCResponse<{ files: ProjectFile[] }>>;
+		deleteProjectFile(params: { path: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		listTrash(): Promise<DesktopRPCResponse<{ items: TrashItem[] }>>;
+		restoreTrash(params: { id: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		emptyTrash(): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		readDocument(): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		updateBuffer(params: { text: string; path?: string; sequence?: number }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		saveDocument(): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
@@ -118,13 +128,17 @@ export type DesktopRPCSchema = {
 				response: PingResponse;
 			};
 			openProject: { params: { path: string }; response: DesktopRPCResponse<{ root: string }> };
+			createProject: { params: { path: string; action?: TransitionAction }; response: DesktopRPCResponse<{ root: string; document: OpenDocument; state: WorkbenchState }> };
+			pickCreateProject: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; root?: string }> };
 			pickProject: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; root?: string }> };
 			pickDocument: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; document?: OpenDocument }> };
 			pickDestination: { params: { extension: ".html" | ".pdf" | ".docx" }; response: DesktopRPCResponse<{ cancelled: boolean; path?: string }> };
 			openDocument: { params: { path: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			selectTab: { params: { path: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			getWorkbench: { params: Record<string, never>; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			getProjectContext: { params: Record<string, never>; response: DesktopRPCResponse<{ root?: string; state: WorkbenchState }> };
 			setInputSettings: { params: { inputMappings: string[]; validation: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			setAutosave: { params: { enabled: boolean; delayMs: number }; response: DesktopRPCResponse<{ enabled: boolean; delayMs: number }> };
 			startJob: { params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string } }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			getJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			cancelJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
@@ -137,6 +151,10 @@ export type DesktopRPCSchema = {
 			closeTab: { params: { path: string; action: "save" | "discard" | "cancel" }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			reloadTab: { params: { action: "discard" | "cancel" }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			listProjectFiles: { params: Record<string, never>; response: DesktopRPCResponse<{ files: ProjectFile[] }> };
+			deleteProjectFile: { params: { path: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			listTrash: { params: Record<string, never>; response: DesktopRPCResponse<{ items: TrashItem[] }> };
+			restoreTrash: { params: { id: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			emptyTrash: { params: Record<string, never>; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			readDocument: { params: Record<string, never>; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			updateBuffer: { params: { text: string; path?: string; sequence?: number }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			saveDocument: { params: Record<string, never>; response: DesktopRPCResponse<{ document: OpenDocument }> };

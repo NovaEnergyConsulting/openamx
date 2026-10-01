@@ -183,6 +183,7 @@ function cycleTab(direction: number) {
 
 const commands = computed<ShellCommand[]>(() => [
 	{ id: "project.open", label: "Open project", shortcut: "Ctrl/Cmd+O", enabled: true, run: openProject },
+	{ id: "project.create", label: "Create project", enabled: true, run: createProject },
 	{ id: "file.open", label: "Open file", shortcut: "Ctrl/Cmd+Shift+O", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => openDocument() },
 	{ id: "tab.next", label: "Next tab", shortcut: "Ctrl/Cmd+Alt+Right", enabled: workbench.value.tabs.length > 1, disabledReason: "Open another tab first", run: () => cycleTab(1) },
 	{ id: "tab.previous", label: "Previous tab", shortcut: "Ctrl/Cmd+Alt+Left", enabled: workbench.value.tabs.length > 1, disabledReason: "Open another tab first", run: () => cycleTab(-1) },
@@ -271,7 +272,7 @@ function clearView() {
 async function openProject() {
 	await pendingEdit;
 	const request = ++navigationRequest;
-	const result = await props.rpc.request.pickProject();
+	const result = await props.rpc.request.pickProject({}, { maxRequestTime: Infinity });
 	if (request !== navigationRequest) return;
 	if (!result.ok) { status.value = result.error.message; return; }
 	if (result.cancelled) return;
@@ -293,6 +294,35 @@ async function openProject() {
 	explorerWidth.value = recent?.explorerWidth ?? 220;
 	previewWidth.value = recent?.previewWidth ?? 44;
 	status.value = listingError ?? (document.value ? `Restored active file. ${files.value.length} .amx file(s) in project.` : `Project ready: ${files.value.length} .amx file(s). Select a file in the explorer or use Open file.`);
+}
+
+async function createProject() {
+	await pendingEdit;
+	const request = ++navigationRequest;
+	let failure = "";
+	let cancelled = false;
+	try {
+		const result = await props.rpc.request.pickCreateProject({}, { maxRequestTime: Infinity });
+		if (!result.ok) failure = result.error.message;
+		else cancelled = result.cancelled;
+	} catch (error) {
+		failure = error instanceof Error ? error.message : "Project creation request failed.";
+	}
+	if (request !== navigationRequest) return;
+	const context = await props.rpc.request.getProjectContext();
+	if (request !== navigationRequest) return;
+	if (cancelled && (!context.ok || !context.root)) return;
+	if (!context.ok || !context.root) { status.value = failure || "Project creation did not return a project."; return; }
+	clearView();
+	inputOverrides.value = "";
+	projectRoot.value = context.root;
+	document.value = null;
+	const listingError = await loadProject();
+	if (workbench.value.active) {
+		const active = await props.rpc.request.readDocument();
+		if (active.ok) document.value = active.document;
+	}
+	status.value = listingError ?? (document.value ? "Created a new project and opened report.amx." : "Created a new project. Select report.amx in the explorer.");
 }
 
 async function activate(result: Awaited<ReturnType<typeof props.rpc.request.openDocument>>) {
@@ -330,7 +360,7 @@ async function openDocument(path?: string) {
 		if (request === navigationRequest) await activate(result);
 		return;
 	}
-	const result = await props.rpc.request.pickDocument();
+	const result = await props.rpc.request.pickDocument({}, { maxRequestTime: Infinity });
 	if (request !== navigationRequest) return;
 	if (!result.ok) { status.value = result.error.message; return; }
 	if (result.cancelled || !result.document) return;
@@ -513,7 +543,7 @@ async function exportDocument(format: "html" | "pdf" | "docx", extension: ".html
 	const request = ++exportRequest;
 	const label = format.toUpperCase();
 	exportStatus.value = `Choosing ${label} destination…`;
-	const destination = await props.rpc.request.pickDestination({ extension });
+	const destination = await props.rpc.request.pickDestination({ extension }, { maxRequestTime: Infinity });
 	if (!isCurrent(started) || request !== exportRequest) return;
 	if (!destination.ok) { exportStatus.value = destination.error.message; return; }
 	if (destination.cancelled || !destination.path) { exportStatus.value = ""; return; }
@@ -613,7 +643,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 			<select v-model="theme" aria-label="Theme" @change="setTheme(theme)"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
 			<button type="button" @click="showPalette">Commands</button>
 		</header>
-		<WelcomeView v-if="!projectRoot" :recents="recents" :status="status" @open-project="openProject" @restore="restore" @clear-recents="clearRecents" @open-help="status = 'Help and shortcut reference will be completed in Sprint 043.'" />
+		<WelcomeView v-if="!projectRoot" :recents="recents" :status="status" @open-project="openProject" @create-project="createProject" @restore="restore" @clear-recents="clearRecents" @open-help="status = 'Help and shortcut reference will be completed in Sprint 043.'" />
 		<div v-else class="workbench" :class="[`focus-${focusMode}`, `drawer-${drawerDock}`]" :style="{ '--explorer-width': `${explorerWidth}px`, '--preview-width': `${previewWidth}%` }">
 			<ProjectExplorer :files="files" :workbench="workbench" @open="openDocument" />
 			<div class="divider divider-explorer" role="separator" aria-label="Resize explorer" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'explorer')"></div>

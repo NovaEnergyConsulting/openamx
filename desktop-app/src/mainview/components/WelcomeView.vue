@@ -9,10 +9,10 @@ const emit = defineEmits<{ openProject: []; createProject: []; restore: [root: s
 	<section class="welcome" aria-label="Welcome to OpenAMX">
 		<p class="eyebrow">OPENAMX WORKBENCH</p>
 		<h1>Open a project to start working.</h1>
-		<p class="welcome-copy">Your recent projects stay on this machine. Project creation, recovery, and starter installation are available in the next workflow sprint.</p>
+		<p class="welcome-copy">Your recent projects stay on this machine. Create a project in an empty folder or open an existing local project.</p>
 		<div class="welcome-actions">
 			<button type="button" @click="emit('openProject')">Open project</button>
-			<button type="button" disabled title="Project creation is scheduled for Sprint 038">Create project</button>
+			<button type="button" @click="emit('createProject')">Create project</button>
 			<button type="button" class="quiet-button" @click="emit('openHelp')">Help and shortcuts</button>
 		</div>
 		<p class="project-feedback" role="status" aria-live="polite">{{ status }}</p>
