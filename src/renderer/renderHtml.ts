@@ -1,13 +1,13 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { isAbsolute, join, relative, resolve } from 'node:path';
 import { marked } from 'marked';
 import { OpenAmxDocument } from '../ast/types';
+import { AmxError } from '../diagnostics/errors';
 import { parseExpression } from '../parser/parseExpression';
 import { evaluateExpression } from '../runtime/evaluateExpression';
 import { evaluateDocumentEnvironment } from '../runtime/evaluateDocument';
 import { Environment } from '../runtime/environment';
 import type { ViewDataValue, ViewEmission, TableViewEmission, ChartViewEmission } from '../runtime/environment';
 import { formatAmx } from '../formatter/formatAmx';
+import type { PreparedReport } from './reportPreparation';
 
 export interface ReportIdentityOptions {
   report?: Record<string, unknown>;
@@ -39,7 +39,7 @@ export interface ResolvedReportIdentity {
  */
 export function renderHtml(doc: OpenAmxDocument, file?: string, env?: Environment, options?: ReportIdentityOptions): string {
   const environment = env ?? evaluateDocumentEnvironment(doc, file);
-  const resolvedReport = resolveReportIdentity(doc, options?.projectRoot, options?.report);
+  const resolvedReport = resolveReportIdentity(doc, options?.report);
   const emissionsByNode = new Map<number, ViewEmission[]>();
   for (const emission of environment.viewEmissions) {
     const emissions = emissionsByNode.get(emission.documentNodeIndex) ?? [];
@@ -89,6 +89,38 @@ export function renderHtml(doc: OpenAmxDocument, file?: string, env?: Environmen
 </head>
 <body>
 ${bodyHtml}</body>
+</html>`;
+}
+
+export function renderPreparedHtml(report: PreparedReport): string {
+  const bodyFragments: string[] = [];
+  const identity = report.identity;
+  const metadata = [
+    identity.organization,
+    identity.author && `Author: ${identity.author}`,
+    identity.status && `Status: ${identity.status}`,
+    identity.classification && `Classification: ${identity.classification}`
+  ].filter((value): value is string => Boolean(value));
+  if (identity.logo || metadata.length > 0) {
+    const logo = identity.logo ? `<img class="openamx-report-logo" src="${escapeHtml(identity.logo.dataUri)}" alt="${escapeHtml(identity.logo.alt)}" />` : '';
+    bodyFragments.push(`<header class="openamx-report-header"><div class="openamx-report-identity">${logo}<div class="openamx-report-meta">${metadata.map(value => `<div class="openamx-report-attr">${escapeHtml(value)}</div>`).join('')}</div></div></header>`);
+  }
+  for (const item of report.items) {
+    if (item.type === 'narrative') bodyFragments.push(marked.parse(item.text) as string);
+    else if (item.type === 'source') bodyFragments.push(`<pre><code class="language-amx">${escapeHtml(item.text)}</code></pre>`);
+    else bodyFragments.push(renderViewEmission(item.emission));
+  }
+  if (identity.footer) bodyFragments.push(`<footer class="openamx-report-footer">${escapeHtml(identity.footer)}</footer>`);
+  const accentStyle = identity.accent === '#146C94' ? '' : `<style>:root{--openamx-accent:${identity.accent};}</style>`;
+  const viewAssets = report.items.some(item => item.type === 'view') ? renderViewAssets() : '';
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(report.title)}</title>${accentStyle ? `\n${accentStyle}` : ''}${viewAssets ? `\n${viewAssets}` : ''}
+</head>
+<body>
+${bodyFragments.join('')}</body>
 </html>`;
 }
 
@@ -221,17 +253,18 @@ function renderReportHeader(report: ResolvedReportIdentity, _file?: string): str
   return `<header class="openamx-report-header"><div class="openamx-report-identity">${logoMarkup}<div class="openamx-report-meta">${meta || '<div class="openamx-report-attr">OpenAMX report</div>'}</div></div></header>`;
 }
 
-function resolveReportIdentity(doc: OpenAmxDocument, projectRoot?: string, override?: Record<string, unknown>): ResolvedReportIdentity {
+function resolveReportIdentity(doc: OpenAmxDocument, override?: Record<string, unknown>): ResolvedReportIdentity {
   const metadata = (doc.metadata ?? {}) as Record<string, unknown>;
   const frontMatterReport = isRecord(metadata.report) ? metadata.report : {};
-  const configReport = readProjectReportConfig(projectRoot);
-  const merged = { ...configReport, ...frontMatterReport, ...override };
+  const merged = { ...frontMatterReport, ...override };
   const sourceVisible = merged.sourceVisible === undefined ? true : Boolean(merged.sourceVisible);
   const logo = typeof merged.logo === 'string' ? merged.logo : undefined;
 
+  if (logo) throw new AmxError({ code: 'AMX6001', message: 'Logo reports require shared report preparation' });
+
   return {
     organization: stringOrUndefined(merged.organization),
-    logo: resolveLogoPath(projectRoot, logo),
+    logo: undefined,
     logoAlt: stringOrUndefined(merged.logoAlt),
     accent: stringOrUndefined(merged.accent),
     author: stringOrUndefined(merged.author),
@@ -248,60 +281,6 @@ function stringOrUndefined(value: unknown): string | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function readProjectReportConfig(projectRoot?: string): Record<string, unknown> {
-  if (!projectRoot || !existsSync(projectRoot)) {
-    return {};
-  }
-
-  const configPath = resolve(projectRoot, '.openamx', 'project.json');
-  if (!existsSync(configPath)) {
-    return {};
-  }
-
-  try {
-    const raw = readFileSync(configPath, 'utf8');
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    return isRecord(parsed.report) ? parsed.report : {};
-  } catch {
-    return {};
-  }
-}
-
-function resolveLogoPath(projectRoot: string | undefined, logo: string | undefined): string | undefined {
-  if (!logo) {
-    return undefined;
-  }
-
-  if (/^data:/i.test(logo)) {
-    return logo;
-  }
-
-  const resolved = projectRoot ? resolve(projectRoot, logo) : resolve(logo);
-  if (!existsSync(resolved)) {
-    return undefined;
-  }
-
-  try {
-    const stat = statSync(resolved);
-    if (!stat.isFile()) {
-      return undefined;
-    }
-  } catch {
-    return undefined;
-  }
-
-  const base64 = readFileSync(resolved).toString('base64');
-  const extension = logo.split('.').pop()?.toLowerCase();
-  const mime = extension === 'svg'
-    ? 'image/svg+xml'
-    : extension === 'jpg' || extension === 'jpeg'
-      ? 'image/jpeg'
-      : extension === 'png'
-        ? 'image/png'
-        : 'application/octet-stream';
-  return `data:${mime};base64,${base64}`;
 }
 
 function substituteInlines(

@@ -47,7 +47,7 @@ function readInputConfig(root: string, filename: "project.json" | "local.json", 
 		const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
 		if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error("The root must be an object.");
 		const config = parsed as Record<string, unknown>;
-		const unknown = Object.keys(config).filter(key => key !== "version" && key !== "inputs");
+		const unknown = Object.keys(config).filter(key => key !== "version" && key !== "inputs" && (filename === "local.json" || key !== "report"));
 		if (unknown.length) throw new Error(`Unknown key '${unknown[0]}'.`);
 		if (config.version !== 1) throw new Error("The required version is 1.");
 		if (typeof config.inputs !== "object" || config.inputs === null || Array.isArray(config.inputs)) {

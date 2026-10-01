@@ -6,11 +6,12 @@ import { parseDocumentText } from "../../../src/parser/parseDocument";
 import { formatAmx } from "../../../src/formatter/formatAmx";
 import { checkingActivated, checkDocument } from "../../../src/typechecker/checkDocument";
 import { loadEntryModule } from "../../../src/runtime/moduleLoader";
-import { renderHtml } from "../../../src/renderer/renderHtml";
+import { renderPreparedHtml } from "../../../src/renderer/renderHtml";
 import { preparePdfReport, serializePdfReport } from "../../../src/renderer/reportPdf";
 import { preparePdfDestination, writePdfAtomically } from "../../../src/runtime/pdfDestination";
 import { prepareDocxReport, serializeDocxReport } from "../../../src/renderer/reportDocx";
 import { prepareDocxDestination, writeDocxAtomically } from "../../../src/runtime/docxDestination";
+import { prepareReport } from "../../../src/renderer/reportPreparation";
 import { resolveDesktopInputs, validateDesktopDestination, writeDesktopHtml } from "./desktopWorkflow";
 import { createPingResponse, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type OpenDocument, type ProjectFile, type RunSummary, type TextAnalysis, type TextDiagnostic, type WorkbenchState, type RecentProject, type TransitionAction } from "../shared/rpc";
 
@@ -524,7 +525,8 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					privatePaths = resolved.privatePaths;
 					if (resolved.configuration.diagnostics.length) return { ok: true, html: "", diagnostics: resolved.configuration.diagnostics };
 					const loaded = await loadEntryModule(document.path, { entryText: document.text, inputMappings: resolved.mappings, validation });
-					const html = renderHtml(loaded.doc, document.path, loaded.env);
+					const report = await prepareReport(loaded.doc, loaded.env, { file: document.path, projectRoot: requireRoot() });
+					const html = renderPreparedHtml(report);
 					if (html.length > MAX_HTML) return errorResult<{ html: string; diagnostics: TextAnalysis["diagnostics"] }>(projectError(`Preview exceeds the ${MAX_HTML}-character limit.`));
 					return { ok: true, html, diagnostics: [] };
 				} catch (error) {
@@ -539,7 +541,8 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				privatePaths = resolved.privatePaths;
 				if (resolved.configuration.diagnostics.length) return { ok: true, path: "", diagnostics: resolved.configuration.diagnostics };
 				const loaded = await loadEntryModule(document.path, { entryText: document.text, inputMappings: resolved.mappings, validation });
-				const html = renderHtml(loaded.doc, document.path, loaded.env);
+				const report = await prepareReport(loaded.doc, loaded.env, { file: document.path, projectRoot: requireRoot() });
+				const html = renderPreparedHtml(report);
 				if (html.length > MAX_HTML) throw new Error(`HTML output exceeds the ${MAX_HTML}-character limit.`);
 				const inputPaths = resolved.mappings.map(mapping => mapping.slice(mapping.indexOf("=") + 1));
 				const outputPath = await writeDesktopHtml(requireRoot(), path, document.path, inputPaths, html);
@@ -559,7 +562,8 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				const inputPaths = resolved.mappings.map(mapping => mapping.slice(mapping.indexOf("=") + 1));
 				const validated = validateDesktopDestination(requireRoot(), path, ".pdf", [document.path, ...inputPaths]);
 				const destination = await preparePdfDestination(validated.path, document.path, resolved.mappings);
-				const report = preparePdfReport(loaded.doc, loaded.env);
+				const prepared = await prepareReport(loaded.doc, loaded.env, { file: document.path, projectRoot: requireRoot() });
+				const report = preparePdfReport(prepared);
 				const bytes = await serializePdfReport(report);
 				await writePdfAtomically(destination, bytes);
 				return { ok: true, path: destination.path, bytes: bytes.length, diagnostics: [] };
@@ -578,7 +582,8 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					const inputPaths = resolved.mappings.map(mapping => mapping.slice(mapping.indexOf("=") + 1));
 					const validated = validateDesktopDestination(requireRoot(), path, ".docx", [document.path, ...inputPaths]);
 					const destination = await prepareDocxDestination(validated.path, document.path, resolved.mappings);
-					const report = prepareDocxReport(loaded.doc, loaded.env);
+					const prepared = await prepareReport(loaded.doc, loaded.env, { file: document.path, projectRoot: requireRoot() });
+					const report = prepareDocxReport(prepared);
 					const bytes = await serializeDocxReport(report);
 					await writeDocxAtomically(destination, bytes);
 					return { ok: true, path: destination.path, bytes: bytes.length, diagnostics: [] };

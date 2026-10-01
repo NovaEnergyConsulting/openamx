@@ -9,7 +9,7 @@
  */
 
 import { cac } from "cac";
-import { renderHtml } from "./renderer/renderHtml";
+import { renderPreparedHtml } from "./renderer/renderHtml";
 import { AmxDiagnostic, AmxError } from "./diagnostics/errors";
 import { loadEntryModule } from "./runtime/moduleLoader";
 import { serializeOutputs, writeOutputs } from "./runtime/outputData";
@@ -17,6 +17,7 @@ import { preparePdfReport, serializePdfReport } from "./renderer/reportPdf";
 import { preparePdfDestination, writePdfAtomically } from "./runtime/pdfDestination";
 import { prepareDocxReport, serializeDocxReport } from "./renderer/reportDocx";
 import { prepareDocxDestination, writeDocxAtomically } from "./runtime/docxDestination";
+import { prepareReport } from "./renderer/reportPreparation";
 
 const cli = cac("openamx");
 
@@ -67,7 +68,8 @@ cli
           inputMappings,
           validation: options.validation as "aggregate" | "fail-fast" | undefined
         });
-        const bytes = await serializeDocxReport(prepareDocxReport(doc, env, { title: undefined, author: undefined }));
+        const report = await prepareReport(doc, env, { file: input, projectRoot: options.projectRoot });
+        const bytes = await serializeDocxReport(prepareDocxReport(report));
         await writeDocxAtomically(destination, bytes);
         console.log(`Exported DOCX to ${destination.path}`);
         return;
@@ -78,7 +80,8 @@ cli
         inputMappings,
         validation: options.validation as "aggregate" | "fail-fast" | undefined
       });
-      const bytes = await serializePdfReport(preparePdfReport(doc, env, {}));
+      const report = await prepareReport(doc, env, { file: input, projectRoot: options.projectRoot });
+      const bytes = await serializePdfReport(preparePdfReport(report));
       await writePdfAtomically(destination, bytes);
       console.log(`Exported PDF to ${destination.path}`);
     } catch (err: any) {
@@ -109,7 +112,8 @@ cli
         outputMappings,
         reservedOutputPath: outputMappings?.length ? outPath : undefined
       });
-      const html = renderHtml(doc, input, env, { projectRoot: options.projectRoot });
+      const report = await prepareReport(doc, env, { file: input, projectRoot: options.projectRoot });
+      const html = renderPreparedHtml(report);
       const serialized = serializeOutputs(outputs, env);
       await writeOutputs([{ path: outPath, contents: html }, ...serialized]);
       console.log(`Rendered to ${outPath}`);

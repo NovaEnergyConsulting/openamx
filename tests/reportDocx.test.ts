@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import JSZip from 'jszip';
 import { loadEntryModule } from '../src/runtime/moduleLoader';
 import { prepareDocxReport, serializeDocxReport } from '../src/renderer/reportDocx';
+import { prepareReport } from '../src/renderer/reportPreparation';
 
 async function packageParts(bytes: Uint8Array): Promise<Map<string, string>> {
   const archive = await JSZip.loadAsync(bytes);
@@ -26,7 +27,7 @@ describe('report DOCX adapter', () => {
     ].join('\n');
     await Bun.write(input, source);
     const loaded = await loadEntryModule(input);
-    const parts = await packageParts(await serializeDocxReport(prepareDocxReport(loaded.doc, loaded.env)));
+    const parts = await packageParts(await serializeDocxReport(prepareDocxReport(await prepareReport(loaded.doc, loaded.env, { file: input }))));
     const documentXml = parts.get('word/document.xml') ?? '';
     const relsXml = parts.get('word/_rels/document.xml.rels') ?? '';
     expect(documentXml).toContain('w:val="Heading1"');

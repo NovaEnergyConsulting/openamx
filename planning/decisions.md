@@ -1,5 +1,23 @@
 # Planning Decisions
 
+## Sprint 031 Remediation Authorization and Sprint 032 Continuation (2026-10-01)
+
+- The Lead Developer selected Option 1: complete the Sprint 031 remediation before Sprint 032 presentation work. The accepted implementation boundary is `PreparedReport`: trusted callers prepare validated project/frontmatter identity, bounded sanitized logo bytes, final narrative substitutions and immutable ordered source/view emissions once; HTML/PDF/DOCX serialize only that value.
+- `sharp@0.35.5` is selected as the local decoder/re-encoder for PNG/JPEG logo validation and metadata stripping; installed package metadata declares Apache-2.0. PDF/DOCX receive prepared PNG bytes/data only, never raw paths, `data:` values, project config, frontmatter or evaluator access. The legacy direct PDF/DOCX adapter overloads were removed to make this boundary compile-time enforced.
+- Automated remediation and export checks are sufficient to continue Sprint 032 implementation under the Lead Developer authorization. Final visual review, named PDF/DOCX viewer inspection, tagged-PDF/PDF-A, broad Office compatibility, native platform/Hutch and license/Marketplace release gates are not implied and remain under their existing owners/Sprint 034 process.
+
+## Sprint 032 Builder Gate Disposition (2026-10-01)
+
+- Do not authorize Sprint 032 implementation from a reported Sprint 031 completion alone. The gate review verified that the current adapters lack the contract-required shared prepared model: `renderHtml.ts` directly resolves raw identity/config/assets and permits `data:` logos with silent configuration/asset fallbacks, while `reportPdf.ts` and `reportDocx.ts` separately read frontmatter and interpolate narrative.
+- The remediation decision remains with the Lead Developer: assign/accept Sprint 031 work that introduces one trusted immutable identity/content preparation boundary with strict source-located validation and sanitized contained PNG bytes, then rerun the Sprint 031 acceptance; alternatively record an explicit dependency disposition naming the prerequisite owner and remediation. Until then, PDF/DOCX must not consume raw logo/report values or claim branded presentation.
+- This is a dependency decision only. It does not waive Sprint 029/030 exceptions, native platform/Hutch, Office, license/Marketplace or Sprint 034 visual-review gates.
+
+## V0.5 Sprint 032 Conditional Handoff (2026-10-01)
+
+- Prepare Sprint 032 documentation, not unconditional implementation authorization. Sprint 031 depends only on Sprint 028 but Sprint 032 depends on accepted Sprint 031; no Builder outcome/Lead Developer acceptance has been recorded. The current direct HTML resolver and independent PDF/DOCX metadata paths cannot be treated as the approved shared validated model.
+- Require a named Sprint 031 remediation/acceptance owner or explicit Lead Developer dependency disposition before Sprint 032 export work consumes identity. In particular, reject unchecked `data:`/absolute/remote logos, missing-file silent fallback and catch-to-empty invalid project config; enforce source-located strict diagnostics, sanitized contained PNG and a single prepared identity/content sequence before any export write. Do not copy present HTML behavior into PDF/DOCX or silently change the approved V0.5 contract.
+- After the gate, apply resolved values through format-native pdfmake/DOCX layout with existing searchable/editable content and destination safety. Sprint 034 owns final visual review; Sprint 029/030 desktop exceptions and inherited native/Hutch, Office and license/Marketplace gates stay independently open.
+
 ## V0.5 Sprint 031 Handoff and Residual Ownership (2026-09-30)
 
 - Sprint 031 depends on the accepted Sprint 028 contract only; the Lead Developer's Sprint 030 closeout does not impose desktop residuals on report identity/HTML. Preserve a trusted shared preparation model with one evaluated document, final narrative context, immutable view emissions and validated portable identity. PDF/DOCX presentation remains Sprint 032, CLI/docs integration acceptance remains Sprint 034.

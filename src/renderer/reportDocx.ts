@@ -7,70 +7,54 @@ import {
   Table,
   TableCell,
   TableRow,
-  TextRun
+  TextRun,
+  Footer
 } from 'docx';
-import type { OpenAmxDocument } from '../ast/types';
 import type { ChartViewEmission, TableViewEmission, ViewDataValue, ViewEmission } from '../runtime/environment';
-import type { Environment } from '../runtime/environment';
-import { formatAmx } from '../formatter/formatAmx';
-import { parseExpression } from '../parser/parseExpression';
-import { evaluateExpression } from '../runtime/evaluateExpression';
-
-export interface DocxReportOptions {
-  title?: string;
-  author?: string;
-}
+import type { PreparedReport } from './reportPreparation';
 
 export interface PreparedDocxReport {
   document: Document;
 }
 
-export function prepareDocxReport(doc: OpenAmxDocument, env: Environment, options: DocxReportOptions = {}): PreparedDocxReport {
-  const children: Array<Paragraph | Table> = [];
-  const emissionsByNode = new Map<number, ViewEmission[]>();
-  const metadata = (doc.metadata ?? {}) as Record<string, unknown>;
-  const report = metadata.report && typeof metadata.report === 'object' && !Array.isArray(metadata.report) ? metadata.report as Record<string, unknown> : {};
-  const sourceVisible = report.sourceVisible === undefined ? true : Boolean(report.sourceVisible);
-
-  for (const emission of env.viewEmissions) {
-    const emissions = emissionsByNode.get(emission.documentNodeIndex) ?? [];
-    emissions.push(emission);
-    emissionsByNode.set(emission.documentNodeIndex, emissions);
-  }
-
-  for (const [nodeIndex, node] of doc.nodes.entries()) {
-    if (node.type === 'narrative') {
-      addNarrative(children, node.content, env);
-    } else if (node.type === 'executableCodeBlock') {
-      if (sourceVisible) {
-        children.push(new Paragraph({
-          style: 'Normal',
-          children: [new TextRun({ text: formatAmx(node.content), font: 'Courier New', size: 18 })]
-        }));
-      }
-      for (const emission of emissionsByNode.get(nodeIndex) ?? []) addEmission(children, emission);
-    }
-  }
-
-  const title = options.title ?? (typeof metadata.title === 'string' ? metadata.title : typeof report.title === 'string' ? report.title : 'OpenAMX Document');
-  const document = new Document({
-    title,
-    creator: options.author ?? 'OpenAMX',
-    description: 'Editable OpenAMX report',
-    sections: [{ children }]
-  });
-  return { document };
+export function prepareDocxReport(report: PreparedReport): PreparedDocxReport {
+  return preparePreparedDocxReport(report);
 }
 
 export async function serializeDocxReport(report: PreparedDocxReport): Promise<Uint8Array> {
   return Uint8Array.from(await Packer.toBuffer(report.document));
 }
 
-function addNarrative(children: Array<Paragraph | Table>, narrative: string, env: Environment): void {
+function preparePreparedDocxReport(report: PreparedReport): PreparedDocxReport {
+  const children: Array<Paragraph | Table> = [];
+  const identity = report.identity;
+  if (identity.logo || identity.organization || identity.author || identity.status || identity.classification) {
+    const runs: Array<TextRun | ImageRun> = [];
+    if (identity.logo) runs.push(new ImageRun({ type: 'png', data: identity.logo.bytes, transformation: { width: 120, height: 48 }, altText: { title: identity.logo.alt, description: identity.logo.alt, name: 'Report logo' } }));
+    const metadata = [identity.organization, identity.author && `Author: ${identity.author}`, identity.status && `Status: ${identity.status}`, identity.classification && `Classification: ${identity.classification}`].filter((value): value is string => Boolean(value));
+    if (metadata.length > 0) runs.push(new TextRun({ text: `${runs.length ? '\n' : ''}${metadata.join('\n')}`, bold: true }));
+    children.push(new Paragraph({ children: runs }));
+  }
+  for (const item of report.items) {
+    if (item.type === 'narrative') addNarrativeText(children, item.text);
+    else if (item.type === 'source') children.push(new Paragraph({ style: 'Normal', children: [new TextRun({ text: item.text, font: 'Courier New', size: 18 })] }));
+    else addEmission(children, item.emission);
+  }
+  return {
+    document: new Document({
+      title: report.title,
+      creator: identity.author ?? 'OpenAMX',
+      description: 'Editable OpenAMX report',
+      sections: [{ children, footers: identity.footer ? { default: new Footer({ children: [new Paragraph({ text: identity.footer })] }) } : undefined }]
+    })
+  };
+}
+
+function addNarrativeText(children: Array<Paragraph | Table>, narrative: string): void {
   let paragraphLines: string[] = [];
   const flushParagraph = () => {
     if (paragraphLines.length > 0) {
-      children.push(new Paragraph(substituteInlines(paragraphLines.join(' '), env)));
+      children.push(new Paragraph(paragraphLines.join(' ')));
       paragraphLines = [];
     }
   };
@@ -84,13 +68,13 @@ function addNarrative(children: Array<Paragraph | Table>, narrative: string, env
       flushParagraph();
       const level = Math.min(6, (trimmed.match(/^#+/) ?? ['#'])[0].length);
       children.push(new Paragraph({
-        text: substituteInlines(trimmed.replace(/^#+\s+/, ''), env),
+        text: trimmed.replace(/^#+\s+/, ''),
         heading: headingLevel(level)
       }));
     } else if (/^[-*]\s+/.test(trimmed)) {
       flushParagraph();
       children.push(new Paragraph({
-        text: substituteInlines(trimmed.replace(/^[-*]\s+/, ''), env),
+        text: trimmed.replace(/^[-*]\s+/, ''),
         bullet: { level: 0 }
       }));
     } else if (trimmed === '') {
@@ -183,13 +167,6 @@ const transparentPng = Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEA
 
 function headingLevel(level: number): typeof HeadingLevel[keyof typeof HeadingLevel] {
   return [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3, HeadingLevel.HEADING_4, HeadingLevel.HEADING_5, HeadingLevel.HEADING_6][level - 1];
-}
-
-function substituteInlines(content: string, env: Environment): string {
-  return content.replace(/\{\{\s*([\s\S]*?)\s*\}\}/g, (_full, expression: string) => {
-    if (!expression.trim()) return '';
-    return valueToString(evaluateExpression(parseExpression(expression.trim()), env));
-  });
 }
 
 function isRecord(value: ViewDataValue): value is { readonly [field: string]: ViewDataValue } {

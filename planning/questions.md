@@ -1,5 +1,21 @@
 # Planning Questions (Sprint 002)
 
+## Sprint 031/Sprint 032 Gate Resolution (2026-10-01)
+
+- **Resolved by Lead Developer Option 1 and Builder evidence:** Sprint 031 remediation is implemented through the shared `PreparedReport` boundary and Sprint 032 adapters consume it without independent identity/assets/evaluation reads. Focused preparation, PDF/DOCX structure and CLI no-write tests plus root/desktop checks are recorded in `planning/state.md`. Sprint 034 retains the separate manual PDF/DOCX viewer and visual-review evidence.
+
+## Sprint 032 Builder Gate Follow-Up (2026-10-01)
+
+- Lead Developer: record one of the following before Sprint 032 resumes: (1) Sprint 031 acceptance with focused evidence for the immutable shared identity/content preparer, strict project/frontmatter diagnostics, sanitized bounded PNG bytes and HTML consumption without raw asset/config reads; or (2) an explicit dependency disposition naming the Sprint 031 remediation owner and stating that no branded PDF/DOCX implementation is authorized until that remediation completes. Which disposition applies?
+
+## Sprint 032 Entry and Report Identity Evidence (2026-10-01)
+
+- Who owns Sprint 031 remediation and who will record its Builder outcome/Lead Developer acceptance? Before Sprint 032 implementation, verify one immutable evaluated-content/identity model shared by HTML/PDF/DOCX, strict project/frontmatter diagnostics, and fail-before-write logo behavior against Sprint 031 acceptance. If the Lead Developer explicitly dispositions the dependency instead, name the prerequisite owner and do not ship unsafe PDF/DOCX exports in the interim.
+- Does the accepted preparer reject data URIs, absolute/outside-root/symlink paths, unsupported/missing/malformed/oversize assets and invalid project JSON with approved source locations, while embedding only bounded sanitized PNG and preserving existing destinations? Current `renderHtml.ts` allows `data:` and silent fallback; tests or a Builder-complete label alone do not resolve that security/compatibility gap.
+- Which engine-native PDF/DOCX mappings support header/footer/metadata/logo alt, table header repetition, source visibility, static chart data and page breaks with the resolved model, and which viewer/font/OOXML properties can actually be verified on this host? Record unsupported behavior rather than claiming pixel parity, tagged PDF or broad Office compatibility.
+
+The prior open-item ledger remains in force: Sprint 029 native workflow, Sprint 030 editor exceptions and V0.4 release-engineering residuals do not transfer to Sprint 032. Sprint 034 visual approval remains separate.
+
 ## V0.5 Open-Item Ledger for Sprint 031 Handoff (2026-09-30)
 
 | Item | Status and decision | Owner / closure evidence |

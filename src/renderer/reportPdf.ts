@@ -1,17 +1,8 @@
 import pdfmake from 'pdfmake';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
-import type { OpenAmxDocument } from '../ast/types';
 import type { ChartViewEmission, TableViewEmission, ViewDataValue, ViewEmission } from '../runtime/environment';
-import type { Environment } from '../runtime/environment';
-import { formatAmx } from '../formatter/formatAmx';
-import { parseExpression } from '../parser/parseExpression';
-import { evaluateExpression } from '../runtime/evaluateExpression';
-
-export interface PdfReportOptions {
-  title?: string;
-  author?: string;
-}
+import type { PreparedReport } from './reportPreparation';
 
 export interface PreparedPdfReport {
   definition: Record<string, unknown>;
@@ -30,45 +21,8 @@ pdfmake.setFonts({
   }
 });
 
-export function preparePdfReport(doc: OpenAmxDocument, env: Environment, options: PdfReportOptions = {}): PreparedPdfReport {
-  const content: unknown[] = [];
-  const emissionsByNode = new Map<number, ViewEmission[]>();
-  const metadata = (doc.metadata ?? {}) as Record<string, unknown>;
-  const report = metadata.report && typeof metadata.report === 'object' && !Array.isArray(metadata.report) ? metadata.report as Record<string, unknown> : {};
-  const sourceVisible = report.sourceVisible === undefined ? true : Boolean(report.sourceVisible);
-
-  for (const emission of env.viewEmissions) {
-    const emissions = emissionsByNode.get(emission.documentNodeIndex) ?? [];
-    emissions.push(emission);
-    emissionsByNode.set(emission.documentNodeIndex, emissions);
-  }
-
-  for (const [nodeIndex, node] of doc.nodes.entries()) {
-    if (node.type === 'narrative') {
-      addNarrative(content, node.content, env);
-    } else if (node.type === 'executableCodeBlock') {
-      if (sourceVisible) content.push({ text: formatAmx(node.content), style: 'source' });
-      for (const emission of emissionsByNode.get(nodeIndex) ?? []) addEmission(content, emission);
-    }
-  }
-
-  const title = options.title ?? (typeof metadata.title === 'string' ? metadata.title : typeof report.title === 'string' ? report.title : 'OpenAMX Document');
-  return {
-    definition: {
-      info: { title, author: options.author ?? 'OpenAMX' },
-      pageSize: 'A4',
-      pageMargins: [51, 51, 51, 51],
-      defaultStyle: { font: 'Roboto', fontSize: 9, color: '#202a27' },
-      footer: (currentPage: number, pageCount: number) => ({ text: `${currentPage} / ${pageCount}`, alignment: 'right', margin: [0, 0, 51, 24], fontSize: 8 }),
-      styles: {
-        title: { fontSize: 20, bold: true, color: '#174e37', margin: [0, 0, 0, 10] },
-        heading: { fontSize: 14, bold: true, color: '#174e37', margin: [0, 14, 0, 6] },
-        source: { font: 'Roboto', fontSize: 8, color: '#37413d', margin: [0, 5, 0, 10] },
-        caption: { fontSize: 8, color: '#66736c', margin: [0, 3, 0, 6] }
-      },
-      content
-    }
-  };
+export function preparePdfReport(report: PreparedReport): PreparedPdfReport {
+  return preparePreparedPdfReport(report);
 }
 
 export async function serializePdfReport(report: PreparedPdfReport): Promise<Uint8Array> {
@@ -77,8 +31,51 @@ export async function serializePdfReport(report: PreparedPdfReport): Promise<Uin
   return Uint8Array.from(buffer);
 }
 
-function addNarrative(content: unknown[], narrative: string, env: Environment): void {
-  const lines = substituteInlines(narrative, env).split(/\r?\n/);
+function preparePreparedPdfReport(report: PreparedReport): PreparedPdfReport {
+  const content: unknown[] = [];
+  const identity = report.identity;
+  const metadata = [
+    identity.organization,
+    identity.author && `Author: ${identity.author}`,
+    identity.status && `Status: ${identity.status}`,
+    identity.classification && `Classification: ${identity.classification}`
+  ].filter((value): value is string => Boolean(value));
+  if (identity.logo || metadata.length > 0) {
+    content.push({
+      columns: [
+        identity.logo ? { image: identity.logo.dataUri, fit: [120, 48], alt: identity.logo.alt } : {},
+        { stack: metadata.map(text => ({ text, style: 'metadata' })) }
+      ],
+      columnGap: 12,
+      margin: [0, 0, 0, 16]
+    });
+  }
+  for (const item of report.items) {
+    if (item.type === 'narrative') addNarrativeText(content, item.text);
+    else if (item.type === 'source') content.push({ text: item.text, style: 'source' });
+    else addEmission(content, item.emission);
+  }
+  return {
+    definition: {
+      info: { title: report.title, author: identity.author ?? 'OpenAMX' },
+      pageSize: 'A4',
+      pageMargins: [51, 51, 51, 51],
+      defaultStyle: { font: 'Roboto', fontSize: 9, color: '#18282D' },
+      footer: (currentPage: number, pageCount: number) => ({ text: [identity.footer, `${currentPage} / ${pageCount}`].filter(Boolean).join('  |  '), alignment: 'right', margin: [0, 0, 51, 24], fontSize: 8 }),
+      styles: {
+        title: { fontSize: 20, bold: true, color: identity.accent, margin: [0, 0, 0, 10] },
+        heading: { fontSize: 14, bold: true, color: identity.accent, margin: [0, 14, 0, 6] },
+        source: { font: 'Roboto', fontSize: 8, color: '#405459', margin: [0, 5, 0, 10] },
+        caption: { fontSize: 8, color: '#405459', margin: [0, 3, 0, 6] },
+        metadata: { fontSize: 9, color: '#18282D', margin: [0, 0, 0, 2] }
+      },
+      content
+    }
+  };
+}
+
+function addNarrativeText(content: unknown[], narrative: string): void {
+  const lines = narrative.split(/\r?\n/);
   let paragraph: string[] = [];
   const flush = () => {
     if (paragraph.length > 0) content.push({ text: paragraph.join(' '), margin: [0, 0, 0, 7] });
@@ -98,14 +95,6 @@ function addNarrative(content: unknown[], narrative: string, env: Environment): 
     }
   }
   flush();
-}
-
-function substituteInlines(content: string, env: Environment): string {
-  return content.replace(/\{\{\s*([\s\S]*?)\s*\}\}/g, (_full, expression: string) => {
-    if (!expression.trim()) return '';
-    const value = evaluateExpression(parseExpression(expression.trim()), env);
-    return valueToString(value);
-  });
 }
 
 function addEmission(content: unknown[], emission: ViewEmission): void {

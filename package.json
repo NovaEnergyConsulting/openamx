@@ -22,6 +22,7 @@
     "docx": "^9.8.1",
     "marked": "^14.1.4",
     "pdfmake": "0.3.11",
+    "sharp": "^0.35.5",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
