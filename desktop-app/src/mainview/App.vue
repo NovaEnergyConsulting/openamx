@@ -37,6 +37,7 @@ const activeJobId = ref<number | null>(null);
 const jobStage = ref("");
 const exportStatus = ref("");
 const files = ref<ProjectFile[]>([]);
+const folders = ref<string[]>([]);
 const status = ref("Open a project and an .amx file to begin.");
 const pending = ref(false);
 let bufferRevision = 0;
@@ -136,6 +137,7 @@ async function resolveRecovery(action: "restore" | "discard") {
 async function loadProject() {
 	const listing = await props.rpc.request.listProjectFiles();
 	files.value = listing.ok ? listing.files : [];
+	folders.value = listing.ok ? listing.folders : [];
 	await syncWorkbench();
 	await syncRecents();
 	return listing.ok ? undefined : listing.error.message;
@@ -208,6 +210,7 @@ const commands = computed<ShellCommand[]>(() => [
 	{ id: "project.new-amx", label: "New AMX file", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => createProjectFile("amx") },
 	{ id: "project.new-folder", label: "New folder", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: createProjectFolder },
 	{ id: "project.duplicate-file", label: "Duplicate active file", enabled: !!document.value && ["amx", "csv", "json"].includes(document.value.kind), disabledReason: "Open an editable project file first", run: duplicateProjectFile },
+	{ id: "project.move-file", label: "Move or rename active file", enabled: !!document.value && ["amx", "csv", "json"].includes(document.value.kind), disabledReason: "Open an editable project file first", run: moveActiveProjectFile },
 	{ id: "file.open", label: "Open file", shortcut: "Ctrl/Cmd+Shift+O", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => openDocument() },
 	{ id: "tab.next", label: "Next tab", shortcut: "Ctrl/Cmd+Alt+Right", enabled: workbench.value.tabs.length > 1, disabledReason: "Open another tab first", run: () => cycleTab(1) },
 	{ id: "tab.previous", label: "Previous tab", shortcut: "Ctrl/Cmd+Alt+Left", enabled: workbench.value.tabs.length > 1, disabledReason: "Open another tab first", run: () => cycleTab(-1) },
@@ -424,6 +427,29 @@ async function duplicateProjectFile() {
 	workbench.value = result.state;
 	const listingError = await loadProject();
 	status.value = listingError ?? `Created ${destination}.`;
+}
+
+async function moveActiveProjectFile() {
+	await pendingEdit;
+	const active = document.value;
+	if (!active || !["amx", "csv", "json"].includes(active.kind)) return;
+	const request = ++navigationRequest;
+	const projectGeneration = workbench.value.generation;
+	const name = active.path.split(/[\\/]/).pop() ?? "";
+	const destination = window.prompt("Move or rename to project-relative path", name)?.trim();
+	if (!destination || request !== navigationRequest) return;
+	const result = await props.rpc.request.moveProjectFile({ source: active.path, destination });
+	if (request !== navigationRequest || workbench.value.generation !== projectGeneration) {
+		await loadProject();
+		return;
+	}
+	if (!result.ok) { status.value = result.error.message; return; }
+	clearView();
+	workbench.value = result.state;
+	const movedDocument = await props.rpc.request.readDocument();
+	if (movedDocument.ok) document.value = movedDocument.document;
+	const listingError = await loadProject();
+	status.value = listingError ?? `Moved ${name} to ${destination}.`;
 }
 
 async function selectTab(path: string) {
@@ -704,7 +730,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 		</header>
 		<WelcomeView v-if="!projectRoot" :recents="recents" :recovery="recovery" :status="status" @open-project="openProject" @create-project="createProject" @restore="restore" @restore-recovery="resolveRecovery('restore')" @discard-recovery="resolveRecovery('discard')" @clear-recents="clearRecents" @open-help="status = 'Help and shortcut reference will be completed in Sprint 043.'" />
 		<div v-else class="workbench" :class="[`focus-${focusMode}`, `drawer-${drawerDock}`]" :style="{ '--explorer-width': `${explorerWidth}px`, '--preview-width': `${previewWidth}%` }">
-			<ProjectExplorer :files="files" :workbench="workbench" @open="openDocument" @create-amx="createProjectFile('amx')" @create-folder="createProjectFolder" />
+			<ProjectExplorer :files="files" :folders="folders" :workbench="workbench" :can-move-active="!!document && ['amx', 'csv', 'json'].includes(document.kind)" @open="openDocument" @create-amx="createProjectFile('amx')" @create-folder="createProjectFolder" @move-active="moveActiveProjectFile" />
 			<div class="divider divider-explorer" role="separator" aria-label="Resize explorer" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'explorer')"></div>
 			<section class="editor-pane" aria-label="Document editor">
 				<WorkbenchTabs :workbench="workbench" @select="selectTab" @close="closeTab" />

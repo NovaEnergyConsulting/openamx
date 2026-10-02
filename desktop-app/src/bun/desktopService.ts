@@ -14,12 +14,14 @@ import { prepareDocxReport, serializeDocxReport } from "../../../src/renderer/re
 import { prepareDocxDestination, writeDocxAtomically } from "../../../src/runtime/docxDestination";
 import { prepareReport } from "../../../src/renderer/reportPreparation";
 import { resolveDesktopInputs, validateDesktopDestination, writeDesktopHtml } from "./desktopWorkflow";
+import { desktopWorkerUrl } from "./workerEntrypoint";
 import { createPingResponse, type ActiveDocumentRequestIdentity, type DesktopJobIdentity, type DesktopJobOperation, type DesktopJobResult, type DesktopJobSnapshot, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type DocumentKind, type OpenDocument, type ProjectFile, type ProjectFileKind, type RecoveryItem, type RunSummary, type TextAnalysis, type TextDiagnostic, type WorkbenchState, type RecentProject, type TransitionAction } from "../shared/rpc";
 import type { WorkerJobMessage, WorkerJobRequest, WorkerJobResult } from "./jobProtocol";
 
 const MAX_TEXT = 2_000_000;
 const MAX_HTML = 8_000_000;
 const MAX_FILES = 5000;
+const MAX_FOLDERS = 5000;
 const IGNORED = new Set(["node_modules", "build", "dist", "artifacts", "generated", "out"]);
 
 function hash(text: string): string {
@@ -436,7 +438,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				return { ok: true, job: snapshotJob(job) };
 			}
 			if (extension) job.destination = validateDesktopDestination(job.projectRoot, destination!, extension, [job.documentPath, ...job.inputPaths]).path;
-			worker = new Worker(new URL("./jobWorker.ts", import.meta.url).href);
+			worker = new Worker(desktopWorkerUrl(import.meta.url));
 			job.worker = worker;
 			worker.addEventListener("message", event => handleWorkerMessage(job, event.data as WorkerJobMessage));
 			worker.addEventListener("error", event => failJob(job, new Error(event.message || "Worker failed.")));
@@ -791,7 +793,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					mkdirSync(internalDirectory, { recursive: false, mode: 0o700 });
 					try {
 						writeFileSync(configTemporary, '{"version":1,"inputs":{}}\n', { encoding: "utf8", mode: 0o600, flag: "wx" });
-						writeFileSync(reportTemporary, '# New Report\n\n```amx\nexport let title: Text = "New Report"\n```\n', { encoding: "utf8", mode: 0o600, flag: "wx" });
+						writeFileSync(reportTemporary, '# New Report\n\n```amx\nexport let title: String = "New Report"\n```\n', { encoding: "utf8", mode: 0o600, flag: "wx" });
 						renameSync(configTemporary, projectConfig);
 						renameSync(reportTemporary, report);
 					} catch (error) {
@@ -942,12 +944,17 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				try {
 					const root = requireRoot();
 					const files: ProjectFile[] = [];
+					const folders: string[] = [];
 					function visit(directory: string) {
 						for (const entry of readdirSync(directory, { withFileTypes: true })) {
 							if (entry.name.startsWith(".") || IGNORED.has(entry.name)) continue;
 							const candidate = join(directory, entry.name);
 							if (entry.isSymbolicLink()) continue;
-							if (entry.isDirectory()) visit(candidate);
+							if (entry.isDirectory()) {
+								if (folders.length >= MAX_FOLDERS) throw new Error("Project exceeds the explorer folder limit.");
+								folders.push(relative(root, candidate));
+								visit(candidate);
+							}
 							else if (entry.isFile()) {
 								const kind = documentKind(candidate);
 								if (!kind) continue;
@@ -957,9 +964,13 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 						}
 					}
 					visit(root);
-					return { ok: true, files: files.sort((left, right) => left.path.localeCompare(right.path)) };
+					return {
+						ok: true,
+						files: files.sort((left, right) => left.path.localeCompare(right.path)),
+						folders: folders.sort((left, right) => left.localeCompare(right))
+					};
 				} catch (error) {
-					return errorResult<{ files: ProjectFile[] }>(projectError(error instanceof Error ? error.message : String(error)));
+					return errorResult<{ files: ProjectFile[]; folders: string[] }>(projectError(error instanceof Error ? error.message : String(error)));
 				}
 			},
 			async createProjectFile({ path, kind }: { path: string; kind: "amx" | "csv" | "json" }) {
@@ -1003,6 +1014,189 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					record();
 					return { ok: true, document, state: state() };
 				} catch (error) { return errorResult<{ document: OpenDocument; state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error))); }
+			},
+			async moveProjectFile({ source, destination }: { source: string; destination: string }) {
+				const temporaryFiles: string[] = [];
+				const backups: Array<{ path: string; backup: string; installed: boolean }> = [];
+				let destinationPath = "";
+				let destinationInstalled = false;
+				try {
+					const root = requireRoot();
+					const sourceCandidate = resolve(root, source);
+					if (!within(root, sourceCandidate) || !allowedFile(root, sourceCandidate)) throw new Error("Only visible contained project files can be moved.");
+					const sourcePath = realpathSync(sourceCandidate);
+					const kind = documentKind(sourcePath)!;
+					destinationPath = createTarget(root, destination);
+					if (extname(destinationPath) !== extname(sourcePath)) throw new Error("Move destination must retain the source extension.");
+					refreshConflicts();
+					const sourceTab = tabs.get(sourcePath);
+					const sourceBytes = readFileSync(sourcePath);
+					const sourceDiskHash = createHash("sha256").update(sourceBytes).digest("hex");
+					if (sourceTab?.conflict || (sourceTab && hash(sourceBytes.toString("utf8")) !== sourceTab.diskHash)) {
+						return errorResult<{ state: WorkbenchState }>({ code: "DESKTOP_CONFLICT", message: "The file changed on disk; resolve its conflict before moving it." });
+					}
+					let movedText = sourceTab?.text ?? sourceBytes.toString("utf8");
+					if (kind === "amx" && movedText.length > MAX_TEXT) throw new Error(`Document exceeds the ${MAX_TEXT}-character limit.`);
+
+					const updates = new Map<string, { text: string; diskHash: string; mode: number; tab?: SessionDocument }>();
+					if (kind === "amx") {
+						const moduleFiles: string[] = [];
+						const visit = (directory: string) => {
+							for (const entry of readdirSync(directory, { withFileTypes: true })) {
+								if (entry.name.startsWith(".") || IGNORED.has(entry.name) || entry.isSymbolicLink()) continue;
+								const candidate = join(directory, entry.name);
+								if (entry.isDirectory()) visit(candidate);
+								else if (entry.isFile() && extname(candidate) === ".amx") moduleFiles.push(candidate);
+							}
+						};
+						visit(root);
+						if (moduleFiles.length > MAX_FILES) throw new Error("Project exceeds the AMX module scan limit.");
+						const offsetAt = (text: string, line: number, column: number) => {
+							if (!Number.isSafeInteger(line) || line < 1 || !Number.isSafeInteger(column) || column < 1) throw new Error("An import has no usable source location.");
+							let offset = 0;
+							for (let currentLine = 1; currentLine < line; currentLine++) {
+								const newline = text.indexOf("\n", offset);
+								if (newline < 0) throw new Error("An import source location is outside its document.");
+								offset = newline + 1;
+							}
+							return offset + column - 1;
+						};
+						const relativeImport = (importer: string, target: string) => {
+							let value = relative(dirname(importer), target).split(sep).join("/");
+							if (!value.startsWith(".")) value = `./${value}`;
+							if (!value.endsWith(".amx") || /[\"\0\r\n]/.test(value)) throw new Error("The move would require an unsupported AMX import path.");
+							return value;
+						};
+						for (const importer of moduleFiles) {
+							const tab = tabs.get(importer);
+							const diskText = readFileSync(importer, "utf8");
+							const text = importer === sourcePath ? movedText : tab?.text ?? diskText;
+							if (text.length > MAX_TEXT) throw new Error(`AMX document exceeds the ${MAX_TEXT}-character move limit.`);
+							const parsed = parseDocumentText(text);
+							const replacements: Array<{ offset: number; oldPath: string; newPath: string }> = [];
+							for (const node of parsed.nodes) {
+								if (node.type !== "executableCodeBlock") continue;
+								for (const statement of node.statements) {
+									if (statement.type !== "importDeclaration") continue;
+									const candidate = resolve(dirname(importer), statement.path);
+									if (importer === sourcePath) {
+										if (!existsSync(candidate) || !allowedFile(root, candidate)) throw new Error(`Cannot safely move a module with missing, outside, or symlinked import '${statement.path}'.`);
+										const imported = realpathSync(candidate);
+										const nextTarget = imported === sourcePath ? destinationPath : imported;
+										const nextPath = relativeImport(destinationPath, nextTarget);
+										if (nextPath !== statement.path) {
+											if (!statement.pathSource) throw new Error("Cannot safely rewrite an import without a source location.");
+											replacements.push({ offset: offsetAt(text, statement.pathSource.line, statement.pathSource.column), oldPath: statement.path, newPath: nextPath });
+										}
+									} else {
+										if (!existsSync(candidate)) continue;
+										if (realpathSync(candidate) !== sourcePath) continue;
+										if (!allowedFile(root, candidate)) throw new Error("Cannot rewrite a dependent import that resolves through a symlink.");
+										const nextPath = relativeImport(importer, destinationPath);
+										if (!statement.pathSource) throw new Error("Cannot safely rewrite an import without a source location.");
+										replacements.push({ offset: offsetAt(text, statement.pathSource.line, statement.pathSource.column), oldPath: statement.path, newPath: nextPath });
+									}
+								}
+							}
+							replacements.sort((left, right) => right.offset - left.offset);
+							let updatedText = text;
+							for (const replacement of replacements) {
+								if (updatedText.slice(replacement.offset, replacement.offset + replacement.oldPath.length) !== replacement.oldPath)
+									throw new Error("An import changed while its source location was being prepared.");
+								updatedText = updatedText.slice(0, replacement.offset) + replacement.newPath + updatedText.slice(replacement.offset + replacement.oldPath.length);
+							}
+							if (importer === sourcePath) movedText = updatedText;
+							else if (updatedText !== text) {
+								if (tab?.conflict || (tab && hash(diskText) !== tab.diskHash)) {
+										return errorResult<{ state: WorkbenchState }>({ code: "DESKTOP_CONFLICT", message: `A dependent AMX file changed on disk; resolve its conflict before moving ${relative(root, sourcePath)}.` });
+								}
+								updates.set(importer, { text: updatedText, diskHash: hash(diskText), mode: statSync(importer).mode & 0o777, tab });
+							}
+						}
+					}
+
+					const sourceContents = sourceTab ? Buffer.from(movedText, "utf8") : kind === "amx" ? Buffer.from(movedText, "utf8") : sourceBytes;
+					const sourceMode = statSync(sourcePath).mode & 0o777;
+					const stage = (path: string, contents: Buffer, mode: number) => {
+						const temporary = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
+						const handle = openSync(temporary, "wx", mode);
+						temporaryFiles.push(temporary);
+						try { fchmodSync(handle, mode); writeFileSync(handle, contents); fsyncSync(handle); }
+						finally { closeSync(handle); }
+						return temporary;
+					};
+					if (existsSync(destinationPath)) throw new Error("Move destination already exists.");
+					const destinationTemporary = stage(destinationPath, sourceContents, sourceMode);
+					const updateTemporaries = [...updates].map(([path, update]) => ({ path, update, temporary: stage(path, Buffer.from(update.text, "utf8"), update.mode) }));
+					if (!allowedFile(root, sourcePath) || createHash("sha256").update(readFileSync(sourcePath)).digest("hex") !== sourceDiskHash)
+						return errorResult<{ state: WorkbenchState }>({ code: "DESKTOP_CONFLICT", message: "The source changed during move preparation; no files were changed." });
+					for (const [path, update] of updates) {
+						if (!allowedFile(root, path) || hash(readFileSync(path, "utf8")) !== update.diskHash)
+							return errorResult<{ state: WorkbenchState }>({ code: "DESKTOP_CONFLICT", message: "A dependent AMX file changed during move preparation; no files were changed." });
+					}
+					if (existsSync(destinationPath)) throw new Error("Move destination already exists.");
+					try {
+						renameSync(destinationTemporary, destinationPath);
+						destinationInstalled = true;
+						for (const { path, update, temporary } of updateTemporaries) {
+							if (!allowedFile(root, path) || hash(readFileSync(path, "utf8")) !== update.diskHash)
+								throw new Error("A dependent AMX file changed during commit.");
+							const backup = join(dirname(path), `.${basename(path)}.${randomUUID()}.bak`);
+							renameSync(path, backup);
+							const item = { path, backup, installed: false };
+							backups.push(item);
+							renameSync(temporary, path);
+							item.installed = true;
+						}
+						if (createHash("sha256").update(readFileSync(sourcePath)).digest("hex") !== sourceDiskHash)
+							throw new Error("The source changed during commit.");
+						unlinkSync(sourcePath);
+					} catch (error) {
+						const rollbackErrors: string[] = [];
+						for (const item of [...backups].reverse()) {
+							try {
+								if (item.installed && existsSync(item.path)) unlinkSync(item.path);
+								if (existsSync(item.backup)) renameSync(item.backup, item.path);
+							} catch { rollbackErrors.push(relative(root, item.path)); }
+						}
+						if (destinationInstalled) {
+							try { unlinkSync(destinationPath); } catch { rollbackErrors.push(relative(root, destinationPath)); }
+						}
+						if (rollbackErrors.length) throw new Error(`Move failed and rollback needs attention for: ${rollbackErrors.join(", ")}.`);
+						throw error;
+					}
+					for (const item of backups) { try { unlinkSync(item.backup); } catch {} }
+					cancelAutosave(sourcePath);
+					tabs.delete(sourcePath);
+					if (sourceTab) {
+						sourceTab.path = destinationPath;
+						sourceTab.text = movedText;
+						sourceTab.diskHash = hash(movedText);
+						sourceTab.dirty = false;
+						sourceTab.conflict = false;
+						sourceTab.revision++;
+						tabs.set(destinationPath, sourceTab);
+					}
+					for (const [path, update] of updates) {
+						cancelAutosave(path);
+						if (update.tab) {
+							update.tab.text = update.text;
+							update.tab.diskHash = hash(update.text);
+							update.tab.dirty = false;
+							update.tab.conflict = false;
+							update.tab.revision++;
+						}
+					}
+					generation++;
+					invalidateStaleJobs();
+					record();
+					persistRecovery();
+					return { ok: true, state: state() };
+				} catch (error) {
+					return errorResult<{ state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error)));
+				} finally {
+					for (const temporary of temporaryFiles) { try { if (existsSync(temporary)) unlinkSync(temporary); } catch {} }
+				}
 			},
 			async deleteProjectFile({ path }: { path: string }) {
 				try {

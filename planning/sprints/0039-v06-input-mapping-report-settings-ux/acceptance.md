@@ -1,0 +1,18 @@
+# Sprint 039 Acceptance Criteria
+
+Sprint 039 is complete when:
+
+- The final Sprint 038 outcome and acceptance are recorded, or Sprint 039 is explicitly marked blocked with an owner and missing gate. No settings acceptance is inferred from Sprint 038 interim evidence.
+- The Inputs panel is generated from the active AMX document's declared logical inputs and shows name, declared type, effective source, validation status, and functional Browse/Clear/Open in Data Editor actions. It does not require `name=path` entry or expose general filesystem browsing.
+- Session/per-run > local > project precedence is preserved and visibly represented. Aggregate validation is default; advanced fail-fast is available. Missing/invalid mappings provide bounded source/data diagnostics and do not silently execute or overwrite outputs.
+- Picker selections persist privately to machine-local `.openamx/local.json` by default. Explicit promotion creates only a contained project-relative default in `.openamx/project.json`; network paths, traversal, symlinks, POSIX-protected files, and outside-root sources are rejected.
+- Local/project configuration writes validate complete content, preserve unrelated valid keys, use revision/hash conflict detection and atomic replacement, and never partially replace a selected file. Invalid, stale, cancelled, or failed writes leave existing configuration unchanged.
+- Report Settings supports project-default and current-document-override scopes and all fields: organization, logo, logoAlt, accent, author, status, classification, footer, and sourceVisible. Effective values, inheritance, validation, and contrast fallback are clear and keyboard-operable.
+- Native logo selection and validation preserve V0.5 containment, supported format/size limits, sanitization, alt-text, contrast, precedence, and visible-source-default behavior. Missing, malformed, outside-root, symlink, mismatched, oversized, or invalid assets fail before writes and do not silently disappear.
+- Unrelated project configuration and YAML frontmatter content are preserved. Tests cover project defaults, current-buffer frontmatter, explicit overrides, inheritance changes, source visibility, invalid settings, and no-write preservation.
+- Input/config revision changes invalidate dependent Sprint 036 jobs and preview/results. Active-document/project changes, cancellation, supersession, and stale responses cannot publish current state or mutate settings/output.
+- Webview authority remains bounded: filesystem, native picker, config writes, logo reads, evaluator, loader, arbitrary paths, and final writes remain trusted Bun responsibilities. RPC payloads are typed, bounded, and redact private paths.
+- Focused desktop component/RPC/service tests and root input/report/config tests pass. Desktop typecheck/Vite/direct contract checks and applicable full regressions are run and recorded with exact versions, counts, warnings, artifacts, and unavailable-host limitations.
+- Native picker/config/window checks are marked pass only from direct SDK-enabled host observations. Browser, mock, source-inspection, WSL2, or service-only evidence remains labeled accordingly.
+- `planning/state.md`, `planning/decisions.md`, `planning/questions.md`, and Sprint 039 evidence record precedence, privacy, config-preservation, conflict, cancellation, native limitations, and conditions for Sprint 040/041/042. No AMX intelligence, structured data editor, or final export workflow is claimed complete.
+- Final status is `COMPLETE`, `COMPLETE WITH RECORDED EXCEPTIONS`, or `BLOCKED`; no native release, Office, licensing/Marketplace, or formal accessibility certification is inferred.

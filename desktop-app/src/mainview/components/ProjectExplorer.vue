@@ -2,8 +2,8 @@
 import { computed, ref } from "vue";
 import type { ProjectFile, WorkbenchState } from "../../shared/rpc";
 
-const props = defineProps<{ files: ProjectFile[]; workbench: WorkbenchState }>();
-const emit = defineEmits<{ open: [path: string]; createAmx: []; createFolder: [] }>();
+const props = defineProps<{ files: ProjectFile[]; folders: string[]; workbench: WorkbenchState; canMoveActive: boolean }>();
+const emit = defineEmits<{ open: [path: string]; createAmx: []; createFolder: []; moveActive: [] }>();
 const search = ref("");
 const visibleFiles = computed(() => props.files.filter(file => file.path.toLowerCase().includes(search.value.toLowerCase())));
 const groupedFiles = computed(() => {
@@ -12,14 +12,17 @@ const groupedFiles = computed(() => {
 		const folder = file.path.includes("/") ? file.path.slice(0, file.path.lastIndexOf("/")) : ".";
 		groups.set(folder, [...(groups.get(folder) ?? []), file]);
 	}
-	return [...groups];
+	for (const folder of props.folders) {
+		if (folder.toLowerCase().includes(search.value.toLowerCase())) groups.set(folder, groups.get(folder) ?? []);
+	}
+	return [...groups].sort(([left], [right]) => left.localeCompare(right));
 });
 </script>
 
 <template>
 	<aside class="explorer" aria-label="Project explorer">
-		<div class="section-heading"><span>PROJECT</span><span>{{ files.length }}</span></div>
-		<div class="explorer-actions"><button type="button" @click="emit('createAmx')">New AMX</button><button type="button" @click="emit('createFolder')">New folder</button></div>
+		<div class="section-heading"><span>PROJECT</span><span>{{ files.length + folders.length }}</span></div>
+		<div class="explorer-actions"><button type="button" @click="emit('createAmx')">New AMX</button><button type="button" @click="emit('createFolder')">New folder</button><button type="button" :disabled="!canMoveActive" @click="emit('moveActive')">Move / rename</button></div>
 		<input id="project-search" v-model="search" aria-label="Search project files" placeholder="Search files">
 		<div v-for="[folder, entries] in groupedFiles" :key="folder">
 			<p class="folder">{{ folder }}</p>
@@ -27,7 +30,7 @@ const groupedFiles = computed(() => {
 				<span>{{ file.path.split('/').pop() }}</span><small>{{ file.kind }}</small>
 			</button>
 		</div>
-		<p v-if="!files.length" class="muted">No supported project files yet.</p>
-		<p v-else-if="!visibleFiles.length" class="muted">No matching files.</p>
+		<p v-if="!files.length && !folders.length" class="muted">No supported project files yet.</p>
+		<p v-else-if="!groupedFiles.length" class="muted">No matching files or folders.</p>
 	</aside>
 </template>

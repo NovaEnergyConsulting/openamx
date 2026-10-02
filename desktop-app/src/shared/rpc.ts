@@ -100,10 +100,11 @@ export interface DesktopRPCClient {
 		setPanelSizes(params: { explorerWidth: number; previewWidth: number }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		closeTab(params: { path: string; action: "save" | "discard" | "cancel" }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		reloadTab(params: { action: "discard" | "cancel" }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
-		listProjectFiles(): Promise<DesktopRPCResponse<{ files: ProjectFile[] }>>;
+		listProjectFiles(): Promise<DesktopRPCResponse<{ files: ProjectFile[]; folders: string[] }>>;
 		createProjectFile(params: { path: string; kind: "amx" | "csv" | "json" }): Promise<DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }>>;
 		createProjectFolder(params: { path: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		duplicateProjectFile(params: { source: string; destination: string }): Promise<DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }>>;
+		moveProjectFile(params: { source: string; destination: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		deleteProjectFile(params: { path: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		listTrash(): Promise<DesktopRPCResponse<{ items: TrashItem[] }>>;
 		restoreTrash(params: { id: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
@@ -158,10 +159,11 @@ export type DesktopRPCSchema = {
 			setPanelSizes: { params: { explorerWidth: number; previewWidth: number }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			closeTab: { params: { path: string; action: "save" | "discard" | "cancel" }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			reloadTab: { params: { action: "discard" | "cancel" }; response: DesktopRPCResponse<{ document: OpenDocument }> };
-			listProjectFiles: { params: Record<string, never>; response: DesktopRPCResponse<{ files: ProjectFile[] }> };
+			listProjectFiles: { params: Record<string, never>; response: DesktopRPCResponse<{ files: ProjectFile[]; folders: string[] }> };
 			createProjectFile: { params: { path: string; kind: "amx" | "csv" | "json" }; response: DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }> };
 			createProjectFolder: { params: { path: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			duplicateProjectFile: { params: { source: string; destination: string }; response: DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }> };
+			moveProjectFile: { params: { source: string; destination: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			deleteProjectFile: { params: { path: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			listTrash: { params: Record<string, never>; response: DesktopRPCResponse<{ items: TrashItem[] }> };
 			restoreTrash: { params: { id: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };

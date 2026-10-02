@@ -1,5 +1,21 @@
 # Planning Questions (Sprint 002)
 
+## V0.6 Sprint 038/Sprint 039 Gate Resolution (2026-10-02)
+
+- The Lead Developer reports all Sprint 038 acceptance tests completed successfully and directs Sprint 038 to close. Its final-acceptance dependency is resolved, so Sprint 039 may proceed under its own requirements.
+- This disposition does not waive Sprint 039's requirements to verify its own trusted config mutation, conflict/no-write, frontmatter preservation, logo-security, revision-invalidation, privacy, and native-evidence boundaries.
+
+## V0.6 Sprint 038 Remediation Follow-up (2026-10-02)
+
+- Can the remaining move transaction rollback and cancellation paths be exercised with deterministic commit-failure injection, including proof that every dependent source and the destination are restored or absent? Owner: Sprint 038 Builder. Current direct tests cover success, collision, symlink rejection, and stale-disk no-write, not an injected mid-commit failure or cancellation.
+- Which SDK-enabled host can retest the rebuilt app's actual Run, empty-folder display, move/rename, import resolution, Save/autosave, and preview behavior? Owner: Lead Developer/native acceptance. The packaged worker smoke proves the worker module resolves and returns a result, not full native UI behavior. Preserve the user's unconfirmed autosave observation until a disk-level UI check is recorded.
+- Who will complete and record external mapped-input enumeration/opening, Reveal/Open and generated-output actions, folder/nested trash/reference handling, external autosave, and full conflict-resolution UI before final Sprint 038 acceptance? Owner: Sprint 038 Builder; any scope exception requires explicit Lead Developer disposition.
+
+## V0.6 Sprint 039 Entry Blocker (2026-10-02)
+
+- At the time this question was recorded, when would Sprint 038 provide final acceptance and structured config conflict/recovery evidence? **Historical status: OPEN; resolved 2026-10-02 by the Lead Developer's final acceptance direction recorded above.**
+- After the gate, verify that the accepted Sprint 038 config write/recovery API supports Sprint 039's required project/local revisions, external-change conflict detection, atomic no-partial writes, and recovery behavior without changing the approved precedence/privacy rules. No such trusted mutation API is present in the current desktop RPC contract.
+
 ## V0.6 Sprint 038 Remaining Lifecycle Questions (2026-10-01)
 
 - How will transactional AMX rename/move derive every contained dependent import and validate revisions, collisions, path substitutions, cycles, and rollback before any filesystem mutation? Owner: Sprint 038 Builder. Do not infer this from single-file trash behavior.

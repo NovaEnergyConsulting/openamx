@@ -1,5 +1,22 @@
 # Planning Decisions
 
+## V0.6 Sprint 038 Final Acceptance (2026-10-02)
+
+- By explicit Lead Developer direction, Sprint 038 is **COMPLETE**; the Lead Developer reports all acceptance tests passed. This supersedes the earlier interim/remediation status. The final manual test matrix and exact per-test outputs were not supplied with this disposition, so none are fabricated here.
+- Feature-sprint completion does not imply native release/platform, Hutch release packaging, Office, license/Marketplace, or formal accessibility certification.
+
+## V0.6 Sprint 038 Remediation Decisions (2026-10-02)
+
+- Keep worker resolution independent of the Bun main-module URL suffix: select the source TypeScript worker when that sibling exists, otherwise select the bundled JavaScript worker. Build the worker separately and copy it into the app's Bun resources; verify the packaged worker itself rather than relying only on source-mode worker tests.
+- Implement file move/rename only through trusted Bun service logic. Parse exact AMX import path locations, prepare rewrites from current open buffers or disk, reject unsafe source imports, preflight source/dependent disk hashes, stage same-directory files, and invalidate active jobs after success. The webview submits only a bounded relative destination intent; it does not gain filesystem or import-rewrite authority.
+- Show directories as a separate bounded list in the project listing response. Folder records are presentation-only and do not become openable documents.
+- No exception or acceptance waiver is made for remaining Sprint 038 criteria. This remediation does not resolve preview/settings work owned by later sprints or certify manual/native behavior.
+
+## V0.6 Sprint 039 Builder Gate (2026-10-02)
+
+- **Historical Builder disposition: BLOCKED BEFORE IMPLEMENTATION; superseded by the final Sprint 038 acceptance above.** At the time, Sprint 038 had only interim evidence and no recorded Lead Developer disposition.
+- No Sprint 039 product-policy decision is made or changed: session/per-run > local > project precedence, local-by-default persistence, explicit contained promotion, report field scope/precedence, frontmatter preservation, logo security, and webview authority remain governed by the ratified contract. The Sprint 038 entry gate is now resolved; existing read-only service behavior is not an accepted config-write boundary and Sprint 039 must implement and test its own trusted write path.
+
 ## V0.6 Sprint 038 Interim Lifecycle Decisions (2026-10-01)
 
 - Create Project is a trusted Bun operation. The webview invokes only `pickCreateProject`; the native picker returns an untrusted directory that the service requires to be an existing, real, empty directory. The service stages `.openamx/project.json` (`version: 1`, empty `inputs`) and `report.amx`, removes created artifacts on failure, and only changes project generation/current document after the scaffold succeeds.
