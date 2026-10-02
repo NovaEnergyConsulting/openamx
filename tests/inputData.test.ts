@@ -5,7 +5,7 @@ import * as path from 'path';
 import { InputDeclarationNode, TypeDeclarationNode } from '../src/ast/types';
 import { AmxError } from '../src/diagnostics/errors';
 import { parseStatements } from '../src/parser/parseStatements';
-import { describeInputSchema, loadInputValues, validateInputText } from '../src/runtime/inputData';
+import { describeInputSchema, loadInputValues, parseStrictCsvText, parseStrictJsonText, serializeCsvText, validateInputText } from '../src/runtime/inputData';
 
 let directory = '';
 
@@ -39,6 +39,22 @@ describe('Sprint 036 in-memory input validation', () => {
     const invalid = validateInputText('[{"id":"A","id":"B"}]', 'json', declaration, types, 'aggregate', { file: 'entry.amx', dataFile: 'virtual.json' });
     expect(invalid.value).toBeUndefined();
     expect(invalid.diagnostics[0]).toMatchObject({ code: 'AMX4003', inputName: 'rows', dataPath: '/0/id', dataFile: 'virtual.json' });
+  });
+
+  it('exposes strict raw-editor parsing without relaxing duplicate-key or RFC 4180 behavior', () => {
+    const duplicate = parseStrictJsonText('{"name":"A","name":"B"}');
+    expect(duplicate.value).toBeUndefined();
+    expect(duplicate.issue).toMatchObject({ duplicate: true, dataPath: '/name' });
+
+    const source = '\ufeffname,note\r\n"North, Station","line one\nline two"\r\n';
+    const parsed = parseStrictCsvText(source);
+    expect(parsed.issue).toBeUndefined();
+    expect(parsed.value?.map(row => row.map(cell => cell.value))).toEqual([
+      ['name', 'note'], ['North, Station', 'line one\nline two']
+    ]);
+    expect(parsed.value?.[1]?.[0]?.quoted).toBe(true);
+    expect(parseStrictCsvText(serializeCsvText(parsed.value ?? [])).value).toEqual(parsed.value);
+    expect(parseStrictCsvText('name\rvalue\n').issue).toMatchObject({ line: 1 });
   });
 
   it('reuses RFC 4180 CSV parsing and preserves diagnostic locations in memory', () => {

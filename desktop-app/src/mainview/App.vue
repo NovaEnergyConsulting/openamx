@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { Database, Eye, SlidersHorizontal } from "@lucide/vue";
-import type { DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
+import type { DataInputSchema, DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
 import { Button } from "@/components/ui/button";
 import CodeEditor from "./CodeEditor.vue";
 import CommandPalette from "./components/CommandPalette.vue";
+import DataEditorPane from "./components/DataEditorPane.vue";
 import InputsPanel from "./components/InputsPanel.vue";
 import ProjectExplorer from "./components/ProjectExplorer.vue";
 import ReportSettingsDialog from "./components/ReportSettingsDialog.vue";
@@ -25,6 +26,7 @@ const theme = ref<ShellTheme>((localStorage.getItem("openamx.theme") as ShellThe
 const explorerWidth = ref(220);
 const previewWidth = ref(44);
 const editorElement = ref<InstanceType<typeof CodeEditor> | null>(null);
+const dataEditorElement = ref<InstanceType<typeof DataEditorPane> | null>(null);
 let invoker: HTMLElement | null = null;
 let focusInvoker: HTMLElement | null = null;
 let settingsInvoker: HTMLElement | null = null;
@@ -32,7 +34,8 @@ const preview = ref("");
 const analysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
 const staticAnalysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
 const inputConfiguration = ref<InputConfiguration>({ inputs: [], diagnostics: [] });
-const contextView = ref<"preview" | "inputs">("preview");
+const dataEditorContexts = ref(new Map<string, { inputName: string; schema?: DataInputSchema; diagnostics: TextDiagnostic[]; ownerPath?: string; declarationLine?: number; declarationColumn?: number }>());
+const contextView = ref<"preview" | "inputs" | "data">("preview");
 const reportSettings = ref<ReportSettingsSnapshot | null>(null);
 const reportSettingsOpen = ref(false);
 const reportSettingsBusy = ref(false);
@@ -58,6 +61,7 @@ let navigationRequest = 0;
 let staticRequest = 0;
 let pendingEdit: Promise<void> = Promise.resolve();
 let pendingInputSettings: Promise<void> = Promise.resolve();
+let dataValidationTimer: ReturnType<typeof setTimeout> | undefined;
 
 function mappings(): string[] { return inputOverrides.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean); }
 function syncInputSettings(): Promise<void> {
@@ -70,7 +74,7 @@ function syncInputSettings(): Promise<void> {
 	return pendingInputSettings;
 }
 function cancelActiveJob() { const jobId = activeJobId.value; if (jobId === null) return; activeJobId.value = null; jobStage.value = ""; void props.rpc.request.cancelJob({ jobId }); }
-async function executeJob(operation: "run" | "preview" | "html" | "pdf" | "docx", destination?: string) {
+async function executeJob(operation: "run" | "preview" | "html" | "pdf" | "docx" | "validate-data", destination?: string) {
 	await pendingEdit; await pendingInputSettings; if (!workbench.value.requestIdentity) await syncWorkbench();
 	const identity = workbench.value.requestIdentity; if (!identity) throw new Error("Open an active AMX document before starting a job.");
 	const started = await props.rpc.request.startJob({ operation, identity, destination }); if (!started.ok) throw new Error(started.error.message);
@@ -186,8 +190,14 @@ async function promoteInput(name: string) {
 }
 
 async function openMappedInput(name: string) {
+	const owner = document.value;
+	const declaration = inputConfiguration.value.inputs.find(input => input.name === name);
 	const result = await props.rpc.request.openMappedInput({ name });
 	if (!result.ok) { status.value = result.error.message; return; }
+	dataEditorContexts.value.set(result.document.path, {
+		inputName: result.inputName ?? name, schema: result.schema, diagnostics: result.diagnostics ?? [],
+		ownerPath: owner?.kind === "amx" ? owner.path : undefined, declarationLine: declaration?.line, declarationColumn: declaration?.column
+	});
 	await activate(result);
 }
 
@@ -354,17 +364,17 @@ const commands = computed<ShellCommand[]>(() => [
 	{ id: "tab.next", label: "Next tab", shortcut: "Ctrl/Cmd+Alt+Right", enabled: workbench.value.tabs.length > 1, disabledReason: "Open another tab first", run: () => cycleTab(1) },
 	{ id: "tab.previous", label: "Previous tab", shortcut: "Ctrl/Cmd+Alt+Left", enabled: workbench.value.tabs.length > 1, disabledReason: "Open another tab first", run: () => cycleTab(-1) },
 	{ id: "document.save", label: "Save active tab", shortcut: "Ctrl/Cmd+S", enabled: !!document.value?.dirty, disabledReason: "No unsaved active tab", run: save },
-	{ id: "document.format", label: "Format active tab", enabled: !!document.value, disabledReason: "Open an AMX document first", run: format },
-	{ id: "document.run", label: "Run active document", shortcut: "Ctrl/Cmd+Enter", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: runAnalysis },
-	{ id: "document.preview", label: "Refresh preview", shortcut: "Ctrl/Cmd+Shift+Enter", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: refresh },
+	{ id: "document.format", label: "Format active tab", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: format },
+	{ id: "document.run", label: "Run active document", shortcut: "Ctrl/Cmd+Enter", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: runAnalysis },
+	{ id: "document.preview", label: "Refresh preview", shortcut: "Ctrl/Cmd+Shift+Enter", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: refresh },
 	{ id: "report.settings", label: "Report Settings", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: openReportSettings },
 	{ id: "report.settings", label: "Report Settings", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: openReportSettings },
 	{ id: "project.search", label: "Search project", shortcut: "Ctrl/Cmd+Shift+F", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => requestAnimationFrame(() => window.document.querySelector<HTMLInputElement>("#project-search")?.focus()) },
 	{ id: "view.focus-editor", label: "Focus editor", enabled: !!document.value, disabledReason: "Open a document first", run: () => setFocusMode("editor") },
-	{ id: "view.focus-preview", label: "Focus preview", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: () => setFocusMode("preview") },
-	{ id: "document.export-html", label: "Export HTML", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: saveHtml },
-	{ id: "document.export-pdf", label: "Export PDF", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: exportPdf },
-	{ id: "document.export-docx", label: "Export DOCX", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: exportDocx },
+	{ id: "view.focus-preview", label: "Focus preview", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: () => setFocusMode("preview") },
+	{ id: "document.export-html", label: "Export HTML", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: saveHtml },
+	{ id: "document.export-pdf", label: "Export PDF", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: exportPdf },
+	{ id: "document.export-docx", label: "Export DOCX", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: exportDocx },
 	{ id: "project.clear-recents", label: "Clear recent projects", enabled: !!recents.value.length, disabledReason: "History is empty", run: clearRecents }
 ]);
 
@@ -498,10 +508,44 @@ async function activate(result: Awaited<ReturnType<typeof props.rpc.request.open
 	if (!result.ok) { status.value = result.error.message; return; }
 	clearView();
 	document.value = result.document;
+	contextView.value = result.document.kind === "amx" ? "preview" : "data";
 	await syncWorkbench();
-	void refreshStaticAnalysis(result.document.path, result.document.revision);
+	if (result.document.kind === "amx") void refreshStaticAnalysis(result.document.path, result.document.revision);
+	else if (["csv", "json", "external-data"].includes(result.document.kind)) void validateMappedData(result.document.path, result.document.revision);
 	void syncInputConfiguration();
-	status.value = `Active: ${result.document.path.split(/[\\/]/).pop()}`;
+	status.value = `Active: ${result.document.label ?? result.document.path.split(/[\\/]/).pop()}`;
+}
+
+async function validateMappedData(path: string, revision: number) {
+	const context = dataEditorContexts.value.get(path);
+	if (!context?.inputName || !workbench.value.requestIdentity || document.value?.path !== path || document.value.revision !== revision) return;
+	try {
+		const job = await executeJob("validate-data");
+		if (!job || document.value?.path !== path || document.value.revision !== revision || workbench.value.requestIdentity?.documentRevision !== revision) return;
+		const next = new Map(dataEditorContexts.value);
+		if (job.status === "succeeded" && job.result?.kind === "data-validation") {
+			next.set(path, { ...context, schema: job.result.schema, diagnostics: job.diagnostics });
+		} else if (job.status === "failed") {
+			next.set(path, { ...context, diagnostics: job.diagnostics });
+		}
+		dataEditorContexts.value = next;
+	} catch (error) {
+		if (document.value?.path !== path || document.value.revision !== revision) return;
+		const next = new Map(dataEditorContexts.value);
+		next.set(path, { ...context, diagnostics: [{ code: "DESKTOP_JOB", message: error instanceof Error ? error.message : "Unable to validate mapped data." }] });
+		dataEditorContexts.value = next;
+	}
+}
+
+function navigateMappedDeclaration(path: string) {
+	const context = dataEditorContexts.value.get(path);
+	if (!context?.ownerPath || !context.declarationLine) return;
+	void openDocument(context.ownerPath).then(() => requestAnimationFrame(() => editorElement.value?.selectLocation(context.declarationLine!, context.declarationColumn ?? 1)));
+}
+
+function navigateDataDiagnostic(path: string, item: TextDiagnostic) {
+	if (document.value?.path !== path || !item.dataLine) return;
+	dataEditorElement.value?.focusDataLocation(item.dataLine, item.dataColumn ?? 1);
 }
 
 async function refreshStaticAnalysis(path: string, revision: number) {
@@ -736,7 +780,11 @@ async function updateText(text: string) {
 	if (!result.ok) { status.value = result.error.message; return; }
 	document.value = result.document;
 	await syncWorkbench();
-	void refreshStaticAnalysis(path, result.document.revision);
+	if (result.document.kind === "amx") void refreshStaticAnalysis(path, result.document.revision);
+	else if (dataEditorContexts.value.has(path)) {
+		if (dataValidationTimer) clearTimeout(dataValidationTimer);
+		dataValidationTimer = setTimeout(() => void validateMappedData(path, result.document.revision), 250);
+	}
 }
 
 async function save() {
@@ -918,21 +966,33 @@ function displayDiagnostic(item: TextDiagnostic): string {
 			<div class="divider divider-explorer" role="separator" aria-label="Resize explorer" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'explorer')"></div>
 			<section class="editor-pane" aria-label="Document editor">
 				<WorkbenchTabs :workbench="workbench" @select="selectTab" @close="closeTab" />
-				<div class="pane-header"><strong>{{ document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><button :disabled="!document" type="button" @click="editorElement?.openSearch()">Find</button><button :disabled="!document || pending" type="button" @click="format">Format</button><button :disabled="!document || !document.dirty" type="button" @click="save">Save</button></span></div>
+				<div class="pane-header"><strong>{{ document?.label ?? document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><button :disabled="document?.kind !== 'amx'" type="button" @click="editorElement?.openSearch()">Find</button><button :disabled="document?.kind !== 'amx' || pending" type="button" @click="format">Format</button><button :disabled="!document || !document.dirty" type="button" @click="save">Save</button></span></div>
 				<CodeEditor v-if="document?.kind === 'amx'" ref="editorElement" :path="document.path" :text="document.text" :revision="document.revision" :highlights="staticAnalysis.highlights" :diagnostics="staticAnalysis.diagnostics" :symbols="staticAnalysis.symbols" :actions="staticAnalysis.actions" :complete="requestCompletions" :rename="renameSymbol" @change="updateText" @navigate="navigateSymbol" @references="showReferences" />
-				<div v-else class="file-kind-shell"><strong>{{ document?.kind ?? "document" }}</strong><p>This file shell preserves active-tab identity. Structured editing arrives in Sprint 041.</p></div>
+				<DataEditorPane v-else-if="document?.kind === 'csv' || document?.kind === 'json' || document?.kind === 'external-data'" ref="dataEditorElement" :key="document.path" :kind="document.kind === 'external-data' ? document.dataFormat ?? 'json' : document.kind" :text="document.text" :revision="document.revision" :external="document.external" :input-name="dataEditorContexts.get(document.path)?.inputName ?? document.inputName" :schema="dataEditorContexts.get(document.path)?.schema" :diagnostics="dataEditorContexts.get(document.path)?.diagnostics" @change="updateText" @navigate-declaration="navigateMappedDeclaration(document.path)" />
+				<div v-else class="file-kind-shell"><strong>{{ document?.kind ?? "document" }}</strong><p>This file is read-only in the current workbench.</p></div>
 			</section>
 			<div class="divider divider-preview" role="separator" aria-label="Resize contextual pane" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'preview')"></div>
 			<section class="preview-pane" aria-label="Active document context">
 				<div class="pane-header context-pane-header">
 					<div class="context-tabs" role="tablist" aria-label="Context view">
-						<button type="button" role="tab" :aria-selected="contextView === 'preview'" @click="contextView = 'preview'"><Eye :size="14" /> Preview</button>
-						<button type="button" role="tab" :aria-selected="contextView === 'inputs'" :disabled="document?.kind !== 'amx'" @click="contextView = 'inputs'"><Database :size="14" /> Inputs</button>
+						<button v-if="document?.kind === 'amx'" type="button" role="tab" :aria-selected="contextView === 'preview'" @click="contextView = 'preview'"><Eye :size="14" /> Preview</button>
+						<button v-if="document?.kind === 'amx'" type="button" role="tab" :aria-selected="contextView === 'inputs'" @click="contextView = 'inputs'"><Database :size="14" /> Inputs</button>
+						<button v-else-if="document?.kind === 'csv' || document?.kind === 'json' || document?.kind === 'external-data'" type="button" role="tab" aria-selected="true"><Database :size="14" /> Data</button>
 					</div>
 					<span v-if="contextView === 'preview'" class="state" :class="`state-${previewState}`">{{ previewState }}</span>
-					<span class="actions"><button type="button" :disabled="document?.kind !== 'amx'" @click="openReportSettings"><SlidersHorizontal :size="14" /> Report settings</button><button type="button" :aria-pressed="focusMode === 'editor'" @click="setFocusMode('editor')">Source</button><button type="button" :aria-pressed="focusMode === 'preview'" @click="setFocusMode('preview')">Preview</button></span>
+					<span class="actions"><button type="button" :disabled="document?.kind !== 'amx'" @click="openReportSettings"><SlidersHorizontal :size="14" /> Report settings</button><button v-if="document?.kind === 'amx'" type="button" :aria-pressed="focusMode === 'editor'" @click="setFocusMode('editor')">Source</button><button v-if="document?.kind === 'amx'" type="button" :aria-pressed="focusMode === 'preview'" @click="setFocusMode('preview')">Preview</button></span>
 				</div>
 				<InputsPanel v-if="contextView === 'inputs' && document?.kind === 'amx'" :configuration="inputConfiguration" :diagnostics="analysis.diagnostics" :validation="validation" :busy="inputsBusy" @browse="browseInput" @clear="clearInput" @promote="promoteInput" @open="openMappedInput" @diagnostic="navigateInputDiagnostic" @validation-change="validation = $event; validationChanged()" @declaration="(line, column) => editorElement?.selectLocation(line, column)" />
+				<section v-else-if="contextView === 'data' && (document?.kind === 'csv' || document?.kind === 'json' || document?.kind === 'external-data')" class="inputs-panel data-inspector" aria-label="Data schema and validation">
+					<header class="context-heading"><div><p class="eyebrow">{{ document.external ? "EXTERNAL / PRIVATE" : "ACTIVE DATA" }}</p><h2>Schema</h2></div></header>
+					<p v-if="dataEditorContexts.get(document.path)?.schema" class="data-schema-summary">{{ dataEditorContexts.get(document.path)?.schema?.name }} · {{ dataEditorContexts.get(document.path)?.schema?.type }}</p>
+					<p v-else class="inputs-empty">{{ dataEditorContexts.get(document.path)?.inputName ? "Loading mapped input schema…" : "Open this file from a declared AMX input to inspect its schema." }}</p>
+					<button v-if="dataEditorContexts.get(document.path)?.ownerPath && dataEditorContexts.get(document.path)?.declarationLine" type="button" class="text-button" @click="navigateMappedDeclaration(document.path)">Go to AMX input declaration</button>
+					<div v-if="dataEditorContexts.get(document.path)?.schema?.fields?.length" class="data-schema-fields">
+						<p v-for="field in dataEditorContexts.get(document.path)?.schema?.fields" :key="field.name"><code>{{ field.name }}</code><span>{{ field.type }}<template v-if="field.optional"> · optional</template><template v-if="field.hasDefault"> · default</template></span></p>
+					</div>
+					<button v-for="(diagnostic, index) in dataEditorContexts.get(document.path)?.diagnostics" :key="`${diagnostic.code}-${index}`" type="button" class="data-inspector-diagnostic" :disabled="!diagnostic.dataLine" @click="navigateDataDiagnostic(document.path, diagnostic)">{{ diagnostic.code }} · {{ diagnostic.message }}<small v-if="diagnostic.dataPath || diagnostic.dataLine">{{ diagnostic.dataPath }}<template v-if="diagnostic.dataLine"> ({{ diagnostic.dataLine }}:{{ diagnostic.dataColumn ?? 1 }})</template></small></button>
+				</section>
 				<template v-else>
 					<iframe v-if="document?.kind === 'amx'" :srcdoc="preview" sandbox="" title="OpenAMX live HTML preview"></iframe>
 					<div v-else class="file-kind-shell"><strong>Context</strong><p>Select an AMX document to show its live report preview.</p></div>

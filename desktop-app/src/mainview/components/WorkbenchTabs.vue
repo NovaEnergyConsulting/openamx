@@ -5,7 +5,7 @@ defineProps<{ workbench: WorkbenchState }>();
 const emit = defineEmits<{ select: [path: string]; close: [path: string] }>();
 
 function label(tab: TabState) {
-	return tab.path.split(/[\\/]/).pop() ?? tab.path;
+	return tab.label ?? tab.path.split(/[\\/]/).pop() ?? tab.path;
 }
 </script>
 

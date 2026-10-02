@@ -2,7 +2,7 @@
 
 ## Goal
 
-Deliver safe, lossless, scalable CSV/JSON authoring for mapped inputs and explicitly opened external data. Select and prove maintained Vue/Bun/Vite grid/tree components before production adoption, keep raw source authoritative during invalid edits, reuse strict existing parsing/validation semantics, and connect data diagnostics/schema to the active AMX document without exposing private paths.
+Deliver safe, lossless, scalable CSV/JSON authoring for mapped inputs and explicitly opened external data. Integrate the Lead Developer-selected maintained Vue grid/tree components in production, keep raw source authoritative during invalid edits, reuse strict existing parsing/validation semantics, and connect data diagnostics/schema to the active AMX document without exposing private paths.
 
 ## Inputs
 
@@ -17,7 +17,7 @@ Deliver safe, lossless, scalable CSV/JSON authoring for mapped inputs and explic
 
 ## In Scope
 
-- Complete a bounded proof and selection of maintained Vue-compatible virtual CSV grid and JSON tree/editor candidates. Measure license, pinned dependency graph, Bun/Vite/Electrobun compatibility, keyboard/IME/editing, raw/structured synchronization, bundle/memory impact, cancellation, and supported 100,000-row first usable viewport before installation/adoption.
+- Integrate the Lead Developer-selected `vxe-table@4.22.3` virtual CSV grid and `json-editor-vue@0.19.2`/`vanilla-jsoneditor@3.13.0` JSON tree/editor into the production desktop app. Preserve the isolated proof and record production dependency/build/license evidence, bundle/memory impact, raw/structured synchronization, cancellation, and supported 100,000-row behavior as acceptance evidence.
 - Implement the selected virtualized CSV grid with editable cells/rows/columns, insertion/deletion/reordering where format-safe, search, non-destructive sort/filter views, undo/redo, validation, and raw-text mode.
 - Implement JSON nested tree editing, an array-of-records grid, raw-text mode, add/remove/reorder, supported lossless structured/raw transitions, undo/redo, validation, and bounded fallback for unsupported/malformed shapes.
 - Keep raw source authoritative and preserve exact user text during invalid edits. Structured mode must show an actionable unavailable/error state when malformed source cannot be represented without loss.
@@ -38,7 +38,7 @@ Deliver safe, lossless, scalable CSV/JSON authoring for mapped inputs and explic
 
 ## Constraints
 
-- No grid/tree dependency is selected until the bounded proof records license, compatibility, keyboard behavior, raw/structured fidelity, bundle/memory, and 100,000-row results. If all candidates fail, retain an explicit raw/read-only fallback and blocker; do not hand-roll virtualization.
+- The selected dependencies are authorized for production integration by Lead Developer direction. Keep them pinned; validate actual production behavior and bundle impact. If an integration cannot meet fidelity or scale requirements, retain an explicit raw/read-only fallback and record the blocker; do not hand-roll virtualization or silently replace the selected libraries.
 - Existing strict JSON duplicate-key and CSV/RFC 4180 diagnostics, source locations, declaration order, null/default/DateTime rules, and deterministic serialization remain authoritative.
 - Raw source text is preserved exactly on invalid edits and remains the recovery/autosave authority. Structured operations must be atomic, undoable, revision-aware, and conflict-aware.
 - Data jobs carry Sprint 036 active URI/project generation/document and input/settings revisions/job ID. Stale/cancelled validation or serialization cannot update a new tab/project or write a file.

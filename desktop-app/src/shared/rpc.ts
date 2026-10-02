@@ -14,8 +14,8 @@ export type ProjectFileKind = Exclude<DocumentKind, "external-data">;
 export interface ProjectFile { path: string; kind: ProjectFileKind; }
 export interface TrashItem { id: string; path: string; kind: ProjectFileKind; }
 export interface RecoveryItem { path: string; kind: "amx" | "csv" | "json"; }
-export interface OpenDocument { path: string; kind: DocumentKind; text: string; diskHash: string; dirty: boolean; conflict: boolean; revision: number; }
-export interface TabState { path: string; kind: DocumentKind; dirty: boolean; conflict: boolean; revision: number; }
+export interface OpenDocument { path: string; kind: DocumentKind; text: string; diskHash: string; dirty: boolean; conflict: boolean; revision: number; external?: boolean; label?: string; inputName?: string; dataFormat?: "json" | "csv"; }
+export interface TabState { path: string; kind: DocumentKind; dirty: boolean; conflict: boolean; revision: number; label?: string; }
 export interface ActiveDocumentRequestIdentity {
 	canonicalActiveUri: string;
 	projectGeneration: number;
@@ -104,7 +104,7 @@ export interface DesktopRPCClient {
 		pickInputMapping(params: { name: string; expectedRevision: string }, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ configuration: InputConfiguration; state: WorkbenchState }>>;
 		clearInputMapping(params: { name: string; scope: "session" | "local" | "project"; expectedRevision?: string }): Promise<DesktopRPCResponse<{ configuration: InputConfiguration; state: WorkbenchState }>>;
 		promoteInputMapping(params: { name: string; expectedLocalRevision: string; expectedProjectRevision: string }): Promise<DesktopRPCResponse<{ configuration: InputConfiguration; state: WorkbenchState }>>;
-		openMappedInput(params: { name: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
+		openMappedInput(params: { name: string }): Promise<DesktopRPCResponse<{ document: OpenDocument; inputName?: string; schema?: DataInputSchema; diagnostics?: TextDiagnostic[] }>>;
 		getReportSettings(): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot }>>;
 		pickReportLogo(params: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; path?: string }>>;
 		setProjectReportSettings(params: { values: ReportSettingsValues; expectedRevision: string }): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot; state: WorkbenchState }>>;
@@ -172,7 +172,7 @@ export type DesktopRPCSchema = {
 			pickInputMapping: { params: { name: string; expectedRevision: string }; response: DesktopRPCResponse<{ configuration: InputConfiguration; state: WorkbenchState }> };
 			clearInputMapping: { params: { name: string; scope: "session" | "local" | "project"; expectedRevision?: string }; response: DesktopRPCResponse<{ configuration: InputConfiguration; state: WorkbenchState }> };
 			promoteInputMapping: { params: { name: string; expectedLocalRevision: string; expectedProjectRevision: string }; response: DesktopRPCResponse<{ configuration: InputConfiguration; state: WorkbenchState }> };
-			openMappedInput: { params: { name: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
+			openMappedInput: { params: { name: string }; response: DesktopRPCResponse<{ document: OpenDocument; inputName?: string; schema?: DataInputSchema; diagnostics?: TextDiagnostic[] }> };
 			getReportSettings: { params: Record<string, never>; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot }> };
 			pickReportLogo: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; path?: string }> };
 			setProjectReportSettings: { params: { values: ReportSettingsValues; expectedRevision: string }; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot; state: WorkbenchState }> };

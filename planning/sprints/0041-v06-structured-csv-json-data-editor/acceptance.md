@@ -1,8 +1,10 @@
 # Sprint 041 Acceptance Criteria
 
+> **Disposition (2026-10-02): COMPLETE WITH RECORDED EXCEPTIONS by explicit user direction; Sprint 042 may proceed.** The 100,000-row VXE responsiveness goal remains unmet and is carried to Sprint 043; this is not a performance pass or target change. Native-host details remain user-reported/unavailable. See `builder-evidence.md`.
+
 Sprint 041 is complete when:
 
-- A maintained Vue-compatible CSV grid and JSON tree/editor candidate is selected only after a pinned proof records license, dependency versions, Bun/Vite compatibility, keyboard/IME/editing, raw/structured synchronization, undo/redo, bundle/memory impact, cancellation, and 100,000-row behavior. A failed proof leaves the candidate gate blocked and does not authorize hand-rolled virtualization.
+- The selected `vxe-table@4.22.3` CSV grid and `json-editor-vue@0.19.2`/`vanilla-jsoneditor@3.13.0` JSON editor are pinned and integrated in the production desktop app. The Lead Developer reports the isolated-host manual checklist passed; OS/session, input method, and per-check timing details are recorded as unavailable. Production build/bundle impact, enabled labels, raw/structured fidelity, undo/redo, cancellation, and supported scale are independently recorded. Do not hand-roll virtualization.
 - CSV supports virtualized editable cells/rows/columns, format-safe insertion/deletion/reordering, search, non-destructive sort/filter views, undo/redo, validation, and raw-text mode. Sort/filter never mutates the authoritative source.
 - JSON supports nested tree editing, array-of-records grid, raw-text mode, add/remove/reorder, supported lossless transitions, undo/redo, and validation. Malformed, irregular, unsupported, or too-large values receive an actionable raw/read-only/unavailable state rather than freeze or silent truncation.
 - Raw source remains authoritative and exact invalid JSON/CSV text is preserved through edits, autosave, conflicts, restart/recovery, and mode transitions. Structured serialization is deterministic and only applied after valid, current, conflict-free preparation.

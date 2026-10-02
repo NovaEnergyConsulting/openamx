@@ -1,9 +1,13 @@
 import * as path from 'path';
-import { parse as parseCsv } from 'csv-parse/sync';
 import { InputDeclarationNode, SourceLocation, TypeDeclarationNode, TypeReferenceNode } from '../ast/types';
 import { AmxDiagnostic, inputError, throwInputErrors } from '../diagnostics/errors';
 import { Environment } from './environment';
 import { evaluateExpression } from './evaluateExpression';
+import { parseStrictCsvText, parseStrictJsonText, type CsvTextCell } from './dataText';
+
+export { parseStrictCsvText, parseStrictJsonText } from './dataText';
+export { serializeCsvText } from './csvTextSerialization';
+export type { CsvTextCell, DataTextParseIssue, DataTextParseResult } from './dataText';
 
 export type ValidationMode = 'aggregate' | 'fail-fast';
 
@@ -12,135 +16,7 @@ interface InputMapping {
   path: string;
 }
 
-interface CsvCell {
-  value: string;
-  quoted: boolean;
-}
-
-interface JsonIssue {
-  message: string;
-  offset: number;
-  duplicate?: boolean;
-  dataPath?: string;
-}
-
-class StrictJsonParser {
-  private offset = 0;
-
-  constructor(private readonly text: string) {}
-
-  parse(): unknown {
-    this.skipWhitespace();
-    const value = this.parseValue('');
-    this.skipWhitespace();
-    if (this.offset !== this.text.length) this.fail('Unexpected content after JSON value');
-    return value;
-  }
-
-  private parseValue(dataPath: string): unknown {
-    this.skipWhitespace();
-    const character = this.text[this.offset];
-    if (character === '{') return this.parseObject(dataPath);
-    if (character === '[') return this.parseArray(dataPath);
-    if (character === '"') return this.parseString();
-    if (character === 't') return this.parseLiteral('true', true);
-    if (character === 'f') return this.parseLiteral('false', false);
-    if (character === 'n') return this.parseLiteral('null', null);
-    if (character === '-' || (character >= '0' && character <= '9')) return this.parseNumber();
-    this.fail('Expected a JSON value', dataPath);
-  }
-
-  private parseObject(dataPath: string): Record<string, unknown> {
-    this.offset++;
-    this.skipWhitespace();
-    const result: Record<string, unknown> = {};
-    const keys = new Set<string>();
-    if (this.consume('}')) return result;
-    while (true) {
-      this.skipWhitespace();
-      if (this.text[this.offset] !== '"') this.fail('Expected a quoted object key', dataPath);
-      const keyOffset = this.offset;
-      const key = this.parseString();
-      const propertyPath = `${dataPath}/${key.replace(/~/g, '~0').replace(/\//g, '~1')}`;
-      if (keys.has(key)) throw { message: `Duplicate JSON object key '${key}'`, offset: keyOffset, duplicate: true, dataPath: propertyPath } satisfies JsonIssue;
-      keys.add(key);
-      this.skipWhitespace();
-      if (!this.consume(':')) this.fail("Expected ':' after object key", propertyPath);
-      Object.defineProperty(result, key, {
-        value: this.parseValue(propertyPath), enumerable: true, configurable: true, writable: true
-      });
-      this.skipWhitespace();
-      if (this.consume('}')) return result;
-      if (!this.consume(',')) this.fail("Expected ',' or '}' in object", dataPath);
-    }
-  }
-
-  private parseArray(dataPath: string): unknown[] {
-    this.offset++;
-    this.skipWhitespace();
-    const result: unknown[] = [];
-    if (this.consume(']')) return result;
-    while (true) {
-      result.push(this.parseValue(`${dataPath}/${result.length}`));
-      this.skipWhitespace();
-      if (this.consume(']')) return result;
-      if (!this.consume(',')) this.fail("Expected ',' or ']' in array", dataPath);
-    }
-  }
-
-  private parseString(): string {
-    const start = this.offset++;
-    while (this.offset < this.text.length) {
-      const code = this.text.charCodeAt(this.offset++);
-      if (code === 0x22) {
-        try {
-          return JSON.parse(this.text.slice(start, this.offset)) as string;
-        } catch {
-          this.fail('Invalid JSON string');
-        }
-      }
-      if (code < 0x20) this.fail('Unescaped control character in JSON string');
-      if (code === 0x5c) {
-        const escape = this.text[this.offset++];
-        if (escape === 'u') {
-          const hex = this.text.slice(this.offset, this.offset + 4);
-          if (!/^[0-9A-Fa-f]{4}$/.test(hex)) this.fail('Invalid Unicode escape');
-          this.offset += 4;
-        } else if (!['"', '\\', '/', 'b', 'f', 'n', 'r', 't'].includes(escape)) {
-          this.fail('Invalid JSON escape');
-        }
-      }
-    }
-    this.fail('Unterminated JSON string');
-  }
-
-  private parseNumber(): number {
-    const match = this.text.slice(this.offset).match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/);
-    if (!match) this.fail('Invalid JSON number');
-    this.offset += match[0].length;
-    return Number(match[0]);
-  }
-
-  private parseLiteral<T>(literal: string, value: T): T {
-    if (!this.text.startsWith(literal, this.offset)) this.fail(`Invalid JSON token '${this.text[this.offset] ?? ''}'`);
-    this.offset += literal.length;
-    return value;
-  }
-
-  private skipWhitespace(): void {
-    while (/[\t\n\r ]/.test(this.text[this.offset] ?? '\0')) this.offset++;
-  }
-
-  private consume(character: string): boolean {
-    if (this.text[this.offset] !== character) return false;
-    this.offset++;
-    return true;
-  }
-
-  private fail(message: string, dataPath?: string): never {
-    throw { message, offset: this.offset, dataPath } satisfies JsonIssue;
-  }
-}
+type CsvCell = CsvTextCell;
 
 class StopValidation {}
 
@@ -205,13 +81,10 @@ export function validateInputText(
   let value: unknown;
   try {
     if (format === 'json') {
-      let parsed: unknown;
-      try {
-        parsed = new StrictJsonParser(text).parse();
-      } catch (error) {
-        if (error instanceof StopValidation) throw error;
-        const issue = error as JsonIssue;
-        const location = offsetLocation(text, issue.offset);
+      const parsed = parseStrictJsonText(text);
+      if (parsed.issue) {
+        const issue = parsed.issue;
+        const location = offsetLocation(text, issue.offset ?? 0);
         report(inputError(issue.duplicate ? 'AMX4003' : 'AMX4002', issue.message, {
           ...validationContext,
           dataPath: issue.dataPath || '',
@@ -220,7 +93,7 @@ export function validateInputText(
         }));
         return { value: undefined, diagnostics };
       }
-      value = convertJson(parsed, declaration.annotation, '', declaration.source, types, environment, report, validationContext);
+      value = convertJson(parsed.value, declaration.annotation, '', declaration.source, types, environment, report, validationContext);
     } else {
       value = convertCsv(text, declaration.annotation, declaration.source, types, environment, report, validationContext);
     }
@@ -409,27 +282,12 @@ function convertCsv(
     report(shapeDiagnostic('CSV records may contain only scalar fields', 'scalar-field RecordType[]', recordType.name, '', context, declarationSource));
     return [];
   }
-  if (hasBareCarriageReturn(text)) {
-    report(inputError('AMX4002', 'Bare CR record separators are not valid CSV', { ...context, dataLine: lineAt(text, text.indexOf('\r')) }));
+  const parsed = parseStrictCsvText(text);
+  if (parsed.issue) {
+    report(inputError('AMX4002', parsed.issue.message, { ...context, dataLine: parsed.issue.line }));
     return [];
   }
-  let rows: CsvCell[][];
-  try {
-    rows = parseCsv(text, {
-      bom: true,
-      columns: false,
-      skip_empty_lines: false,
-      relax_column_count: true,
-      record_delimiter: ['\r\n', '\n'],
-      cast: (value, field) => ({ value, quoted: field.quoting })
-    }) as unknown as CsvCell[][];
-  } catch (error) {
-    const csvError = error as { message?: string; lines?: number };
-    report(inputError('AMX4002', `Malformed CSV: ${safeText(csvError.message ?? 'parse error')}`, {
-      ...context, dataLine: csvError.lines
-    }));
-    return [];
-  }
+  const rows = parsed.value ?? [];
   if (!rows.length) {
     report(inputError('AMX4002', 'CSV input is missing its header record', { ...context, dataLine: 1 }));
     return [];
@@ -595,21 +453,4 @@ function offsetLocation(text: string, offset: number): { line: number; column: n
   const before = text.slice(0, offset);
   const lines = before.split('\n');
   return { line: lines.length, column: lines[lines.length - 1].length + 1 };
-}
-
-function lineAt(text: string, offset: number): number {
-  return text.slice(0, offset).split('\n').length;
-}
-
-function hasBareCarriageReturn(text: string): boolean {
-  let quoted = false;
-  for (let index = 0; index < text.length; index++) {
-    if (text[index] === '"') {
-      if (quoted && text[index + 1] === '"') index++;
-      else quoted = !quoted;
-    } else if (text[index] === '\r' && !quoted && text[index + 1] !== '\n') {
-      return true;
-    }
-  }
-  return false;
 }

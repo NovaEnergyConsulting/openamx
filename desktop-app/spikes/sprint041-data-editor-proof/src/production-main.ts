@@ -1,19 +1,13 @@
-import "./app.css";
-import App from "./App.vue";
 import { createApp } from "vue";
-import { Electroview } from "electrobun/view";
 import VxeUIBase from "vxe-pc-ui";
 import VxeEnglish from "vxe-pc-ui/lib/language/en-US";
 import VxeUITable from "vxe-table";
-import type { DesktopRPCSchema } from "../shared/rpc";
 import "vxe-pc-ui/lib/style.css";
 import "vxe-table/lib/style.css";
 import "vanilla-jsoneditor/themes/jse-theme-dark.css";
-
-const rpc = Electroview.defineRPC<DesktopRPCSchema>({ handlers: {} });
-new Electroview({ rpc });
+import ProductionHarness from "./ProductionHarness.vue";
 
 VxeUIBase.setI18n("en-US", VxeEnglish);
 VxeUIBase.setLanguage("en-US");
 
-createApp(App, { rpc }).use(VxeUIBase).use(VxeUITable).mount("#app");
+createApp(ProductionHarness).use(VxeUIBase).use(VxeUITable).mount("#app");

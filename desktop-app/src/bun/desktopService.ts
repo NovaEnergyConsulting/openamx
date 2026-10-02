@@ -29,6 +29,7 @@ import { createPingResponse, type ActiveDocumentRequestIdentity, type DesktopJob
 import type { WorkerJobMessage, WorkerJobRequest, WorkerJobResult } from "./jobProtocol";
 
 const MAX_TEXT = 2_000_000;
+const MAX_DATA_TEXT = 20_000_000;
 const MAX_HTML = 8_000_000;
 const MAX_FILES = 5000;
 const MAX_FOLDERS = 5000;
@@ -87,6 +88,10 @@ function documentKind(file: string): ProjectFileKind | undefined {
 	return undefined;
 }
 
+function documentTextLimit(file: string): number {
+	return extname(file) === ".csv" || extname(file) === ".json" ? MAX_DATA_TEXT : MAX_TEXT;
+}
+
 function validProjectFile(file: string): boolean {
 	return documentKind(file) !== undefined && lstatSync(file).isFile();
 }
@@ -126,8 +131,23 @@ function summarizeBindings(loaded: Awaited<ReturnType<typeof loadEntryModule>>):
 	return { values };
 }
 
+interface MappedInputBinding {
+	inputName: string;
+	dataFormat: "json" | "csv";
+	ownerPath: string;
+}
+
+interface ExternalInputIdentity {
+	publicUri: string;
+	label: string;
+	inputName: string;
+	dataFormat: "json" | "csv";
+}
+
 interface SessionDocument extends OpenDocument {
 	path: string;
+	externalIdentity?: ExternalInputIdentity;
+	mappedInput?: MappedInputBinding;
 }
 
 interface RecoverySnapshot {
@@ -139,10 +159,12 @@ interface RecoverySnapshot {
 interface ActiveJob extends DesktopJobSnapshot {
 	worker?: Worker;
 	documentPath: string;
+	diagnosticPath: string;
 	projectRoot: string;
 	inputPaths: string[];
 	privatePaths: string[];
 	sourcePaths: string[];
+	sourceRevisions: Array<{ path: string; revision: number }>;
 	destination?: string;
 }
 
@@ -159,6 +181,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 	let projectRoot = initialRoot && realpathSync(initialRoot);
 	let current: SessionDocument | undefined;
 	const tabs = new Map<string, SessionDocument>();
+	const externalTabs = new Map<string, SessionDocument>();
 	const editSequences = new Map<string, number>();
 	let generation = 0;
 	let inputSettingsRevision = 0;
@@ -197,7 +220,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			const candidate = (stored as { root: string }).root;
 			if (existsSync(candidate) && !lstatSync(candidate).isSymbolicLink() && realpathSync(candidate) === candidate && statSync(candidate).isDirectory()) {
 				const documents = (stored as RecoverySnapshot).documents.slice(0, 10).filter(item =>
-					typeof item?.path === "string" && typeof item.text === "string" && item.text.length <= MAX_TEXT &&
+					typeof item?.path === "string" && typeof item.text === "string" && item.text.length <= documentTextLimit(item.path) &&
 					typeof item.diskHash === "string" && typeof item.revision === "number" && allowedFile(candidate, resolve(candidate, item.path))
 				);
 				if (documents.length) recovery = { root: candidate, active: typeof (stored as RecoverySnapshot).active === "string" ? (stored as RecoverySnapshot).active : undefined, documents };
@@ -238,20 +261,56 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 	function record() {
 		if (!projectRoot || !sessionFile) return;
 		const prior = recents.find(item => item.root === projectRoot);
+		let active: string | undefined;
+		if (current && !current.externalIdentity) {
+			try { if (allowedFile(projectRoot, current.path)) active = relative(projectRoot, current.path); } catch { active = undefined; }
+		}
 		recents = [{ root: projectRoot,
-			active: current ? relative(projectRoot, current.path) : undefined,
+			active,
 			explorerWidth: prior?.explorerWidth, previewWidth: prior?.previewWidth }, ...recents.filter(item => item.root !== projectRoot)].slice(0, 10);
 		persist();
 	}
 
+	function publicPath(document: SessionDocument): string {
+		return document.externalIdentity?.publicUri ?? document.path;
+	}
+
+	function publicDocument(document: SessionDocument): OpenDocument {
+		if (!document.externalIdentity) return document;
+		return {
+			path: document.externalIdentity.publicUri,
+			kind: "external-data",
+			text: document.text,
+			diskHash: document.diskHash,
+			dirty: document.dirty,
+			conflict: document.conflict,
+			revision: document.revision,
+			external: true,
+			label: document.externalIdentity.label,
+			inputName: document.externalIdentity.inputName,
+			dataFormat: document.externalIdentity.dataFormat
+		};
+	}
+
+	function allDocuments(): SessionDocument[] {
+		return [...tabs.values(), ...externalTabs.values()];
+	}
+
+	function findDocument(path: string): SessionDocument | undefined {
+		return tabs.get(path) ?? externalTabs.get(path) ?? [...externalTabs.values()].find(document => document.path === path);
+	}
+
 	function state(): WorkbenchState {
 		return {
-			tabs: [...tabs.values()].map(({ path, kind, dirty, conflict, revision }) => ({ path, kind, dirty, conflict, revision })),
-			active: current?.path,
+			tabs: allDocuments().map(document => ({
+				path: publicPath(document), kind: document.kind, dirty: document.dirty, conflict: document.conflict, revision: document.revision,
+				...(document.externalIdentity ? { label: document.externalIdentity.label } : {})
+			})),
+			active: current ? publicPath(current) : undefined,
 			generation,
 			inputSettingsRevision,
 			requestIdentity: current ? {
-				canonicalActiveUri: pathToFileURL(current.path).href,
+				canonicalActiveUri: current.externalIdentity ? current.externalIdentity.publicUri : pathToFileURL(current.path).href,
 				projectGeneration: generation,
 				documentRevision: current.revision,
 				inputSettingsRevision
@@ -259,8 +318,8 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		};
 	}
 
-	function requireActive(): { document: SessionDocument; sourceOverlay: ReadonlyMap<string, string> } {
-		const document = requireCurrent();
+	function requireActive(documentOverride?: SessionDocument): { document: SessionDocument; sourceOverlay: ReadonlyMap<string, string> } {
+		const document = documentOverride ?? requireCurrent();
 		const sourceOverlay = new Map<string, string>();
 		const visited = new Set<string>();
 		function collectOpenModules(file: string, text: string) {
@@ -295,6 +354,11 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			&& identity.inputSettingsRevision === currentIdentity.inputSettingsRevision;
 	}
 
+	function jobIsCurrent(job: ActiveJob): boolean {
+		if (!identityMatchesCurrent(job.identity)) return false;
+		return job.sourceRevisions.every(source => findDocument(source.path)?.revision === source.revision);
+	}
+
 	function snapshotJob(job: ActiveJob): DesktopJobSnapshot {
 		return {
 			identity: job.identity,
@@ -317,7 +381,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 
 	function invalidateStaleJobs(): void {
 		for (const job of jobs.values()) {
-			if (job.status === "running" && !identityMatchesCurrent(job.identity)) terminateJob(job, "superseded");
+			if (job.status === "running" && !jobIsCurrent(job)) terminateJob(job, "superseded");
 		}
 	}
 
@@ -325,12 +389,12 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		if (job.status !== "running" && job.status !== "committing") return;
 		job.status = "failed";
 		job.stage = undefined;
-		job.diagnostics = diagnostics(error, job.documentPath, job.privatePaths);
+		job.diagnostics = diagnostics(error, job.diagnosticPath, job.privatePaths);
 	}
 
 	async function commitJobExport(job: ActiveJob, result: Extract<WorkerJobResult, { kind: "export" }>): Promise<void> {
 		if (!job.destination) throw new Error("Export job has no validated destination request.");
-		if (job.identity.jobId !== latestJobId || !identityMatchesCurrent(job.identity)) {
+		if (job.identity.jobId !== latestJobId || !jobIsCurrent(job)) {
 			terminateJob(job, "superseded");
 			return;
 		}
@@ -342,7 +406,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		job.stage = "committing";
 		const conflicts = [job.documentPath, ...job.inputPaths];
 		const beforeCommit = () => {
-			if (job.identity.jobId !== latestJobId || !identityMatchesCurrent(job.identity)) throw new Error("Export job became stale before its atomic commit.");
+			if (job.identity.jobId !== latestJobId || !jobIsCurrent(job)) throw new Error("Export job became stale before its atomic commit.");
 			refreshConflicts();
 			if (tabs.get(job.documentPath)?.conflict || job.sourcePaths.some(file => tabs.get(file)?.conflict)) {
 				throw new Error("Resolve active document or dependency disk conflicts before export.");
@@ -370,11 +434,11 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 	function handleWorkerMessage(job: ActiveJob, message: WorkerJobMessage): void {
 		if (message.jobId !== job.identity.jobId || job.status !== "running") return;
 		if (message.kind === "progress") {
-			if (latestJobId !== job.identity.jobId || !identityMatchesCurrent(job.identity)) terminateJob(job, "superseded");
+			if (latestJobId !== job.identity.jobId || !jobIsCurrent(job)) terminateJob(job, "superseded");
 			else job.stage = message.stage;
 			return;
 		}
-		if (latestJobId !== job.identity.jobId || !identityMatchesCurrent(job.identity)) {
+		if (latestJobId !== job.identity.jobId || !jobIsCurrent(job)) {
 			terminateJob(job, "superseded");
 			return;
 		}
@@ -420,26 +484,46 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 	): DesktopRPCResponse<{ job: DesktopJobSnapshot }> {
 		let worker: Worker | undefined;
 		try {
-			const { document, sourceOverlay } = requireActive();
-			if (!document.path.endsWith(".amx")) throw new Error("Run, preview, and report export require an active .amx document.");
+			const activeDocument = requireCurrent();
+			let entryDocument = activeDocument;
+			let sourceOverlay: ReadonlyMap<string, string>;
+			let jobInputInspection = inputInspection;
+			const sourceRevisions: ActiveJob["sourceRevisions"] = [];
+			if (operation === "validate-data" && ["csv", "json", "external-data"].includes(activeDocument.kind)) {
+				const binding = activeDocument.mappedInput;
+				if (!binding) throw new Error("Open this data document from a declared AMX input before schema validation.");
+				const owner = tabs.get(binding.ownerPath);
+				if (!owner || owner.kind !== "amx") throw new Error("The owning AMX document is no longer open.");
+				entryDocument = owner;
+				sourceOverlay = requireActive(owner).sourceOverlay;
+				sourceRevisions.push({ path: owner.path, revision: owner.revision });
+				const expectedInspection = { name: binding.inputName, format: binding.dataFormat, text: activeDocument.text };
+				if (inputInspection && (inputInspection.name !== expectedInspection.name || inputInspection.format !== expectedInspection.format || inputInspection.text !== expectedInspection.text))
+					throw new Error("Data validation must use the current mapped document buffer and declared input.");
+				jobInputInspection = expectedInspection;
+			} else {
+				if (!activeDocument.path.endsWith(".amx")) throw new Error("Run, preview, and report export require an active .amx document.");
+				sourceOverlay = requireActive(activeDocument).sourceOverlay;
+			}
+			const document = activeDocument;
 			if (!identityMatchesCurrent(identity)) return errorResult({ code: "DESKTOP_STALE", message: "The active document or settings changed before the job started." });
 			if (!["run", "preview", "html", "pdf", "docx", "validate-data"].includes(operation)) throw new Error("Unsupported desktop job operation.");
 			if (operation === "validate-data") {
-				if (!inputInspection || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(inputInspection.name)
-					|| (inputInspection.format !== "json" && inputInspection.format !== "csv")
-					|| typeof inputInspection.text !== "string" || inputInspection.text.length > 20_000_000)
+				if (!jobInputInspection || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(jobInputInspection.name)
+					|| (jobInputInspection.format !== "json" && jobInputInspection.format !== "csv")
+					|| typeof jobInputInspection.text !== "string" || jobInputInspection.text.length > 20_000_000)
 					throw new Error("In-memory data inspection exceeds its request bounds or has an invalid input.");
-			} else if (inputInspection) throw new Error("Input inspection is valid only for a validate-data job.");
+			} else if (jobInputInspection) throw new Error("Input inspection is valid only for a validate-data job.");
 			const extension = operation === "html" ? ".html" : operation === "pdf" ? ".pdf" : operation === "docx" ? ".docx" : undefined;
 			if (extension && (!destination || extname(destination) !== extension)) throw new Error(`A ${extension} destination is required.`);
 			for (const job of jobs.values()) if (job.status === "running") terminateJob(job, "superseded");
-			const resolved = resolveDesktopInputs(requireRoot(), document.text, activeInputMappings, activeValidation);
+			const resolved = resolveDesktopInputs(requireRoot(), entryDocument.text, activeInputMappings, activeValidation);
 			const jobId = ++nextJobId;
 			latestJobId = jobId;
 			const job: ActiveJob = {
 				identity: { ...identity, jobId }, operation, status: "running", cleanupPending: false, stage: "starting", diagnostics: [],
-				documentPath: document.path, projectRoot: requireRoot(), inputPaths: resolved.mappings.map(mapping => mapping.slice(mapping.indexOf("=") + 1)),
-				privatePaths: resolved.privatePaths, sourcePaths: [...sourceOverlay.keys()], destination
+				documentPath: document.path, diagnosticPath: publicPath(document), projectRoot: requireRoot(), inputPaths: resolved.mappings.map(mapping => mapping.slice(mapping.indexOf("=") + 1)),
+				privatePaths: resolved.privatePaths, sourcePaths: [...sourceOverlay.keys()], sourceRevisions, destination
 			};
 			jobs.set(jobId, job);
 			if (resolved.configuration.diagnostics.length) {
@@ -458,9 +542,9 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				job.worker = undefined;
 			});
 			const request: WorkerJobRequest = {
-				kind: "start", jobId, operation, entryPath: document.path, entryText: document.text,
+				kind: "start", jobId, operation, entryPath: entryDocument.path, entryText: entryDocument.text,
 				projectRoot: job.projectRoot, sourceOverlay: [...sourceOverlay],
-				inputMappings: resolved.mappings, validation: activeValidation, inputInspection
+				inputMappings: resolved.mappings, validation: activeValidation, inputInspection: jobInputInspection
 			};
 			worker.postMessage(request);
 			return { ok: true, job: snapshotJob(job) };
@@ -521,17 +605,21 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 	}
 
 	function readEntry(file: string): SessionDocument {
-		const text = readFileSync(file, "utf8");
-		if (text.length > MAX_TEXT) throw new Error(`Document exceeds the ${MAX_TEXT}-character limit.`);
 		const kind = documentKind(file);
 		if (!kind) throw new Error("Unsupported project file kind.");
+		const text = readFileSync(file, "utf8");
+		const limit = documentTextLimit(file);
+		if (text.length > limit) throw new Error(`Document exceeds the ${limit}-character limit.`);
 		return { path: file, kind, text, diskHash: hash(text), dirty: false, conflict: false, revision: 0 };
 	}
 
 	function saveTab(document: SessionDocument): DesktopRPCResponse<{ document: OpenDocument }> {
 		let temporary: string | undefined;
 		try {
-			if (!allowedFile(requireRoot(), document.path) || !["amx", "csv", "json"].includes(document.kind)) throw new Error("File is not an editable project document.");
+			const external = !!document.externalIdentity;
+			if ((!external && (!allowedFile(requireRoot(), document.path) || !["amx", "csv", "json"].includes(document.kind)))
+				|| (external && (!lstatSync(document.path).isFile() || lstatSync(document.path).isSymbolicLink() || realpathSync(document.path) !== document.path)))
+				throw new Error(external ? "The external input is no longer a regular local file." : "File is not an editable project document.");
 			const diskText = readFileSync(document.path, "utf8");
 			if (hash(diskText) !== document.diskHash) {
 				document.conflict = true;
@@ -544,7 +632,10 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				writeFileSync(handle, document.text, "utf8");
 				fsyncSync(handle);
 			} finally { closeSync(handle); }
-			if (!allowedFile(requireRoot(), document.path) || hash(readFileSync(document.path, "utf8")) !== document.diskHash) {
+			const targetStillValid = external
+				? lstatSync(document.path).isFile() && !lstatSync(document.path).isSymbolicLink() && realpathSync(document.path) === document.path
+				: allowedFile(requireRoot(), document.path);
+			if (!targetStillValid || hash(readFileSync(document.path, "utf8")) !== document.diskHash) {
 				document.conflict = true;
 				return errorResult({ code: "DESKTOP_CONFLICT", message: "The file changed during save; no changes were written." });
 			}
@@ -554,15 +645,20 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			document.dirty = false;
 			document.conflict = false;
 			persistRecovery();
-			return { ok: true, document };
-		} catch (error) { return errorResult(projectError(error instanceof Error ? error.message : String(error))); }
+			return { ok: true, document: publicDocument(document) };
+		} catch (error) {
+			return errorResult(projectError(document.externalIdentity ? "Unable to save the external input. Check its location and resolve any disk conflict." : error instanceof Error ? error.message : String(error)));
+		}
 		finally { if (temporary) { try { unlinkSync(temporary); } catch {} } }
 	}
 
 	function refreshConflicts() {
-		for (const tab of tabs.values()) {
+		for (const tab of allDocuments()) {
 			try {
-				if (!allowedFile(requireRoot(), tab.path) || hash(readFileSync(tab.path, "utf8")) !== tab.diskHash) tab.conflict = true;
+				const valid = tab.externalIdentity
+					? lstatSync(tab.path).isFile() && !lstatSync(tab.path).isSymbolicLink() && realpathSync(tab.path) === tab.path
+					: allowedFile(requireRoot(), tab.path);
+				if (!valid || hash(readFileSync(tab.path, "utf8")) !== tab.diskHash) tab.conflict = true;
 			} catch { tab.conflict = true; }
 		}
 	}
@@ -579,11 +675,12 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 	}
 
 	function scheduleAutosave(document: SessionDocument) {
-		cancelAutosave(document.path);
+		const key = publicPath(document);
+		cancelAutosave(key);
 		if (!autosaveEnabled || !document.dirty || document.conflict) return;
-		autosaveTimers.set(document.path, setTimeout(() => {
-			autosaveTimers.delete(document.path);
-			if (tabs.get(document.path) === document && document.dirty && !document.conflict) void saveTab(document);
+		autosaveTimers.set(key, setTimeout(() => {
+			autosaveTimers.delete(key);
+			if (findDocument(key) === document && document.dirty && !document.conflict) void saveTab(document);
 		}, autosaveDelayMs));
 	}
 
@@ -637,10 +734,10 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		if (action === "cancel") return { ok: true, ready: false, state: state() };
 		if (action !== "save-all" && action !== "discard-all") return errorResult(projectError("Invalid project transition."));
 		if (action === "save-all") {
-			for (const tab of tabs.values()) {
-				if (tab.conflict) return errorResult({ code: "DESKTOP_CONFLICT", message: `Resolve the disk conflict in ${relative(requireRoot(), tab.path)} before saving all tabs.` });
+			for (const tab of allDocuments()) {
+				if (tab.conflict) return errorResult({ code: "DESKTOP_CONFLICT", message: tab.externalIdentity ? "Resolve the external input disk conflict before saving all tabs." : { code: "DESKTOP_CONFLICT", message: `Resolve the disk conflict in ${relative(requireRoot(), tab.path)} before saving all tabs.` }.message });
 			}
-			for (const tab of tabs.values()) {
+			for (const tab of allDocuments()) {
 				if (!tab.dirty && !tab.conflict) continue;
 				const saved = saveTab(tab);
 				if (!saved.ok) return errorResult(saved.error);
@@ -752,13 +849,13 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		setProjectRoot(root: string, action?: TransitionAction) {
 			const canonical = realpathSync(resolve(root));
 			if (!statSync(canonical).isDirectory()) throw new Error("Project root must be a directory.");
-			if (projectRoot !== canonical && [...tabs.values()].some(tab => tab.dirty || tab.conflict)) {
+			if (projectRoot !== canonical && allDocuments().some(tab => tab.dirty || tab.conflict)) {
 				if (!action) throw new Error("Save or discard unsaved tabs before switching projects.");
 				const prepared = prepareTransition(action);
 				if (!prepared.ok) throw new Error(prepared.error.message);
 				if (!prepared.ready) throw new Error("Project change cancelled.");
 			}
-			if (projectRoot !== canonical) { cancelAutosave(); tabs.clear(); editSequences.clear(); current = undefined; generation++; invalidateStaleJobs(); persistRecovery(); }
+			if (projectRoot !== canonical) { cancelAutosave(); tabs.clear(); externalTabs.clear(); editSequences.clear(); current = undefined; generation++; invalidateStaleJobs(); persistRecovery(); }
 			projectRoot = canonical;
 		},
 		request: {
@@ -775,7 +872,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					const candidate = realpathSync(path);
 					const recent = recents.find(item => item.root === candidate);
 					const switching = projectRoot !== candidate;
-					const action = projectRoot !== candidate && [...tabs.values()].some(tab => tab.dirty || tab.conflict)
+					const action = projectRoot !== candidate && allDocuments().some(tab => tab.dirty || tab.conflict)
 						? await picker?.confirmTransition?.("project") ?? "cancel" : undefined;
 					if (started !== generation || action === "cancel") return { ok: true, cancelled: true };
 					service.setProjectRoot(candidate, action);
@@ -828,7 +925,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 						if (recoveryFile && existsSync(recoveryFile)) unlinkSync(recoveryFile);
 						return { ok: true, state: state() };
 					}
-					if ([...tabs.values()].some(tab => tab.dirty || tab.conflict)) throw new Error("Resolve current unsaved tabs before restoring recovery.");
+					if (allDocuments().some(tab => tab.dirty || tab.conflict)) throw new Error("Resolve current unsaved tabs before restoring recovery.");
 					const snapshot = recovery;
 					service.setProjectRoot(snapshot.root, "discard-all");
 					for (const item of snapshot.documents) {
@@ -853,10 +950,10 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				try {
 					if (lstatSync(root).isSymbolicLink() || realpathSync(root) !== root || !statSync(root).isDirectory()) throw new Error("Recent project is no longer a real directory.");
 					const started = generation;
-					const action = projectRoot !== root && [...tabs.values()].some(tab => tab.dirty || tab.conflict)
+					const action = projectRoot !== root && allDocuments().some(tab => tab.dirty || tab.conflict)
 						? await picker?.confirmTransition?.("project") ?? "cancel" : undefined;
 					if (started !== generation || action === "cancel") return errorResult<{ root: string; state: WorkbenchState }>({ code: "DESKTOP_CANCELLED", message: "Project change cancelled." });
-					if (projectRoot === root && [...tabs.values()].some(tab => tab.dirty || tab.conflict)) throw new Error("Project is already open with unsaved tabs.");
+					if (projectRoot === root && allDocuments().some(tab => tab.dirty || tab.conflict)) throw new Error("Project is already open with unsaved tabs.");
 					service.setProjectRoot(root, action);
 				} catch (error) { return errorResult<{ root: string; state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error))); }
 				if (saved.active) await service.request.openDocument({ path: saved.active });
@@ -889,7 +986,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					if (!existsSync(candidate) || lstatSync(candidate).isSymbolicLink()) throw new Error("Project creation requires an existing real empty directory.");
 					projectDirectory = realpathSync(candidate);
 					if (!statSync(projectDirectory).isDirectory() || readdirSync(projectDirectory).length) throw new Error("Project creation requires an empty directory.");
-					if (projectRoot !== projectDirectory && [...tabs.values()].some(tab => tab.dirty || tab.conflict)) {
+					if (projectRoot !== projectDirectory && allDocuments().some(tab => tab.dirty || tab.conflict)) {
 						if (!action) throw new Error("Save or discard unsaved tabs before creating a project.");
 						const prepared = prepareTransition(action);
 						if (!prepared.ok) throw new Error(prepared.error.message);
@@ -928,7 +1025,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					const started = generation;
 					const path = await picker?.choose({ directory: true });
 					if (!path || started !== generation) return { ok: true, cancelled: true };
-					const action = [...tabs.values()].some(tab => tab.dirty || tab.conflict)
+					const action = allDocuments().some(tab => tab.dirty || tab.conflict)
 						? await picker?.confirmTransition?.("project") ?? "cancel" : undefined;
 					if (started !== generation || action === "cancel") return { ok: true, cancelled: true };
 					const created = await service.request.createProject({ path, action });
@@ -954,13 +1051,13 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				}
 			},
 			async selectTab({ path }: { path: string }) {
-				const tab = tabs.get(path);
+				const tab = findDocument(path);
 				if (!tab) return errorResult<{ document: OpenDocument }>(projectError("Tab is not open."));
 				current = tab;
 				refreshConflicts();
 				invalidateStaleJobs();
 				record();
-				return { ok: true, document: tab };
+				return { ok: true, document: publicDocument(tab) };
 			},
 			async getWorkbench() { refreshConflicts(); return { ok: true, state: state() }; },
 			async getProjectContext() { refreshConflicts(); return { ok: true, root: projectRoot, state: state() }; },
@@ -1055,17 +1152,41 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				try {
 					requireDeclaredInput(name);
 					const root = requireRoot();
-					const { document } = requireActive();
+					const { document, sourceOverlay } = requireActive();
 					const resolved = resolveDesktopInputs(root, document.text, activeInputMappings, activeValidation);
 					const mapping = resolved.mappings.find(value => value.slice(0, value.indexOf("=")) === name);
 					if (!mapping) throw new Error("Choose a mapping before opening this input.");
 					const mappedPath = mapping.slice(mapping.indexOf("=") + 1);
+					const dataFormat = extname(mappedPath).slice(1);
+					if (dataFormat !== "csv" && dataFormat !== "json") throw new Error("Mapped input format is unsupported.");
+					const binding: MappedInputBinding = { inputName: name, dataFormat, ownerPath: document.path };
 					const contained = within(root, mappedPath);
-					if (!contained) throw new Error("This private external input is not available in the project data editor yet.");
-					const opened = await service.request.openDocument({ path: contained });
-					return opened.ok ? opened : errorResult<{ document: OpenDocument }>(opened.error);
+					if (contained) {
+						const opened = await service.request.openDocument({ path: contained });
+						if (!opened.ok) return errorResult<{ document: OpenDocument; inputName?: string }>(opened.error);
+						const session = tabs.get(realpathSync(contained));
+						if (session) session.mappedInput = binding;
+						return { ok: true, document: opened.document, inputName: name };
+					}
+					const candidate = resolve(mappedPath);
+					if (lstatSync(candidate).isSymbolicLink() || !statSync(candidate).isFile() || realpathSync(candidate) !== candidate)
+						throw new Error("Mapped external input must be a regular local file without symlinked path segments.");
+					let external = [...externalTabs.values()].find(tab => tab.path === candidate && tab.externalIdentity?.inputName === name);
+					if (!external) {
+						external = readEntry(candidate);
+						const publicUri = `openamx-external:${name}:${randomUUID()}`;
+						external.kind = "external-data";
+						external.externalIdentity = { publicUri, label: `External / Private · ${name}`, inputName: name, dataFormat };
+						externalTabs.set(publicUri, external);
+					}
+					external.mappedInput = binding;
+					current = external;
+					refreshConflicts();
+					invalidateStaleJobs();
+					record();
+					return { ok: true, document: publicDocument(external), inputName: name };
 				} catch (error) {
-					return errorResult<{ document: OpenDocument }>({ code: "DESKTOP_INPUT", message: error instanceof Error ? error.message.slice(0, 1000) : "Unable to open the mapped input." });
+					return errorResult<{ document: OpenDocument; inputName?: string }>({ code: "DESKTOP_INPUT", message: "Unable to open the mapped data file. Check the mapping, file type, and local file permissions." });
 				}
 			},
 			async getReportSettings() {
@@ -1150,7 +1271,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				autosaveEnabled = enabled;
 				autosaveDelayMs = delayMs;
 				cancelAutosave();
-				if (enabled) for (const tab of tabs.values()) scheduleAutosave(tab);
+				if (enabled) for (const tab of allDocuments()) scheduleAutosave(tab);
 				return { ok: true, enabled: autosaveEnabled, delayMs: autosaveDelayMs };
 			},
 			async startJob({ operation, identity, destination, inputInspection }: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string } }) {
@@ -1160,7 +1281,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				if (!Number.isSafeInteger(jobId) || jobId < 1) return errorResult<{ job: DesktopJobSnapshot }>(projectError("Invalid job identifier."));
 				const job = jobs.get(jobId);
 				if (!job) return errorResult<{ job: DesktopJobSnapshot }>(projectError("Job is no longer available."));
-				if (job.status === "running" && (jobId !== latestJobId || !identityMatchesCurrent(job.identity))) terminateJob(job, "superseded");
+				if (job.status === "running" && (jobId !== latestJobId || !jobIsCurrent(job))) terminateJob(job, "superseded");
 				return { ok: true, job: snapshotJob(job) };
 			},
 			async cancelJob({ jobId }: { jobId: number }) {
@@ -1174,7 +1295,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			async confirmQuit() {
 				try {
 					refreshConflicts();
-					if (![...tabs.values()].some(tab => tab.dirty || tab.conflict)) return { ok: true, ready: true };
+					if (!allDocuments().some(tab => tab.dirty || tab.conflict)) return { ok: true, ready: true };
 					const started = generation;
 					const action = await picker?.confirmTransition?.("quit") ?? "cancel";
 					if (started !== generation) return { ok: true, ready: false };
@@ -1183,7 +1304,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				} catch (error) { return errorResult<{ ready: boolean }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},
 			async closeTab({ path, action }: { path: string; action: "save" | "discard" | "cancel" }) {
-				const tab = tabs.get(path);
+				const tab = findDocument(path);
 				if (!tab || !["save", "discard", "cancel"].includes(action)) return errorResult<{ state: WorkbenchState }>(projectError("Invalid tab close request."));
 				if (action === "cancel") return { ok: true, state: state() };
 				if (tab.dirty || tab.conflict) {
@@ -1192,9 +1313,11 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 						if (!saved.ok) return errorResult<{ state: WorkbenchState }>(saved.error);
 					}
 				}
-				cancelAutosave(path);
-				tabs.delete(path);
-				if (current?.path === path) current = tabs.values().next().value;
+				const key = publicPath(tab);
+				cancelAutosave(key);
+				if (tab.externalIdentity) externalTabs.delete(key);
+				else tabs.delete(tab.path);
+				if (current === tab) current = allDocuments()[0];
 				generation++;
 				invalidateStaleJobs();
 				record();
@@ -1204,14 +1327,27 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			async reloadTab({ action }: { action: "discard" | "cancel" }) {
 				try {
 					const tab = requireCurrent();
-					if (action === "cancel") return { ok: true, document: tab };
-					if (action !== "discard" || !allowedFile(requireRoot(), tab.path)) throw new Error("Cannot reload this file.");
+					if (action === "cancel") return { ok: true, document: publicDocument(tab) };
+					if (action !== "discard") throw new Error("Cannot reload this file.");
+					if (tab.externalIdentity) {
+						if (lstatSync(tab.path).isSymbolicLink() || !lstatSync(tab.path).isFile() || realpathSync(tab.path) !== tab.path) throw new Error("External input is no longer a regular local file.");
+						const text = readFileSync(tab.path, "utf8");
+						if (text.length > MAX_DATA_TEXT) throw new Error(`Document exceeds the ${MAX_DATA_TEXT}-character limit.`);
+						tab.text = text;
+						tab.diskHash = hash(text);
+						tab.dirty = false;
+						tab.conflict = false;
+						tab.revision++;
+						invalidateStaleJobs();
+						return { ok: true, document: publicDocument(tab) };
+					}
+					if (!allowedFile(requireRoot(), tab.path)) throw new Error("Cannot reload this file.");
 					const fresh = readEntry(tab.path);
 					fresh.revision = tab.revision + 1;
 					tabs.set(tab.path, fresh);
 					current = fresh;
 					persistRecovery();
-					return { ok: true, document: fresh };
+					return { ok: true, document: publicDocument(fresh) };
 				} catch (error) { return errorResult<{ document: OpenDocument }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},
 			async listProjectFiles() {
@@ -1278,7 +1414,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					const target = createTarget(root, destination);
 					if (extname(target) !== extname(original)) throw new Error("Duplicate destination must retain the source extension.");
 					const text = readFileSync(original, "utf8");
-					if (text.length > MAX_TEXT) throw new Error(`Document exceeds the ${MAX_TEXT}-character limit.`);
+					if (text.length > documentTextLimit(original)) throw new Error(`Document exceeds the ${documentTextLimit(original)}-character limit.`);
 					writeNewFile(target, text);
 					const document = readEntry(target);
 					current = document;
@@ -1533,18 +1669,20 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				} catch (error) { return errorResult<{ state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},
 			async readDocument() {
-				try { return { ok: true, document: requireCurrent() }; }
+				try { return { ok: true, document: publicDocument(requireCurrent()) }; }
 				catch (error) { return errorResult<{ document: OpenDocument }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},
 			async updateBuffer({ text, path, sequence }: { text: string; path?: string; sequence?: number }) {
 				try {
-					if (typeof text !== "string" || text.length > MAX_TEXT) return errorResult<{ document: OpenDocument }>(projectError(`Document exceeds the ${MAX_TEXT}-character limit.`));
-					const document = path ? tabs.get(path) : requireCurrent();
+					const document = path ? findDocument(path) : requireCurrent();
 					if (!document) return errorResult<{ document: OpenDocument }>(projectError("Tab is no longer open."));
+					const limit = document.kind === "amx" ? MAX_TEXT : MAX_DATA_TEXT;
+					if (typeof text !== "string" || text.length > limit) return errorResult<{ document: OpenDocument }>(projectError(`Document exceeds the ${limit}-character limit.`));
+					const key = publicPath(document);
 					if (sequence !== undefined) {
-						if (!Number.isSafeInteger(sequence) || sequence < 1 || sequence <= (editSequences.get(document.path) ?? 0))
+						if (!Number.isSafeInteger(sequence) || sequence < 1 || sequence <= (editSequences.get(key) ?? 0))
 							return errorResult<{ document: OpenDocument }>(projectError("Superseded edit request."));
-						editSequences.set(document.path, sequence);
+						editSequences.set(key, sequence);
 					}
 					document.text = text;
 					document.dirty = hash(text) !== document.diskHash;
@@ -1552,7 +1690,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					invalidateStaleJobs();
 					scheduleAutosave(document);
 					persistRecovery();
-					return { ok: true, document };
+					return { ok: true, document: publicDocument(document) };
 				} catch (error) { return errorResult<{ document: OpenDocument }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},
 			async saveDocument() {
@@ -1570,7 +1708,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			async analyzeBuffer({ path: requestedPath, revision: requestedRevision, cursorOffset }: { path?: string; revision?: number; cursorOffset?: number } = {}) {
 				try {
 					const { document, sourceOverlay } = requireActive();
-					if ((requestedPath !== undefined && requestedPath !== document.path)
+					if ((requestedPath !== undefined && requestedPath !== publicPath(document))
 						|| (requestedRevision !== undefined && requestedRevision !== document.revision)) {
 						return errorResult<{ analysis: TextAnalysis }>(projectError("Editor analysis request is stale."));
 					}

@@ -95,7 +95,7 @@ The authoritative product behavior is defined in `planning/openamxV06ProductUXCo
 
 #### Sprint 041: Structured CSV/JSON Data Editor (depends on 036 and 038-039; uses Sprint 035 selections)
 
-- Implement the selected virtualized CSV grid with editable cells/rows/columns, insertion/deletion/reordering where format-safe, search, non-destructive sort/filter views, undo/redo, and raw-text mode.
+- Integrate the Lead Developer-selected `vxe-table@4.22.3` CSV grid and `json-editor-vue@0.19.2`/`vanilla-jsoneditor@3.13.0` JSON editor in the production desktop app; deliver virtualized CSV cells/rows/columns, insertion/deletion/reordering where format-safe, search, non-destructive sort/filter views, undo/redo, and raw-text mode.
 - Implement JSON tree editing, an array-of-records grid, raw-text mode, add/remove/reorder, and lossless transitions for supported values.
 - Keep raw source authoritative and preserve exact user text during invalid edits. Structured mode displays a clear unavailable/error state when malformed source cannot be represented without loss.
 - Reuse strict shared JSON duplicate-key parsing, RFC 4180 CSV behavior, deterministic serialization, and existing AMX type/default/null/DateTime validation.
@@ -107,6 +107,8 @@ The authoritative product behavior is defined in `planning/openamxV06ProductUXCo
 ### Phase 4 - Complete Workflow and Acceptance
 
 #### Sprint 042: Live Preview, Runtime Drawer, and Export Parity (depends on 036-041)
+
+Sprint 041 is complete with recorded exceptions by explicit direction on 2026-10-02, so Sprint 042 may proceed. Its 100,000-row responsiveness exception is not waived; Sprint 043 must remeasure and disposition it as part of integrated acceptance.
 
 - Deliver debounced active-file live analysis/preview with pause/resume/manual refresh, explicit power Run, last-good stale state, source-linked diagnostics, progress, cancellation, and unsaved project-graph execution.
 - Keep report preview sandboxed and bounded. Switching files, editing modules/data, changing mappings/settings, pausing, cancelling, or changing projects invalidates prior success without allowing a late reply to become current.
