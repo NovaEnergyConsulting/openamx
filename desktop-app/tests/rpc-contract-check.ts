@@ -320,7 +320,73 @@ assert.equal(originalLocation.ok, true);
 if (!originalLocation.ok) throw new Error(originalLocation.error.message);
 assert.equal(originalLocation.analysis.diagnostics[0]?.file, entry);
 assert.equal(originalLocation.analysis.diagnostics[0]?.line, 4);
+const incompleteCompletionText = "```amx\nlet earlier: Number = 2\nlet unfinished: Number = \n```\n";
+const incompleteCompletionDocument = await service.request.updateBuffer({ text: incompleteCompletionText });
+assert.equal(incompleteCompletionDocument.ok, true);
+if (!incompleteCompletionDocument.ok) throw new Error(incompleteCompletionDocument.error.message);
+const incompleteCompletion = await service.request.analyzeBuffer({
+	path: entry,
+	revision: incompleteCompletionDocument.document.revision,
+	cursorOffset: incompleteCompletionText.indexOf("let unfinished") + "let unfinished: Number = ".length
+});
+assert.equal(incompleteCompletion.ok, true);
+if (!incompleteCompletion.ok) throw new Error(incompleteCompletion.error.message);
+assert.ok(incompleteCompletion.analysis.completions.includes("earlier"));
+assert.ok(!incompleteCompletion.analysis.completions.includes("unfinished"));
+assert.equal(incompleteCompletion.analysis.diagnostics[0]?.code, "AMX3001");
 console.log("Desktop session contract passed (11 assertions)");
+
+const actionRoot = mkdtempSync(join(tmpdir(), "openamx-editor-action-"));
+const actionEntry = join(actionRoot, "report.amx");
+const uniqueActionText = "```amx\ntype Row {\n  id: String\n}\nlet rows: Row[] = []\ntable report = table(rows) {\n  title: \"Report\"\n  column id as \"ID\"\n}\nshow reprot\n```\n";
+writeFileSync(actionEntry, uniqueActionText);
+const actionService = createDesktopService();
+assert.equal((await actionService.request.openProject({ path: actionRoot })).ok, true);
+const openedActionEntry = await actionService.request.openDocument({ path: actionEntry });
+assert.equal(openedActionEntry.ok, true);
+if (!openedActionEntry.ok) throw new Error(openedActionEntry.error.message);
+const uniqueActionAnalysis = await actionService.request.analyzeBuffer({ path: actionEntry, revision: openedActionEntry.document.revision });
+assert.equal(uniqueActionAnalysis.ok, true);
+if (!uniqueActionAnalysis.ok) throw new Error(uniqueActionAnalysis.error.message);
+assert.equal(uniqueActionAnalysis.analysis.diagnostics[0]?.code, "AMX3001");
+assert.ok(uniqueActionAnalysis.analysis.highlights?.some(fact => uniqueActionText.slice(fact.from, fact.to) === "show"));
+assert.equal(uniqueActionAnalysis.analysis.actions?.[0]?.expected, "reprot");
+assert.equal(uniqueActionAnalysis.analysis.actions?.[0]?.replacement, "report");
+const ambiguousActionText = uniqueActionText.replace(/show reprot/, "table overview = table(rows) {\n  title: \"Overview\"\n  column id as \"ID\"\n}\nshow reprot");
+const ambiguousActionBuffer = await actionService.request.updateBuffer({ text: ambiguousActionText });
+assert.equal(ambiguousActionBuffer.ok, true);
+if (!ambiguousActionBuffer.ok) throw new Error(ambiguousActionBuffer.error.message);
+const ambiguousActionAnalysis = await actionService.request.analyzeBuffer({ path: actionEntry, revision: ambiguousActionBuffer.document.revision });
+assert.equal(ambiguousActionAnalysis.ok, true);
+if (!ambiguousActionAnalysis.ok) throw new Error(ambiguousActionAnalysis.error.message);
+assert.deepEqual(ambiguousActionAnalysis.analysis.actions, []);
+
+const renameRoot = mkdtempSync(join(tmpdir(), "openamx-symbol-rename-"));
+const renameDependency = join(renameRoot, "model.amx");
+const renameEntry = join(renameRoot, "report.amx");
+const renameDependencyText = "```amx\nexport let amount: Number = 2\n```\n";
+const renameEntryText = "```amx\nimport { amount } from \"./model.amx\"\nexport let result: Number = amount + amount\n```\n";
+writeFileSync(renameDependency, renameDependencyText);
+writeFileSync(renameEntry, renameEntryText);
+const renameService = createDesktopService();
+assert.equal((await renameService.request.openProject({ path: renameRoot })).ok, true);
+const renameOpened = await renameService.request.openDocument({ path: renameEntry });
+assert.equal(renameOpened.ok, true);
+if (!renameOpened.ok) throw new Error(renameOpened.error.message);
+const staleRename = await renameService.request.renameSymbol({ offset: renameEntryText.lastIndexOf("amount"), newName: "quantity", expectedRevision: renameOpened.document.revision - 1 });
+assert.equal(staleRename.ok, false);
+const renamed = await renameService.request.renameSymbol({ offset: renameEntryText.lastIndexOf("amount"), newName: "quantity", expectedRevision: renameOpened.document.revision });
+assert.equal(renamed.ok, true);
+if (!renamed.ok) throw new Error(renamed.error.message);
+assert.equal(readFileSync(renameDependency, "utf8"), renameDependencyText.replaceAll("amount", "quantity"));
+assert.equal(readFileSync(renameEntry, "utf8"), renameEntryText.replaceAll("amount", "quantity"));
+const beforeCollision = readFileSync(renameEntry, "utf8");
+const collisionRename = await renameService.request.renameSymbol({ offset: beforeCollision.indexOf("quantity"), newName: "result", expectedRevision: renamed.document.revision });
+assert.equal(collisionRename.ok, false);
+assert.equal(readFileSync(renameEntry, "utf8"), beforeCollision);
+const reservedRename = await renameService.request.renameSymbol({ offset: beforeCollision.indexOf("quantity"), newName: "if", expectedRevision: renamed.document.revision });
+assert.equal(reservedRename.ok, false);
+assert.equal(readFileSync(renameEntry, "utf8"), beforeCollision);
 
 const dataRoot = join(root, "data");
 mkdirSync(dataRoot);
@@ -345,6 +411,17 @@ const dirtyDependency = await service.request.updateBuffer({ text: overlayDepend
 assert.equal(dirtyDependency.ok, true);
 const activeReport = await service.request.selectTab({ path: entry });
 assert.equal(activeReport.ok, true);
+if (!activeReport.ok) throw new Error(activeReport.error.message);
+const editorFacts = await service.request.analyzeBuffer({ path: entry, revision: activeReport.document.revision, cursorOffset: entrySource.indexOf("export let result") });
+assert.equal(editorFacts.ok, true);
+if (!editorFacts.ok) throw new Error(editorFacts.error.message);
+assert.equal(editorFacts.analysis.diagnostics.length, 0);
+assert.ok(editorFacts.analysis.completions.includes("addTen"));
+assert.ok(editorFacts.analysis.highlights?.some(fact => entrySource.slice(fact.from, fact.to) === "result"));
+assert.ok(editorFacts.analysis.symbols?.some(fact => fact.name === "addTen" && fact.origin === dependencyPath));
+assert.ok(editorFacts.analysis.symbols?.some(fact => fact.name === "result" && fact.declaration));
+const staleEditorFacts = await service.request.analyzeBuffer({ path: entry, revision: activeReport.document.revision - 1, cursorOffset: 0 });
+assert.equal(staleEditorFacts.ok, false);
 const overlayRun = await service.request.runBuffer({
 	inputMappings: [`amounts=${join(dataRoot, "amounts.json")}`, `rows=${join(dataRoot, "rows.csv")}`]
 });

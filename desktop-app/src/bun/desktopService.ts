@@ -4,6 +4,12 @@ import { basename, dirname, extname, join, relative, resolve, sep } from "node:p
 import { pathToFileURL } from "node:url";
 import { AmxError, type AmxDiagnostic } from "../../../src/diagnostics/errors";
 import { parseDocumentText } from "../../../src/parser/parseDocument";
+import { analyzeEditorModules } from "../../../src/editor/moduleAnalysis";
+import { editorCompletionFacts, prepareEditorCompletion } from "../../../src/editor/completion";
+import { editorHighlightFacts } from "../../../src/editor/highlighting";
+import { editorSymbolFacts } from "../../../src/editor/symbols";
+import { editorCodeActionFacts, editorRenameFact, isSafeRenameIdentifier } from "../../../src/editor/refactoring";
+import { sourceOffset } from "../../../src/editor/sourceRanges";
 import { formatAmx } from "../../../src/formatter/formatAmx";
 import { checkingActivated, checkDocument } from "../../../src/typechecker/checkDocument";
 import { loadEntryModule } from "../../../src/runtime/moduleLoader";
@@ -1561,16 +1567,168 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				}
 				catch (error) { return errorResult<{ text: string }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},
-			async analyzeBuffer() {
+			async analyzeBuffer({ path: requestedPath, revision: requestedRevision, cursorOffset }: { path?: string; revision?: number; cursorOffset?: number } = {}) {
 				try {
-					const document = requireCurrent();
+					const { document, sourceOverlay } = requireActive();
+					if ((requestedPath !== undefined && requestedPath !== document.path)
+						|| (requestedRevision !== undefined && requestedRevision !== document.revision)) {
+						return errorResult<{ analysis: TextAnalysis }>(projectError("Editor analysis request is stale."));
+					}
 					if (document.kind !== "amx") return { ok: true, analysis: { diagnostics: [], completions: [] } };
-					const parsed = parseDocumentText(document.text);
-					if (checkingActivated(parsed)) checkDocument(parsed, document.path);
-					const analysis: TextAnalysis = { diagnostics: [], completions: ["let", "for", "match", "type", "fn", "import", "table", "chart", "show"] };
-					return { ok: true, analysis };
+					const entryPath = realpathSync(document.path);
+					const resolveEditorModule = (_fromFile: string, targetPath: string, importNode: import("../../../src/ast/types").ImportDeclarationNode) => {
+						const root = requireRoot();
+						if (!allowedFile(root, targetPath)) {
+						throw new AmxError({ code: "AMX5001", message: `Module '${importNode.path}' is unavailable or outside the project`, file: document.path, line: importNode.pathSource?.line, column: importNode.pathSource?.column });
+						}
+						const canonical = realpathSync(targetPath);
+						return { file: canonical, text: sourceOverlay.get(canonical) ?? readFileSync(canonical, "utf8") };
+					};
+					let moduleAnalysis: ReturnType<typeof analyzeEditorModules> | undefined;
+					let analysisError: unknown;
+					try { moduleAnalysis = analyzeEditorModules(document.text, entryPath, resolveEditorModule); }
+					catch (error) { analysisError = error; }
+					let parsedDocument = moduleAnalysis?.document;
+					if (!parsedDocument) {
+						try { parsedDocument = parseDocumentText(document.text); }
+						catch { /* Incomplete syntax has no parser-proven token ranges. */ }
+					}
+					const offset = Number.isSafeInteger(cursorOffset) ? Math.max(0, Math.min(document.text.length, cursorOffset!)) : document.text.length;
+					let completions: string[] = [];
+					let actions: NonNullable<TextAnalysis["actions"]> = [];
+					if (cursorOffset !== undefined) {
+						const prepared = prepareEditorCompletion(document.text, offset);
+						if (prepared) {
+							try {
+								const completionAnalysis = prepared.text === document.text && moduleAnalysis
+									? moduleAnalysis : analyzeEditorModules(prepared.text, entryPath, resolveEditorModule);
+								completions = editorCompletionFacts(prepared.text, offset, prepared.document, completionAnalysis, document.text)
+									.map(item => item.label).slice(0, 200);
+							} catch { /* Withhold candidates when the reachable source graph is invalid or ambiguous. */ }
+						}
+					}
+					if (analysisError instanceof AmxError && analysisError.file === document.path && analysisError.line && analysisError.column) {
+						const from = sourceOffset(document.text, { line: analysisError.line, column: analysisError.column });
+						if (from !== undefined) {
+							try {
+								actions = editorCodeActionFacts(document.text, parseDocumentText(document.text), [{
+									code: analysisError.code, message: analysisError.message, from, to: from + 1
+								}]).map(action => ({ ...action, revision: document.revision })).slice(0, 20);
+							} catch { actions = []; }
+						}
+					}
+					const result: TextAnalysis = {
+						diagnostics: analysisError ? diagnostics(analysisError, document.path) : [],
+						completions,
+						highlights: parsedDocument ? editorHighlightFacts(document.text, parsedDocument).slice(0, 20_000) : [],
+						symbols: moduleAnalysis ? editorSymbolFacts(document.text, entryPath, moduleAnalysis.document, moduleAnalysis,
+							new Map([...(moduleAnalysis.modules ?? new Map()).keys()].map(file => [file, sourceOverlay.get(file) ?? readFileSync(file, "utf8")])))
+							.slice(0, 20_000) : [],
+						actions
+					};
+					return { ok: true, analysis: result };
 				} catch (error) {
-					return { ok: true, analysis: { diagnostics: diagnostics(error, current?.path), completions: [] } };
+					return { ok: true, analysis: { diagnostics: diagnostics(error, current?.path), completions: [], highlights: [] } };
+				}
+			},
+			async renameSymbol({ offset, newName, expectedRevision }: { offset: number; newName: string; expectedRevision: number }) {
+				const temporaryFiles: string[] = [];
+				const backups: Array<{ path: string; backup: string; installed: boolean }> = [];
+				try {
+					const { document, sourceOverlay } = requireActive();
+					if (document.kind !== "amx") throw new Error("Symbol rename is available only for AMX documents.");
+					if (document.revision !== expectedRevision) throw new Error("The active document changed; refresh analysis before renaming.");
+					if (!Number.isSafeInteger(offset) || offset < 0 || offset >= document.text.length || !isSafeRenameIdentifier(newName))
+						throw new Error("The rename request is invalid.");
+					const root = requireRoot();
+					const entryPath = realpathSync(document.path);
+					const resolveEditorModule = (_fromFile: string, targetPath: string, importNode: import("../../../src/ast/types").ImportDeclarationNode) => {
+						if (!allowedFile(root, targetPath)) throw new AmxError({ code: "AMX5001", message: `Module '${importNode.path}' is unavailable or outside the project`, file: document.path, line: importNode.pathSource?.line, column: importNode.pathSource?.column });
+						const canonical = realpathSync(targetPath);
+						return { file: canonical, text: sourceOverlay.get(canonical) ?? readFileSync(canonical, "utf8") };
+					};
+					const analysis = analyzeEditorModules(document.text, entryPath, resolveEditorModule);
+					const moduleSources = new Map([...(analysis.modules ?? new Map()).keys()].map(file => [file, sourceOverlay.get(file) ?? readFileSync(file, "utf8")]));
+					const facts = editorSymbolFacts(document.text, entryPath, analysis.document, analysis, moduleSources);
+					const plan = editorRenameFact(facts, entryPath, offset);
+					if (!plan) throw new Error("No unambiguous symbol is available at this location.");
+					if (plan.name === newName) return { ok: true, document, state: state() };
+					if (facts.some(fact => fact.declaration && fact.name === newName
+						&& (fact.target.file !== plan.target.file || fact.target.from !== plan.target.from || fact.target.to !== plan.target.to)))
+						throw new Error(`A symbol named '${newName}' already exists in the reachable module graph.`);
+
+					const edits = new Map<string, Array<{ from: number; to: number }>>();
+					for (const edit of plan.edits) edits.set(edit.file, [...(edits.get(edit.file) ?? []), edit]);
+					const prepared = [...edits].map(([file, ranges]) => {
+						if (!allowedFile(root, file) || realpathSync(file) !== file) throw new Error("A rename target is no longer a contained regular project file.");
+						const tab = tabs.get(file);
+						const diskText = readFileSync(file, "utf8");
+						if (tab?.conflict || (tab && hash(diskText) !== tab.diskHash)) throw new Error("Resolve every affected file conflict before renaming.");
+						let text = tab?.text ?? diskText;
+						for (const range of [...ranges].sort((left, right) => right.from - left.from)) {
+							if (text.slice(range.from, range.to) !== plan.name) throw new Error("A symbol occurrence changed while the rename was prepared.");
+						text = text.slice(0, range.from) + newName + text.slice(range.to);
+						}
+						return { file, tab, text, diskText, diskHash: hash(diskText), mode: statSync(file).mode & 0o777 };
+					});
+					const rewritten = new Map(prepared.map(item => [item.file, item.text]));
+					analyzeEditorModules(rewritten.get(entryPath) ?? document.text, entryPath, (_fromFile, targetPath, importNode) => {
+						if (!allowedFile(root, targetPath)) throw new AmxError({ code: "AMX5001", message: `Module '${importNode.path}' is unavailable or outside the project`, file: document.path, line: importNode.pathSource?.line, column: importNode.pathSource?.column });
+						const canonical = realpathSync(targetPath);
+						return { file: canonical, text: rewritten.get(canonical) ?? sourceOverlay.get(canonical) ?? readFileSync(canonical, "utf8") };
+					});
+					const stage = (file: string, text: string, mode: number) => {
+						const temporary = join(dirname(file), `.${basename(file)}.${randomUUID()}.tmp`);
+						const handle = openSync(temporary, "wx", mode);
+						temporaryFiles.push(temporary);
+						try { fchmodSync(handle, mode); writeFileSync(handle, text, "utf8"); fsyncSync(handle); }
+						finally { closeSync(handle); }
+						return temporary;
+					};
+					const staged = prepared.map(item => ({ ...item, temporary: stage(item.file, item.text, item.mode) }));
+					for (const item of prepared) {
+						if (!allowedFile(root, item.file) || hash(readFileSync(item.file, "utf8")) !== item.diskHash)
+							throw new Error("An affected file changed during rename preparation; no files were changed.");
+					}
+					try {
+						for (const item of staged) {
+							if (!allowedFile(root, item.file) || hash(readFileSync(item.file, "utf8")) !== item.diskHash)
+								throw new Error("An affected file changed during rename commit.");
+							const backup = join(dirname(item.file), `.${basename(item.file)}.${randomUUID()}.bak`);
+							renameSync(item.file, backup);
+							const changed = { path: item.file, backup, installed: false };
+							backups.push(changed);
+							renameSync(item.temporary, item.file);
+							changed.installed = true;
+						}
+					} catch (error) {
+						const rollbackErrors: string[] = [];
+						for (const item of [...backups].reverse()) {
+							try {
+								if (item.installed && existsSync(item.path)) unlinkSync(item.path);
+								if (existsSync(item.backup)) renameSync(item.backup, item.path);
+							} catch { rollbackErrors.push(relative(root, item.path)); }
+						}
+						if (rollbackErrors.length) throw new Error(`Rename failed and rollback needs attention for: ${rollbackErrors.join(", ")}.`);
+						throw error;
+					}
+					for (const item of backups) { try { unlinkSync(item.backup); } catch {} }
+					for (const item of staged) {
+						if (!item.tab) continue;
+						item.tab.text = item.text;
+						item.tab.diskHash = hash(item.text);
+						item.tab.dirty = false;
+						item.tab.conflict = false;
+						item.tab.revision++;
+						cancelAutosave(item.file);
+					}
+					invalidateStaleJobs();
+					persistRecovery();
+					return { ok: true, document, state: state() };
+				} catch (error) {
+					return errorResult<{ document: OpenDocument; state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error)));
+				} finally {
+					for (const temporary of temporaryFiles) { try { if (existsSync(temporary)) unlinkSync(temporary); } catch {} }
 				}
 			},
 			async getInputConfiguration({ inputMappings = activeInputMappings }: { inputMappings?: string[] } = {}) {

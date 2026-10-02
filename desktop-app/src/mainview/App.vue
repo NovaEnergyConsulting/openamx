@@ -508,13 +508,51 @@ async function refreshStaticAnalysis(path: string, revision: number) {
 	const request = ++staticRequest;
 	staticAnalysis.value = { diagnostics: [], completions: [] };
 	try {
-		const result = await props.rpc.request.analyzeBuffer();
+		const result = await props.rpc.request.analyzeBuffer({ path, revision });
 		if (request === staticRequest && document.value?.path === path && document.value.revision === revision && result.ok) staticAnalysis.value = result.analysis;
 	} catch {
 		if (request === staticRequest && document.value?.path === path && document.value.revision === revision) {
 			staticAnalysis.value = { diagnostics: [{ code: "DESKTOP_RPC", message: "Static analysis is unavailable." }], completions: [] };
 		}
 	}
+}
+
+async function requestCompletions(cursorOffset: number): Promise<string[]> {
+	await pendingEdit;
+	const active = document.value;
+	if (!active || active.kind !== "amx") return [];
+	const result = await props.rpc.request.analyzeBuffer({ path: active.path, revision: active.revision, cursorOffset });
+	if (!result.ok || document.value?.path !== active.path || document.value.revision !== active.revision) return [];
+	return result.analysis.completions;
+}
+
+async function navigateSymbol(path: string, offset: number) {
+	if (document.value?.path !== path) await openDocument(path);
+	if (document.value?.path === path) requestAnimationFrame(() => editorElement.value?.selectOffset(offset));
+}
+
+async function showReferences(items: NonNullable<TextAnalysis["symbols"]>) {
+	const references = items.filter(item => !item.declaration);
+	if (!references.length) { status.value = "No proven references."; return; }
+	const currentIndex = references.findIndex(item => item.file === document.value?.path && item.from === editorElement.value?.getSelectionOffset?.());
+	const nextIndex = (currentIndex + 1) % references.length;
+	const next = references[nextIndex]!;
+	status.value = `Reference ${nextIndex + 1} of ${references.length} for ${next.name}.`;
+	await navigateSymbol(next.file, next.from);
+}
+
+async function renameSymbol(offset: number, newName: string): Promise<boolean> {
+	await pendingEdit;
+	const active = document.value;
+	if (!active || active.kind !== "amx") return false;
+	const result = await props.rpc.request.renameSymbol({ offset, newName, expectedRevision: active.revision });
+	if (!result.ok) { status.value = result.error.message; return false; }
+	if (document.value?.path !== active.path || document.value.revision !== active.revision) return false;
+	document.value = result.document;
+	workbench.value = result.state;
+	status.value = `Renamed symbol to ${newName}.`;
+	void refreshStaticAnalysis(active.path, result.document.revision);
+	return true;
 }
 
 async function navigateDiagnostic(item: TextDiagnostic) {
@@ -853,7 +891,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 				<nav class="tabs" aria-label="Open tabs"><div v-for="tab in workbench.tabs" :key="tab.path" class="tab"><button :aria-current="workbench.active === tab.path ? 'page' : undefined" @click="selectTab(tab.path)">{{ tab.path.split(/[\\/]/).pop() }} <span v-if="workbench.active === tab.path">Active</span><span v-if="tab.dirty">*</span><span v-if="tab.conflict">!</span></button><button title="Close tab" :aria-label="`Close ${tab.path}`" @click="closeTab(tab.path)">×</button></div></nav>
 				<div class="pane-header"><strong>{{ document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><Button :disabled="!document" type="button" @click="editorElement?.openSearch()">Find</Button><Button :disabled="!document || pending" type="button" @click="format">Format</Button><Button :disabled="!document || !document.dirty" type="button" @click="save">Save</Button></span></div>
 				<div v-if="document" class="entry-actions"><Button @click="reload">Reload…</Button></div>
-				<CodeEditor v-if="document" ref="editorElement" :path="document.path" :text="document.text" @change="updateText" />
+				<CodeEditor v-if="document" ref="editorElement" :path="document.path" :text="document.text" :revision="document.revision" :highlights="staticAnalysis.highlights" :diagnostics="staticAnalysis.diagnostics" :symbols="staticAnalysis.symbols" :actions="staticAnalysis.actions" :complete="requestCompletions" :rename="renameSymbol" @change="updateText" @navigate="navigateSymbol" @references="showReferences" />
 				<div class="diagnostics" :class="{ 'mobile-hidden': detailPanel !== 'diagnostics' }" aria-live="polite"><p v-for="(item, index) in staticAnalysis.diagnostics" :key="`static-${item.code}-${item.line}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Static · {{ item.code }} {{ item.file?.split(/[\\/]/).pop() }} ({{ item.line }}:{{ item.column }}) {{ displayDiagnostic(item) }}</button></p><p v-for="(item, index) in [...analysis.diagnostics, ...inputConfiguration.diagnostics]" :key="`${item.code}-${item.line}-${index}`"><strong>Run · {{ item.code }}</strong> {{ displayDiagnostic(item) }} <span v-if="item.line">({{ item.line }}:{{ item.column }})</span></p><p v-if="![...staticAnalysis.diagnostics, ...analysis.diagnostics, ...inputConfiguration.diagnostics].length" class="muted">No current diagnostics.</p></div>
 			</section>
 			<section class="preview-pane" :class="{ 'mobile-hidden': detailPanel !== 'preview' }" aria-label="Live HTML preview"><div class="pane-header"><strong>ACTIVE DOCUMENT PREVIEW · {{ workbench.active?.split(/[\\/]/).pop() ?? 'No document' }}</strong><span class="state" :class="`state-${previewState}`">{{ previewState }}</span></div><iframe :srcdoc="preview" sandbox="" title="OpenAMX live HTML preview"></iframe></section>
@@ -881,7 +919,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 			<section class="editor-pane" aria-label="Document editor">
 				<WorkbenchTabs :workbench="workbench" @select="selectTab" @close="closeTab" />
 				<div class="pane-header"><strong>{{ document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><button :disabled="!document" type="button" @click="editorElement?.openSearch()">Find</button><button :disabled="!document || pending" type="button" @click="format">Format</button><button :disabled="!document || !document.dirty" type="button" @click="save">Save</button></span></div>
-				<CodeEditor v-if="document?.kind === 'amx'" ref="editorElement" :path="document.path" :text="document.text" @change="updateText" />
+				<CodeEditor v-if="document?.kind === 'amx'" ref="editorElement" :path="document.path" :text="document.text" :revision="document.revision" :highlights="staticAnalysis.highlights" :diagnostics="staticAnalysis.diagnostics" :symbols="staticAnalysis.symbols" :actions="staticAnalysis.actions" :complete="requestCompletions" :rename="renameSymbol" @change="updateText" @navigate="navigateSymbol" @references="showReferences" />
 				<div v-else class="file-kind-shell"><strong>{{ document?.kind ?? "document" }}</strong><p>This file shell preserves active-tab identity. Structured editing arrives in Sprint 041.</p></div>
 			</section>
 			<div class="divider divider-preview" role="separator" aria-label="Resize contextual pane" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'preview')"></div>

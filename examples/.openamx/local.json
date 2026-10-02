@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "inputs": {
+    "asset": "/home/cgamez/Programming/openamx/examples/typed-asset.json",
+    "screenings": "/home/cgamez/Programming/openamx/examples/typed-screenings.csv",
+    "reviewedAt": "/home/cgamez/Programming/openamx/examples/typed-reviewed-at.json"
+  }
+}

@@ -1,5 +1,15 @@
 # Planning Decisions
 
+## V0.6 Sprint 040 Builder Implementation (2026-10-02)
+
+- Keep semantic authority in `src/parser`, `src/typechecker`, and the existing module-import contract. Add `src/editor/` as a host-neutral fact layer that accepts a host-supplied module resolver; it imports neither VS Code nor desktop APIs and does not evaluate AMX or read mapped input values.
+- Bound static graph traversal to 101 modules (the active entry plus the accepted 100-module overlay budget). Trusted host resolvers retain canonicalization, project containment, symlink checks, disk access, and open-buffer preference. Unsupported identity/ranges are withheld.
+- Convert parser UTF-16/CRLF offsets only at CodeMirror's normalized-document boundary. Preserve source bytes on emitted edits by restoring the active document's line ending; source/checker locations and VS Code host ranges remain unchanged.
+- Desktop multi-file symbol rename is a trusted Bun transaction: recompute current graph facts, reject reserved identifiers/collisions/stale revisions/conflicts, statically validate the candidate graph, stage each changed file, install with backups, and roll back any partial commit. The webview submits only offset/name/revision intent and verifies its buffer snapshot before applying its local undoable transaction.
+- Keep the diagnostic quick fix restricted to the exact unknown-view diagnostic and exactly one prior visible view. VS Code resolve-time guards are retained, but the known VS Code 1.85 apply-time `WorkspaceEdit` limitation remains open for explicit Lead Developer disposition.
+- No product-policy change is made. Native host certification, language semantics, CLI behavior, evaluator/input access, and unrestricted indexing remain outside this sprint.
+- Follow-up to Lead Developer verification (2026-10-02): treat local CodeMirror document edits as authoritative until `props.text` acknowledges the exact editor document. Ignore differing asynchronous/stale text props while a local edit is pending; explicitly map the selection through legitimate external diff transactions. This fixes the observed cursor-to-line-start regression without changing the trusted Bun update/sequence authority.
+
 ## V0.6 Sprint 039 Builder Implementation (2026-10-02)
 
 - No Lead Developer product-policy decision was required or made. Preserve session/per-run > local > project precedence, local-by-default persistence, explicit contained promotion, the existing version-1 config schema, report field scope/precedence, source-visible default, logo security, and webview authority.

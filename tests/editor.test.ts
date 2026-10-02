@@ -1,0 +1,144 @@
+import { expect, test } from "bun:test";
+import { parseDocumentText } from "../src/parser/parseDocument";
+import { editorCompletionFacts, prepareEditorCompletion } from "../src/editor/completion";
+import { editorHighlightFacts } from "../src/editor/highlighting";
+import { analyzeEditorModules } from "../src/editor/moduleAnalysis";
+import { editorSymbolFacts } from "../src/editor/symbols";
+import { editorCodeActionFacts, editorRenameFact, isSafeRenameIdentifier } from "../src/editor/refactoring";
+import { declarationNameRange, sourceTokenRange } from "../src/editor/sourceRanges";
+
+test("shared editor ranges preserve UTF-16 offsets across CRLF and non-BMP text", () => {
+	const text = "# \u{1F680} report\r\n\r\n```amx\r\nlet base: Number = 2\r\nlet total: Number = base + 1\r\n```\r\n";
+	const document = parseDocumentText(text);
+	const statements = document.nodes.flatMap(node => node.type === "executableCodeBlock" ? node.statements : []);
+	const base = declarationNameRange(text, statements[0]);
+	const total = declarationNameRange(text, statements[1]);
+	const reference = sourceTokenRange(text, statements[1].type === "variableDeclaration" ? statements[1].expression.source : undefined, "base");
+
+	expect(base).toBeDefined();
+	expect(total).toBeDefined();
+	expect(text.slice(base!.from, base!.to)).toBe("base");
+	expect(text.slice(total!.from, total!.to)).toBe("total");
+	expect(text.slice(reference!.from, reference!.to)).toBe("base");
+	expect(text.indexOf("base")).toBe(base!.from);
+	expect(text.indexOf("total")).toBe(total!.from);
+});
+
+test("shared editor ranges withhold unproven declaration tokens", () => {
+	const text = "```amx\nlet amount: Number = 1\n```\n";
+	const document = parseDocumentText(text);
+	const statement = document.nodes.flatMap(node => node.type === "executableCodeBlock" ? node.statements : [])[0];
+
+	expect(sourceTokenRange(text, { line: 2, column: 4 }, "other")).toBeUndefined();
+	expect(declarationNameRange(text, { ...statement, source: { line: 100, column: 1 } })).toBeUndefined();
+});
+
+test("shared module analysis uses supplied unsaved imports without evaluation", () => {
+	const entry = "```amx\nimport { rate } from \"./model.amx\"\nlet result: Number = rate\n```\n";
+	let requestedPath = "";
+	const analysis = analyzeEditorModules(entry, "/project/report.amx", (_from, targetPath) => {
+		requestedPath = targetPath;
+		return { file: targetPath, text: "```amx\nexport let rate: Number = 12\n```\n" };
+	});
+
+	expect(requestedPath).toBe("/project/model.amx");
+	expect(analysis.importedBindings.has("rate")).toBe(true);
+	expect(analysis.modules.size).toBe(2);
+	expect(analysis.modules.get("/project/model.amx")?.checkResult.exportedBindings.has("rate")).toBe(true);
+});
+
+test("shared module analysis withholds graphs beyond its bounded traversal", () => {
+	const entry = "```amx\nimport { value0 } from \"./module0.amx\"\nlet result: Number = value0\n```\n";
+	const resolveModule = (_from: string, targetPath: string) => {
+		const index = Number(targetPath.match(/module(\d+)\.amx$/)?.[1]);
+		const text = index === 101
+			? "```amx\nexport let value101: Number = 1\n```\n"
+			: `\u0060\u0060\u0060amx\nimport { value${index + 1} } from \"./module${index + 1}.amx\"\nexport let value${index}: Number = value${index + 1}\n\u0060\u0060\u0060\n`;
+		return { file: targetPath, text };
+	};
+
+	expect(() => analyzeEditorModules(entry, "/project/report.amx", resolveModule)).toThrow(/analysis limit/);
+});
+
+test("shared completion facts respect source order and imported exports", () => {
+	const text = "```amx\nimport { rate } from \"./model.amx\"\nlet before = rate\nlet after = before + rate\n```\n";
+	const analysis = analyzeEditorModules(text, "/project/report.amx", (_from, targetPath) => ({
+		file: targetPath,
+		text: "```amx\nexport let rate: Number = 12\n```\n"
+	}));
+	const cursor = text.indexOf("let after");
+	const labels = editorCompletionFacts(text, cursor, analysis.document, analysis).map(item => item.label);
+
+	expect(labels).toContain("before");
+	expect(labels).toContain("rate");
+	expect(labels).not.toContain("after");
+});
+
+test("shared completion facts use the live prefix when parsing only complete statements", () => {
+	const source = "```amx\ntype Asset {\n";
+	const cursor = source.indexOf("type") + "type".length;
+	const completeSource = "```amx\n```\n";
+	const parsed = parseDocumentText(completeSource);
+	const labels = editorCompletionFacts(completeSource, cursor, parsed, undefined, source).map(item => item.label);
+
+	expect(labels).toContain("type");
+});
+
+test("shared completion preparation accepts only the exact executable fence", () => {
+	const incomplete = "```amx\nlet earlier: Number = 2\nlet unfinished: Number = \n```";
+	const cursor = incomplete.indexOf("let unfinished") + "let unfinished: Number = ".length;
+	const prepared = prepareEditorCompletion(incomplete, cursor);
+	expect(prepared).toBeDefined();
+	const labels = editorCompletionFacts(prepared!.text, cursor, prepared!.document, undefined, incomplete).map(item => item.label);
+	expect(labels).toContain("earlier");
+	expect(prepareEditorCompletion("```js\nlet inert = 1\n```", 10)).toBeUndefined();
+	expect(prepareEditorCompletion("```AMX\nlet inert = 1\n```", 10)).toBeUndefined();
+});
+
+test("shared highlighting uses only exact executable-block AST ranges", () => {
+	const text = "Narrative let inert = 0\n\n```js\nlet alsoInert = 1\n```\n```amx\nlet active = 2\n```\n";
+	const parsed = parseDocumentText(text);
+	const highlights = editorHighlightFacts(text, parsed);
+	const slices = highlights.map(fact => text.slice(fact.from, fact.to));
+
+	expect(slices).toContain("let");
+	expect(slices).toContain("active");
+	expect(slices).not.toContain("inert");
+	expect(slices).not.toContain("alsoInert");
+});
+
+test("shared symbol facts assign exact declaration identity and withhold duplicate targets", () => {
+	const text = "```amx\nlet value: Number = 1\nlet result: Number = value\n```\n";
+	const parsed = parseDocumentText(text);
+	const facts = editorSymbolFacts(text, "/project/report.amx", parsed);
+	const declaration = facts.find(fact => fact.declaration && text.slice(fact.from, fact.to) === "value");
+	const reference = facts.find(fact => !fact.declaration && text.slice(fact.from, fact.to) === "value");
+
+	expect(declaration).toBeDefined();
+	expect(reference?.target).toEqual(declaration?.target);
+	const ambiguousText = "```amx\nlet repeat = 1\nlet repeat = 2\nlet result = repeat\n```\n";
+	const ambiguous = editorSymbolFacts(ambiguousText, "/project/ambiguous.amx", parseDocumentText(ambiguousText));
+	expect(ambiguous.some(fact => !fact.declaration && ambiguousText.slice(fact.from, fact.to) === "repeat")).toBe(false);
+});
+
+test("shared refactoring facts require unique diagnostics and proven symbol identity", () => {
+	const text = "```amx\nlet amount: Number = 1\nlet result: Number = amount\n```\n";
+	const parsed = parseDocumentText(text);
+	const symbols = editorSymbolFacts(text, "/project/report.amx", parsed);
+	const reference = symbols.find(fact => !fact.declaration && text.slice(fact.from, fact.to) === "amount");
+	const rename = editorRenameFact(symbols, "/project/report.amx", reference!.from);
+	expect(rename?.edits).toHaveLength(2);
+	expect(rename?.edits.every(edit => text.slice(edit.from, edit.to) === "amount")).toBe(true);
+
+	const actionText = "```amx\nlet rows: Number[] = []\ntable report = table(rows) {\n  title: \"Report\"\n  column id as \"ID\"\n}\nshow reprot\n```\n";
+	const actionDocument = parseDocumentText(actionText);
+	const showFrom = actionText.indexOf("reprot");
+	const diagnostic = { code: "AMX3001", message: "Unknown or not-yet-declared visualization 'reprot'", from: showFrom, to: showFrom + 6 };
+	expect(editorCodeActionFacts(actionText, actionDocument, [diagnostic])).toEqual([
+		{ from: showFrom, to: showFrom + 6, title: "Use visible view 'report'", expected: "reprot", replacement: "report", code: "AMX3001" }
+	]);
+	expect(editorCodeActionFacts(actionText, actionDocument, []).length).toBe(0);
+	expect(isSafeRenameIdentifier("renamedValue")).toBe(true);
+	expect(isSafeRenameIdentifier("if")).toBe(false);
+	expect(isSafeRenameIdentifier("Number")).toBe(false);
+});

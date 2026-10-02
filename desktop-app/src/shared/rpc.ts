@@ -65,6 +65,9 @@ export interface TextDiagnostic { code: string; message: string; file?: string; 
 export interface TextAnalysis {
 	diagnostics: TextDiagnostic[];
 	completions: string[];
+	highlights?: Array<{ from: number; to: number; kind: "keyword" | "declaration" | "reference" | "field" | "type" | "literal" }>;
+	symbols?: Array<{ from: number; to: number; file: string; name: string; kind: string; detail: string; declaration: boolean; target: { file: string; from: number; to: number }; origin?: string }>;
+	actions?: Array<{ from: number; to: number; expected: string; replacement: string; title: string; code: string; revision: number }>;
 }
 export interface RunSummary { values: Array<{ name: string; value: string | number | boolean | null }>; }
 export interface InputConfiguration {
@@ -133,7 +136,8 @@ export interface DesktopRPCClient {
 		updateBuffer(params: { text: string; path?: string; sequence?: number }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		saveDocument(): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		formatBuffer(): Promise<DesktopRPCResponse<{ text: string }>>;
-		analyzeBuffer(): Promise<DesktopRPCResponse<{ analysis: TextAnalysis }>>;
+		analyzeBuffer(params?: { path?: string; revision?: number; cursorOffset?: number }): Promise<DesktopRPCResponse<{ analysis: TextAnalysis }>>;
+		renameSymbol(params: { offset: number; newName: string; expectedRevision: number }): Promise<DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }>>;
 		getInputConfiguration(params?: { inputMappings?: string[] }): Promise<DesktopRPCResponse<{ configuration: InputConfiguration }>>;
 		runBuffer(params?: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ summary: RunSummary; diagnostics: TextAnalysis["diagnostics"] }>>;
 		previewBuffer(params?: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ html: string; diagnostics: TextAnalysis["diagnostics"] }>>;
@@ -200,7 +204,8 @@ export type DesktopRPCSchema = {
 			updateBuffer: { params: { text: string; path?: string; sequence?: number }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			saveDocument: { params: Record<string, never>; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			formatBuffer: { params: Record<string, never>; response: DesktopRPCResponse<{ text: string }> };
-			analyzeBuffer: { params: Record<string, never>; response: DesktopRPCResponse<{ analysis: TextAnalysis }> };
+			analyzeBuffer: { params: { path?: string; revision?: number; cursorOffset?: number }; response: DesktopRPCResponse<{ analysis: TextAnalysis }> };
+			renameSymbol: { params: { offset: number; newName: string; expectedRevision: number }; response: DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }> };
 			runBuffer: { params: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ summary: RunSummary; diagnostics: TextAnalysis["diagnostics"] }> };
 			getInputConfiguration: { params: { inputMappings?: string[] }; response: DesktopRPCResponse<{ configuration: InputConfiguration }> };
 			previewBuffer: { params: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ html: string; diagnostics: TextAnalysis["diagnostics"] }> };

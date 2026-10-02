@@ -5,6 +5,8 @@ import { parseDocumentText } from '../../../src/parser/parseDocument';
 import { analyzeEditorDocument, EditorAnalysis } from './moduleAnalysis';
 import { CheckedType } from '../../../src/typechecker/checkDocument';
 import { declarationRange, tokenRange } from './symbolRanges';
+import { editorSymbolFacts } from '../../../src/editor/symbols';
+import { isSafeRenameIdentifier } from '../../../src/editor/refactoring';
 
 interface Occurrence {
   range: vscode.Range;
@@ -65,84 +67,17 @@ async function occurrences(document: vscode.TextDocument): Promise<Map<string, {
   const entry = document.uri.scheme === 'file' ? fs.realpathSync(document.uri.fsPath) : document.uri.toString();
   files.set(entry, document);
   const result = new Map<string, { document: vscode.TextDocument; items: Occurrence[] }>();
-  for (const [file, current] of files) {
-    const parsedModule = file === entry ? parsed : analysis!.modules!.get(file)!.document;
-    const module = analysis?.modules?.get(file);
-    const items: Occurrence[] = [];
-    const visible = new Map<string, Occurrence>();
-    const declarations = statements(parsedModule).filter(candidate => 'name' in candidate && declarationRange(current, candidate));
-    const duplicates = new Set(declarations.filter((candidate, index) =>
-      declarations.some((other, otherIndex) => otherIndex !== index && 'name' in other && 'name' in candidate && other.name === candidate.name)
-    ).map(candidate => 'name' in candidate ? candidate.name : ''));
-    const add = (source: { line: number; column: number } | undefined, name: string, target?: Occurrence) => {
-      if (!target) return;
-      const range = tokenRange(current, source, name);
-      if (range) items.push({ ...target, range, declaration: false });
-    };
-    const expression = (node: V02ExpressionNode): void => {
-      if (!analysis && statements(parsedModule).some(item => item.type === 'importDeclaration')) return;
-      switch (node.type) {
-        case 'identifier': add(node.source, node.name, visible.get(node.name)); break;
-        case 'functionCall': add(node.source, node.callee, visible.get(node.callee)); node.arguments.forEach(expression); break;
-        case 'recordConstructor': add(node.source, node.name, visible.get(node.name)); node.fields.forEach(field => expression(field.expression)); break;
-        case 'binaryExpression': expression(node.left); expression(node.right); break;
-        case 'unaryExpression': expression(node.argument); break;
-        case 'conditionalExpression': expression(node.test); expression(node.consequent); expression(node.alternate); break;
-        case 'listLiteral': node.elements.forEach(expression); break;
-        case 'rangeExpression': expression(node.start); expression(node.end); break;
-        case 'matchExpression': expression(node.expression); node.cases.forEach(arm => expression(arm.expression)); expression(node.defaultExpression); break;
-        case 'fieldAccess': expression(node.receiver); break;
-        // The parser does not locate iterator tokens independently; do not attribute shadowed loop uses.
-        case 'forExpression': expression(node.iterable); break;
-      }
-    };
-    for (const statement of statements(parsedModule)) {
-      if (statement.type === 'importDeclaration') {
-        for (const imported of statement.names) {
-          const targetFile = module?.importTargets.get(imported.name);
-          const targetDocument = targetFile && files.get(targetFile);
-          const targetStatement = targetFile && analysis?.modules?.get(targetFile)?.document &&
-            statements(analysis.modules.get(targetFile)!.document).find(candidate =>
-              'name' in candidate && candidate.name === imported.name && 'exported' in candidate && candidate.exported);
-          const target = targetDocument && targetStatement && declaration(targetDocument, targetStatement);
-          if (target && targetFile) {
-            const importedOccurrence = { ...target, origin: targetFile };
-            visible.set(imported.name, importedOccurrence);
-            add(imported.source, imported.name, importedOccurrence);
-          }
-        }
-      } else {
-        if (statement.type === 'variableDeclaration') expression(statement.expression);
-        if (statement.type === 'variableDeclaration' || statement.type === 'inputDeclaration') {
-          const annotation = statement.annotation;
-          if (annotation?.type === 'namedType' && annotation.name) add(annotation.source, annotation.name, visible.get(annotation.name));
-        }
-        if (statement.type === 'showStatement') add(statement.nameSource, statement.name, visible.get(statement.name));
-        if (statement.type === 'tableDeclaration' || statement.type === 'chartDeclaration') add(statement.bindingSource, statement.binding, visible.get(statement.binding));
-        if (statement.type === 'assignmentStatement' || statement.type === 'compoundAssignmentStatement') {
-          add(statement.source, statement.name, visible.get(statement.name));
-          expression(statement.expression);
-        }
-        if (statement.type === 'forStatement') expression(statement.iterable);
-        const declared = declaration(current, statement);
-        if (declared && 'name' in statement && !duplicates.has(statement.name)) {
-          if (statement.type === 'variableDeclaration') {
-            const inferred = module?.checkResult.bindingTypes.get(statement.name) ?? (file === entry && !module ? analysis?.bindingTypes?.get(statement.name) : undefined);
-            if (inferred) declared.detail = `binding ${statement.name}: ${typeText(inferred)}`;
-          }
-          visible.set(statement.name, declared);
-          items.push(declared);
-          if (statement.type === 'typeDeclaration') {
-            for (const field of statement.fields) {
-              const range = tokenRange(current, field.source, field.name);
-              if (range) items.push({ range, target: new vscode.Location(current.uri, range), declaration: true,
-                kind: 'field', detail: `field ${field.name}: ${field.annotation.name ?? field.annotation.type}` });
-            }
-          }
-        }
-      }
-    }
-    result.set(file, { document: current, items });
+  const moduleSources = new Map([...files].map(([file, current]) => [file, current.getText()]));
+  const facts = editorSymbolFacts(document.getText(), entry, parsed, analysis, moduleSources);
+  for (const [file, current] of files) result.set(file, { document: current, items: [] });
+  for (const fact of facts) {
+    const sourceDocument = files.get(fact.file);
+    const targetDocument = files.get(fact.target.file);
+    if (!sourceDocument || !targetDocument) continue;
+    const range = new vscode.Range(sourceDocument.positionAt(fact.from), sourceDocument.positionAt(fact.to));
+    const targetRange = new vscode.Range(targetDocument.positionAt(fact.target.from), targetDocument.positionAt(fact.target.to));
+    result.get(fact.file)!.items.push({ range, target: new vscode.Location(targetDocument.uri, targetRange), declaration: fact.declaration,
+      kind: fact.kind, detail: fact.detail, origin: fact.origin });
   }
   return result;
 }
@@ -214,6 +149,45 @@ export function registerNavigationProviders(): vscode.Disposable[] {
           }
         }
         return matches;
+      }
+    }),
+    vscode.languages.registerRenameProvider(selector, {
+      async prepareRename(document, position) {
+        const graph = await occurrences(document);
+        const current = graph.get(document.uri.scheme === 'file' ? fs.realpathSync(document.uri.fsPath) : document.uri.toString());
+        const found = at(current?.items ?? [], position);
+        return found ? { range: found.range, placeholder: document.getText(found.range) } : undefined;
+      },
+      async provideRenameEdits(document, position, newName, token) {
+        if (!isSafeRenameIdentifier(newName)) return undefined;
+        const graph = await occurrences(document);
+        if (token.isCancellationRequested) return undefined;
+        const entry = document.uri.scheme === 'file' ? fs.realpathSync(document.uri.fsPath) : document.uri.toString();
+        const found = at(graph.get(entry)?.items ?? [], position);
+        if (!found) return undefined;
+        const oldName = document.getText(found.range);
+        if (oldName === newName) return new vscode.WorkspaceEdit();
+
+        for (const { document: source } of graph.values()) {
+          let parsed: OpenAmxDocument;
+          try { parsed = parseDocumentText(source.getText()); } catch { return undefined; }
+          for (const statement of statements(parsed)) {
+            if ('name' in statement && statement.name === newName) return undefined;
+            if (statement.type === 'importDeclaration' && statement.names.some(item => item.name === newName)) return undefined;
+          }
+        }
+
+        const edit = new vscode.WorkspaceEdit();
+        let count = 0;
+        for (const { document: source, items } of graph.values()) {
+          for (const item of items) {
+            if (item.target.uri.toString() !== found.target.uri.toString() || !item.target.range.isEqual(found.target.range)) continue;
+            if (source.getText(item.range) !== oldName) return undefined;
+            edit.replace(source.uri, item.range, newName);
+            count++;
+          }
+        }
+        return count ? edit : undefined;
       }
     })
   ];

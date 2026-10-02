@@ -1,0 +1,17 @@
+# Sprint 040 Acceptance Criteria
+
+Sprint 040 is complete when:
+
+- A VS Code-independent shared editor/module-analysis boundary provides proven symbol identity, occurrences, original ranges, completion facts, diagnostics, navigation, rename facts, and deterministic action facts. It does not import VS Code, desktop UI, evaluator, or input-loader authority.
+- Existing VS Code providers consume the shared facts without changing supported external behavior. Extension compile and Extension Development Host regressions pass, and any prior limitations remain explicit.
+- CodeMirror highlights AMX tokens only inside exact executable `amx` fences. Narrative Markdown, ordinary fences, bare declarations, and non-executable code remain inert. Tests cover multiple fences, malformed/incomplete source, CRLF, non-BMP prefixes, updates, selection, scroll, and no second parser/grammar.
+- Completion is source-order and import-aware for proven keywords, types, functions, bindings, fields, inputs, and views. It uses current open unsaved reachable buffers, canonical disk fallback, bounded graph traversal, and no guessed candidates from unresolved/ambiguous/cyclic/outside-root modules.
+- Inline parser/checker/module-link diagnostics preserve core codes, original UTF-16 positions, bounded/redacted messages, revision/job identity, and stale-response rejection. Static assistance never evaluates AMX or reads CSV/JSON values.
+- Hover, definition, exact references, and document symbols work only for proven identities/ranges. Unlocated nested/scope/duplicate/shadowed/ambiguous facts are withheld rather than guessed, with tests for both result and no-result cases.
+- Safe rename and diagnostic-grounded code actions preflight symbol identity, containment, all affected open/disk revisions, source locations, and destination conflicts. Multi-file changes apply atomically or not at all; stale, cyclic, unresolved, ambiguous, or unsupported actions are withheld.
+- Canonical formatting remains limited to executable fence contents and preserves undo, selection/nearest safe mapping, scroll, tab state, CRLF, non-BMP locations, and current-buffer overlay behavior.
+- Desktop and VS Code adapters share facts but keep host-specific lifecycle/range conversion. No webview filesystem, evaluator, input, arbitrary-path, or unrestricted indexing authority is introduced; payloads are bounded and private paths/content are redacted.
+- Focused shared/editor, CodeMirror/component, desktop overlay/navigation/action, VS Code compile/host, root compatibility, and direct desktop tests pass. Root build/full tests, desktop typecheck/Vite/direct checks, and `git diff --check` are run and recorded with exact versions/counts/warnings/artifacts.
+- Bundle/latency/memory evidence and unsupported parser-span/action limitations are recorded. VS Code 1.85 apply-time edit safety is either directly bounded by the documented resolve-time guard or assigned an explicit follow-up; it is not silently claimed fully stale-proof.
+- `planning/state.md`, `planning/decisions.md`, `planning/questions.md`, and the Sprint 040 evidence record document shared API decisions, compatibility results, residuals, and conditions for Sprint 041/042. Structured data editing and final live preview/export are not claimed complete.
+- Final status is `COMPLETE`, `COMPLETE WITH RECORDED EXCEPTIONS`, or `BLOCKED`; no native release, Office, licensing/Marketplace, or formal accessibility certification is inferred.

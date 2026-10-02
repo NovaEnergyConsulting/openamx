@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.6 Sprint 040 Builder Residuals (2026-10-02)
+
+- Does the Lead Developer accept the documented VS Code 1.85 rename/quick-fix limitation, where provider resolution rechecks current symbols/tokens but an already-created multi-file `WorkspaceEdit` cannot carry an apply-time document-version precondition? Owner: Lead Developer / VS Code acceptance. Do not describe extension edits as atomically stale-proof until explicitly resolved.
+- Which additional AST source spans, if any, should be added for nested function-body locals, loop iterator uses, and other currently unlocated scope references? Owner: Lead Developer / shared parser maintainers. Current behavior withholds navigation/rename rather than guessing; no AMX syntax change is authorized.
+- Which SDK-enabled Electrobun host will exercise the production CodeEditor/RPC bridge, focus restoration, keyboard/IME and populated workbench visuals? Owner: Lead Developer/native acceptance. The isolated browser harness exercises the production CodeEditor component but is not native-host or formal accessibility evidence.
+- Sprint 041 may proceed with the 101-module static graph bound and typed symbol/rename facts; retain the private external data editor and 100k-row component gate under Sprint 041's existing owners. Sprint 042 may consume current path/revision diagnostics and analysis facts, but must still prove end-to-end cancellation, live preview, and export behavior separately.
+
 ## V0.6 Sprint 039 Builder Residuals (2026-10-02)
 
 - Which SDK-enabled native host will directly exercise input and logo selection, cancellation, stale-picker behavior, and the populated Inputs/Report Settings UI? Owner: Lead Developer/native acceptance. Service-injected picker tests pass but do not close this host gate.

@@ -13,6 +13,7 @@
 		"run": "bun run build:web && hutch electrobun build --env=dev && hutch electrobun run --env=dev"
 	},
 	"dependencies": {
+		"@codemirror/autocomplete": "6.20.3",
 		"@codemirror/lang-markdown": "6.5.2",
 		"@codemirror/search": "6.7.2",
 		"@fontsource/dm-mono": "5.3.0",

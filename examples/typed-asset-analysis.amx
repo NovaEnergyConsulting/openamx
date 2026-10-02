@@ -10,6 +10,8 @@ This illustrative screening combines a nested Asset Management record from JSON
 with scalar screening rows from CSV. Its score is an example calculation, not a
 domain-standard risk formula.
 
+This is some additional text.
+
 ```amx
 import { Asset, FailureMode } from "./libraries/asset-management.amx"
 import { Screening } from "./libraries/screening.amx"

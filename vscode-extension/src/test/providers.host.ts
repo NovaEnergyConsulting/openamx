@@ -146,6 +146,41 @@ suite('OpenAMX providers', () => {
       await fs.rm(directory, { recursive: true, force: true });
     }
   });
+  test('renames only a proven symbol identity and withholds collisions', async () => {
+    const document = await vscode.workspace.openTextDocument({ language: 'amx', content: [
+      '```amx', 'let amount: Number = 2', 'let result: Number = amount + amount', '```'
+    ].join('\n') });
+    await vscode.window.showTextDocument(document);
+    const definition = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeDefinitionProvider', document.uri, new vscode.Position(1, 5)
+    );
+    assert.equal(definition?.length, 1);
+    const prepared = await vscode.commands.executeCommand<{ range: vscode.Range; placeholder: string }>(
+      'vscode.prepareRename', document.uri, new vscode.Position(1, 5)
+    );
+    assert.equal(prepared?.placeholder, 'amount');
+    const rename = await vscode.commands.executeCommand<vscode.WorkspaceEdit | undefined>(
+      'vscode.executeDocumentRenameProvider', document.uri, new vscode.Position(1, 5), 'score'
+    );
+    assert.ok(rename);
+    const edits = rename.get(document.uri);
+    assert.equal(edits.length, 3);
+    assert.ok(edits.every(edit => edit.newText === 'score'));
+
+    const collision = await vscode.workspace.openTextDocument({ language: 'amx', content: [
+      '```amx', 'let amount: Number = 2', 'let score: Number = 3', 'let result = amount', '```'
+    ].join('\n') });
+    await vscode.window.showTextDocument(collision);
+    let collisionWithheld = false;
+    try {
+      await vscode.commands.executeCommand<vscode.WorkspaceEdit | undefined>(
+        'vscode.executeDocumentRenameProvider', collision.uri, new vscode.Position(1, 5), 'score'
+      );
+    } catch (error) {
+      collisionWithheld = error instanceof Error && error.message.includes('No result');
+    }
+    assert.equal(collisionWithheld, true);
+  });
   test('locates original UTF-16 tokens in CRLF and unsaved dependency text', async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'openamx-symbol-range-'));
     const dependencyPath = path.join(directory, 'dependency.amx');
