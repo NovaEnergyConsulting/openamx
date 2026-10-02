@@ -6,8 +6,6 @@ version: 0.2
 # Hello OpenAMX
 
 ```amx
-import { Asset } from "./libraries/asset-management.amx"
-input asset: Asset
 let assetName = "Transformer TX-001"
 let riskScore = 15
 ```
@@ -18,6 +16,6 @@ The calculated risk score is {{ riskScore }}.
 
 Only exact `amx` fences execute. This ordinary fence is illustrative:
 
-```textqw
+```text
 let ignored = 999
 ```

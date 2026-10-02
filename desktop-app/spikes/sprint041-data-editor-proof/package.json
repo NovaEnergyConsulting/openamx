@@ -1,0 +1,23 @@
+{
+	"name": "openamx-sprint041-data-editor-proof",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite --host 127.0.0.1",
+		"build": "vite build",
+		"host:prepare": "bunx hutch electrobun prepare",
+		"host:build": "bun run build && bun run host:prepare && bunx hutch electrobun build --env=dev",
+		"host:run": "bun run host:build && bunx hutch electrobun run --env=dev"
+	},
+	"dependencies": {
+		"@vitejs/plugin-vue": "5.2.4",
+		"json-editor-vue": "0.19.2",
+		"vanilla-jsoneditor": "3.13.0",
+		"vite": "6.4.3",
+		"vue": "3.5.41",
+		"vxe-pc-ui": "4.18.21",
+		"vxe-table": "4.22.3",
+		"xe-utils": "4.1.2"
+	},
+	"devDependencies": {}
+}

@@ -1,5 +1,13 @@
 # Planning Decisions
 
+## V0.6 Sprint 041 Candidate Gate (2026-10-02)
+
+- Do not adopt a structured-data editor dependency until candidate evidence includes native IME/keyboard behavior, the actual Electrobun webview, candidate-specific production bundle impact, and raw-preserving larger-data fallback. The isolated proof names `vxe-table@4.22.3` and `json-editor-vue@0.19.2`/`vanilla-jsoneditor@3.13.0` as test subjects only; **no candidate is selected**.
+- Keep the current CSV/JSON content shell and private external-input refusal in place while blocked. Do not hand-roll virtualization or claim Sprint 041 editing acceptance. Preserve Sprint 036 request identity/jobs, Sprint 038 atomic autosave/conflicts, Sprint 039 mapping privacy, Sprint 040 shared facts, and existing core JSON/CSV semantics.
+- Available-browser results are supporting candidate evidence only. Synthetic `CompositionEvent` dispatch is not native IME evidence; measured parsing, candidate viewport, and synthetic worker cancellation are separate results and cannot substitute for one another.
+- Provide native candidate checks through `desktop-app/spikes/sprint041-data-editor-proof`, a separately identified Electrobun 2.0.1 app. Candidate UI packages remain isolated there until native keyboard/IME, actual host rendering, candidate-specific bundle and remaining scale/fidelity gates are reviewed. This proof host is not the production workbench and does not select a candidate.
+- Lead Developer reports all listed manual checks passed in the isolated host and both editors worked as expected. For VXE integration, register its official `en-US` dictionary before mounting the grid and audit all user-visible controls for untranslated strings; the current proof confirms “No data yet” and no Han characters in the visible page. This does not select a production candidate or close remaining bundle/JSON-scale/fidelity gates.
+
 ## V0.6 Sprint 040 Builder Implementation (2026-10-02)
 
 - Keep semantic authority in `src/parser`, `src/typechecker`, and the existing module-import contract. Add `src/editor/` as a host-neutral fact layer that accepts a host-supplied module resolver; it imports neither VS Code nor desktop APIs and does not evaluate AMX or read mapped input values.

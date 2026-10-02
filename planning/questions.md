@@ -1,5 +1,11 @@
 # Planning Questions (Sprint 002)
 
+## V0.6 Sprint 041 Builder Residuals (2026-10-02)
+
+- **Resolved by Lead Developer report:** all manual checklist interactions were performed in the isolated host; both editors worked as expected. Exact OS/session, input method and individual timings were not recorded. VXE's default Chinese empty-state label is addressed in the proof via its official `en-US` locale; production integration must audit all visible labels. Remaining questions: candidate-specific bundle impact, JSON array-of-record 100k behavior, and exact raw-source preservation through larger fallback and trusted saves.
+- After native proof is available, does either candidate meet the required Vue/Bun/Vite/Electrobun and bundle criteria when measured in isolation in the production build? Owner: Sprint 041 Builder. The current proof combines both candidates and emits 716.52 kB gzip JavaScript plus a >500 kB warning; no per-candidate production delta is recorded.
+- Which supported JSON array-of-record fixture and larger-file threshold should be used to prove grid-backed editing and raw-only fallback without truncation? Owner: Sprint 041 Builder / Lead Developer. The flat 100k object-grid proof is not nested-tree 100k evidence, and the 100001-row harness message does not prove production raw-source retention.
+
 ## V0.6 Sprint 040 Builder Residuals (2026-10-02)
 
 - Does the Lead Developer accept the documented VS Code 1.85 rename/quick-fix limitation, where provider resolution rechecks current symbols/tokens but an already-created multi-file `WorkspaceEdit` cannot carry an apply-time document-version precondition? Owner: Lead Developer / VS Code acceptance. Do not describe extension edits as atomically stale-proof until explicitly resolved.
