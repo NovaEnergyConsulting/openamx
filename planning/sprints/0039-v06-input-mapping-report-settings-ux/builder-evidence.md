@@ -37,5 +37,39 @@ No Sprint 039 feature acceptance is claimed. Sprint 040/041/042 entry conditions
 
 ## Sprint 038 Dependency Update (2026-10-02)
 
-- The Lead Developer reports all Sprint 038 acceptance tests completed successfully and directs Sprint 038 to be marked complete. The final-Sprint-038-acceptance dependency recorded above is cleared by that disposition.
-- Sprint 039 implementation has not been performed by this update. Its precedence, privacy, trusted config-write/conflict, frontmatter-preservation, logo-security, revision-invalidation, and native-evidence criteria remain in force; no Sprint 039 completion is claimed.
+- At this dependency-update checkpoint, the Lead Developer reported all Sprint 038 acceptance tests completed successfully and directed Sprint 038 to be marked complete. This cleared the final-Sprint-038-acceptance dependency.
+- Sprint 039 implementation had not yet been performed at that checkpoint. The following Final Builder Outcome supersedes that historical statement; the Sprint 039 acceptance criteria remain in force.
+
+## Final Builder Outcome (2026-10-02)
+
+### Disposition and Scope
+
+**IMPLEMENTATION COMPLETE WITH RECORDED EXCEPTIONS; Lead Developer acceptance pending.** The final Sprint 038 dependency is satisfied by the explicit Lead Developer direction recorded in `planning/state.md` and `planning/decisions.md`. The final Sprint 038 manual matrix and exact observations were not supplied; this Builder does not independently claim that native/UI matrix.
+
+Delivered the contextual active-document Inputs panel and scoped Report Settings modal. The panel shows declared name/type, session/local/project/missing source, unvalidated/valid/missing/invalid state, source declaration navigation, per-input data diagnostic links, Browse/Clear/Open, aggregate/fail-fast mode, and explicit promotion. Report Settings exposes project defaults and current-document overrides for all nine V0.5 fields, effective/inherited values, logo selection, validation errors, source visibility, and accent fallback.
+
+Trusted Bun RPC now owns local picker persistence, project promotion, config merge/conflict/no-write, report identity validation, sanitized project-contained logo selection, and current-buffer frontmatter edits. Config writes use revision hashes, strict candidate validation, same-directory temporary files, flush/close and atomic rename. YAML edits preserve content outside frontmatter and unrelated YAML keys/comments/line endings. Settings changes increment `inputSettingsRevision` and invalidate active jobs. No precedence, V0.5 identity, CLI, AMX, or VS Code semantics changed.
+
+### Privacy and Boundaries
+
+- `getInputConfiguration`, picker/mapping responses, diagnostics, and report settings snapshots expose no local absolute input path or input bytes. Focused tests assert private path/content redaction for picker persistence, and the direct desktop suite retains Sprint 036 worker/path-redaction checks.
+- The webview submits logical input names, scopes, revisions, report values, and native picker intents only. It gains no filesystem, loader, evaluator, arbitrary path, or write authority.
+- Explicit Open works for a mapped contained project data file through the existing document-open boundary. Opening mapped private external data is not implemented: Bun returns a bounded path-free unavailable error until Sprint 041 supplies the structured data-editor route.
+- Native picker and logo-selection behavior was tested with injected service picker results only. No direct OS dialog interaction, native UI screenshot, or populated workbench visual acceptance was performed. The picker/UI acceptance item remains unverified, not passed.
+
+### Verification
+
+Host: Omarchy Linux x86_64; Bun 1.4.2; Node v24.14.1; Vue 3.5.41; Vite 6.4.3.
+
+- `cd /home/cgamez/Programming/openamx && bun test desktop-app/src/bun/configuration.test.ts desktop-app/src/bun/desktopSettings.test.ts tests/inputData.test.ts tests/reportPreparation.test.ts tests/reportIdentityCli.test.ts`: **27 passed, 0 failed, 146 expectations across 5 files**.
+- `cd /home/cgamez/Programming/openamx && bun run build && bun test && git diff --check`: passed; root build passed and **220 tests, 0 failures, 953 expectations across 21 files**.
+- `cd /home/cgamez/Programming/openamx/desktop-app && bun run test`: direct RPC/authority/workflow suite passed, including Sprint 036/038 identity, cancellation, conflict, privacy, no-write and no-active-resource groups; ended `Final active resources: []`.
+- `cd /home/cgamez/Programming/openamx/desktop-app && bunx vue-tsc --noEmit`: passed.
+- `cd /home/cgamez/Programming/openamx/desktop-app && bunx vite build`: passed; Vite 6.4.3, 1,916 modules, JS 736.95 kB / 253.62 kB gzip, CSS 43.82 kB / 8.98 kB gzip. Existing >500 kB chunk warning remains.
+- `cd /home/cgamez/Programming/openamx/vscode-extension && bun run compile && bun run test`: passed **18 Extension Development Host tests** on VS Code 1.85.0. Existing Fontconfig and unrelated `ms-python` API proposal warnings were emitted; no extension source/API changed.
+- Native picker/window/platform, browser-backed production component interaction, and screenshot checks were not run. A stable Electrobun build may exist from the available generated host, but it is not native-dialog interaction or release certification.
+
+### Downstream Conditions
+
+- Sprint 041 owns opening/editing explicitly mapped private external data without returning private paths or input values in general RPC/log/evidence payloads; do not broaden filesystem browsing.
+- Lead Developer/native acceptance owns direct native input/logo picker and populated UI checks. Sprint 043 owns bridge-backed viewport/theme/focus acceptance. No native release, Hutch launch, Office, license/Marketplace, or formal accessibility claim is made.

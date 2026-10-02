@@ -1,5 +1,13 @@
 # Planning Decisions
 
+## V0.6 Sprint 039 Builder Implementation (2026-10-02)
+
+- No Lead Developer product-policy decision was required or made. Preserve session/per-run > local > project precedence, local-by-default persistence, explicit contained promotion, the existing version-1 config schema, report field scope/precedence, source-visible default, logo security, and webview authority.
+- Implement mapping/report writes in the trusted Bun service using SHA-256 expected revisions and same-directory atomic replacement. Validate the complete candidate input map and project report object before commit; malformed, stale, cancelled, insecure-local, outside-root, network, symlink, or invalid-logo cases do not replace the selected configuration.
+- The Inputs panel receives only logical names, declared types, source/status, bounded diagnostics/locations, and non-path revision hashes. Picker selections are consumed in Bun; local absolute paths and file bytes do not enter mapping/configuration responses or diagnostics. Explicit Open remains limited to contained project data; private external data opening is deferred to the Sprint 041 data-editor boundary and fails without returning its path or contents.
+- Project-default settings update `.openamx/project.json`; current-document overrides update only the active buffer's YAML frontmatter through the YAML AST/document API and the existing autosave/conflict flow. Report value validation, logo decoding/sanitization, and contrast fallback are shared with `reportPreparation.ts`.
+- The final Sprint 038 dependency is satisfied by the recorded Lead Developer direction. That direction does not supply the final native/manual matrix; Sprint 039 records its own native-picker and UI evidence gaps rather than inferring passes.
+
 ## V0.6 Sprint 038 Final Acceptance (2026-10-02)
 
 - By explicit Lead Developer direction, Sprint 038 is **COMPLETE**; the Lead Developer reports all acceptance tests passed. This supersedes the earlier interim/remediation status. The final manual test matrix and exact per-test outputs were not supplied with this disposition, so none are fabricated here.

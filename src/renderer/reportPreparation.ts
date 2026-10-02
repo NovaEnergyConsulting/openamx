@@ -91,6 +91,13 @@ function readProjectReport(projectRoot?: string): Record<string, unknown> {
   return config.report === undefined ? {} : asRecord(config.report, 'Project report must be an object', configPath);
 }
 
+export function validateReportSettings(report: Record<string, unknown>, projectRoot?: string, file?: string): Promise<void> {
+  validateReport(report, file ?? '.openamx/project.json', file);
+  if (report.logo === undefined) return Promise.resolve();
+  if (typeof report.logo !== 'string') return Promise.resolve();
+  return prepareLogo(report.logo, String(report.logoAlt ?? ''), projectRoot, file).then(() => undefined);
+}
+
 function validateReport(report: Record<string, unknown>, location: string, file?: string): void {
   for (const [key, value] of Object.entries(report)) {
     if (!REPORT_FIELDS.has(key)) fail('AMX6001', `Unknown report field '${key}'`, file ?? location);
@@ -115,7 +122,7 @@ async function resolveIdentity(projectReport: Record<string, unknown>, frontMatt
   return Object.freeze({
     organization: text(merged.organization),
     logo,
-    accent: effectiveAccent(text(merged.accent) ?? '#146C94'),
+    accent: effectiveReportAccent(text(merged.accent) ?? '#146C94'),
     author: text(merged.author),
     status: text(merged.status),
     classification: text(merged.classification),
@@ -175,7 +182,7 @@ function text(value: unknown): string | undefined {
   return typeof value === 'string' ? value.trim() || undefined : undefined;
 }
 
-function effectiveAccent(accent: string): string {
+export function effectiveReportAccent(accent: string): string {
   const channels = [accent.slice(1, 3), accent.slice(3, 5), accent.slice(5, 7)].map(value => Number.parseInt(value, 16) / 255);
   const luminance = channels.map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
     .reduce((total, value, index) => total + value * [0.2126, 0.7152, 0.0722][index], 0);

@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.6 Sprint 039 Builder Residuals (2026-10-02)
+
+- Which SDK-enabled native host will directly exercise input and logo selection, cancellation, stale-picker behavior, and the populated Inputs/Report Settings UI? Owner: Lead Developer/native acceptance. Service-injected picker tests pass but do not close this host gate.
+- When Sprint 041 provides the structured data editor, how will an explicitly mapped private external file be opened and edited without exposing its absolute path or input contents through general workbench/log/evidence payloads? Owner: Sprint 041 Builder. Current Open rejects private external mappings with a bounded path-free response; project-contained mapped files use the existing document-open path.
+- Which bridge-backed harness will verify active-document switching, dialog focus restoration, validation diagnostic links, and required viewport/theme states with production RPC? Owner: Sprint 043 acceptance harness. No screenshot or interactive component/browser result is claimed by this Builder run.
+- Lead Developer: review Sprint 039 evidence and record `COMPLETE`, `COMPLETE WITH RECORDED EXCEPTIONS`, or a remediation owner for these gaps. The implementation does not change any ratified precedence, privacy, frontmatter, logo, or authority rule.
+
 ## V0.6 Sprint 038/Sprint 039 Gate Resolution (2026-10-02)
 
 - The Lead Developer reports all Sprint 038 acceptance tests completed successfully and directs Sprint 038 to close. Its final-acceptance dependency is resolved, so Sprint 039 may proceed under its own requirements.

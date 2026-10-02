@@ -13,9 +13,13 @@ import { preparePdfDestination, writePdfAtomically } from "../../../src/runtime/
 import { prepareDocxReport, serializeDocxReport } from "../../../src/renderer/reportDocx";
 import { prepareDocxDestination, writeDocxAtomically } from "../../../src/runtime/docxDestination";
 import { prepareReport } from "../../../src/renderer/reportPreparation";
-import { resolveDesktopInputs, validateDesktopDestination, writeDesktopHtml } from "./desktopWorkflow";
+import { effectiveReportAccent, validateReportSettings } from "../../../src/renderer/reportPreparation";
+import { parseFrontMatter } from "../../../src/parser/parseFrontMatter";
+import { readConfiguration, readConfigurationRevision, updateConfiguration } from "./configuration";
+import { updateReportFrontmatter } from "./desktopSettings";
+import { resolveDesktopInputs, validateDesktopDestination, validateDesktopMappings, writeDesktopHtml } from "./desktopWorkflow";
 import { desktopWorkerUrl } from "./workerEntrypoint";
-import { createPingResponse, type ActiveDocumentRequestIdentity, type DesktopJobIdentity, type DesktopJobOperation, type DesktopJobResult, type DesktopJobSnapshot, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type DocumentKind, type OpenDocument, type ProjectFile, type ProjectFileKind, type RecoveryItem, type RunSummary, type TextAnalysis, type TextDiagnostic, type WorkbenchState, type RecentProject, type TransitionAction } from "../shared/rpc";
+import { createPingResponse, type ActiveDocumentRequestIdentity, type DesktopJobIdentity, type DesktopJobOperation, type DesktopJobResult, type DesktopJobSnapshot, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type DocumentKind, type OpenDocument, type ProjectFile, type ProjectFileKind, type RecoveryItem, type RunSummary, type TextAnalysis, type TextDiagnostic, type WorkbenchState, type RecentProject, type ReportSettingKey, type ReportSettingsSnapshot, type ReportSettingsValues, type TransitionAction } from "../shared/rpc";
 import type { WorkerJobMessage, WorkerJobRequest, WorkerJobResult } from "./jobProtocol";
 
 const MAX_TEXT = 2_000_000;
@@ -23,6 +27,7 @@ const MAX_HTML = 8_000_000;
 const MAX_FILES = 5000;
 const MAX_FOLDERS = 5000;
 const IGNORED = new Set(["node_modules", "build", "dist", "artifacts", "generated", "out"]);
+const REPORT_SETTING_KEYS: ReportSettingKey[] = ["organization", "logo", "logoAlt", "accent", "author", "status", "classification", "footer", "sourceVisible"];
 
 function hash(text: string): string {
 	return createHash("sha256").update(text).digest("hex");
@@ -638,6 +643,105 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		return { ok: true, ready: true, state: state() };
 	}
 
+	function inputConfiguration() {
+		const { document } = requireActive();
+		const resolved = resolveDesktopInputs(requireRoot(), document.text, activeInputMappings, activeValidation);
+		return {
+			...resolved.configuration,
+			revisions: {
+				local: readConfigurationRevision(requireRoot(), "local"),
+				project: readConfigurationRevision(requireRoot(), "project")
+			}
+		};
+	}
+
+	async function reportSettingsSnapshot(): Promise<ReportSettingsSnapshot> {
+		const { document } = requireActive();
+		const root = requireRoot();
+		const config = readConfiguration(root, "project");
+		const project = config.report && typeof config.report === "object" && !Array.isArray(config.report) ? config.report as ReportSettingsValues : {};
+		const frontmatter = parseFrontMatter(document.text);
+		if (frontmatter.error) throw new Error("Current document has invalid YAML frontmatter.");
+		const rawDocument = frontmatter.metadata.report;
+		if (rawDocument !== undefined && (!rawDocument || typeof rawDocument !== "object" || Array.isArray(rawDocument))) throw new Error("Current document report frontmatter must be a mapping.");
+		const current = (rawDocument ?? {}) as ReportSettingsValues;
+		const effective = { ...project, ...current };
+		if (effective.sourceVisible === undefined) effective.sourceVisible = true;
+		if (effective.accent === undefined) effective.accent = "#146C94";
+		const diagnostics: TextDiagnostic[] = [];
+		let accentFallback = false;
+		try {
+			await validateReportSettings(project as Record<string, unknown>, root);
+			if (current.logo !== undefined && current.logo !== null && !current.logoAlt) throw new Error("A current-document logo override requires its own logoAlt value.");
+			await validateReportSettings(effective as Record<string, unknown>, root, document.path);
+			const configuredAccent = typeof effective.accent === "string" ? effective.accent : "#146C94";
+			const resolvedAccent = effectiveReportAccent(configuredAccent);
+			accentFallback = resolvedAccent !== configuredAccent;
+			effective.accent = resolvedAccent;
+		} catch (error) {
+			diagnostics.push({ code: "AMX6001", message: error instanceof Error ? error.message.slice(0, 1000) : "Report settings are invalid." });
+		}
+		return {
+			project: { ...project }, document: { ...current }, effective,
+			projectRevision: readConfigurationRevision(root, "project"), documentRevision: document.revision, accentFallback, diagnostics
+		};
+	}
+
+	function applyReportChanges(target: Record<string, unknown>, values: ReportSettingsValues): void {
+		if (!values || typeof values !== "object" || Array.isArray(values) || Object.keys(values).some(key => !REPORT_SETTING_KEYS.includes(key as ReportSettingKey))) {
+			throw new Error("Report settings contain an unsupported field.");
+		}
+		for (const [key, value] of Object.entries(values)) {
+			if (value === null) delete target[key];
+			else target[key] = value;
+		}
+	}
+
+	function markSettingsChanged(): WorkbenchState {
+		inputSettingsRevision++;
+		invalidateStaleJobs();
+		return state();
+	}
+
+	async function validateProjectConfiguration(root: string, config: Record<string, unknown>): Promise<void> {
+		const inputs = config.inputs as Record<string, string>;
+		const diagnostics = validateDesktopMappings(root, inputs, true);
+		if (diagnostics.length) throw new Error(diagnostics[0]!.message);
+		const report = config.report && typeof config.report === "object" && !Array.isArray(config.report) ? config.report as Record<string, unknown> : {};
+		await validateReportSettings(report, root);
+	}
+
+	function validateLocalConfiguration(root: string, config: Record<string, unknown>): void {
+		const diagnostics = validateDesktopMappings(root, config.inputs as Record<string, string>, false);
+		if (diagnostics.length) throw new Error(diagnostics[0]!.message);
+	}
+
+	function requireDeclaredInput(name: string): void {
+		if (!/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(name)) throw new Error("Invalid logical input name.");
+		const currentConfiguration = resolveDesktopInputs(requireRoot(), requireActive().document.text, activeInputMappings).configuration;
+		if (!currentConfiguration.inputs.some(input => input.name === name)) throw new Error("That logical input is not declared by the active document.");
+	}
+
+	function validatedPickedFile(path: string, extensions: string[]): string {
+		if (!path || path.length > 4096 || path.includes("\0") || path.includes("://") || path.startsWith("\\\\") || path.startsWith("//")) throw new Error("Selected file is not a supported local file.");
+		if (!extensions.includes(extname(path))) throw new Error("Selected file has an unsupported extension.");
+		if (lstatSync(path).isSymbolicLink() || !statSync(path).isFile()) throw new Error("Selected file must be a regular file, not a symlink.");
+		return realpathSync(path);
+	}
+
+	function containedRelativeFile(root: string, path: string): string {
+		const candidate = resolve(root, path);
+		const relativePath = relative(root, candidate);
+		if (!relativePath || relativePath.startsWith("..") || relativePath.startsWith(sep) || relativePath.split(sep).some(part => part.startsWith("."))) throw new Error("Selected file must be a visible file inside the project.");
+		let current = root;
+		for (const part of relativePath.split(sep)) {
+			current = join(current, part);
+			if (lstatSync(current).isSymbolicLink()) throw new Error("Selected project file must not use symlinks.");
+		}
+		if (!statSync(candidate).isFile() || realpathSync(candidate) !== candidate) throw new Error("Selected project file is unavailable.");
+		return relativePath.split(sep).join("/");
+	}
+
 	const service = {
 		setProjectRoot(root: string, action?: TransitionAction) {
 			const canonical = realpathSync(resolve(root));
@@ -869,6 +973,170 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					invalidateStaleJobs();
 				}
 				return { ok: true, state: state() };
+			},
+			async pickInputMapping({ name, expectedRevision }: { name: string; expectedRevision: string }) {
+				try {
+					requireDeclaredInput(name);
+					const active = requireActive().document;
+					const startedGeneration = generation;
+					const startedRevision = active.revision;
+					const root = requireRoot();
+					const path = await picker?.choose({ directory: false, root });
+					if (!path) return { ok: true, configuration: inputConfiguration(), state: state() };
+					if (generation !== startedGeneration || current !== active || active.revision !== startedRevision) return errorResult<{ configuration: ReturnType<typeof inputConfiguration>; state: WorkbenchState }>({ code: "DESKTOP_STALE", message: "The active document changed while choosing an input." });
+					const selected = validatedPickedFile(path, [".json", ".csv"]);
+					const localConfig = readConfiguration(root, "local");
+					const localInputs = { ...(localConfig.inputs as Record<string, string>), [name]: selected };
+					validateLocalConfiguration(root, { ...localConfig, inputs: localInputs });
+					const revision = updateConfiguration(root, "local", expectedRevision, config => {
+						config.inputs = localInputs;
+					});
+					void revision;
+					const nextState = markSettingsChanged();
+					return { ok: true, configuration: inputConfiguration(), state: nextState };
+				} catch (error) {
+					return errorResult<{ configuration: ReturnType<typeof inputConfiguration>; state: WorkbenchState }>({ code: "DESKTOP_CONFIG", message: error instanceof Error ? error.message.slice(0, 1000) : "Unable to save the input mapping." });
+				}
+			},
+			async clearInputMapping({ name, scope, expectedRevision }: { name: string; scope: "session" | "local" | "project"; expectedRevision?: string }) {
+				try {
+					requireDeclaredInput(name);
+					if (scope === "session") {
+						const next = activeInputMappings.filter(mapping => mapping.slice(0, mapping.indexOf("=")) !== name);
+						const changed = next.length !== activeInputMappings.length;
+						const configured = await service.request.setInputSettings({ inputMappings: next, validation: activeValidation });
+						if (!configured.ok) return errorResult<{ configuration: ReturnType<typeof inputConfiguration>; state: WorkbenchState }>(configured.error);
+						return { ok: true, configuration: inputConfiguration(), state: configured.state };
+					}
+					if (!expectedRevision) throw new Error("Reload the input settings before clearing this mapping.");
+					const root = requireRoot();
+					const currentConfig = readConfiguration(root, scope);
+					if (!Object.hasOwn(currentConfig.inputs as object, name)) return { ok: true, configuration: inputConfiguration(), state: state() };
+					const inputs = { ...(currentConfig.inputs as Record<string, string>) };
+					delete inputs[name];
+					if (scope === "project") await validateProjectConfiguration(root, { ...currentConfig, inputs });
+					else validateLocalConfiguration(root, { ...currentConfig, inputs });
+					updateConfiguration(root, scope, expectedRevision, config => { config.inputs = inputs; });
+					const nextState = markSettingsChanged();
+					return { ok: true, configuration: inputConfiguration(), state: nextState };
+				} catch (error) {
+					return errorResult<{ configuration: ReturnType<typeof inputConfiguration>; state: WorkbenchState }>({ code: "DESKTOP_CONFIG", message: error instanceof Error ? error.message.slice(0, 1000) : "Unable to clear the input mapping." });
+				}
+			},
+			async promoteInputMapping({ name, expectedLocalRevision, expectedProjectRevision }: { name: string; expectedLocalRevision: string; expectedProjectRevision: string }) {
+				try {
+					requireDeclaredInput(name);
+					const root = requireRoot();
+					if (readConfigurationRevision(root, "local") !== expectedLocalRevision) throw new Error("Local input settings changed; reload before promoting.");
+					const local = readConfiguration(root, "local");
+					const value = (local.inputs as Record<string, unknown>)[name];
+					if (typeof value !== "string") throw new Error("Choose a local input mapping before promoting it.");
+					const selected = resolve(root, value);
+					const mapped = containedRelativeFile(root, selected);
+					if (![".json", ".csv"].includes(extname(mapped))) throw new Error("Only contained JSON and CSV files can be promoted.");
+					const projectConfig = readConfiguration(root, "project");
+					const projectInputs = { ...(projectConfig.inputs as Record<string, string>), [name]: mapped };
+					await validateProjectConfiguration(root, { ...projectConfig, inputs: projectInputs });
+					updateConfiguration(root, "project", expectedProjectRevision, config => {
+						config.inputs = projectInputs;
+					});
+					return { ok: true, configuration: inputConfiguration(), state: markSettingsChanged() };
+				} catch (error) {
+					return errorResult<{ configuration: ReturnType<typeof inputConfiguration>; state: WorkbenchState }>({ code: "DESKTOP_CONFIG", message: error instanceof Error ? error.message.slice(0, 1000) : "Unable to promote the input mapping." });
+				}
+			},
+			async openMappedInput({ name }: { name: string }) {
+				try {
+					requireDeclaredInput(name);
+					const root = requireRoot();
+					const { document } = requireActive();
+					const resolved = resolveDesktopInputs(root, document.text, activeInputMappings, activeValidation);
+					const mapping = resolved.mappings.find(value => value.slice(0, value.indexOf("=")) === name);
+					if (!mapping) throw new Error("Choose a mapping before opening this input.");
+					const mappedPath = mapping.slice(mapping.indexOf("=") + 1);
+					const contained = within(root, mappedPath);
+					if (!contained) throw new Error("This private external input is not available in the project data editor yet.");
+					const opened = await service.request.openDocument({ path: contained });
+					return opened.ok ? opened : errorResult<{ document: OpenDocument }>(opened.error);
+				} catch (error) {
+					return errorResult<{ document: OpenDocument }>({ code: "DESKTOP_INPUT", message: error instanceof Error ? error.message.slice(0, 1000) : "Unable to open the mapped input." });
+				}
+			},
+			async getReportSettings() {
+				try { return { ok: true, settings: await reportSettingsSnapshot() }; }
+				catch (error) { return errorResult<{ settings: ReportSettingsSnapshot }>(projectError(error instanceof Error ? error.message : "Unable to load report settings.")); }
+			},
+			async pickReportLogo() {
+				try {
+					const active = requireActive().document;
+					const startedGeneration = generation;
+					const startedRevision = active.revision;
+					const root = requireRoot();
+					const selected = await picker?.choose({ directory: false, root });
+					if (!selected) return { ok: true, cancelled: true };
+					if (generation !== startedGeneration || current !== active || active.revision !== startedRevision) return errorResult<{ cancelled: boolean; path?: string }>({ code: "DESKTOP_STALE", message: "The active document changed while choosing a logo." });
+					const canonical = validatedPickedFile(selected, [".png", ".jpg"]);
+					const path = containedRelativeFile(root, canonical);
+					await validateReportSettings({ logo: path, logoAlt: "Selected report logo" }, root, active.path);
+					if (generation !== startedGeneration || current !== active || active.revision !== startedRevision) return errorResult<{ cancelled: boolean; path?: string }>({ code: "DESKTOP_STALE", message: "The active document changed while validating the logo." });
+					return { ok: true, cancelled: false, path };
+				} catch (error) {
+					return errorResult<{ cancelled: boolean; path?: string }>({ code: "AMX6001", message: error instanceof Error ? error.message.slice(0, 1000) : "Selected logo is invalid." });
+				}
+			},
+			async setProjectReportSettings({ values, expectedRevision }: { values: ReportSettingsValues; expectedRevision: string }) {
+				try {
+					const root = requireRoot();
+					const startedGeneration = generation;
+					const config = readConfiguration(root, "project");
+					const report = config.report && typeof config.report === "object" && !Array.isArray(config.report) ? { ...(config.report as Record<string, unknown>) } : {};
+					applyReportChanges(report, values);
+					const candidateConfig = { ...config, ...(Object.keys(report).length ? { report } : {}) };
+					if (!Object.keys(report).length) delete candidateConfig.report;
+					await validateProjectConfiguration(root, candidateConfig);
+					const active = current;
+					if (active?.kind === "amx") {
+						const frontmatter = parseFrontMatter(active.text);
+						if (frontmatter.error) throw new Error("Current document has invalid YAML frontmatter.");
+						const documentReport = frontmatter.metadata.report && typeof frontmatter.metadata.report === "object" ? frontmatter.metadata.report as Record<string, unknown> : {};
+						await validateReportSettings({ ...report, ...documentReport }, root, active.path);
+					}
+					if (generation !== startedGeneration || projectRoot !== root) throw new Error("The active project changed while validating report settings.");
+					updateConfiguration(root, "project", expectedRevision, configValue => {
+						if (Object.keys(report).length) configValue.report = report;
+						else delete configValue.report;
+					});
+					const nextState = markSettingsChanged();
+					return { ok: true, settings: await reportSettingsSnapshot(), state: nextState };
+				} catch (error) {
+					return errorResult<{ settings: ReportSettingsSnapshot; state: WorkbenchState }>({ code: "DESKTOP_CONFIG", message: error instanceof Error ? error.message.slice(0, 1000) : "Unable to save project report settings." });
+				}
+			},
+			async setDocumentReportSettings({ values, expectedRevision }: { values: ReportSettingsValues; expectedRevision: number }) {
+				try {
+					const active = requireActive().document;
+					const root = requireRoot();
+					const startedGeneration = generation;
+					if (active.revision !== expectedRevision) throw new Error("The active document changed; reload its report settings before saving.");
+					const nextText = updateReportFrontmatter(active.text, values);
+					const frontmatter = parseFrontMatter(nextText);
+					if (frontmatter.error) throw new Error("Updated report settings have invalid YAML frontmatter.");
+					const report = frontmatter.metadata.report && typeof frontmatter.metadata.report === "object" && !Array.isArray(frontmatter.metadata.report) ? frontmatter.metadata.report as Record<string, unknown> : {};
+					if (report.logo && !report.logoAlt) throw new Error("A current-document logo override requires its own logoAlt value.");
+					const projectConfig = readConfiguration(root, "project");
+					await validateProjectConfiguration(root, projectConfig);
+					const projectReport = projectConfig.report && typeof projectConfig.report === "object" && !Array.isArray(projectConfig.report) ? projectConfig.report as Record<string, unknown> : {};
+					await validateReportSettings(projectReport, root);
+					await validateReportSettings(report, root, active.path);
+					await validateReportSettings({ ...projectReport, ...report }, root, active.path);
+					if (generation !== startedGeneration || current !== active || active.revision !== expectedRevision) throw new Error("The active document changed while validating report settings.");
+					const updated = await service.request.updateBuffer({ path: active.path, text: nextText });
+					if (!updated.ok) return errorResult<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }>(updated.error);
+					const nextState = markSettingsChanged();
+					return { ok: true, settings: await reportSettingsSnapshot(), document: updated.document, state: nextState };
+				} catch (error) {
+					return errorResult<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }>({ code: "AMX6001", message: error instanceof Error ? error.message.slice(0, 1000) : "Unable to save document report settings." });
+				}
 			},
 			async setAutosave({ enabled, delayMs }: { enabled: boolean; delayMs: number }) {
 				if (typeof enabled !== "boolean" || !Number.isSafeInteger(delayMs) || delayMs < 100 || delayMs > 10_000)
@@ -1307,9 +1575,12 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			},
 			async getInputConfiguration({ inputMappings = activeInputMappings }: { inputMappings?: string[] } = {}) {
 				try {
-					const { document } = requireActive();
-					const resolved = resolveDesktopInputs(requireRoot(), document.text, inputMappings);
-					return { ok: true, configuration: resolved.configuration };
+					if (inputMappings !== activeInputMappings) {
+						const { document } = requireActive();
+						const resolved = resolveDesktopInputs(requireRoot(), document.text, inputMappings);
+						return { ok: true, configuration: { ...resolved.configuration, revisions: { local: readConfigurationRevision(requireRoot(), "local"), project: readConfigurationRevision(requireRoot(), "project") } } };
+					}
+					return { ok: true, configuration: inputConfiguration() };
 				} catch (error) {
 					return { ok: true, configuration: { inputs: [], diagnostics: diagnostics(error, current?.path) } };
 				}

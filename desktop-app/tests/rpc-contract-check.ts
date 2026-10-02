@@ -648,9 +648,9 @@ if (process.platform !== "win32") chmodSync(localConfigPath, 0o600);
 const inputConfig = await service.request.getInputConfiguration();
 assert.equal(inputConfig.ok, true);
 if (!inputConfig.ok) throw new Error(inputConfig.error.message);
-assert.deepEqual(inputConfig.configuration.inputs, [
-	{ name: "amounts", source: "local" },
-	{ name: "rows", source: "project" }
+assert.deepEqual(inputConfig.configuration.inputs.map(({ name, type, source, status }) => ({ name, type, source, status })), [
+	{ name: "amounts", type: "Number[]", source: "local", status: "unvalidated" },
+	{ name: "rows", type: "Row[]", source: "project", status: "unvalidated" }
 ]);
 if (process.platform !== "win32") {
 	chmodSync(localConfigPath, 0o644);

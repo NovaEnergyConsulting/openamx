@@ -68,7 +68,19 @@ export interface TextAnalysis {
 }
 export interface RunSummary { values: Array<{ name: string; value: string | number | boolean | null }>; }
 export interface InputConfiguration {
-	inputs: Array<{ name: string; source: "project" | "local" | "per-run" | "missing" }>;
+	inputs: Array<{ name: string; type: string; source: "project" | "local" | "per-run" | "missing"; status: "valid" | "unvalidated" | "missing" | "invalid"; line?: number; column?: number }>;
+	diagnostics: TextDiagnostic[];
+	revisions?: { local: string; project: string };
+}
+export type ReportSettingKey = "organization" | "logo" | "logoAlt" | "accent" | "author" | "status" | "classification" | "footer" | "sourceVisible";
+export type ReportSettingsValues = Partial<Record<ReportSettingKey, string | boolean | null>>;
+export interface ReportSettingsSnapshot {
+	project: ReportSettingsValues;
+	document: ReportSettingsValues;
+	effective: ReportSettingsValues;
+	projectRevision: string;
+	documentRevision: number;
+	accentFallback: boolean;
 	diagnostics: TextDiagnostic[];
 }
 
@@ -86,6 +98,14 @@ export interface DesktopRPCClient {
 		getWorkbench(): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		getProjectContext(): Promise<DesktopRPCResponse<{ root?: string; state: WorkbenchState }>>;
 		setInputSettings(params: { inputMappings: string[]; validation: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		pickInputMapping(params: { name: string; expectedRevision: string }, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ configuration: InputConfiguration; state: WorkbenchState }>>;
+		clearInputMapping(params: { name: string; scope: "session" | "local" | "project"; expectedRevision?: string }): Promise<DesktopRPCResponse<{ configuration: InputConfiguration; state: WorkbenchState }>>;
+		promoteInputMapping(params: { name: string; expectedLocalRevision: string; expectedProjectRevision: string }): Promise<DesktopRPCResponse<{ configuration: InputConfiguration; state: WorkbenchState }>>;
+		openMappedInput(params: { name: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
+		getReportSettings(): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot }>>;
+		pickReportLogo(params: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; path?: string }>>;
+		setProjectReportSettings(params: { values: ReportSettingsValues; expectedRevision: string }): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot; state: WorkbenchState }>>;
+		setDocumentReportSettings(params: { values: ReportSettingsValues; expectedRevision: number }): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }>>;
 		setAutosave(params: { enabled: boolean; delayMs: number }): Promise<DesktopRPCResponse<{ enabled: boolean; delayMs: number }>>;
 		startJob(params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string } }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		getJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
@@ -145,6 +165,14 @@ export type DesktopRPCSchema = {
 			getWorkbench: { params: Record<string, never>; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			getProjectContext: { params: Record<string, never>; response: DesktopRPCResponse<{ root?: string; state: WorkbenchState }> };
 			setInputSettings: { params: { inputMappings: string[]; validation: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			pickInputMapping: { params: { name: string; expectedRevision: string }; response: DesktopRPCResponse<{ configuration: InputConfiguration; state: WorkbenchState }> };
+			clearInputMapping: { params: { name: string; scope: "session" | "local" | "project"; expectedRevision?: string }; response: DesktopRPCResponse<{ configuration: InputConfiguration; state: WorkbenchState }> };
+			promoteInputMapping: { params: { name: string; expectedLocalRevision: string; expectedProjectRevision: string }; response: DesktopRPCResponse<{ configuration: InputConfiguration; state: WorkbenchState }> };
+			openMappedInput: { params: { name: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
+			getReportSettings: { params: Record<string, never>; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot }> };
+			pickReportLogo: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; path?: string }> };
+			setProjectReportSettings: { params: { values: ReportSettingsValues; expectedRevision: string }; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot; state: WorkbenchState }> };
+			setDocumentReportSettings: { params: { values: ReportSettingsValues; expectedRevision: number }; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }> };
 			setAutosave: { params: { enabled: boolean; delayMs: number }; response: DesktopRPCResponse<{ enabled: boolean; delayMs: number }> };
 			startJob: { params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string } }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			getJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };

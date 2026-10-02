@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import type { DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
+import { Database, Eye, SlidersHorizontal } from "@lucide/vue";
+import type { DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
 import { Button } from "@/components/ui/button";
 import CodeEditor from "./CodeEditor.vue";
 import CommandPalette from "./components/CommandPalette.vue";
+import InputsPanel from "./components/InputsPanel.vue";
 import ProjectExplorer from "./components/ProjectExplorer.vue";
+import ReportSettingsDialog from "./components/ReportSettingsDialog.vue";
 import WelcomeView from "./components/WelcomeView.vue";
 import WorkbenchTabs from "./components/WorkbenchTabs.vue";
 import type { DrawerDock, ShellCommand, ShellFocusMode, ShellTheme } from "./shell";
@@ -24,10 +27,17 @@ const previewWidth = ref(44);
 const editorElement = ref<InstanceType<typeof CodeEditor> | null>(null);
 let invoker: HTMLElement | null = null;
 let focusInvoker: HTMLElement | null = null;
+let settingsInvoker: HTMLElement | null = null;
 const preview = ref("");
 const analysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
 const staticAnalysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
 const inputConfiguration = ref<InputConfiguration>({ inputs: [], diagnostics: [] });
+const contextView = ref<"preview" | "inputs">("preview");
+const reportSettings = ref<ReportSettingsSnapshot | null>(null);
+const reportSettingsOpen = ref(false);
+const reportSettingsBusy = ref(false);
+const reportSettingsError = ref("");
+const inputsBusy = ref(false);
 const inputOverrides = ref("");
 const validation = ref<"aggregate" | "fail-fast">("aggregate");
 const summary = ref<RunSummary>({ values: [] });
@@ -107,6 +117,135 @@ function inputMappingsChanged() {
 async function syncWorkbench() {
 	const result = await props.rpc.request.getWorkbench();
 	if (result.ok) workbench.value = result.state;
+}
+
+async function syncInputConfiguration() {
+	const path = document.value?.path;
+	const revision = document.value?.revision;
+	if (!path || document.value?.kind !== "amx") { inputConfiguration.value = { inputs: [], diagnostics: [] }; return; }
+	const result = await props.rpc.request.getInputConfiguration();
+	if (result.ok && document.value?.path === path && document.value.revision === revision) inputConfiguration.value = result.configuration;
+}
+
+function applyInputValidation(diagnostics: TextDiagnostic[], completed: boolean) {
+	const invalid = new Set(diagnostics.map(item => item.inputName).filter((name): name is string => !!name));
+	inputConfiguration.value = {
+		...inputConfiguration.value,
+		inputs: inputConfiguration.value.inputs.map(input => ({
+			...input,
+			status: invalid.has(input.name) ? "invalid" : completed && input.source !== "missing" ? "valid" : input.status
+		}))
+	};
+}
+
+async function browseInput(name: string) {
+	if (!inputConfiguration.value.revisions || inputsBusy.value) return;
+	const path = document.value?.path;
+	const revision = document.value?.revision;
+	inputsBusy.value = true;
+	try {
+		const result = await props.rpc.request.pickInputMapping({ name, expectedRevision: inputConfiguration.value.revisions.local }, { maxRequestTime: Infinity });
+		if (document.value?.path !== path || document.value?.revision !== revision) return;
+		if (!result.ok) { status.value = result.error.message; return; }
+		inputConfiguration.value = result.configuration;
+		workbench.value = result.state;
+		if (result.configuration.inputs.some(input => input.name === name && input.source !== "missing")) {
+			status.value = `Updated mapping for ${name}.`;
+			invalidateInputResults();
+			void refresh();
+		}
+	} finally { inputsBusy.value = false; }
+}
+
+async function clearInput(name: string, scope: "session" | "local" | "project") {
+	const expectedRevision = scope === "local" ? inputConfiguration.value.revisions?.local : scope === "project" ? inputConfiguration.value.revisions?.project : undefined;
+	inputsBusy.value = true;
+	try {
+		const result = await props.rpc.request.clearInputMapping({ name, scope, expectedRevision });
+		if (!result.ok) { status.value = result.error.message; return; }
+		inputConfiguration.value = result.configuration;
+		workbench.value = result.state;
+		invalidateInputResults();
+		void refresh();
+	} finally { inputsBusy.value = false; }
+}
+
+async function promoteInput(name: string) {
+	const revisions = inputConfiguration.value.revisions;
+	if (!revisions || inputsBusy.value) return;
+	inputsBusy.value = true;
+	try {
+		const result = await props.rpc.request.promoteInputMapping({ name, expectedLocalRevision: revisions.local, expectedProjectRevision: revisions.project });
+		if (!result.ok) { status.value = result.error.message; return; }
+		inputConfiguration.value = result.configuration;
+		workbench.value = result.state;
+		status.value = `Promoted ${name} to project defaults.`;
+		invalidateInputResults();
+		void refresh();
+	} finally { inputsBusy.value = false; }
+}
+
+async function openMappedInput(name: string) {
+	const result = await props.rpc.request.openMappedInput({ name });
+	if (!result.ok) { status.value = result.error.message; return; }
+	await activate(result);
+}
+
+async function navigateInputDiagnostic(item: TextDiagnostic) {
+	if (item.file && item.line && item.file === document.value?.path) {
+		requestAnimationFrame(() => editorElement.value?.selectLocation(item.line!, item.column ?? 1));
+		return;
+	}
+	if (item.inputName) await openMappedInput(item.inputName);
+}
+
+async function openReportSettings() {
+	if (!document.value || document.value.kind !== "amx") { status.value = "Open an AMX document to edit report settings."; return; }
+	settingsInvoker = window.document.activeElement instanceof HTMLElement ? window.document.activeElement : null;
+	const result = await props.rpc.request.getReportSettings();
+	if (!result.ok) { status.value = result.error.message; return; }
+	reportSettingsError.value = "";
+	reportSettings.value = result.settings;
+	reportSettingsOpen.value = true;
+}
+
+async function pickReportLogo(scope: "project" | "document") {
+	const result = await props.rpc.request.pickReportLogo({}, { maxRequestTime: Infinity });
+	if (!result.ok) { reportSettingsError.value = result.error.message; return; }
+	if (!result.cancelled && result.path && reportSettings.value) {
+		const target = scope === "project" ? reportSettings.value.project : reportSettings.value.document;
+		reportSettings.value = { ...reportSettings.value, [scope]: { ...target, logo: result.path } };
+	}
+}
+
+function closeReportSettings() {
+	reportSettingsOpen.value = false;
+	requestAnimationFrame(() => settingsInvoker?.focus());
+}
+
+async function saveReportSettings(scope: "project" | "document", values: ReportSettingsValues) {
+	if (!reportSettings.value || reportSettingsBusy.value) return;
+	reportSettingsBusy.value = true;
+	try {
+		if (scope === "project") {
+			const result = await props.rpc.request.setProjectReportSettings({ values, expectedRevision: reportSettings.value.projectRevision });
+			if (!result.ok) { reportSettingsError.value = result.error.message; status.value = result.error.message; return; }
+			reportSettings.value = result.settings;
+			workbench.value = result.state;
+		} else {
+			const result = await props.rpc.request.setDocumentReportSettings({ values, expectedRevision: reportSettings.value.documentRevision });
+			if (!result.ok) { reportSettingsError.value = result.error.message; status.value = result.error.message; return; }
+			reportSettings.value = result.settings;
+			document.value = result.document;
+			workbench.value = result.state;
+		}
+		reportSettingsError.value = "";
+		closeReportSettings();
+		invalidateInputResults();
+		status.value = "Report settings saved.";
+		await syncInputConfiguration();
+		void refresh();
+	} finally { reportSettingsBusy.value = false; }
 }
 
 async function syncRecents() {
@@ -218,6 +357,8 @@ const commands = computed<ShellCommand[]>(() => [
 	{ id: "document.format", label: "Format active tab", enabled: !!document.value, disabledReason: "Open an AMX document first", run: format },
 	{ id: "document.run", label: "Run active document", shortcut: "Ctrl/Cmd+Enter", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: runAnalysis },
 	{ id: "document.preview", label: "Refresh preview", shortcut: "Ctrl/Cmd+Shift+Enter", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: refresh },
+	{ id: "report.settings", label: "Report Settings", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: openReportSettings },
+	{ id: "report.settings", label: "Report Settings", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: openReportSettings },
 	{ id: "project.search", label: "Search project", shortcut: "Ctrl/Cmd+Shift+F", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => requestAnimationFrame(() => window.document.querySelector<HTMLInputElement>("#project-search")?.focus()) },
 	{ id: "view.focus-editor", label: "Focus editor", enabled: !!document.value, disabledReason: "Open a document first", run: () => setFocusMode("editor") },
 	{ id: "view.focus-preview", label: "Focus preview", enabled: !!workbench.value.active, disabledReason: "Open an AMX document first", run: () => setFocusMode("preview") },
@@ -230,6 +371,7 @@ const commands = computed<ShellCommand[]>(() => [
 function onKeydown(event: KeyboardEvent) {
 	if (event.key === "Escape") {
 		if (palette.value) dismissPalette();
+		else if (reportSettingsOpen.value) closeReportSettings();
 		else if (focusMode.value !== "none") setFocusMode("none");
 		return;
 	}
@@ -358,6 +500,7 @@ async function activate(result: Awaited<ReturnType<typeof props.rpc.request.open
 	document.value = result.document;
 	await syncWorkbench();
 	void refreshStaticAnalysis(result.document.path, result.document.revision);
+	void syncInputConfiguration();
 	status.value = `Active: ${result.document.path.split(/[\\/]/).pop()}`;
 }
 
@@ -531,6 +674,7 @@ async function refresh() {
 		previewState.value = "failure";
 		analysis.value = { diagnostics: rendered.diagnostics, completions: [] };
 	}
+	applyInputValidation(rendered.diagnostics, rendered.status === "succeeded");
 	const issues = [...analysis.value.diagnostics, ...inputConfiguration.value.diagnostics];
 	status.value = issues.length ? `${issues.length} issue(s)` : "Preview reflects the current buffer.";
 	pending.value = false;
@@ -612,10 +756,12 @@ async function runAnalysis() {
 	if (result.status !== "succeeded" || result.result?.kind !== "run") {
 		runState.value = "failure";
 		analysis.value = { ...analysis.value, diagnostics: result.diagnostics };
+		applyInputValidation(result.diagnostics, false);
 		return;
 	}
 	summary.value = result.result.summary ?? { values: [] };
 	analysis.value = { ...analysis.value, diagnostics: result.diagnostics };
+	applyInputValidation(result.diagnostics, true);
 	runState.value = result.diagnostics.length ? "failure" : "success";
 	status.value = result.diagnostics.length ? "Analysis failed for the current buffer." : "Analysis completed for the current buffer.";
 }
@@ -739,9 +885,24 @@ function displayDiagnostic(item: TextDiagnostic): string {
 				<div v-else class="file-kind-shell"><strong>{{ document?.kind ?? "document" }}</strong><p>This file shell preserves active-tab identity. Structured editing arrives in Sprint 041.</p></div>
 			</section>
 			<div class="divider divider-preview" role="separator" aria-label="Resize contextual pane" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'preview')"></div>
-			<section class="preview-pane" aria-label="Live HTML preview"><div class="pane-header"><strong>PREVIEW</strong><span class="state" :class="`state-${previewState}`">{{ previewState }}</span><span class="actions"><button type="button" :aria-pressed="focusMode === 'editor'" @click="setFocusMode('editor')">Source</button><button type="button" :aria-pressed="focusMode === 'preview'" @click="setFocusMode('preview')">Preview</button></span></div><iframe v-if="document?.kind === 'amx'" :srcdoc="preview" sandbox="" title="OpenAMX live HTML preview"></iframe><div v-else class="file-kind-shell"><strong>Context</strong><p>Select an AMX document to show its live report preview.</p></div></section>
+			<section class="preview-pane" aria-label="Active document context">
+				<div class="pane-header context-pane-header">
+					<div class="context-tabs" role="tablist" aria-label="Context view">
+						<button type="button" role="tab" :aria-selected="contextView === 'preview'" @click="contextView = 'preview'"><Eye :size="14" /> Preview</button>
+						<button type="button" role="tab" :aria-selected="contextView === 'inputs'" :disabled="document?.kind !== 'amx'" @click="contextView = 'inputs'"><Database :size="14" /> Inputs</button>
+					</div>
+					<span v-if="contextView === 'preview'" class="state" :class="`state-${previewState}`">{{ previewState }}</span>
+					<span class="actions"><button type="button" :disabled="document?.kind !== 'amx'" @click="openReportSettings"><SlidersHorizontal :size="14" /> Report settings</button><button type="button" :aria-pressed="focusMode === 'editor'" @click="setFocusMode('editor')">Source</button><button type="button" :aria-pressed="focusMode === 'preview'" @click="setFocusMode('preview')">Preview</button></span>
+				</div>
+				<InputsPanel v-if="contextView === 'inputs' && document?.kind === 'amx'" :configuration="inputConfiguration" :diagnostics="analysis.diagnostics" :validation="validation" :busy="inputsBusy" @browse="browseInput" @clear="clearInput" @promote="promoteInput" @open="openMappedInput" @diagnostic="navigateInputDiagnostic" @validation-change="validation = $event; validationChanged()" @declaration="(line, column) => editorElement?.selectLocation(line, column)" />
+				<template v-else>
+					<iframe v-if="document?.kind === 'amx'" :srcdoc="preview" sandbox="" title="OpenAMX live HTML preview"></iframe>
+					<div v-else class="file-kind-shell"><strong>Context</strong><p>Select an AMX document to show its live report preview.</p></div>
+				</template>
+			</section>
 			<section class="runtime-drawer" aria-label="Runtime drawer"><div class="drawer-heading"><strong>RUNTIME</strong><span class="state" :class="`state-${runState}`">{{ runState }}</span><span class="actions"><button type="button" :aria-pressed="drawerDock === 'bottom'" @click="setDrawerDock('bottom')">Bottom</button><button type="button" :aria-pressed="drawerDock === 'right'" @click="setDrawerDock('right')">Right</button><button v-if="activeJobId !== null" type="button" @click="cancelActiveJob">Cancel</button></span></div><p class="runtime-status" role="status" aria-live="polite">{{ status }}<span v-if="jobStage"> · {{ jobStage }}</span></p><div class="runtime-details"><p v-for="(item, index) in staticAnalysis.diagnostics" :key="`static-${item.code}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Static {{ item.code }}: {{ displayDiagnostic(item) }}</button></p><p v-for="(item, index) in analysis.diagnostics" :key="`run-${item.code}-${index}`">Run {{ item.code }}: {{ displayDiagnostic(item) }}</p><p v-for="item in summary.values" :key="item.name"><code>{{ item.name }}</code> {{ item.value }}</p><p v-if="!analysis.diagnostics.length && !staticAnalysis.diagnostics.length && !summary.values.length" class="muted">No runtime details.</p></div></section>
 		</div>
 		<CommandPalette :open="palette" :commands="commands" @dismiss="dismissPalette" />
+		<ReportSettingsDialog :open="reportSettingsOpen" :settings="reportSettings" :busy="reportSettingsBusy" :error="reportSettingsError" @close="closeReportSettings" @save="saveReportSettings" @pick-logo="pickReportLogo" />
 	</main>
 </template>

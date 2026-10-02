@@ -13,6 +13,13 @@ interface InputConfig {
 	inputs: Record<string, string>;
 }
 
+interface DeclaredInput {
+	name: string;
+	type: string;
+	line?: number;
+	column?: number;
+}
+
 export interface ResolvedDesktopInputs {
 	mappings: string[];
 	privatePaths: string[];
@@ -70,13 +77,19 @@ function readInputConfig(root: string, filename: "project.json" | "local.json", 
 	}
 }
 
-function inputNames(text: string): string[] {
+function displayType(type: { type: string; name?: string; element?: { type: string; name?: string; element?: unknown } }): string {
+	if (type.type === "namedType") return type.name ?? "Unknown";
+	if (type.type === "listType") return `${type.element ? displayType(type.element as typeof type) : "Unknown"}[]`;
+	return `${type.element ? displayType(type.element as typeof type) : "Unknown"}?`;
+}
+
+function inputNames(text: string): DeclaredInput[] {
 	const document = parseDocumentText(text);
-	const names: string[] = [];
+	const names: DeclaredInput[] = [];
 	for (const node of document.nodes) {
 		if (node.type !== "executableCodeBlock") continue;
 		for (const statement of node.statements) {
-			if (statement.type === "inputDeclaration") names.push(statement.name);
+			if (statement.type === "inputDeclaration") names.push({ name: statement.name, type: displayType(statement.annotation), line: statement.source?.line, column: statement.source?.column });
 		}
 	}
 	return names;
@@ -98,7 +111,13 @@ function resolveInputPath(root: string, name: string, value: string, portable: b
 	}
 	if (portable) {
 		try {
-			if (!within(root, realpathSync(candidate)) || !statSync(candidate).isFile()) {
+			let current = root;
+			let symlinked = false;
+			for (const segment of relative(root, candidate).split(/[\\/]/)) {
+				current = join(current, segment);
+				if (existsSync(current) && lstatSync(current).isSymbolicLink()) symlinked = true;
+			}
+			if (symlinked || !within(root, realpathSync(candidate)) || lstatSync(candidate).isSymbolicLink() || !statSync(candidate).isFile()) {
 				diagnostics.push(configDiagnostic(`Project input '${name}' must resolve to a file inside the project.`));
 				return undefined;
 			}
@@ -106,6 +125,9 @@ function resolveInputPath(root: string, name: string, value: string, portable: b
 			diagnostics.push(configDiagnostic(`Project input '${name}' is missing or unreadable.`));
 			return undefined;
 		}
+	} else if (existsSync(candidate) && (lstatSync(candidate).isSymbolicLink() || !statSync(candidate).isFile())) {
+		diagnostics.push(configDiagnostic(`Local input '${name}' must be a regular file, not a symlink.`));
+		return undefined;
 	}
 	return candidate;
 }
@@ -140,7 +162,7 @@ export function resolveDesktopInputs(root: string, text: string, rawOverrides: s
 	}
 	const paths = new Map<string, { source: "project" | "local" | "per-run"; path: string }>();
 	const privatePaths: string[] = [];
-	for (const name of new Set([...declarations, ...Object.keys(project.inputs), ...Object.keys(local.inputs), ...Object.keys(perRun)])) {
+	for (const name of new Set([...declarations.map(input => input.name), ...Object.keys(project.inputs), ...Object.keys(local.inputs), ...Object.keys(perRun)])) {
 		const selected = Object.hasOwn(perRun, name) ? { source: "per-run" as const, value: perRun[name] }
 			: Object.hasOwn(local.inputs, name) ? { source: "local" as const, value: local.inputs[name] }
 				: Object.hasOwn(project.inputs, name) ? { source: "project" as const, value: project.inputs[name] }
@@ -152,7 +174,12 @@ export function resolveDesktopInputs(root: string, text: string, rawOverrides: s
 		if (selected.source !== "project") privatePaths.push(absolute);
 	}
 	const configuration: InputConfiguration = {
-		inputs: declarations.map(name => ({ name: name.slice(0, 100), source: paths.get(name)?.source ?? "missing" })),
+		inputs: declarations.map(input => {
+			const selected = paths.get(input.name);
+			const source = selected?.source ?? (Object.hasOwn(perRun, input.name) ? "per-run" : Object.hasOwn(local.inputs, input.name) ? "local" : Object.hasOwn(project.inputs, input.name) ? "project" : "missing");
+			const status = source === "missing" ? "missing" : !selected ? "invalid" : existsSync(selected.path) ? "unvalidated" : "missing";
+			return { name: input.name.slice(0, 100), type: input.type, source, status, line: input.line, column: input.column };
+		}),
 		diagnostics
 	};
 	return {
@@ -160,6 +187,20 @@ export function resolveDesktopInputs(root: string, text: string, rawOverrides: s
 		privatePaths,
 		configuration
 	};
+}
+
+export function validateDesktopMappings(root: string, inputs: Record<string, string>, portable: boolean): TextDiagnostic[] {
+	const diagnostics: TextDiagnostic[] = [];
+	const entries = Object.entries(inputs);
+	if (entries.length > MAX_MAPPINGS) diagnostics.push(configDiagnostic(`At most ${MAX_MAPPINGS} input mappings are supported.`));
+	for (const [name, value] of entries.slice(0, MAX_MAPPINGS)) {
+		if (!INPUT_NAME.test(name) || typeof value !== "string" || !value || value.length > MAX_PATH_LENGTH) {
+			diagnostics.push(configDiagnostic("Configuration contains an invalid input mapping."));
+			continue;
+		}
+		resolveInputPath(root, name, value, portable, diagnostics);
+	}
+	return diagnostics;
 }
 
 export function validateDesktopDestination(root: string, target: string, extension: ".html" | ".pdf" | ".docx", conflicts: string[]): { path: string; parent: string } {
