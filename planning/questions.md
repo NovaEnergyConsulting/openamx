@@ -1,5 +1,13 @@
 # Planning Questions (Sprint 002)
 
+## V0.7 Sprint 046 Entry and Implementation Questions (2026-10-03)
+
+- **Resolved for Sprint 046 sequencing by Lead Developer direction (2026-10-03):** Sprint 044 is COMPLETE WITH RESIDUALS; Sprint 046 is explicitly authorized to proceed with Sprint 045's residuals. Sprint 045's Lead Developer acceptance disposition remains pending. Native Electrobun/window behavior, actual app restart, and formal accessibility remain unverified and are not upgraded by this authorization.
+- **Resolved by build and browser evidence:** the production Vite bundle contains Help topic/search/footer strings from the statically imported JSON module; the browser observes no external-origin requests while using the Help Center. No runtime filesystem/network loader was added.
+- **Resolved by browser regression:** all nine stable IDs and each original search-term string remain present/effective; default `getting-started`, valid `language`, command-routed `release-notes`, and unknown-ID fallback are verified.
+- **Resolved by browser geometry checks:** the frame remains 80% at 1024x720 and 1440x900, bounded within the viewport, with fixed header/search/footer and independently scrolling body; filtering to different result counts does not change bounds or chrome positions.
+- **Evidence boundary recorded:** integrated Sprint 044-046 acceptance is browser automation against production `App.vue` mounted in the Vite fixture. Native Electrobun, native resize/restart, cross-platform, and formal accessibility observations were unavailable/not performed; do not claim them as passed. See [Sprint 046 Builder evidence](sprints/0046-v07-help-center-integrated-acceptance/builder-evidence.md).
+
 ## V0.7 Sprint 045 Implementation Questions (2026-10-03)
 
 - **Resolved by Builder browser evidence:** at 820x720, intrinsic adaptive pane minimums under the min-height-only shell expanded the document to 3,053 px. The viewport-bound shell and shrinkable tracks keep the document bounded at 1024x720, 1440x900, and adaptive 820x720; explorer, CodeMirror, preview iframe content, and runtime drawer scroll independently.

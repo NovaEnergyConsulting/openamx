@@ -1,5 +1,17 @@
 # Planning Decisions
 
+## V0.7 Sprint 046 Architect Preparation (2026-10-03)
+
+- Sprint 046 owns only the current Help Center static-content extraction/layout and integrated acceptance observations documented in the V0.7 master plan.
+- Preserve stable Help topic IDs, search terms, default section, and initial-section routing. Bundle static topic/search/release copy as JSON for offline use; keep rendering, filtering, navigation, and starter/diagnostic actions in Vue/application code.
+- The shared app command registry remains the only source for shortcut labels and values. Do not duplicate shortcut metadata or executable action definitions in the JSON resource.
+- Bound the dialog to approximately 80% of the available app viewport. Header, search, and footer remain fixed while the body content scrolls; search result count must not resize the dialog.
+- **Lead Developer sequencing direction (2026-10-03):** Sprint 044 is COMPLETE WITH RESIDUALS; retain unavailable native Electrobun evidence as a residual. Sprint 046 is explicitly authorized to proceed with Sprint 045's documented residuals. This sequencing authorization does not disposition Sprint 045 as accepted or complete; native window resizing, actual app restart, and formal accessibility remain unverified. Browser evidence is not native or formal accessibility acceptance.
+- Builder implementation: statically import `components/help-content.json` through Vite; keep only declarative `topics`/`copy` values in the resource. Keep starter sources imported from `starterExamples`, diagnostic download in `App.vue`, and shortcut labels/values passed from `commands`.
+- Dialog uses an 80vw/80vh flex frame bounded by viewport padding; `.help-layout` is the independently scrolling body, leaving title/header, search, and footer outside the scroll container. The layout changes to one column on narrow screens without changing the fixed frame model.
+- Integrated browser evidence passes, but remains fixture/browser evidence only. Sprint 045 acceptance, native host/restart, cross-platform, and formal accessibility dispositions remain separate.
+- No changes to unrelated V0.7 backlog, AMX/CLI/VS Code behavior, native certification, formal accessibility certification, or release engineering are authorized.
+
 ## V0.7 Sprint 045 Architect Preparation (2026-10-03)
 
 - Sprint 045 is authorized for the workbench viewport/scrolling, CodeMirror wrapping and indentation behavior, persistent global wrap preference, and runtime-drawer foreground corrections specified in its requirements.

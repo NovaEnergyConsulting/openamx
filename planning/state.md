@@ -1,5 +1,19 @@
 # Planning State
 
+## V0.7 Sprint 046 Architect Preparation (2026-10-03)
+
+- Prepared the four Sprint 046 artifacts in `planning/sprints/0046-v07-help-center-integrated-acceptance/` for bundled Help Center JSON, preserved Vue interactions/command-registry shortcut ownership, viewport-bounded fixed-chrome dialog layout, focused UI coverage, and integrated V0.7 acceptance.
+- **Status: ACTIVE; dependency gate satisfied by Lead Developer direction (2026-10-03).** Sprint 044 is dispositioned COMPLETE WITH RESIDUALS. Sprint 045 is explicitly authorized as a sequencing dependency for Sprint 046 with its documented residuals; this is not Sprint 045 acceptance. Native Electrobun/window behavior, actual app restart, and formal accessibility remain unverified and are not inferred.
+- Sprint 045 browser evidence includes the requested layout/editor/runtime checks and screenshots, but native Electrobun window behavior, actual app restart, and formal accessibility were not verified. These remain evidence boundaries unless separately dispositioned.
+- Help topic content/search data will move to a bundled offline JSON resource. Vue retains rendering, filtering, navigation, starter/diagnostic actions; shortcut metadata remains sourced from the command registry. The Help Center target is approximately 80% of the current viewport with fixed header/search/footer and independently scrolling content.
+
+## V0.7 Sprint 046 Builder Outcome (2026-10-03)
+
+- Implementation and integrated browser acceptance are complete; exact commands, artifacts, hashes, and residuals are in [Sprint 046 Builder evidence](sprints/0046-v07-help-center-integrated-acceptance/builder-evidence.md). Static Help topics, all previous search terms, and component-owned labels/release copy now import from bundled JSON. The UI suite verifies all nine IDs and terms, valid/unknown initial-section routing, local/offline content, command-registry shortcuts, and application-owned starter/diagnostic actions.
+- Help dialog is 80vw by 80vh within viewport bounds. Header, search, and footer remain fixed; the body scrolls independently. At 1024x720 the measured frame is 819x576; the 1440x900 frame is 1152x720. Search/filter count changes do not alter frame or chrome geometry.
+- Integrated Playwright: 6 tests passed across Sprint 044-046, including preview autosave freshness/pause/manual/resume, Sprint 045 pane/editor/runtime behavior, and Sprint 046 help behavior. Desktop RPC contracts, Vue typecheck, focused Playwright spec typecheck, production web build, and `git diff --check` passed. Production bundle contains the Help copy; Vite retains its existing >500 kB warning.
+- Evidence host: Omarchy Linux x86_64, kernel 7.2.5-3-omarchy; Bun 1.4.2; Node 24.14.1; Playwright 1.63.0 / Chromium 153.0.8010.12. The fixture mounts production `App.vue`; no native Electrobun interaction, actual app restart, cross-platform check, or formal accessibility certification was performed. Sprint 045's sequencing authorization does not change its pending acceptance disposition.
+
 ## V0.7 Sprint 045 Architect Preparation (2026-10-03)
 
 - Prepared the four Sprint 045 artifacts in `planning/sprints/0045-v07-workbench-viewport-editor-comfort/` for viewport-bounded workbench layout, independently scrolling panes, default-on persistent editor wrapping, editor-focused Tab/Shift+Tab indentation, runtime-drawer contrast, and focused browser evidence.

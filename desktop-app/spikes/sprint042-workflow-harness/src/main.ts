@@ -6,7 +6,8 @@ import VxeUITable from "vxe-table";
 import "vxe-pc-ui/lib/style.css";
 import "vxe-table/lib/style.css";
 import "vanilla-jsoneditor/themes/jse-theme-dark.css";
-import { createApp, defineComponent, h } from "vue";
+import { createApp, defineComponent, h, onMounted, ref } from "vue";
+import HelpCenterDialog from "../../../src/mainview/components/HelpCenterDialog.vue";
 import { harnessSnapshot, rpc, failNextPreview } from "./mockRpc";
 
 VxeUIBase.setI18n("en-US", VxeEnglish);
@@ -26,4 +27,13 @@ const Harness = defineComponent({
 	}
 });
 
-createApp(Harness).use(VxeUIBase).use(VxeUITable).mount("#app");
+const initialHelpSection = new URLSearchParams(window.location.search).get("help-section");
+const Root = initialHelpSection === null ? Harness : defineComponent({
+	setup() {
+		const open = ref(false);
+		onMounted(() => { open.value = true; });
+		return () => h(HelpCenterDialog, { open: open.value, initialSection: initialHelpSection, shortcuts: [], onClose: () => undefined });
+	}
+});
+
+createApp(Root).use(VxeUIBase).use(VxeUITable).mount("#app");
