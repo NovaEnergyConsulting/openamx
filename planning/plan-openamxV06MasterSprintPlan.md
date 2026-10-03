@@ -108,7 +108,7 @@ The authoritative product behavior is defined in `planning/openamxV06ProductUXCo
 
 #### Sprint 042: Live Preview, Runtime Drawer, and Export Parity (depends on 036-041)
 
-Sprint 041 is complete with recorded exceptions by explicit direction on 2026-10-02, so Sprint 042 may proceed. Its 100,000-row responsiveness exception is not waived; Sprint 043 must remeasure and disposition it as part of integrated acceptance.
+Sprint 041 is complete with recorded exceptions by explicit direction on 2026-10-02, so Sprint 042 may proceed. Its original 100,000-row timing discrepancy is handed to Sprint 043 for integrated measurement and usability disposition under the performance policy recorded in the current V0.6 product contract; the historical result is not rewritten as having met the former numeric target.
 
 - Deliver debounced active-file live analysis/preview with pause/resume/manual refresh, explicit power Run, last-good stale state, source-linked diagnostics, progress, cancellation, and unsaved project-graph execution.
 - Keep report preview sandboxed and bounded. Switching files, editing modules/data, changing mappings/settings, pausing, cancelling, or changing projects invalidates prior success without allowing a late reply to become current.
@@ -125,7 +125,7 @@ Sprint 041 is complete with recorded exceptions by explicit direction on 2026-10
 - Add explicit migration for V0.5 recent/session state that contains a designated entry. Preserve safe active tabs/layout where possible, discard obsolete entry state, never auto-run, and document the change.
 - Remove prototype/spike product naming and stale entry/manual-path instructions from desktop metadata and documentation. Align V0.6 version metadata only after behavior is verified.
 - Build an integrated acceptance fixture covering project creation, multiple unsaved AMX imports, logical inputs, project/external data editing, settings precedence, editor intelligence/refactoring, live preview, cancellation, all export formats, conflicts, trash, and crash recovery.
-- Run approved performance fixtures for 100 relevant files and supported 100,000-row data. Record exact hardware/OS/runtime, timings, memory, and any approved host-relative threshold adjustment.
+- Run approved performance fixtures for 100 relevant files and supported 100,000-row data. Record exact hardware/OS/runtime, timings, memory, longest tasks, and artifacts. For the 100k data-editor viewport/edit path, timings are descriptive evidence with no fixed 3-second or 100-ms pass/fail ceiling; require lossless full-range access, working edit/history/cancellation/fallback, and explicit Lead Developer acceptance of usability. Keep all other performance budgets unchanged.
 - Run component/browser and available-host manual visual review at 1024x720 and a larger viewport in system/light/dark themes. Cover keyboard/focus, contrast, drawers, dialogs, dense/error states, no dead controls, and all states in the contract.
 - Update root and desktop README files, help, planning state/decisions/questions, and an evidence record with exact commands, counts, screenshots, exceptions, limitations, and Lead Developer disposition.
 - Record V0.6 feature acceptance independently from native packaging/platform/Hutch, report-mobile, VS Code-action, Office, license/Marketplace, and formal-accessibility residuals.

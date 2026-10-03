@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.6 Sprint 043 Architect Preparation (2026-10-03)
+
+- Prepared the four Sprint 043 artifacts in `planning/sprints/0043-v06-onboarding-ux-acceptance-release-record/` for onboarding/help, V0.5 session migration, integrated end-to-end acceptance, visual review, documentation alignment, and separate feature/release dispositions.
+- Sprint 042 is COMPLETE by explicit Lead Developer direction (2026-10-03). Native window interaction and target-platform/Hutch/Office/license/accessibility certification remain separate residuals; acceptance direction does not invent host details.
+- **100k data-editor performance policy adjusted by explicit user direction (2026-10-03):** the prior 3-second first-viewport and 100-ms grid-task numbers are no longer hard pass/fail limits for supported 100,000-row CSV/JSON table loading/editing. Sprint 043 still records measured timings, memory, long tasks, scrolling, editing/history, cancellation, and bounded fallback, and obtains explicit Lead Developer acceptance that the lossless experience is usable. Sprint 041's historical measurements remain unchanged and are not relabeled as having passed the superseded threshold.
+- This adjustment applies only to the supported 100k data-editor interaction. Project listing, preview debounce, cancellation acknowledgement, and background analysis/validation/export budgets remain unchanged. No data-integrity, full-range access, cancellation, privacy, native, or release criterion is waived.
+
 ## V0.6 Sprint 041 Builder Outcome (2026-10-02)
 
 - **Disposition: COMPLETE WITH RECORDED EXCEPTIONS by explicit user direction (2026-10-02); Sprint 042 is unblocked.** Production integration and focused behavior checks are complete. This does not claim the 100 ms responsiveness goal passed. See [Sprint 041 builder evidence](sprints/0041-v06-structured-csv-json-data-editor/builder-evidence.md).

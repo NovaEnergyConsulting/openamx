@@ -194,7 +194,7 @@ Provide:
 
 Data validation reuses the existing strict JSON, CSV, and AMX type rules and retains source/data locations. The inspector shows the mapped logical input, declared type, errors, and usage links back to AMX.
 
-Target smooth operation for projects with up to 100 relevant files and structured data up to 100,000 rows on the documented acceptance host. Larger or unsupported irregular values receive an actionable bounded fallback rather than freezing the UI or silently truncating editable data.
+Support projects with up to 100 relevant files and structured data up to 100,000 rows on the documented acceptance host. For the 100,000-row CSV/JSON table workflow, measure and report viewport, scrolling, editing/history, cancellation, memory, and long-task behavior, but do not apply a fixed loading/edit latency ceiling. Acceptance is based on complete and lossless data access, usable scrolling and editing/history, cancellation and bounded fallback behavior, and explicit Lead Developer acceptance of the measured experience. Larger or unsupported irregular values receive an actionable bounded fallback rather than silently truncating editable data.
 
 ## 9. Export Workflow
 
@@ -227,10 +227,10 @@ Success provides compact Open and Reveal actions without launching automatically
 Sprint 035 measures the available host and fixes final budgets. Initial targets are:
 
 - Project listing and filtering for 100 relevant files within 1 second.
-- First usable viewport for a 100,000-row supported data file within 3 seconds.
+- For a supported 100,000-row data-editor view, record first-usable-viewport and edit timings; there is no fixed latency threshold. Evaluate the measured interaction qualitatively against the current accepted experience and require explicit Lead Developer acceptance. This supersedes the earlier 3-second first-viewport target for the data editor only.
 - Default live-preview debounce no greater than 500 milliseconds.
 - Cancellation acknowledgement within 250 milliseconds where cooperative cancellation is supported.
-- No webview main-thread task longer than 100 milliseconds during background analysis, validation, or export work.
+- No webview main-thread task longer than 100 milliseconds during background analysis, validation, or export work, excluding the measured grid initialization/edit path for supported 100,000-row CSV/JSON data. Record the data-editor longest tasks and judge their usability qualitatively; this exclusion does not apply to other background operations.
 
 Acceptance evidence must cover:
 

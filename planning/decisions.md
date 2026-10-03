@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.6 Sprint 043 Data-Editor Performance Disposition (2026-10-03)
+
+- By explicit user direction, the current 100,000-row CSV/JSON table experience is acceptable; the prior strict timing objective does not materially affect the desired UX. Update the authoritative V0.6 contract: the 3-second first-viewport and 100-ms grid-task targets are no longer hard pass/fail limits for 100k data-editor load/edit.
+- Sprint 043 must still record reproducible viewport, scroll, edit/history, cancellation, memory, and longest-task results. Acceptance requires complete/lossless access, practical editing/history/cancellation, bounded fallback, and explicit Lead Developer usability acceptance. Do not describe the superseded numeric target as passed.
+- This adjustment is limited to the supported 100k CSV/JSON data-editor interaction. Project listing, preview debounce, cancellation acknowledgement, and background analysis/validation/export performance criteria remain unchanged.
+- Sprint 041's historical measured results and `COMPLETE WITH RECORDED EXCEPTIONS` record remain intact; Sprint 043 closes the performance-policy disposition with new integrated evidence. No virtualization, data-integrity, accessibility, native, or release rule is waived.
+
 ## V0.6 Sprint 042 Lead Developer Acceptance (2026-10-03)
 
 - The Lead Developer reports testing all Sprint 042 functionality and confirms every acceptance requirement is met. Sprint 042 is **COMPLETE** by explicit direction; this supersedes the Builder's pending-acceptance disposition.

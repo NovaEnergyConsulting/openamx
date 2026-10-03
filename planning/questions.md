@@ -1,9 +1,15 @@
 # Planning Questions (Sprint 002)
 
+## V0.6 Sprint 043 Performance Decision (2026-10-03)
+
+- **Resolved by explicit user direction:** current 100,000-row table performance is acceptable. The 3-second first-viewport and 100-ms grid-task criteria are qualitative evidence, not hard acceptance thresholds for supported 100k CSV/JSON grid loading/editing. Sprint 043 must still record actual results, prove complete/lossless access and usable scroll/edit/history/cancellation/fallback, and obtain explicit Lead Developer acceptance.
+- Other performance budgets are unchanged: 100-file listing, preview debounce, cancellation acknowledgement, and background analysis/validation/export responsiveness remain independently testable.
+- Sprint 041's original timings remain historical evidence; they are not changed to passes. Sprint 043 records the new integrated measurements and closes the explicitly relaxed data-editor timing disposition.
+
 ## V0.6 Sprint 042 Builder Residuals (2026-10-02)
 
 - **Resolved for Sprint 042 feature acceptance (2026-10-03):** the Lead Developer states all Sprint 042 functionality and requirements were tested and met, including native destination and output-action behavior. Exact OS/session and per-check results were not supplied; they remain unavailable and are not inferred. This supersedes the Builder's earlier native-host question for Sprint 042 closure, not separate platform-release certification.
-- **Still assigned to Sprint 043:** remeasure the 100,000-row CSV/JSON viewport/edit workflow and disposition Sprint 041's recorded >100 ms tasks against the unchanged target. Do not hand-roll virtualization or substitute Sprint 042's small fake-RPC browser sample for data-editor evidence.
+- **Still assigned to Sprint 043:** record integrated 100,000-row CSV/JSON viewport/edit/history/cancellation and memory evidence, then obtain qualitative usability acceptance under the 2026-10-03 timing adjustment. Do not hand-roll virtualization or substitute Sprint 042's small fake-RPC browser sample for data-editor evidence.
 - **Separate release residuals:** native macOS/Windows/Ubuntu release certification, Hutch packaging, broad Office, licensing/Marketplace, and formal accessibility remain outside Sprint 042 feature closure.
 
 ## V0.6 Sprint 041 Builder Residuals (2026-10-02)
