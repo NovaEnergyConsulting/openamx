@@ -27,6 +27,7 @@ const palette = ref(false);
 const helpOpen = ref(false);
 const helpSection = ref("getting-started");
 const preferencesOpen = ref(false);
+const editorWrapLines = ref(localStorage.getItem("openamx.editor-wrap") !== "false");
 const autosaveEnabled = ref(localStorage.getItem("openamx.autosave") !== "false");
 const autosaveDelayMs = ref(Number(localStorage.getItem("openamx.autosave-delay")) || 500);
 const diagnosticTrail = ref<Array<{ at: string; codes: string[] }>>([]);
@@ -560,12 +561,14 @@ watch(() => [...staticAnalysis.value.diagnostics, ...analysis.value.diagnostics,
 	diagnosticTrail.value = [...diagnosticTrail.value, { at: new Date().toISOString(), codes: codes.slice(0, 100) }].slice(-20);
 });
 
-async function savePreferences(value: { theme: ShellTheme; drawerDock: DrawerDock; autosave: boolean; autosaveDelayMs: number }) {
+async function savePreferences(value: { theme: ShellTheme; drawerDock: DrawerDock; wrapLines: boolean; autosave: boolean; autosaveDelayMs: number }) {
 	if (!Number.isSafeInteger(value.autosaveDelayMs) || value.autosaveDelayMs < 100 || value.autosaveDelayMs > 10_000) return;
 	const result = await props.rpc.request.setAutosave({ enabled: value.autosave, delayMs: value.autosaveDelayMs });
 	if (!result.ok) { status.value = result.error.message; return; }
 	setTheme(value.theme);
 	setDrawerDock(value.drawerDock);
+	editorWrapLines.value = value.wrapLines;
+	localStorage.setItem("openamx.editor-wrap", String(value.wrapLines));
 	autosaveEnabled.value = result.enabled;
 	autosaveDelayMs.value = result.delayMs;
 	localStorage.setItem("openamx.autosave", String(result.enabled));
@@ -1192,7 +1195,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 			<section class="editor-pane" aria-label="Document editor">
 				<WorkbenchTabs :workbench="workbench" @select="selectTab" @close="closeTab" />
 				<div class="pane-header"><strong>{{ document?.label ?? document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><button :disabled="document?.kind !== 'amx'" type="button" @click="editorElement?.openSearch()">Find</button><button :disabled="document?.kind !== 'amx' || pending" type="button" @click="format">Format</button><button :disabled="!document || !document.dirty" type="button" @click="save">Save</button></span></div>
-				<CodeEditor v-if="document?.kind === 'amx'" ref="editorElement" :path="document.path" :text="document.text" :revision="document.revision" :highlights="staticAnalysis.highlights" :diagnostics="staticAnalysis.diagnostics" :symbols="staticAnalysis.symbols" :actions="staticAnalysis.actions" :complete="requestCompletions" :rename="renameSymbol" @change="updateText" @navigate="navigateSymbol" @references="showReferences" />
+				<CodeEditor v-if="document?.kind === 'amx'" ref="editorElement" :path="document.path" :text="document.text" :revision="document.revision" :wrap-lines="editorWrapLines" :highlights="staticAnalysis.highlights" :diagnostics="staticAnalysis.diagnostics" :symbols="staticAnalysis.symbols" :actions="staticAnalysis.actions" :complete="requestCompletions" :rename="renameSymbol" @change="updateText" @navigate="navigateSymbol" @references="showReferences" />
 				<DataEditorPane v-else-if="document?.kind === 'csv' || document?.kind === 'json' || document?.kind === 'external-data'" ref="dataEditorElement" :key="document.path" :kind="document.kind === 'external-data' ? document.dataFormat ?? 'json' : document.kind" :text="document.text" :revision="document.revision" :external="document.external" :input-name="dataEditorContexts.get(document.path)?.inputName ?? document.inputName" :schema="dataEditorContexts.get(document.path)?.schema" :diagnostics="dataEditorContexts.get(document.path)?.diagnostics" @change="updateText" @navigate-declaration="navigateMappedDeclaration(document.path)" />
 				<div v-else class="file-kind-shell"><strong>{{ document?.kind ?? "document" }}</strong><p>This file is read-only in the current workbench.</p></div>
 			</section>
@@ -1260,7 +1263,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 		</div>
 		<CommandPalette :open="palette" :commands="commands" @dismiss="dismissPalette" />
 		<HelpCenterDialog :open="helpOpen" :initial-section="helpSection" :shortcuts="commands" @close="helpOpen = false" @create-project="helpOpen = false; createProject($event)" @export-diagnostics="downloadDiagnosticSummary" />
-		<PreferencesDialog :open="preferencesOpen" :theme="theme" :drawer-dock="drawerDock" :autosave="autosaveEnabled" :autosave-delay-ms="autosaveDelayMs" @close="preferencesOpen = false" @save="savePreferences" />
+		<PreferencesDialog :open="preferencesOpen" :theme="theme" :drawer-dock="drawerDock" :wrap-lines="editorWrapLines" :autosave="autosaveEnabled" :autosave-delay-ms="autosaveDelayMs" @close="preferencesOpen = false" @save="savePreferences" />
 		<ExportDialog :open="exportDialogOpen" :active-label="document?.label ?? document?.path.split(/[\\/]/).pop() ?? ''" :outputs="exportOutputs" :selected-format="exportFormat" :selected-output="exportBinding" :file-name="exportFileName" :busy="exportBusy" :error="exportDialogError" :outputs-truncated="exportOutputsTruncated" @close="closeExportWorkflow" @format="setExportFormat" @output="setExportBinding" @file-name="exportFileName = $event" @export="performExport" />
 		<ReportSettingsDialog :open="reportSettingsOpen" :settings="reportSettings" :busy="reportSettingsBusy" :error="reportSettingsError" @close="closeReportSettings" @save="saveReportSettings" @pick-logo="pickReportLogo" />
 	</main>

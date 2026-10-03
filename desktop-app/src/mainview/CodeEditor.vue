@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { basicSetup, EditorView } from "codemirror";
+import { indentWithTab } from "@codemirror/commands";
 import { autocompletion, startCompletion, type CompletionContext } from "@codemirror/autocomplete";
 import { markdown } from "@codemirror/lang-markdown";
-import { EditorSelection, EditorState, StateEffect, StateField } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, EditorView as CodeMirrorView, hoverTooltip, keymap } from "@codemirror/view";
 import { openSearchPanel } from "@codemirror/search";
 import type { EditorHighlightFact } from "../../../src/editor/highlighting";
@@ -11,7 +12,7 @@ import type { TextAnalysis, TextDiagnostic } from "../shared/rpc";
 
 type EditorSymbol = NonNullable<TextAnalysis["symbols"]>[number];
 type EditorAction = NonNullable<TextAnalysis["actions"]>[number];
-const props = defineProps<{ path: string; text: string; revision?: number; highlights?: EditorHighlightFact[]; diagnostics?: TextDiagnostic[]; symbols?: EditorSymbol[]; actions?: EditorAction[]; complete?: (offset: number) => Promise<string[]>; rename?: (offset: number, newName: string) => Promise<boolean> }>();
+const props = defineProps<{ path: string; text: string; revision?: number; wrapLines?: boolean; highlights?: EditorHighlightFact[]; diagnostics?: TextDiagnostic[]; symbols?: EditorSymbol[]; actions?: EditorAction[]; complete?: (offset: number) => Promise<string[]>; rename?: (offset: number, newName: string) => Promise<boolean> }>();
 const emit = defineEmits<{ change: [text: string]; navigate: [path: string, offset: number]; references: [items: EditorSymbol[]] }>();
 const host = ref<HTMLElement | null>(null);
 const renameInput = ref<HTMLInputElement | null>(null);
@@ -22,6 +23,7 @@ const scrollPositions = new Map<string, number>();
 let editor: EditorView | undefined;
 let applyingExternal = false;
 let hasUnacknowledgedEdits = false;
+const wrapping = new Compartment();
 
 function normalizedEditorText(text: string): string { return text.replace(/\r\n/g, "\n"); }
 function sourceText(editorText: string): string {
@@ -127,9 +129,10 @@ async function confirmRename() {
 	if (await props.rename(target.from, renameValue.value)) renameTarget.value = null;
 }
 
-const extensions = [keymap.of([{ key: "F12", run: definitionAt }, { key: "Shift-F12", run: referencesAt }, { key: "F2", run: beginRename },
+
+const extensions = [keymap.of([indentWithTab, { key: "F12", run: definitionAt }, { key: "Shift-F12", run: referencesAt }, { key: "F2", run: beginRename },
 	{ key: "Ctrl-Space", run: startCompletion }, { key: "Cmd-Space", run: startCompletion }]),
-	basicSetup, markdown(), highlightField, autocompletion({ override: [completionSource] }),
+	basicSetup, markdown(), wrapping.of(props.wrapLines === false ? [] : EditorView.lineWrapping), highlightField, autocompletion({ override: [completionSource] }),
 	hoverTooltip((_view, position) => {
 		const symbol = symbolAt(position);
 		if (!symbol) return null;
@@ -226,6 +229,7 @@ watch(() => [props.path, props.text, props.revision] as const, ([path, text], [o
 		scrollPositions.set(oldPath, editor.scrollDOM.scrollTop);
 		const saved = states.get(path);
 		editor.setState(saved?.doc.toString() === text ? saved : createState(text));
+		editor.dispatch({ effects: wrapping.reconfigure(props.wrapLines === false ? [] : EditorView.lineWrapping) });
 		editor.scrollDOM.scrollTop = scrollPositions.get(path) ?? 0;
 		applyEditorFacts();
 		return;
@@ -243,6 +247,10 @@ watch(() => [props.path, props.text, props.revision] as const, ([path, text], [o
 		hasUnacknowledgedEdits = false;
 		applyEditorFacts();
 	} finally { applyingExternal = false; }
+});
+
+watch(() => props.wrapLines, wrapLines => {
+	if (editor) editor.dispatch({ effects: wrapping.reconfigure(wrapLines === false ? [] : EditorView.lineWrapping) });
 });
 
 watch(() => [props.highlights, props.diagnostics] as const, () => applyEditorFacts());

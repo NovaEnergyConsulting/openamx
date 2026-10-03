@@ -1,5 +1,22 @@
 # Planning State
 
+## V0.7 Sprint 045 Architect Preparation (2026-10-03)
+
+- Prepared the four Sprint 045 artifacts in `planning/sprints/0045-v07-workbench-viewport-editor-comfort/` for viewport-bounded workbench layout, independently scrolling panes, default-on persistent editor wrapping, editor-focused Tab/Shift+Tab indentation, runtime-drawer contrast, and focused browser evidence.
+- **Status: ACTIVE; architect preparation complete and Builder handoff ready.** Sprint 044 established the delayed-preview regression and the Playwright/Vite UI test approach. Its Builder verification is complete; Lead Developer disposition remains pending. Sprint 045 may use the evidenced test foundation without treating browser evidence as native acceptance.
+- Sprint 045 must preserve a user-resizable native window while constraining app content to the available viewport. Explorer, editor, and preview own their scrolling in desktop and adaptive layouts.
+- Wrapping defaults on and uses a persistent device-local global preference. Tab/Shift+Tab indent/unindent only while CodeMirror has focus; normal focus navigation remains unchanged elsewhere.
+- Runtime-drawer foregrounds must cover status, stage, diagnostics, links, muted text, and code across light/dark themes. Browser visuals supplement but do not imply native-platform or formal accessibility certification.
+
+## V0.7 Sprint 045 Builder Outcome (2026-10-03)
+
+- **Builder implementation and verification complete; Lead Developer disposition pending.** The adaptive page-growth defect was reproduced at 820x720 with `scrollHeight=3053` and corrected with a viewport-bounded shell, shrinkable tracks, and pane-owned scrolling. The final Playwright matrix passed at 1024x720, 1440x900, and adaptive 820x720, including independent explorer/editor/preview/runtime scrolling and bounded page dimensions.
+- CodeMirror wrapping defaults on, persists as a global device-local preference, applies across two AMX documents, and survives browser reload. Tab/Shift+Tab use CodeMirror indentation only while focused; outside-editor Tab still traverses focus and the preference does not alter source text. Runtime drawer text/state foregrounds passed the automated 4.5:1 browser contrast check in light/dark palettes.
+- Combined Sprint 044/045 Playwright suite passed **4 tests**; desktop RPC contracts passed with `Final active resources: []`; frozen lockfile, desktop typecheck, and production web build passed. Vite retains its >500 kB chunk warning. Five browser screenshots and SHA-256 values are recorded in [Sprint 045 Builder evidence](sprints/0045-v07-workbench-viewport-editor-comfort/builder-evidence.md).
+- Evidence host: Omarchy Linux x86_64, kernel 7.2.5-3-omarchy; Playwright 1.63.0 / Chromium 153.0.8010.12; Bun 1.4.2; Node 24.14.1. No native Electrobun UI/window-resize or actual app-restart check was performed. Browser evidence does not claim native, cross-platform, or formal accessibility acceptance. Sprint 046 and unrelated backlog remain untouched.
+
+## V0.7 Sprint 044 Builder Outcome (2026-10-03)
+
 ## V0.7 Sprint 044 Builder Outcome (2026-10-03)
 
 - **Builder verification complete; Lead Developer disposition pending.** Sprint 044 has no sprint dependency. Detailed reproduction, code path, test results, browser proof, and limitations are in [Sprint 044 Builder evidence](sprints/0044-v07-preview-freshness-ui-test-foundation/builder-evidence.md).

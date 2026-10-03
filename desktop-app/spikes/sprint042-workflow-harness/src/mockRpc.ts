@@ -2,7 +2,8 @@ import { ref } from "vue";
 import type { DesktopRPCClient, DesktopJobIdentity, DesktopJobSnapshot, DesktopJobResult, OpenDocument, WorkbenchState } from "../../../src/shared/rpc";
 
 const projectRoot = "/sprint042-browser-fixture";
-const activePath = `${projectRoot}/report.amx`;
+let activePath = `${projectRoot}/report.amx`;
+const secondPath = `${projectRoot}/second.amx`;
 let documentRevision = 0;
 let generation = 0;
 let inputSettingsRevision = 0;
@@ -21,7 +22,7 @@ export const failNextPreview = ref(false);
 
 function identity(): WorkbenchState["requestIdentity"] {
 	return {
-		canonicalActiveUri: "file:///sprint042-browser-fixture/report.amx",
+		canonicalActiveUri: `file://${activePath}`,
 		projectGeneration: generation,
 		documentRevision,
 		inputSettingsRevision
@@ -76,13 +77,18 @@ const request = {
 	async pickCreateProject() { generation++; return { ok: true as const, cancelled: false, root: projectRoot }; },
 	async getWorkbench() { return { ok: true as const, state: state() }; },
 	async getProjectContext() { return { ok: true as const, root: projectRoot, state: state() }; },
-	async listProjectFiles() { return { ok: true as const, files: [{ path: activePath, kind: "amx" as const }], folders: [] }; },
+	async listProjectFiles() { return { ok: true as const, files: [{ path: `${projectRoot}/report.amx`, kind: "amx" as const }, { path: secondPath, kind: "amx" as const }], folders: [] }; },
 	async getRecents() { return { ok: true as const, projects: [] }; },
 	async getRecovery() { return { ok: true as const, available: false, items: [] }; },
 	async setAutosave({ enabled, delayMs }: { enabled: boolean; delayMs: number }) { autosaveDelayMs = delayMs; return { ok: true as const, enabled, delayMs }; },
 	async readDocument() { return { ok: true as const, document: document() }; },
-	async openDocument() { return { ok: true as const, document: document() }; },
-	async selectTab() { return { ok: true as const, document: document() }; },
+	async openDocument({ path }: { path: string }) {
+		activePath = path;
+		if (activePath === secondPath && !currentText.includes("Second fixture")) currentText = "# Second fixture\n\n```amx\nexport let result: Number = 5\n```\n";
+		else if (activePath.endsWith("/report.amx") && !currentText.includes("Sprint 042 report")) currentText = "# Sprint 042 report\n\n```amx\nexport let result: Number = 3\n```\n";
+		return { ok: true as const, document: document() };
+	},
+	async selectTab({ path }: { path: string }) { activePath = path; return { ok: true as const, document: document() }; },
 	async setInputSettings({ inputMappings, validation }: { inputMappings: string[]; validation: "aggregate" | "fail-fast" }) {
 		const next = JSON.stringify({ inputMappings, validation });
 		if (next !== inputSettingsKey) { inputSettingsKey = next; inputSettingsRevision++; }

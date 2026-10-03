@@ -1,5 +1,21 @@
 # Planning Decisions
 
+## V0.7 Sprint 045 Architect Preparation (2026-10-03)
+
+- Sprint 045 is authorized for the workbench viewport/scrolling, CodeMirror wrapping and indentation behavior, persistent global wrap preference, and runtime-drawer foreground corrections specified in its requirements.
+- Preserve a user-resizable native window; constrain the app page to the current viewport and give explorer, editor, and preview independent scrolling in both desktop and adaptive layouts. Do not solve long content by clipping or page scrolling.
+- Editor wrapping defaults on and is a persistent global device-local preference. Tab and Shift+Tab are editor indentation commands only while CodeMirror is focused; ordinary focus navigation outside the editor remains unchanged.
+- Runtime drawer status, stage, diagnostics, links, muted text, and code use theme-aware foreground tokens in light and dark themes.
+- Reuse the Sprint 044 Playwright/Vite fixture for repeatable UI checks. Sprint 044 Builder verification is recorded, but Lead Developer disposition remains pending; browser results do not close native-platform or formal accessibility gates.
+- Sprint 045 does not include Help Center changes, further preview freshness work, unrelated V0.7 backlog, language/CLI/VS Code behavior, native certification, or release engineering.
+
+## V0.7 Sprint 045 Builder Decisions (2026-10-03)
+
+- The 820x720 baseline failure was page growth (`documentElement.scrollHeight=3053`) caused by intrinsic adaptive pane minimums under a min-height-only shell. Use a dynamic-viewport-bounded app shell and shrinkable workbench tracks; explorer, CodeMirror, preview iframe document, and runtime drawer each retain their own scrolling. Long runtime diagnostic tokens wrap instead of widening the page.
+- Keep wrapping in a CodeMirror `Compartment` so preference changes reconfigure the current editor without discarding editor state. Missing `openamx.editor-wrap` means enabled; only the local device stores it. Reuse CodeMirror's `indentWithTab` key binding so Tab/Shift+Tab stay scoped to the editor.
+- Runtime foreground tokens were extended for link, code, success, warning, and danger colors in explicit and resolved system light/dark themes. Browser checks calculate at least 4.5:1 against the drawer surface; this is not a formal accessibility claim.
+- Sprint 045 Builder evidence is complete; Lead Developer disposition remains pending. Browser screenshots/reload checks do not establish native Electrobun, actual app-restart, cross-platform, or formal accessibility acceptance.
+
 ## V0.7 Sprint 044 Architect Preparation (2026-10-03)
 
 - Sprint 044 is authorized to investigate and correct the reported preview freshness behavior within the existing active-document contract. The proposed autosave/disk-hash race remains a hypothesis; do not select a production fix until a deterministic delayed-worker regression confirms or falsifies it.

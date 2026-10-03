@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.7 Sprint 045 Implementation Questions (2026-10-03)
+
+- **Resolved by Builder browser evidence:** at 820x720, intrinsic adaptive pane minimums under the min-height-only shell expanded the document to 3,053 px. The viewport-bound shell and shrinkable tracks keep the document bounded at 1024x720, 1440x900, and adaptive 820x720; explorer, CodeMirror, preview iframe content, and runtime drawer scroll independently.
+- **Resolved by Builder browser evidence:** global wrapping defaults on when the local value is absent, applies across two AMX documents, toggles without editor recreation, persists through browser reload, and does not change source text. Actual native app restart was not tested; no project/source setting is used.
+- **Resolved by Builder browser evidence:** all listed runtime text categories and idle/running/success/failure/stale/cancelled state samples pass the 4.5:1 computed contrast threshold against both explicit light and dark drawer surfaces. This is not formal accessibility certification.
+- Can direct native Electrobun visual evidence be obtained for this sprint? Owner: Lead Developer/native acceptance. Browser screenshots are required supporting evidence but must not be described as native proof if the host is unavailable.
+
 ## V0.7 Sprint 044 Investigation Questions (2026-10-03)
 
 - **Resolved: autosave/disk-hash hypothesis confirmed.** A deterministic source-dependent preview result held until autosave completed was rejected as `superseded` before the fix despite unchanged request identity/revision. The trusted current hash for a clean open AMX source is now used; captured hashes remain for dirty overlays and non-AMX sources. See [Sprint 044 Builder evidence](sprints/0044-v07-preview-freshness-ui-test-foundation/builder-evidence.md).
