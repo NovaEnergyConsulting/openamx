@@ -1,5 +1,21 @@
 # Planning Decisions
 
+## V0.8 Sprint 047 Builder Decisions (2026-10-03)
+
+- Preserve manifest formatting by validating package JSON structurally and changing only the top-level `version` field. The three Bun lockfiles have no package-version metadata to synchronize, so leave all lockfiles untouched; frozen-lock validation is not needed for unchanged lockfiles.
+- `release:check` maps Node platforms `linux`/`win32`/`darwin` to project targets `linux`/`windows`/`macos`, and Electrobun target conventions `linux`/`win`/`mac`; `x64` and `arm64` map directly. A declared matrix row is `available` only for the current host when tool probes pass and manifest versions/identity are consistent. Other rows remain `unverified`; no unsupported target is asserted without evidence.
+- `hutch --version` reports `0.27.1`; current config invokes Electrobun through Hutch and explicitly disables bundled CEF on all three operating systems. This is configuration evidence only. Installer format, complete runtime requirements, and installed-app self-containment remain Sprint 048 questions; no migration or format was selected.
+- Extension local install invokes `code` with an argv path built from package name/version; Windows uses an explicit `cmd.exe` wrapper and Windows path/quoting rules. The produced VSIX must already exist; local install does not build or rename it.
+
+## V0.8 Sprint 047 Architect Preparation (2026-10-03)
+
+- Sprint 047 is authorized as the first V0.8 implementation sprint and has no sprint dependency. This does not change Sprint 046's separate pending Lead Developer disposition.
+- Use root `package.json` as the sole version authority. Preparation accepts an explicit stable semantic version, updates root/desktop/extension package metadata as required, derives Electrobun's app version instead of duplicating it, and leaves reviewable changes without committing or tagging.
+- Implement only `release:prepare <version>` and read-only `release:check` in Sprint 047. Document contracts for desktop build, extension package, collection, verification, and publication for later sprints; those commands are not Sprint 047 implementation scope.
+- Use project-facing targets `linux`, `windows`, and `macos`, each with `x64` or `arm64`, and explicit native-tool mappings. `available`, `unverified`, and `unsupported` describe target evidence; `missing` describes an absent requested release artifact.
+- Retain `releases/<version>/` as the planned accepted-output layout with incomplete staging separated, checksummed manifests, provenance checks, retained prior releases, and no silent overwrite. Final manifest details and artifact naming are to be completed in Sprint 047 without weakening the master plan's integrity/provenance rules.
+- Do not claim remote native support, installer formats, or installation behavior from source configuration, mocked tests, or browser evidence. Do not expand into toolchain migration, signing/notarization, license authoring, CI, or publication automation without approval.
+
 ## V0.7 Sprint 046 Architect Preparation (2026-10-03)
 
 - Sprint 046 owns only the current Help Center static-content extraction/layout and integrated acceptance observations documented in the V0.7 master plan.

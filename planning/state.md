@@ -1,5 +1,21 @@
 # Planning State
 
+## V0.8 Sprint 047 Builder Outcome (2026-10-03)
+
+- **Builder implementation and verification complete; Lead Developer disposition pending.**
+- Implemented `bun run release:prepare <version>` and read-only `bun run release:check`. Preparation accepts stable semantic versions only, validates all three expected manifest identities/versions before writes, uses root `package.json` as authority, stages coordinated replacements, detects concurrent source changes, rolls back injected write failures, and is idempotent. Electrobun app version now derives from desktop package metadata; fixed name `OpenAMX Desktop` and identifier `dev.openamx.desktop` are preserved. VS Code local installation derives its VSIX filename from extension package metadata.
+- Focused release tests pass: `bun test ./tests/release.test.ts` (13 tests, 48 expectations). Coverage includes invalid-input/source no-write, CLI synchronization from a path containing spaces, divergent manifest synchronization, idempotence, rollback, app-version derivation, six native OS/architecture mappings, unavailable prerequisites vs unsupported host, consistency reporting, Windows path joining and Windows command quoting.
+- Source audit: root/desktop/extension manifests were all `0.6.0`. All three Bun lockfiles encode workspace identity and resolved dependencies, not package version; none required edits and no dependency was added/upgraded. Desktop packaging configuration copies `dist/index.html`, `dist/assets`, and `dist/jobWorker.js` to Electrobun's main-view/Bun resource destinations; Hutch selects frozen Bun install. `bundleCEF: false` is configured for Linux/Windows/macOS, but this does not establish self-contained runtime or installer support.
+- Host observed: Linux x86_64, kernel `7.2.5-3-omarchy`; Bun `1.4.2`, Node `v24.14.1`, Hutch `0.27.1`. Bun, Hutch, Node and extension-local `vsce` are checked as prerequisites. No installer format is selected. Remote Windows/macOS and Linux arm64 targets remain `unverified`; no native installer, VSIX, installation, signing/notarization, or publication acceptance is claimed. Exact verification outcomes are in [Sprint 047 Builder evidence](sprints/0047-v08-release-contract-preflight-version-synchronization/builder-evidence.md).
+- Sprint 048 native packaging/installer selection, Sprint 049 VSIX production/release assembly/publication, target certification, license/notices packaging validation and runtime self-containment remain open.
+
+## V0.8 Sprint 047 Architect Preparation (2026-10-03)
+
+- Prepared the four Sprint 047 artifacts in `planning/sprints/0047-v08-release-contract-preflight-version-synchronization/` for the release command/manifest contract, root-authoritative version preparation, native target/prerequisite preflight, and focused evidence.
+- **At handoff: ACTIVE; architect preparation complete and Builder handoff ready.** Sprint 047 has no sprint dependency. Sprint 046's Lead Developer disposition remains separate and is not inferred or changed by this preparation.
+- At handoff, root `package.json` was designated the only version authority; desktop config duplicated `0.6.0` and extension `install-local` embedded a version-specific VSIX filename. Builder implementation below removes these maintenance points and records the lockfile audit.
+- Sprint 047 owns only release contract/preflight/version synchronization. Native installers, VSIX packaging, collection, verification, and explicit GitHub publication are later-sprint work. Remote OS/architecture targets remain unverified unless actual native evidence or bounded official-toolchain evidence establishes otherwise.
+
 ## V0.7 Sprint 046 Architect Preparation (2026-10-03)
 
 - Prepared the four Sprint 046 artifacts in `planning/sprints/0046-v07-help-center-integrated-acceptance/` for bundled Help Center JSON, preserved Vue interactions/command-registry shortcut ownership, viewport-bounded fixed-chrome dialog layout, focused UI coverage, and integrated V0.7 acceptance.

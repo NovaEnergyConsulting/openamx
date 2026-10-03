@@ -9,6 +9,8 @@
   "scripts": {
     "build": "tsc",
     "test": "bun test",
+    "release:prepare": "bun run scripts/release.ts prepare",
+    "release:check": "bun run scripts/release.ts check",
     "dev": "bun --watch src/cli.ts render examples/hello-world.amx --out examples/hello-world.html",
     "dev:app": "(cd desktop-app && hutch run dev)",
     "run:app": "(cd desktop-app && bun run run)",

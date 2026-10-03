@@ -1,8 +1,8 @@
+import { appMetadata } from "./app-metadata";
+
 export default {
 	app: {
-		name: "OpenAMX Desktop",
-		identifier: "dev.openamx.desktop",
-		version: "0.6.0",
+		...appMetadata,
 	},
 	build: {
 		mainProcess: "bun",

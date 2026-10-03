@@ -43,7 +43,7 @@
     "compile-tests": "tsc -p ./tsconfig.test.json",
     "test": "bun run compile && bun run compile-tests && node ./out/vscode-extension/src/test/runTest.js",
     "package": "bun run compile && vsce package --no-dependencies",
-    "install-local": "code --install-extension openamx-vscode-0.6.0.vsix --force"
+    "install-local": "node ./install-local.mjs"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",

@@ -1,5 +1,21 @@
 # Planning Questions (Sprint 002)
 
+## V0.8 Sprint 047 Builder Findings and Open Items (2026-10-03)
+
+- **Resolved by source audit:** the root, desktop, and extension Bun lockfiles contain workspace names and dependency resolutions but no `0.6.0` package-version field. They are unchanged; no frozen-lock validation is applicable to Sprint 047. No dependency churn was introduced.
+- **Observed, not certified:** this host is Linux x86_64 with Bun `1.4.2`, Node `v24.14.1`, Hutch `0.27.1`, and an extension-local `vsce` executable. Preflight checks executable availability and `--version`; the existence of those tools does not establish any installer format or native installation behavior.
+- **Resolved mapping, open capability:** project/native OS mappings are Linux/Linux, Windows/Win, macOS/Mac; x64 and arm64 map directly. Current Linux x64 can be reported available only when consistency, identity and prerequisites pass. Remote targets remain unverified; no official installer/toolchain evidence was used to mark any target unsupported.
+- Which installer formats can Hutch/Electrobun produce on Linux x64/arm64, Windows x64/arm64 and macOS x64/arm64, and what exact native libraries/webview runtime must an installed app provide? Owner: Sprint 048; obtain official toolchain evidence and native artifact/install observations. Request approval before any required migration or contract expansion.
+- Does the supplied `LICENSE.md` require package metadata or dependency notices beyond later-sprint inspection? Owner: Sprint 049; interpret actual supplied terms and Marketplace/package requirements there. Sprint 047 makes no legal or publication-readiness claim.
+
+## V0.8 Sprint 047 Contract and Preflight Questions (2026-10-03)
+
+- Which native installer formats and exact host prerequisites can the existing Hutch/Electrobun chain produce on each available host/architecture? Sprint 047 should document only evidence-backed feasibility; Sprint 048 selects formats and implements packaging. Unavailable native hosts remain `unverified`, not assumed unsupported.
+- Which fields in the three Bun lockfiles are truly tied to package versions, and can version preparation leave them untouched? Inspect before deciding; update only metadata required to preserve frozen installs.
+- What exact native-tool conventions map from project targets (`linux`, `windows`, `macos` + `x64`/`arm64`), and which are available or confirmed unsupported on this host? Record source/documentation or experiment for each conclusion.
+- Which desktop runtime/resource requirements are carried into a packaged app by the current worker and web asset configuration, and which remain to be proven by Sprint 048 artifact inspection and native install/launch checks?
+- The repository contains `LICENSE.md`; what actual metadata, dependency-notice, and packaging requirements follow from its supplied terms? Sprint 047 does not interpret or modify legal terms. Sprint 049 must inspect actual packaging/Marketplace requirements and report readiness accurately.
+
 ## V0.7 Sprint 046 Entry and Implementation Questions (2026-10-03)
 
 - **Resolved for Sprint 046 sequencing by Lead Developer direction (2026-10-03):** Sprint 044 is COMPLETE WITH RESIDUALS; Sprint 046 is explicitly authorized to proceed with Sprint 045's residuals. Sprint 045's Lead Developer acceptance disposition remains pending. Native Electrobun/window behavior, actual app restart, and formal accessibility remain unverified and are not upgraded by this authorization.
