@@ -1,5 +1,19 @@
 # Planning State
 
+## V0.8 Sprint 048 Architect Preparation (2026-10-03)
+
+- Prepared the four Sprint 048 artifacts in `planning/sprints/0048-v08-desktop-packaging-target-evidence/` for evidence-backed native installer selection, `release:desktop`, clean-build provenance, fresh staging, artifact/resource inspection, transfer-ready target bundles, and available-host installation evidence.
+- **Status: ACTIVE; implementation authorized (2026-10-03).** The Lead Developer dispositioned Sprint 047 **COMPLETE WITH RECORDED RESIDUALS** and explicitly authorized Sprint 048 to proceed with those residuals. This does not upgrade runtime self-containment, post-fix stable installation/preview, or remote targets to verified.
+- Sprint 048 confirmed the current Linux x64 native `.tar.gz` installer route from a fresh stable Hutch/Electrobun build. The Linux x64 packaging route is evidence-backed available, but post-fix stable install/preview remains unverified. Linux arm64, Windows x64/arm64, and macOS x64/arm64 remain unverified; no target is currently confirmed unsupported.
+- Sprint 048 owns desktop installer packaging and target evidence. VSIX packaging, license/notices validation, multi-target collection, verification, and explicit publication remain Sprint 049; integrated repeat-release acceptance/runbook remains Sprint 050.
+
+## V0.8 Sprint 048 Builder Progress (2026-10-03)
+
+- Implemented the root `release:desktop` command with clean committed source enforcement, stable-version/identity/host/prerequisite checks, a detached source worktree, unique per-target staging, accepted-output conflict/lock protection, Hutch installer and sidecar inspection, package resource validation, checksummed target bundles, and failure evidence that is not collectable.
+- Current-host feasibility confirms Hutch `0.27.1` + pinned Electrobun `2.0.1` builds a native Linux x64 `.tar.gz` Setup installer and update artifacts from fresh source. Official Electrobun docs describe Windows Setup `.zip` and macOS `.dmg`, built on native hosts; those targets remain `unverified` here. Linux arm64, Windows x64/arm64, and macOS x64/arm64 are `unverified`.
+- Fresh package inspection found and corrected a missing runtime resource: shared report preparation uses `sharp`, whose host-specific `@img/sharp-*` binding and libvips were omitted from the original desktop package. `build:web` now copies only the selected host-native packages into packaged resources, and release inspection rejects omissions.
+- Native residuals: the initial stable install attempted before the `sharp` resource correction exited because the native binding was absent. A current-source dev package with the corrected resources starts embedded Bun `1.4.0` with developer tools absent from `PATH`; Hyprland mapped its native window on workspace 7. Preview interaction and visible-window screenshot were not completed. Conservative uninstall removed the app and preserved an unrelated user document; a WebKit cookie DB remained. No post-fix stable installer was built because this worktree is dirty and release builds correctly refuse it.
+
 ## V0.8 Sprint 047 Builder Outcome (2026-10-03)
 
 - **Builder implementation and verification complete; Lead Developer disposition pending.**
@@ -8,6 +22,12 @@
 - Source audit: root/desktop/extension manifests were all `0.6.0`. All three Bun lockfiles encode workspace identity and resolved dependencies, not package version; none required edits and no dependency was added/upgraded. Desktop packaging configuration copies `dist/index.html`, `dist/assets`, and `dist/jobWorker.js` to Electrobun's main-view/Bun resource destinations; Hutch selects frozen Bun install. `bundleCEF: false` is configured for Linux/Windows/macOS, but this does not establish self-contained runtime or installer support.
 - Host observed: Linux x86_64, kernel `7.2.5-3-omarchy`; Bun `1.4.2`, Node `v24.14.1`, Hutch `0.27.1`. Bun, Hutch, Node and extension-local `vsce` are checked as prerequisites. No installer format is selected. Remote Windows/macOS and Linux arm64 targets remain `unverified`; no native installer, VSIX, installation, signing/notarization, or publication acceptance is claimed. Exact verification outcomes are in [Sprint 047 Builder evidence](sprints/0047-v08-release-contract-preflight-version-synchronization/builder-evidence.md).
 - Sprint 048 native packaging/installer selection, Sprint 049 VSIX production/release assembly/publication, target certification, license/notices packaging validation and runtime self-containment remain open.
+
+## V0.8 Sprint 047 Lead Developer Disposition (2026-10-03)
+
+- **Disposition: COMPLETE WITH RECORDED RESIDUALS.** By explicit Lead Developer direction, Sprint 047 Builder implementation and verification are accepted for sprint closeout, and Sprint 048 is authorized to proceed.
+- This disposition does not claim or certify an installer format, native package capability, runtime self-containment, native install/launch behavior, or any untested remote target. Linux x64 remains preflight-available only; Linux arm64, Windows x64/arm64, and macOS x64/arm64 remain unverified pending Sprint 048 evidence or native-host checks.
+- Sprint 048 owns the recorded desktop packaging and target-evidence work; Sprint 049/050 boundaries remain unchanged.
 
 ## V0.8 Sprint 047 Architect Preparation (2026-10-03)
 

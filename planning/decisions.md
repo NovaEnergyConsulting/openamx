@@ -1,5 +1,20 @@
 # Planning Decisions
 
+## V0.8 Sprint 048 Architect Preparation (2026-10-03)
+
+- Sprint 047 is **COMPLETE WITH RECORDED RESIDUALS** by explicit Lead Developer direction (2026-10-03); Sprint 048 is authorized to proceed with those residuals. The disposition accepts Builder completion for sprint closeout but does not upgrade native packaging, runtime self-containment, installation/launch behavior, or remote target status to verified.
+- Sprint 048 is prepared for the native desktop packaging and target evidence scope in the approved V0.8 master plan. Preserve all remaining evidence boundaries and do not infer native support from configuration or preflight availability.
+- Reuse Bun/Vite/Hutch/Electrobun and preserve the separate Bun job worker, web assets, application identity, version authority, and finalized Sprint 047 command/manifest/bundle contract. The desktop build validates source/version/provenance; it does not repair or increment versions.
+- Installer format/tooling must be selected from bounded official-toolchain and available-host evidence. No archive/AppImage substitution or incompatible toolchain migration is authorized without explicit approval.
+- Build only clean committed source into fresh per-target staging; inspect actual output contents and embedded identity/version/architecture; hash accepted artifacts; preserve prior outputs; and refuse silent overwrites. Staging/build checks are not proof of native installation/launch.
+- The installed app must not require Bun, Node, or developer tooling. Record actual system webview/library requirements. `bundleCEF: false` and a successful packaging command are not evidence of runtime self-containment.
+- Sprint 047's current Linux x64 preflight is available, but installer format, native installation and runtime requirements remain unverified. Other requested OS/architecture combinations remain unverified absent evidence. No broad platform or six-target certification claim is authorized.
+- Keep Sprint 048 limited to desktop packaging and its target evidence. Sprint 049 owns VSIX, license/notices packaging, bundle collection, release verification and explicit publishing; Sprint 050 owns integrated repeat-release acceptance and the consolidated runbook.
+- Evidence-backed installer selection: use the existing Hutch/Electrobun native stable outputs without additional installer tooling or format substitution. Current Linux x64 build produced Electrobun's `.tar.gz` Setup installer; documented Windows Setup `.zip` and macOS `.dmg` remain unverified until built on native hosts. Build only the current host target.
+- Release builds use a clean detached worktree at the recorded commit, install both root and desktop frozen lockfiles, build web/worker/native resources, and collect only fresh Hutch artifacts and sidecars. Stage in `releases/.staging`; atomically promote only a complete checksummed bundle with a completion marker. Never reuse source-checkout build/artifact/spike outputs.
+- `sharp` is required through shared report preparation. Copy only the current host's locked `@img/sharp-*` binding and matching `@img/sharp-libvips-*` package into app resources. Linux packages still depend on the system WebKitGTK 4.1/GTK/GLib and related graphics/media stack; do not claim self-containment.
+- Current-source dev launch reaches embedded Bun `1.4.0` with system-only PATH after adding sharp native resources. The stable installer tested before that correction failed at sharp loading; no post-fix stable installer was built from the dirty worktree. Native preview acceptance remains unverified.
+
 ## V0.8 Sprint 047 Builder Decisions (2026-10-03)
 
 - Preserve manifest formatting by validating package JSON structurally and changing only the top-level `version` field. The three Bun lockfiles have no package-version metadata to synchronize, so leave all lockfiles untouched; frozen-lock validation is not needed for unchanged lockfiles.

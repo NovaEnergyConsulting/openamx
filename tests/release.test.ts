@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { inspectRelease, isStableVersion, manifestPaths, mapNativeTarget, prepareVersion } from "../scripts/release";
+import { binaryArchitecture, finalizeTargetBundle, findInstaller, installerFormat, runDesktopRelease, sanitizeBuildWarning, verifyBuiltApp, verifyUpdateMetadata } from "../scripts/release/desktop";
 import { appMetadata } from "../desktop-app/app-metadata";
 import { localInstallInvocation } from "../vscode-extension/install-local.mjs";
 
@@ -151,6 +153,19 @@ describe("release preflight", () => {
 		expect(await Promise.all(paths.map((filePath) => readFile(filePath, "utf8")))).toEqual(originals);
 	});
 
+	test("reports only the evidence-backed Linux x64 installer route available", async () => {
+		const directory = await fixture();
+		const probeOptions = {
+			findExecutable: (name: string) => `/tools/${name}`,
+			probe: () => ({ status: 0, stdout: "test-version", stderr: "" }),
+		};
+		const linux = await inspectRelease(directory, { ...probeOptions, platform: "linux", architecture: "x64" });
+		const windows = await inspectRelease(directory, { ...probeOptions, platform: "win32", architecture: "x64" });
+		expect(linux.packaging.status).toBe("available");
+		expect(linux.packaging.reason).toContain("native Linux x64 .tar.gz Setup installer");
+		expect(windows.packaging.status).toBe("unverified");
+	});
+
 	test("uses Windows path joining semantics", () => {
 		expect(manifestPaths("C:\\workspace with spaces\\openamx", path.win32)).toEqual([
 			"C:\\workspace with spaces\\openamx\\package.json",
@@ -168,5 +183,184 @@ describe("release preflight", () => {
 			command: "code",
 			args: ["--install-extension", "/work space/extension/openamx-vscode-1.2.3.vsix", "--force"],
 		});
+	});
+});
+
+describe("desktop release packaging", () => {
+	const x64ElfRuntime = () => {
+		const header = Buffer.alloc(20);
+		header.set([0x7f, 0x45, 0x4c, 0x46], 0);
+		header[18] = 62;
+		return header;
+	};
+	const addSharpRuntime = async (resourcesDirectory: string) => {
+		const sharpDirectory = path.join(resourcesDirectory, "app/bun/node_modules/@img");
+		const nativeBinding = path.join(sharpDirectory, "sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node");
+		const libvips = path.join(sharpDirectory, "sharp-libvips-linux-x64/lib/libvips-cpp.so.8.18.7");
+		await mkdir(path.dirname(nativeBinding), { recursive: true });
+		await mkdir(path.dirname(libvips), { recursive: true });
+		await writeFile(nativeBinding, "native binding");
+		await writeFile(libvips, "libvips");
+	};
+
+	test("selects the native installer format documented by Electrobun", () => {
+		expect(installerFormat("linux")).toEqual({ extension: ".tar.gz", format: "tar.gz" });
+		expect(installerFormat("win")).toEqual({ extension: ".zip", format: "zip" });
+		expect(installerFormat("mac")).toEqual({ extension: ".dmg", format: "dmg" });
+	});
+
+	test("redacts Unix and Windows user paths from distributable build warnings", () => {
+		expect(sanitizeBuildWarning("warning in /home/alice/private/build.ts")).toBe("warning in <path>");
+		expect(sanitizeBuildWarning("warning in C:\\Users\\Alice Smith\\source.ts details")).toBe("warning in <path>");
+	});
+
+	test("detects x64 and arm64 from ELF, PE, and Mach-O headers", () => {
+		const elf = (machine: number) => {
+			const header = Buffer.alloc(20);
+			header.set([0x7f, 0x45, 0x4c, 0x46], 0);
+			header[18] = machine & 0xff;
+			header[19] = machine >> 8;
+			return header;
+		};
+		const pe = (machine: number) => {
+			const header = Buffer.alloc(70);
+			header.set([0x4d, 0x5a], 0);
+			header[0x3c] = 64;
+			header.set([machine & 0xff, machine >> 8], 68);
+			return header;
+		};
+		const macho = (cpuType: number) => {
+			const header = Buffer.alloc(8);
+			header.set([0xcf, 0xfa, 0xed, 0xfe], 0);
+			for (let index = 0; index < 4; index++) header[4 + index] = (cpuType >>> (index * 8)) & 0xff;
+			return header;
+		};
+		expect(binaryArchitecture(elf(62))).toBe("x64");
+		expect(binaryArchitecture(elf(183))).toBe("arm64");
+		expect(binaryArchitecture(pe(0x8664))).toBe("x64");
+		expect(binaryArchitecture(pe(0xaa64))).toBe("arm64");
+		expect(binaryArchitecture(macho(0x01000007))).toBe("x64");
+		expect(binaryArchitecture(macho(0x0100000c))).toBe("arm64");
+	});
+
+	test("inspects package identity, version, runtime, worker, and web resources", async () => {
+		const directory = path.join(await fixture(), "stable-linux-x64");
+		const resources = path.join(directory, "OpenAMXDesktop/Resources");
+		const application = path.join(resources, "app");
+		for (const relativePath of [
+			"bun/jobWorker.js",
+			"views/mainview/index.html",
+			"views/mainview/assets/index.js",
+		]) {
+			const filePath = path.join(application, relativePath);
+			await mkdir(path.dirname(filePath), { recursive: true });
+			await writeFile(filePath, "test resource");
+		}
+		const metadata = [
+			["metadata.json", { name: "OpenAMX Desktop", identifier: "dev.openamx.desktop", hash: "abc" }],
+			["version.json", { version: "0.6.0", hash: "abc", displayName: "OpenAMX Desktop" }],
+			["build.json", { mainProcess: "bun", electrobunVersion: "2.0.1", runtimeVersions: { bun: "1.4.0" } }],
+		] as const;
+		for (const [fileName, content] of metadata) await writeFile(path.join(resources, fileName), JSON.stringify(content));
+		await addSharpRuntime(resources);
+		const runtime = path.join(directory, "OpenAMXDesktop/bin/bun");
+		await mkdir(path.dirname(runtime), { recursive: true });
+		await writeFile(runtime, x64ElfRuntime());
+		for (const library of ["libNativeWrapper.so", "libElectrobunCore.so"]) await writeFile(path.join(directory, "OpenAMXDesktop/bin", library), "native library");
+		for (const binary of ["launcher", "libasar.so", "zig-zstd", "bspatch"]) await writeFile(path.join(directory, "OpenAMXDesktop/bin", binary), "runtime support");
+		await expect(verifyBuiltApp(directory, {
+			name: "OpenAMX Desktop",
+			identifier: "dev.openamx.desktop",
+			version: "0.6.0",
+			architecture: "x64",
+			nativeOs: "linux",
+			electrobunVersion: "2.0.1",
+		})).resolves.toEqual({ hash: "abc", runtimeVersions: { bun: "1.4.0" } });
+	});
+
+	test("rejects missing worker resources and mismatched embedded versions", async () => {
+		const directory = path.join(await fixture(), "stable-linux-x64");
+		const resources = path.join(directory, "OpenAMXDesktop/Resources");
+		await mkdir(resources, { recursive: true });
+		for (const [fileName, content] of [
+			["metadata.json", { name: "OpenAMX Desktop", identifier: "dev.openamx.desktop", hash: "abc" }],
+			["version.json", { version: "0.5.0", displayName: "OpenAMX Desktop" }],
+			["build.json", { mainProcess: "bun", electrobunVersion: "2.0.1", runtimeVersions: { bun: "1.4.0" } }],
+		] as const) await writeFile(path.join(resources, fileName), JSON.stringify(content));
+		await addSharpRuntime(resources);
+		const app = path.join(resources, "app");
+		await mkdir(path.join(app, "views/mainview/assets"), { recursive: true });
+		await writeFile(path.join(app, "views/mainview/index.html"), "<html>");
+		await writeFile(path.join(app, "views/mainview/assets/index.js"), "asset");
+		const runtime = path.join(directory, "OpenAMXDesktop/bin/bun");
+		await mkdir(path.dirname(runtime), { recursive: true });
+		await writeFile(runtime, x64ElfRuntime());
+		for (const library of ["libNativeWrapper.so", "libElectrobunCore.so"]) await writeFile(path.join(directory, "OpenAMXDesktop/bin", library), "native library");
+		for (const binary of ["launcher", "libasar.so", "zig-zstd", "bspatch"]) await writeFile(path.join(directory, "OpenAMXDesktop/bin", binary), "runtime support");
+		const expected = { name: "OpenAMX Desktop", identifier: "dev.openamx.desktop", version: "0.6.0", architecture: "x64", nativeOs: "linux" as const, electrobunVersion: "2.0.1" };
+		await expect(verifyBuiltApp(directory, expected)).rejects.toThrow("jobWorker.js");
+		await mkdir(path.join(app, "bun"), { recursive: true });
+		await writeFile(path.join(app, "bun/jobWorker.js"), "worker");
+		await expect(verifyBuiltApp(directory, expected)).rejects.toThrow("unexpected version");
+	});
+
+	test("rejects dirty release source before reading package inputs", async () => {
+		const directory = await fixture();
+		execFileSync("git", ["init", "-q"], { cwd: directory });
+		await writeFile(path.join(directory, "uncommitted.txt"), "not committed");
+		await expect(runDesktopRelease(directory)).rejects.toThrow("clean committed source tree");
+	});
+
+	test("rejects inconsistent versions on a clean committed source tree", async () => {
+		const directory = await fixture();
+		execFileSync("git", ["init", "-q"], { cwd: directory });
+		execFileSync("git", ["config", "user.email", "release-test@example.invalid"], { cwd: directory });
+		execFileSync("git", ["config", "user.name", "Release Test"], { cwd: directory });
+		execFileSync("git", ["add", "-A"], { cwd: directory });
+		execFileSync("git", ["commit", "-qm", "fixture"], { cwd: directory });
+		await expect(runDesktopRelease(directory)).rejects.toThrow("versions or desktop application identity are inconsistent");
+		expect(await readdir(path.join(directory, "releases")).catch(() => [])).toEqual([]);
+	});
+
+	test("verifies Hutch sidecar target, version, payload hash, and safe app archive", async () => {
+		const directory = await fixture();
+		const archiveName = "stable-linux-x64-payload.tar.zst";
+		const artifactDirectory = path.join(directory, "artifacts");
+		await mkdir(artifactDirectory, { recursive: true });
+		await writeFile(path.join(artifactDirectory, archiveName), "payload");
+		await writeFile(path.join(artifactDirectory, "stable-linux-x64-update.json"), JSON.stringify({
+			version: "0.6.0", platform: "linux", arch: "x64", hash: "abc123", artifact: { file: archiveName },
+		}));
+		await expect(verifyUpdateMetadata(artifactDirectory, "linux", "x64", "0.6.0", "abc123")).resolves.toEqual({
+			fileName: "stable-linux-x64-update.json", appArchive: archiveName,
+		});
+		await expect(verifyUpdateMetadata(artifactDirectory, "linux", "x64", "0.6.0", "wrong-hash")).rejects.toThrow("does not match");
+	});
+
+	test("rejects legacy spike installers instead of treating them as current artifacts", async () => {
+		const directory = await fixture();
+		const artifactDirectory = path.join(directory, "artifacts");
+		await mkdir(artifactDirectory, { recursive: true });
+		await writeFile(path.join(artifactDirectory, "win-x64-OpenAMXDesktop-Spike-Setup.zip"), "stale spike");
+		await expect(findInstaller(artifactDirectory, "win", "x64")).rejects.toThrow("legacy spike/proof");
+	});
+
+	test("writes a checksummed complete bundle and refuses an accepted destination conflict", async () => {
+		const directory = await fixture();
+		const bundle = path.join(directory, "staging/bundle");
+		const accepted = path.join(directory, "releases/0.6.0/linux-x64");
+		const artifacts = path.join(bundle, "artifacts");
+		await mkdir(artifacts, { recursive: true });
+		await writeFile(path.join(artifacts, "installer.tar.gz"), "installer bytes");
+		await finalizeTargetBundle(bundle, accepted, "deadbeef", { version: "0.6.0" }, { build: "passed" }, [{ file: "artifacts/installer.tar.gz" }]);
+		const checksumLines = (await readFile(path.join(accepted, "SHA256SUMS"), "utf8")).trim().split("\n");
+		expect(await readFile(path.join(accepted, "COMPLETE"), "utf8")).toBe("deadbeef\n");
+		expect(checksumLines).toHaveLength(3);
+		for (const line of checksumLines) {
+			const [expectedHash, file] = line.split(/\s+/, 2);
+			const actualHash = createHash("sha256").update(await readFile(path.join(accepted, file!))).digest("hex");
+			expect(actualHash).toBe(expectedHash);
+		}
+		await expect(finalizeTargetBundle(bundle, accepted, "deadbeef", {}, {}, [])).rejects.toThrow();
 	});
 });

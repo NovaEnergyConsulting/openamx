@@ -157,7 +157,7 @@ export interface ReleaseCheckResult {
 	versions: { status: "consistent" | "inconsistent"; values: string[] };
 	identity: { status: "valid" | "invalid"; name: string; identifier: string };
 	host: { status: "available" | "unsupported"; target: ReturnType<typeof mapNativeTarget>; reason?: string };
-	packaging: { status: "unverified"; reason: string };
+	packaging: { status: "available" | "unverified"; reason: string };
 	prerequisites: ToolProbe[];
 	targets: Array<{ os: ProjectOs; architecture: ProjectArch; status: "available" | "unverified" | "unsupported"; nativeOs: NativeOs; nativeArchitecture: ProjectArch }>;
 }
@@ -212,6 +212,7 @@ export async function inspectRelease(
 			nativeArchitecture: target!.nativeArchitecture,
 		};
 	}));
+	const linuxX64PackagingVerified = hostTarget?.os === "linux" && hostTarget.architecture === "x64";
 	return {
 		versions: { status: versions.length === 1 ? "consistent" : "inconsistent", values: versions },
 		identity: {
@@ -220,7 +221,12 @@ export async function inspectRelease(
 			identifier: appMetadata.identifier,
 		},
 		host: hostTarget ? { status: "available", target: hostTarget } : { status: "unsupported", target: null, reason: `Host ${platform}/${architecture} is outside the declared Linux/Windows/macOS x64/arm64 matrix.` },
-		packaging: { status: "unverified", reason: "No installer format or native packaging toolchain has been selected or exercised in Sprint 047." },
+		packaging: {
+			status: linuxX64PackagingVerified ? "available" : "unverified",
+			reason: linuxX64PackagingVerified
+				? "Hutch 0.27.1/Electrobun 2.0.1 produced a native Linux x64 .tar.gz Setup installer in Sprint 048; this does not pass the clean-source gate or native preview acceptance."
+				: "Native packaging has not been exercised on this host; Windows .zip and macOS .dmg routes require native-host evidence.",
+		},
 		prerequisites,
 		targets: targetRows,
 	};
@@ -248,7 +254,12 @@ async function main(args: string[]): Promise<void> {
 		if (result.host.status !== "available" || result.versions.status !== "consistent" || result.identity.status !== "valid" || result.prerequisites.some((tool) => tool.status !== "available")) process.exitCode = 1;
 		return;
 	}
-	console.error("Usage: bun run scripts/release.ts prepare <version> | check");
+	if (command === "desktop" && parameters.length === 0) {
+		const { runDesktopRelease } = await import("./release/desktop");
+		await runDesktopRelease(process.cwd());
+		return;
+	}
+	console.error("Usage: bun run scripts/release.ts prepare <version> | check | desktop");
 	process.exitCode = 2;
 }
 

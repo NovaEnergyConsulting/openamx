@@ -1,8 +1,11 @@
 # Dependencies
 node_modules/
+.hutch/
 
 # Build output
 dist/
+build/
+/releases/
 
 # Logs
 *.log

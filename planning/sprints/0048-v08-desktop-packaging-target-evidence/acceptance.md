@@ -1,0 +1,18 @@
+# Sprint 048 Acceptance Criteria
+
+Sprint 048 is complete when:
+
+- Sprint 047's Lead Developer disposition or explicit sequencing authorization is recorded before Sprint 048 implementation, including any accepted dependency residuals.
+- `release:desktop` uses the finalized Sprint 047 contract, validates consistent stable versions, app identity, clean committed source/provenance, current native target and prerequisites, and never silently repairs source.
+- The existing Bun/Vite/Hutch/Electrobun build and stable packaging controls produce a native installer/package for each target actually feasible on available native hosts. Any selected installer format and additional maintained tooling have bounded feasibility evidence and documented prerequisites. No unapproved format/toolchain substitution is made.
+- Fresh unique target-specific staging is used for every attempt. Stale development outputs, pre-existing ignored artifacts, and legacy spike outputs are not reused as build inputs or accepted evidence.
+- The generated artifact is inspected for embedded product name `OpenAMX Desktop`, identifier `dev.openamx.desktop`, requested version and target architecture, and required native runtime, web assets, and separate Bun job worker. The target bundle contains only the current verified artifact/evidence and does not silently conflict with retained outputs.
+- Each successful target bundle contains the required primary installer, finalized structured manifest, SHA-256 checksums, and evidence record. Build/package results and manual install/launch status are represented separately. Incomplete or failed staging is not considered collectable.
+- The full source commit and exact host/tool versions are recorded for publishable builds. A dirty or uncommitted source tree is rejected; builds do not commit, tag, publish, increment versions, or overwrite accepted outputs.
+- On the available native host, the installer is tested with Bun/Node/developer tooling unavailable to the installed application. The app installs, launches, opens and previews an AMX sample, preserves app identity/resources, closes, and uninstalls without deleting user documents, or any failed/unavailable observation is clearly recorded as an acceptance residual rather than reported as passing.
+- Actual system webview/runtime library requirements, OS warnings/restrictions, tested OS/version and tested Linux distribution are recorded. No self-containment, broad compatibility, minimum OS, signing, or notarization claim exceeds the evidence.
+- The six-target matrix accurately distinguishes available, unverified, and evidence-confirmed unsupported targets. Unsupported targets fail clearly without placeholders; unavailable remote targets do not block work on the current machine and are not inferred supported by mocks/configuration.
+- Focused tests cover target/preflight gates, fresh staging, output inspection, correct version/identity/resources, checksums, failure cleanup, stale/spike/conflict rejection, and bundle completeness. Applicable release tests, root build/tests, desktop checks/builds, and `git diff --check` pass, with exact commands/results recorded.
+- Clone-and-run guidance explains native-host prerequisites and command sequence without assuming cross-compilation or access to all hosts.
+- `planning/state.md`, `planning/decisions.md`, `planning/questions.md`, and Sprint 048 Builder evidence record actual artifact hashes/sizes, command results, host observations, residuals, and target statuses.
+- No VSIX, Marketplace upload, bundle collection across targets, release-wide verification, GitHub publication, signing/notarization, six-target certification, or unrelated product behavior is claimed as Sprint 048 work.

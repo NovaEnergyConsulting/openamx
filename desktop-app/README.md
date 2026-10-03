@@ -13,7 +13,31 @@ bunx vue-tsc --noEmit
 bunx vite build
 ```
 
-The V0.6 package version is `0.6.0`. Direct typecheck, Vite, and browser-harness checks are not native packaging or launch certification. V0.6 is approved for release with accepted exceptions; no native packaging, target-platform, Hutch, Office, licensing/Marketplace, or formal accessibility certification is claimed.
+The root `package.json` is the release version authority. Native desktop release builds run only from a clean committed clone on the native target host; they never repair versions or build from an existing development output.
+
+## Native Release Build
+
+Install Bun, Node.js, Git, and Hutch on the build host. On Linux, GNU `tar` with zstd support is also used for archive inspection. The installed application does not require Bun, Node.js, Git, or Hutch, but it does use the host's native webview and system libraries.
+
+From a clean clone at the reviewed commit, run at the repository root:
+
+```sh
+bun install --frozen-lockfile
+cd desktop-app
+bun install --frozen-lockfile
+cd ..
+cd vscode-extension
+bun install --frozen-lockfile
+cd ..
+bun run release:check
+bun run release:desktop
+```
+
+`release:desktop` builds only the current native OS/architecture using Hutch's stable Electrobun installer. It creates a detached clean worktree and unique staging attempt under `releases/.staging/<version>/<os>-<architecture>/`; successful bundles are placed under `releases/<version>/<os>-<architecture>/`. Existing accepted target bundles are never overwritten. The Linux format is Electrobun's `.tar.gz` Setup installer; Windows and macOS builds must be run on their own native hosts and emit Hutch's documented Setup `.zip` and `.dmg` formats respectively. This workflow does not cross-compile.
+
+Linux's packaged application includes Bun and the host-specific `sharp` native binding/libvips resources. It still requires the tested host's WebKitGTK 4.1, GTK/GLib, and related graphics/media libraries. The current Linux observation was Omarchy x86_64, kernel `7.2.5-3-omarchy`; it does not establish a minimum distribution version or broad Linux compatibility. Installer builds are unsigned. A successful package check is separate from manual installation, launch, and preview acceptance; inspect the target bundle's `manifest.json` and `evidence.json` for those statuses.
+
+To install the Linux Setup archive, extract it and run `./installer`. The installed uninstaller is under the app's Electrobun data directory; `uninstall --quiet` removes the app while preserving app data, and `uninstall --quiet --delete-data` additionally removes the app-managed data/cache/log roots. Keep project documents outside app-managed roots. macOS and Windows prerequisites and warning behavior must be recorded from those native hosts before claiming them verified.
 
 ## First Project
 
@@ -61,4 +85,4 @@ Project defaults live in `.openamx/project.json`; machine-local overrides live i
 
 ## Evidence and Limits
 
-Sprint 043 Builder evidence and final disposition are in [the sprint record](../planning/sprints/0043-v06-onboarding-ux-acceptance-release-record/builder-evidence.md). The Lead Developer accepted the remaining unverified items as V0.6 release exceptions and approved release. Available-browser and direct-service checks do not certify native macOS, Windows, or Ubuntu behavior; follow-up requirements are recorded for V0.7 planning.
+Sprint 043 Builder evidence and final disposition are in [the sprint record](../planning/sprints/0043-v06-onboarding-ux-acceptance-release-record/builder-evidence.md). Sprint 048 Linux installer feasibility and current target evidence are in [the Sprint 048 record](../planning/sprints/0048-v08-desktop-packaging-target-evidence/builder-evidence.md). A package build does not certify native preview interaction; macOS, Windows, Linux arm64, and post-fix stable installation remain unverified on this host.

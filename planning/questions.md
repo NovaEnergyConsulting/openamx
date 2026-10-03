@@ -1,5 +1,14 @@
 # Planning Questions (Sprint 002)
 
+## V0.8 Sprint 048 Desktop Packaging Questions (2026-10-03)
+
+- **Resolved for installer feasibility:** Hutch `0.27.1` with exact Electrobun `2.0.1` and `hutch electrobun build --env=stable` produced a fresh Linux x64 `.tar.gz` Setup installer plus update metadata/archive. No extra installer tool or format substitution was required. Build evidence is from detached clean commit `91682f150a491aee7ff3c0c8320555b6c594d449`; it is feasibility evidence, not a publishable artifact for the active source changes.
+- **Partially resolved by artifact inspection and native launch:** package records include the expected identity/version, embedded Bun `1.4.0`, separate job worker, Vite entry/assets, and native runtime. The original stable package omitted `sharp` optional native packages and failed during launch. The current-source dev package now includes the host-specific binding/libvips and reaches the embedded Bun main process with developer tools absent from PATH. Visible preview interaction and a post-fix stable install remain unverified.
+- **Partially resolved for tested Linux only:** host is Omarchy Linux x86_64, kernel `7.2.5-3-omarchy`. The installed native wrapper requires system WebKitGTK 4.1, GTK/GLib, and related graphics/media libraries. This establishes neither minimum OS nor universal Linux support. Other Linux distributions and unsigned-warning behavior remain unverified.
+- Can the existing stable packaging chain produce the approved native installer formats for each other requested target, and which architectures are known supported, unavailable, or confirmed unsupported? Owner: Sprint 048 Builder / Lead Developer with access to native hosts. Remote targets remain `unverified` without direct/toolchain evidence; any format/toolchain substitution needs explicit approval.
+- What actual native install/launch/uninstall behavior can be evidenced on this host, including whether application data and user documents survive uninstall? Owner: Sprint 048 Builder. Browser or mock checks are not substitutes.
+- **Resolved 2026-10-03 by explicit Lead Developer direction:** Sprint 047 is COMPLETE WITH RECORDED RESIDUALS, and Sprint 048 is authorized to proceed with those residuals. Remote target builds, native preview, and post-fix stable install/launch remain unverified; sequencing authorization is not evidence for those items.
+
 ## V0.8 Sprint 047 Builder Findings and Open Items (2026-10-03)
 
 - **Resolved by source audit:** the root, desktop, and extension Bun lockfiles contain workspace names and dependency resolutions but no `0.6.0` package-version field. They are unchanged; no frozen-lock validation is applicable to Sprint 047. No dependency churn was introduced.

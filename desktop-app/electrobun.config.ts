@@ -14,6 +14,7 @@ export default {
 			"dist/index.html": "views/mainview/index.html",
 			"dist/assets": "views/mainview/assets",
 			"dist/jobWorker.js": "bun/jobWorker.js",
+			"dist/native-sharp": "bun/node_modules",
 		},
 		// Ignore Vite output in watch mode — HMR handles view rebuilds separately
 		watchIgnore: ["dist/**"],
