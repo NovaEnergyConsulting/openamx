@@ -186,6 +186,81 @@ describe("V0.2 canonical examples", () => {
   });
 });
 
+describe("Kitchen-sink example", () => {
+  it("runs without inputs and renders its syntax, snapshots, and every chart shape", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "openamx-kitchen-sink-"));
+    try {
+      const summaryPath = path.join(directory, "summary.json");
+      const samplesPath = path.join(directory, "samples.csv");
+      const run = await runCli(
+        "run", "examples/kitchen-sink.amx",
+        "--output", `summary=${summaryPath}`,
+        "--output", `samples=${samplesPath}`
+      );
+      expect(run.stderr).toBe("");
+      expect(run.exitCode).toBe(0);
+      const context = JSON.parse(run.stdout);
+      expect(context).toMatchObject({
+        longFenceValue: 4,
+        rightAssociativePower: 512,
+        unaryBeforePower: 4,
+        mutableTotal: 7,
+        loopTotal: 6,
+        item: 99,
+        doubled: [4, 8, 12],
+        returnCount: 3,
+        emptyLoop: [],
+        stringMatch: 10,
+        safeRecordId: "A-01",
+        equalWireTime: true,
+        differentWireTime: true,
+        exportedScalar: 25,
+        summary: { assetId: "A-01", decision: "Review", total: 930 },
+        snapshotRows: [{ label: "Updated", score: 20 }]
+      });
+      expect(context.samples).toHaveLength(30);
+      for (const name of ["narrativeOnly", "ordinaryFenceOnly", "wrongCaseFenceOnly", "extraInfoFenceOnly", "tildeFenceOnly", "nestedFenceOnly", "badNumber"]) {
+        expect(context).not.toHaveProperty(name);
+      }
+      expect(JSON.parse(await Bun.file(summaryPath).text())).toEqual(context.summary);
+      const csv = await Bun.file(samplesPath).text();
+      expect(csv.split("\n")).toHaveLength(32);
+      expect(csv).toContain("label,step,measuredAt,score,benchmark,available,note,groupName\n");
+      expect(csv).toContain('Odd,1,2026-10-03T07:30:00Z,2,1.5,false,"",First half');
+      expect(csv).toContain('Odd,5,2026-10-03T07:30:00Z,10,,false,"",First half');
+
+      const htmlPath = path.join(directory, "kitchen-sink.html");
+      const render = await runCli("render", "examples/kitchen-sink.amx", "--out", htmlPath);
+      expect(render.stderr).toBe("");
+      expect(render.exitCode).toBe(0);
+      const html = await Bun.file(htmlPath).text();
+      expect(html).toContain("<title>AMX Kitchen Sink</title>");
+      expect(html).toContain("OpenAMX Examples");
+      expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+      expect(html).not.toContain("<script>alert(1)</script>");
+      expect(html).toMatch(/final state,\s*<strong>Updated<\/strong>/);
+      for (const title of [
+        "Thirty synthetic observations", "One view, two snapshots",
+        "Record bar chart", "Record column chart", "Numeric x line chart",
+        "DateTime x line chart", "Grouped scatter chart", "Ungrouped scatter chart",
+        "Scalar bar with labels", "Scalar column with positional labels", "Scalar line with labels",
+        "Empty table", "Empty chart", "No rows", "No data"
+      ]) {
+        expect(html).toContain(title);
+      }
+      expect(html).toContain("<td>Original</td>");
+      expect(html).toContain("<td>Updated</td>");
+      const docxPath = path.join(directory, "kitchen-sink.docx");
+      const exported = await runCli("export", "docx", "examples/kitchen-sink.amx", "--out", docxPath);
+      expect(exported.stderr).toBe("");
+      expect(exported.exitCode).toBe(0);
+      expect((await Bun.file(docxPath).bytes()).byteLength).toBeGreaterThan(1000);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("V0.5 branded example", () => {
   it("runs typed inputs, contained imports, views, and all report formats", async () => {
     const directory = await mkdtemp(path.join(tmpdir(), "openamx-v05-example-"));
