@@ -1,10 +1,17 @@
 # Planning Decisions
 
+## V0.6 Sprint 043 Lead Developer Closeout and Release Decision (2026-10-03)
+
+- The Lead Developer reports completing end-to-end testing of the integrated desktop app and explicitly accepts all open or partial residuals in the Sprint 043 Builder evidence as closed for V0.6. Sprint 043 and V0.6 are **COMPLETE**; V0.6 is approved for release with accepted exceptions.
+- This acceptance does not turn missing measurements, matrix entries, or native/platform checks into verified passes. Native macOS/Windows/native Ubuntu, Hutch packaging/launch, broad Office, project licensing/Marketplace, formal accessibility, V0.5 report-mobile overflow, and VS Code apply-time action safety remain unverified accepted exceptions. No publication or certification claim is made.
+- Do not extend Sprint 043 or the V0.6 plan for these residuals. Carry forward further work as V0.7 requirements in `planning/requirements-openamxV07.md`.
+- Align root, desktop/Electrobun, and VS Code extension version metadata to `0.6.0`. Release approval is distinct from publication.
+
 ## V0.6 Sprint 043 Builder Decisions (2026-10-03)
 
 - Implemented the V0.5 desktop session migration narrowly: accept the old `active` field only after existing root/containment validation, ignore the obsolete `entry` field, preserve bounded panel sizes, and persist normalized recents on normal restore. Migration does not invoke a worker or mutate project source. Corrupt/unsafe active paths remain omitted.
 - Keep the new diagnostic artifact a local bounded summary rather than exporting raw process logs (none are retained by this workbench). It contains validated timestamps/codes and coarse tab counts only; paths, messages, source, data, recovery text, and credentials are not representable in its schema.
-- Rename package/app presentation metadata from “OpenAMX Desktop Spike” to “OpenAMX Desktop” after verifying the current onboarding/workbench behaviors. Keep development version `0.1.0` and defer V0.6 version alignment until the integrated fixture and Lead Developer acceptance pass. The identifier change does not alter the hard-coded `~/.config/openamx/desktop-session.json` session path.
+- Rename package/app presentation metadata from “OpenAMX Desktop Spike” to “OpenAMX Desktop” after verifying the current onboarding/workbench behaviors. At Builder evidence time, version alignment was deferred; the Lead Developer closeout above supersedes that deferral. The identifier change does not alter the hard-coded `~/.config/openamx/desktop-session.json` session path.
 - No AMX, CLI, report, data, or VS Code semantics changed. No new 100k timing threshold was introduced; measured 100k timings remain descriptive under the 2026-10-03 product decision.
 
 ## V0.6 Sprint 043 Data-Editor Performance Disposition (2026-10-03)
@@ -12,13 +19,13 @@
 - By explicit user direction, the current 100,000-row CSV/JSON table experience is acceptable; the prior strict timing objective does not materially affect the desired UX. Update the authoritative V0.6 contract: the 3-second first-viewport and 100-ms grid-task targets are no longer hard pass/fail limits for 100k data-editor load/edit.
 - Sprint 043 must still record reproducible viewport, scroll, edit/history, cancellation, memory, and longest-task results. Acceptance requires complete/lossless access, practical editing/history/cancellation, bounded fallback, and explicit Lead Developer usability acceptance. Do not describe the superseded numeric target as passed.
 - This adjustment is limited to the supported 100k CSV/JSON data-editor interaction. Project listing, preview debounce, cancellation acknowledgement, and background analysis/validation/export performance criteria remain unchanged.
-- Sprint 041's historical measured results and `COMPLETE WITH RECORDED EXCEPTIONS` record remain intact; Sprint 043 closes the performance-policy disposition with new integrated evidence. No virtualization, data-integrity, accessibility, native, or release rule is waived.
+- Sprint 041's historical measured results and `COMPLETE WITH RECORDED EXCEPTIONS` record remain intact; Sprint 043 closes the performance-policy disposition with new evidence. The subsequent Lead Developer closeout accepts the remaining V0.6 evidence gaps as release exceptions without relabeling them as passed or inferring native/accessibility certification.
 
 ## V0.6 Sprint 042 Lead Developer Acceptance (2026-10-03)
 
 - The Lead Developer reports testing all Sprint 042 functionality and confirms every acceptance requirement is met. Sprint 042 is **COMPLETE** by explicit direction; this supersedes the Builder's pending-acceptance disposition.
 - The direction did not include OS/session details or per-check observations, so no host matrix or additional measurements are inferred. Feature-sprint acceptance does not certify native release platforms, Hutch packaging, broad Office, licensing/Marketplace, or formal accessibility.
-- Sprint 041's measured 100k data-editor responsiveness exception remains assigned to Sprint 043; Sprint 042 acceptance does not waive the 100 ms target.
+- At Sprint 042 acceptance, Sprint 041's measured 100k responsiveness exception remained assigned to Sprint 043; the final Sprint 043 closeout later accepted its remaining evidence/usability gaps as V0.6 release exceptions without recording the former 100 ms target as passed.
 
 ## V0.6 Sprint 042 Builder Implementation (2026-10-02)
 
@@ -29,7 +36,7 @@
 - Bun issues one native Replace/Cancel prompt containing only the basename. Direct target-host folder dialog/overwrite behavior remains unverified and requires native acceptance.
 - Worker-close race correction (2026-10-03): mark a result as received before dispatching asynchronous main-process export commit. A worker `close`/`error` after that result is cleanup, not a missing-result failure; pre-result exit remains an error. The atomic rename remains non-interruptible.
 - Export workers remain cancellable through complete serialization and same-directory staging. The job enters `committing` only in the final pre-rename guard; the atomic rename itself is non-interruptible. This corrects phase reporting to the accepted contract and preserves no-write behavior for pre-commit cancellation/staleness.
-- No output eligibility, format semantics, privacy boundary, or AMX/CLI/report behavior is broadened. Sprint 041's 100k responsiveness exception remains assigned to Sprint 043 without target adjustment.
+- No output eligibility, format semantics, privacy boundary, or AMX/CLI/report behavior is broadened. At the time of this Sprint 042 decision, Sprint 041's 100k responsiveness exception remained assigned to Sprint 043; final disposition is recorded in the Sprint 043 closeout above.
 
 ## V0.6 Sprint 041 Candidate Gate (2026-10-02)
 

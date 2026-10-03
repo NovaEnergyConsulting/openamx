@@ -1,16 +1,15 @@
 # OpenAMX
 
-Status: The V0.5 feature milestone is COMPLETE and accepted with documented
-exceptions deferred to V0.6.
-The CLI, shared report identity, HTML/PDF/DOCX exports, desktop workbench and VS
-Code productivity providers are present. Known visual, native desktop and
-editor/provider limitations remain V0.6 work. This feature acceptance is not a
-release claim. Native macOS 14+, Windows 11+,
-native Ubuntu 24.04+, Hutch packaging/launch, broad Office compatibility, the
-project license and Marketplace publication remain separate OPEN release gates.
-V0.6 desktop feature acceptance is pending Sprint 043 Builder evidence and Lead
-Developer disposition. Root package metadata is 0.5.0 and desktop development
-metadata is 0.1.0; neither is a public release version or publication claim.
+Status: V0.6 is COMPLETE and approved for release with Lead Developer-accepted
+exceptions. The CLI, shared report identity, HTML/PDF/DOCX exports, desktop
+workbench and VS Code productivity providers are present. Native macOS 14+,
+Windows 11+, native Ubuntu 24.04+, Hutch packaging/launch, broad Office
+compatibility, project licensing/Marketplace publication, formal accessibility,
+V0.5 report-mobile overflow, and VS Code apply-time action safety were not
+verified as passes; they are accepted release exceptions and follow-up
+requirements for V0.7 planning. Release approval is not a claim that artifacts
+have been published or that these certifications were completed. Root, desktop,
+and extension package metadata are aligned to 0.6.0.
 
 OpenAMX combines Markdown narrative, executable `amx` fences, and inline
 `{{ expression }}` calculations in plain-text `.amx` documents. The TypeScript

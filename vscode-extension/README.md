@@ -10,13 +10,13 @@ targets do not navigate. It requires VS Code 1.85.0 or newer. Editor analysis do
 not run documents or load CSV/JSON inputs; runtime validation remains a CLI
 concern.
 
-V0.5 features are accepted with the quick-fix apply-time limitation recorded as
-an exception and deferred to V0.6. The extension package version remains 0.4.0;
-this is not a V0.5 package or release. The quick fix rechecks document version,
+V0.6 is complete and approved for release with accepted exceptions. The
+extension package version is `0.6.0`. The quick fix rechecks document version,
 token and live diagnostic when the action is resolved, but VS Code 1.85
 `WorkspaceEdit` has no apply-time version precondition; a stale already-resolved
-edit cannot be guaranteed safe. Native macOS/Windows/native Ubuntu, project
-license and Marketplace publication remain separate OPEN release gates.
+edit cannot be guaranteed safe. Native platform certification, project license,
+and Marketplace publication were not verified and remain V0.7 follow-up
+requirements; release approval does not claim those outcomes.
 
 ## Local Development
 

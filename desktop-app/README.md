@@ -13,7 +13,7 @@ bunx vue-tsc --noEmit
 bunx vite build
 ```
 
-The package typecheck/build scripts prepare the pinned Electrobun SDK through Hutch. Direct typecheck, Vite, and browser-harness checks are not native packaging or launch certification. Current development metadata remains `0.1.0`; this sprint does not assign a public release version.
+The V0.6 package version is `0.6.0`. Direct typecheck, Vite, and browser-harness checks are not native packaging or launch certification. V0.6 is approved for release with accepted exceptions; no native packaging, target-platform, Hutch, Office, licensing/Marketplace, or formal accessibility certification is claimed.
 
 ## First Project
 
@@ -61,4 +61,4 @@ Project defaults live in `.openamx/project.json`; machine-local overrides live i
 
 ## Evidence and Limits
 
-Sprint 043 Builder evidence is in [the sprint record](../planning/sprints/0043-v06-onboarding-ux-acceptance-release-record/builder-evidence.md). Available-browser and direct-service checks do not certify native macOS, Windows, or Ubuntu behavior. Native release packaging/launch, Hutch reliability, Office compatibility, project licensing/Marketplace, and formal accessibility remain separate release gates. Sprint 043 feature disposition and Lead Developer usability/visual acceptance are tracked separately from those gates.
+Sprint 043 Builder evidence and final disposition are in [the sprint record](../planning/sprints/0043-v06-onboarding-ux-acceptance-release-record/builder-evidence.md). The Lead Developer accepted the remaining unverified items as V0.6 release exceptions and approved release. Available-browser and direct-service checks do not certify native macOS, Windows, or Ubuntu behavior; follow-up requirements are recorded for V0.7 planning.

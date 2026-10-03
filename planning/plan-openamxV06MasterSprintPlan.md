@@ -1,6 +1,6 @@
 # Plan: OpenAMX V0.6 Master Sprint Plan
 
-Evolve OpenAMX from the accepted-with-exceptions V0.5 desktop prototype into a complete, coherent authoring experience. V0.6 centers on a quieter active-document workbench, reliable project-aware live preview, safe project lifecycle, IDE-grade AMX assistance, structured CSV/JSON editing, complete input/report settings, export parity, and guided onboarding. Preserve V0.2-V0.5 language, data, visualization, report identity, and CLI semantics. V0.6 is a desktop UX-quality milestone, not a native packaging or public-release milestone. Plan nine sprints without a fixed sprint or date budget; Sprint 040 may proceed in parallel with Sprints 038-039 after the Sprint 036 project APIs stabilize.
+Evolve OpenAMX from the accepted-with-exceptions V0.5 desktop prototype into a complete, coherent authoring experience. V0.6 centers on a quieter active-document workbench, reliable project-aware live preview, safe project lifecycle, IDE-grade AMX assistance, structured CSV/JSON editing, complete input/report settings, export parity, and guided onboarding. Preserve V0.2-V0.5 language, data, visualization, report identity, and CLI semantics. The Lead Developer marked V0.6 complete and approved release with accepted exceptions on 2026-10-03. This is not native packaging/platform certification or a claim of publication. Plan nine sprints without a fixed sprint or date budget; Sprint 040 may proceed in parallel with Sprints 038-039 after the Sprint 036 project APIs stabilize.
 
 The authoritative product behavior is defined in `planning/openamxV06ProductUXContract.md`. Builders may not infer alternate UX, state, security, or compatibility rules from the current prototype.
 
@@ -14,7 +14,7 @@ The authoritative product behavior is defined in `planning/openamxV06ProductUXCo
 - Reuse one parser, checker, loader, input validator, output serializer, formatter, and symbol model. Add narrow backward-compatible shared APIs rather than copying core or VS Code provider logic into `desktop-app/`.
 - Select maintained editor, virtual-grid/tree, worker, and component-test approaches only after bounded proofs of license, Bun/Vue compatibility, bundle/memory impact, keyboard behavior, and the documented data scale.
 - Treat manual visual review as a release gate that supplements automated behavior, security, compatibility, and performance tests.
-- Keep native packaging/platform/Hutch, license/Marketplace, broad Office, formal accessibility, and deferred report/VS Code residuals visible but outside V0.6 acceptance.
+- Keep native packaging/platform/Hutch, license/Marketplace, broad Office, formal accessibility, and deferred report/VS Code residuals visible as accepted release exceptions, without describing them as certified or passed.
 
 ## Steps
 
@@ -128,7 +128,7 @@ Sprint 041 is complete with recorded exceptions by explicit direction on 2026-10
 - Run approved performance fixtures for 100 relevant files and supported 100,000-row data. Record exact hardware/OS/runtime, timings, memory, longest tasks, and artifacts. For the 100k data-editor viewport/edit path, timings are descriptive evidence with no fixed 3-second or 100-ms pass/fail ceiling; require lossless full-range access, working edit/history/cancellation/fallback, and explicit Lead Developer acceptance of usability. Keep all other performance budgets unchanged.
 - Run component/browser and available-host manual visual review at 1024x720 and a larger viewport in system/light/dark themes. Cover keyboard/focus, contrast, drawers, dialogs, dense/error states, no dead controls, and all states in the contract.
 - Update root and desktop README files, help, planning state/decisions/questions, and an evidence record with exact commands, counts, screenshots, exceptions, limitations, and Lead Developer disposition.
-- Record V0.6 feature acceptance independently from native packaging/platform/Hutch, report-mobile, VS Code-action, Office, license/Marketplace, and formal-accessibility residuals.
+- Record V0.6 feature acceptance and release approval independently from native packaging/platform/Hutch, report-mobile, VS Code-action, Office, license/Marketplace, and formal-accessibility evidence. The Lead Developer has accepted the remaining gaps as release exceptions; future work is tracked in `planning/requirements-openamxV07.md`.
 
 ## Relevant Files
 
@@ -173,7 +173,7 @@ Sprint 041 is complete with recorded exceptions by explicit direction on 2026-10
 
 ## Further Considerations
 
-1. Sprint 043 Builder alignment removes “spike” from desktop package/app naming and the desktop guide. The desktop development version remains 0.1.0 until integrated feature acceptance and Lead Developer closeout; this naming change does not close Hutch, native packaging, or release gates.
+1. Sprint 043 removed “spike” from desktop package/app naming. Its original version deferral was superseded at Lead Developer closeout: root, desktop, and extension metadata are aligned to 0.6.0. Accepted release exceptions do not imply Hutch, native packaging, Office, licensing/Marketplace, or accessibility certification.
 2. True cancellation may require cooperative abort points, worker termination, or both. Sprint 035 must measure cleanup, memory, and final-write behavior before selecting the production boundary.
 3. The current VS Code providers contain useful facts mixed with VS Code ranges/documents. Extraction must preserve host tests and avoid turning the shared layer into an LSP or UI-specific abstraction.
 4. Strict input loaders currently read files and validate in one path. The data editor needs in-memory parse/validate APIs without changing diagnostic order, duplicate-key behavior, CSV semantics, or runtime materialization.
@@ -181,7 +181,7 @@ Sprint 041 is complete with recorded exceptions by explicit direction on 2026-10
 6. Report settings structured edits must preserve unrelated YAML frontmatter and project configuration. Sprint 035 should prove an AST/CST-preserving strategy before production writes.
 7. V0.5 source-visible mobile report overflow, named DOCX/native visual review, and VS Code apply-time action limitations remain separate residuals. Do not absorb them into V0.6 by implication.
 
-## Next Actions (Architect / Lead Developer)
+## Next Actions (Historical Planning)
 
 - Review and approve this master plan together with `planning/openamxV06ProductUXContract.md`.
 - When approved, prepare Sprint 035 by customizing the four artifacts in `planning/sprints/0000-sprint-template/` and record the active status in `planning/state.md`.
@@ -189,4 +189,4 @@ Sprint 041 is complete with recorded exceptions by explicit direction on 2026-10
 - Add annotated screenshots or wireframes under `planning/v06-design-inputs/` when available. Record their disposition in Sprint 035 rather than silently changing approved behavior.
 - Keep inherited native platform/Hutch, Office, license/Marketplace, report-mobile, VS Code-action, and formal-accessibility residuals visible as separate tracks.
 
-This plan defines the proposed V0.6 roadmap based on product discovery completed on 2026-10-01. It is a planning artifact only; no V0.6 production implementation is included.
+This plan records the proposed V0.6 roadmap based on product discovery completed on 2026-10-01 and the final closeout disposition. V0.6 production implementation and feature acceptance are complete; see `planning/state.md` and the Sprint 043 evidence record.

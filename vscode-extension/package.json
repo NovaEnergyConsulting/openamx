@@ -2,7 +2,7 @@
   "name": "openamx-vscode",
   "displayName": "OpenAMX",
   "description": "Formatting, completion, static diagnostics, navigation, outline, references and contextual fixes for OpenAMX documents.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publisher": "EngineersTools",
   "repository": {
     "type": "git",
@@ -43,7 +43,7 @@
     "compile-tests": "tsc -p ./tsconfig.test.json",
     "test": "bun run compile && bun run compile-tests && node ./out/vscode-extension/src/test/runTest.js",
     "package": "bun run compile && vsce package --no-dependencies",
-    "install-local": "code --install-extension openamx-vscode-0.5.0.vsix --force"
+    "install-local": "code --install-extension openamx-vscode-0.6.0.vsix --force"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",

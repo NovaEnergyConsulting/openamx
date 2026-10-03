@@ -1,5 +1,9 @@
 # Sprint 043 Acceptance Criteria
 
+## Final Lead Developer Disposition (2026-10-03)
+
+The Lead Developer reports completing end-to-end testing of the integrated desktop app and explicitly accepts all open or partial residuals and gaps recorded for this sprint as closed for V0.6. Sprint 043 is **COMPLETE**; V0.6 is **COMPLETE and approved for release with accepted exceptions**. This disposition supersedes remaining evidence gates below. It does not convert unperformed or unrecorded checks into verified passes. Release approval is not publication, native certification, Office certification, Marketplace publication, or formal accessibility certification. Follow-up work is recorded in `planning/requirements-openamxV07.md` and does not extend Sprint 043 or the V0.6 plan.
+
 Sprint 043 is complete when:
 
 - The guided first-project workflow, starter examples, searchable bundled help, contextual links/tooltips, keyboard-shortcut reference, preferences, release notes, and bounded diagnostic-log export are implemented and verified. Log export omits private paths, input contents, source/recovery text, and credentials.
@@ -13,5 +17,5 @@ Sprint 043 is complete when:
 - Root/desktop/extension docs and metadata are updated only to verified product behavior; stale prototype/spike/entry/manual-path instructions are corrected, historical V0.2-V0.5 specifications remain historical, and V0.6 version alignment occurs only after feature verification.
 - Required root build/full tests, desktop direct RPC/unit/component/browser/typecheck/Vite checks, applicable extension compile/host regressions, performance fixtures, and `git diff --check` are run and recorded with exact commands, tool/OS versions, counts, warnings, bundle/performance results, artifacts/hashes/screenshots, and unavailable checks.
 - `planning/state.md`, `planning/decisions.md`, `planning/questions.md`, and the Sprint 043 evidence record contain the integrated acceptance ledger and explicit Lead Developer disposition. Each residual has an owner, status, next action, and review point.
-- V0.6 feature acceptance is reported separately from native macOS/Windows/native Ubuntu, Hutch packaging/launch, broad Office, project license/Marketplace, Sprint 033 apply-time action safety, V0.5 report-mobile overflow, and formal accessibility certification. None is marked passed without direct evidence or an explicit approved exception.
-- Final status is `COMPLETE`, `COMPLETE WITH RECORDED EXCEPTIONS`, or `BLOCKED`. No release-ready, native-certified, Office-certified, Marketplace-published, or formally accessibility-certified claim is inferred from feature acceptance.
+- V0.6 feature acceptance is reported separately from native macOS/Windows/native Ubuntu, Hutch packaging/launch, broad Office, project license/Marketplace, Sprint 033 apply-time action safety, V0.5 report-mobile overflow, and formal accessibility certification. The Lead Developer accepts the remaining gaps as release exceptions; none is marked passed without direct evidence.
+- Final status is `COMPLETE WITH ACCEPTED EXCEPTIONS`. The Lead Developer approves V0.6 for release; no native-certified, Office-certified, Marketplace-published, or formally accessibility-certified claim is inferred.

@@ -4,7 +4,7 @@
 
 This contract defines the Lead Developer-ratified product and user-experience requirements for OpenAMX V0.6 (ratified 2026-10-01). The V0.2-V0.5 specifications retain authority over existing language, data, visualization, report identity, and export semantics.
 
-V0.6 turns the accepted-with-exceptions V0.5 desktop prototype into a complete, coherent authoring experience. It is a desktop UX-quality milestone, not a native packaging or public-release milestone. The release must replace manual path entry, designated-entry workflow, crowded controls, and disconnected actions with reliable project, authoring, data, preview, and export workflows.
+V0.6 turns the accepted-with-exceptions V0.5 desktop prototype into a complete, coherent authoring experience. It is a desktop UX-quality milestone, not a native packaging or public-release certification milestone. By Lead Developer disposition on 2026-10-03, V0.6 is complete and approved for release with accepted exceptions; this does not claim native certification or publication. The release replaces manual path entry, designated-entry workflow, crowded controls, and disconnected actions with reliable project, authoring, data, preview, and export workflows.
 
 ## 1. Scope and Compatibility
 
@@ -242,4 +242,4 @@ Acceptance evidence must cover:
 - Projects with 100 relevant files and supported 100,000-row data fixtures.
 - Current-buffer imports, input mappings, report settings, every export format, atomic failure behavior, crash recovery, and V0.5 project migration.
 
-Available-host UX acceptance may complete V0.6. It must not be represented as native macOS, Windows, or Ubuntu release readiness, Hutch packaging reliability, broad Office compatibility, Marketplace publication, or formal accessibility certification.
+Available-host UX acceptance may complete V0.6. The Lead Developer's 2026-10-03 closeout accepts the remaining evidence gaps as V0.6 release exceptions; it does not represent them as passed or certify native macOS, Windows, or Ubuntu readiness, Hutch packaging reliability, broad Office compatibility, Marketplace publication, or formal accessibility. Further work is tracked in `planning/requirements-openamxV07.md`.

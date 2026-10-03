@@ -1,5 +1,9 @@
 # Sprint 043 Requirements: Onboarding, Help, UX Acceptance, and Release Record
 
+## Final Disposition (2026-10-03)
+
+The Lead Developer reports completing end-to-end integrated testing and accepts all residuals/gaps listed for Sprint 043 as closed for V0.6. Sprint 043 and V0.6 are complete; V0.6 is approved for release with accepted exceptions. This disposition supersedes any remaining implementation/evidence gate below without claiming that unperformed checks passed. Future work belongs in `planning/requirements-openamxV07.md`, not this sprint or the V0.6 plan.
+
 ## Goal
 
 Complete V0.6 onboarding/help and integrated UX acceptance, then produce an evidence-based feature disposition and truthful release-residual record. Verify the full desktop workflow across the accepted 035-042 foundations without implying native release, broad Office, Marketplace, or formal accessibility certification.
@@ -43,4 +47,4 @@ Complete V0.6 onboarding/help and integrated UX acceptance, then produce an evid
 - Data-editor acceptance requires usable, complete, lossless interaction at the supported scale and actionable bounded fallback above supported limits. Performance is judged against actual interaction and explicit Lead Developer approval, not an invented number.
 - Migration must never auto-run AMX or overwrite project source; recovery remains inspect/restore/discard and machine-local.
 - User-visible docs and version metadata must match verified behavior. Local VSIX/builds are not Marketplace publication; available-host checks are not native target certification.
-- Every residual has an owner, status, evidence needed, and next review point. No release-ready/published claim is permitted while separate release gates remain open.
+- Every residual has an owner, disposition, and follow-up status. Explicit Lead Developer acceptance may close an unverified residual as a release exception; it must not be represented as a passed check. V0.6 release approval is not a publication or certification claim.
