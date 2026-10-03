@@ -1,5 +1,109 @@
 # OpenAMX
 
+OpenAMX is a text-based format and toolset for **computable documents**. It
+combines Markdown narrative with executable `amx` code blocks and inline
+`{{ expressions }}` so a document can explain an analysis and calculate its
+results in one readable, versionable file.
+
+The core is domain-neutral: authors define calculations and data structures for
+their own work. Optional libraries and examples demonstrate asset-management
+workflows, but OpenAMX does not prescribe a risk model or certify domain rules.
+
+## What You Can Do
+
+- Write narrative reports with executable calculations, reusable local modules,
+  typed records and pure functions.
+- Read local JSON and CSV data through declared logical inputs, validate it
+  against document types, and export named results as JSON or CSV.
+- Add data tables and charts to a document, then render the narrative,
+  calculations and views together.
+- Create standalone HTML reports, or export offline PDF and editable DOCX
+  reports.
+- Author in the desktop workbench or use OpenAMX language features in VS Code.
+- Run the TypeScript-based engine and command-line tools in local workflows.
+
+## A Small Example
+
+Save this as `analysis.amx`:
+
+````markdown
+# Review
+
+The adjusted score is {{ score }}.
+
+```amx
+let score = 10
+score += 5
+```
+````
+
+Only exact, case-sensitive `amx` fenced blocks execute. Markdown remains
+narrative, and inline expressions resolve using the document's evaluated
+results.
+
+## Get Started
+
+Install [Bun](https://bun.sh/), then install dependencies and build from the
+repository root:
+
+```sh
+bun install
+bun run build
+```
+
+Run a document, render it to standalone HTML, or export a report:
+
+```sh
+bun run dist/cli.js run examples/hello-world.amx
+bun run dist/cli.js render examples/hello-world.amx --out hello-world.html
+bun run dist/cli.js export pdf examples/typed-asset-analysis.amx --out analysis.pdf \
+  --input asset=examples/typed-asset.json \
+  --input screenings=examples/typed-screenings.csv \
+  --input reviewedAt=examples/typed-reviewed-at.json
+```
+
+The `run` command prints evaluated bindings as JSON. `render` produces a
+standalone HTML document; `export` supports `pdf` and `docx`. Data inputs are
+explicitly mapped with `--input name=path`. See `bun run dist/cli.js --help` for
+the available commands and options.
+
+Run the test suite with:
+
+```sh
+bun test
+```
+
+## Tooling
+
+- **Desktop workbench:** local project browsing, AMX editing and analysis, live
+  preview, structured JSON/CSV editing, input mapping, and HTML/PDF/DOCX export.
+  See the [desktop guide](desktop-app/README.md).
+- **VS Code extension:** formatting, completion, diagnostics, hover, navigation,
+  symbols, references, and code actions. See the
+  [extension guide](vscode-extension/README.md).
+- **CLI:** evaluate documents, render HTML, and export PDF or DOCX reports.
+
+## Examples and Specifications
+
+Start with [Hello OpenAMX](examples/hello-world.amx) for the document basics.
+Other [examples](examples/) show calculations, tables and charts, typed JSON/CSV
+inputs, local modules, and JSON/CSV outputs. The Asset Management schemas are
+opt-in examples, not domain-certified standards.
+
+The [language specification](docs/language-spec-v0.5.md) documents typed data,
+modules, inputs, and report behavior. Earlier specifications describe the
+language's evolution: [V0.2](docs/language-spec-v0.2.md),
+[V0.3](docs/language-spec-v0.3.md), and [V0.4](docs/language-spec-v0.4.md).
+
+## Design Boundaries
+
+OpenAMX is intended for local documents, local modules, and explicitly mapped
+data files. It does not load remote packages or data. Hiding source in a report
+is a presentation choice, not a confidentiality boundary; source files and
+inputs should be protected independently. Report output is designed to work
+offline, but exact visual parity across HTML, PDF, DOCX, and office applications
+is not guaranteed.# OpenAMX
+
 Status: V0.6 is COMPLETE and approved for release with Lead Developer-accepted
 exceptions. The CLI, shared report identity, HTML/PDF/DOCX exports, desktop
 workbench and VS Code productivity providers are present. Native macOS 14+,
