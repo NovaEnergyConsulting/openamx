@@ -23,7 +23,8 @@ export interface ActiveDocumentRequestIdentity {
 	inputSettingsRevision: number;
 }
 export interface DesktopJobIdentity extends ActiveDocumentRequestIdentity { jobId: number; }
-export type DesktopJobOperation = "run" | "preview" | "html" | "pdf" | "docx" | "validate-data";
+export type DesktopJobOperation = "run" | "preview" | "html" | "pdf" | "docx" | "export-data" | "discover-outputs" | "validate-data";
+export type DesktopExportAction = "open" | "reveal";
 export type DesktopJobStatus = "running" | "committing" | "succeeded" | "failed" | "cancelled" | "superseded";
 export interface DataInputSchema {
 	name: string;
@@ -39,7 +40,7 @@ export interface DataOutputSchema {
 	truncated?: boolean;
 }
 export interface DesktopJobResult {
-	kind: "run" | "preview" | "export" | "data-validation";
+	kind: "run" | "preview" | "export" | "data-validation" | "output-discovery";
 	summary?: RunSummary;
 	html?: string;
 	path?: string;
@@ -48,6 +49,9 @@ export interface DesktopJobResult {
 	schema?: DataInputSchema;
 	outputs?: DataOutputSchema[];
 	outputsTruncated?: boolean;
+	name?: string;
+	outputId?: string;
+	fileName?: string;
 }
 export interface DesktopJobSnapshot {
 	identity: DesktopJobIdentity;
@@ -95,7 +99,8 @@ export interface DesktopRPCClient {
 		pickCreateProject(params?: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; root?: string }>>;
 		pickProject(params?: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; root?: string }>>;
 		pickDocument(params?: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; document?: OpenDocument }>>;
-		pickDestination(params: { extension: ".html" | ".pdf" | ".docx" }, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; path?: string }>>;
+		pickDestination(params: { extension: ".html" | ".pdf" | ".docx" | ".json" | ".csv"; fileName: string }, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; selectionId?: string; fileName?: string }>>;
+		openExportedOutput(params: { outputId: string; action: DesktopExportAction }): Promise<DesktopRPCResponse<Record<string, never>>>;
 		openDocument(params: { path: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		selectTab(params: { path: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		getWorkbench(): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
@@ -110,7 +115,7 @@ export interface DesktopRPCClient {
 		setProjectReportSettings(params: { values: ReportSettingsValues; expectedRevision: string }): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot; state: WorkbenchState }>>;
 		setDocumentReportSettings(params: { values: ReportSettingsValues; expectedRevision: number }): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }>>;
 		setAutosave(params: { enabled: boolean; delayMs: number }): Promise<DesktopRPCResponse<{ enabled: boolean; delayMs: number }>>;
-		startJob(params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string } }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
+		startJob(params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; selectionId?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string }; dataOutput?: { name: string; format: "json" | "csv" } }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		getJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		cancelJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		prepareTransition(params: { action: TransitionAction }): Promise<DesktopRPCResponse<{ ready: boolean; state: WorkbenchState }>>;
@@ -141,9 +146,6 @@ export interface DesktopRPCClient {
 		getInputConfiguration(params?: { inputMappings?: string[] }): Promise<DesktopRPCResponse<{ configuration: InputConfiguration }>>;
 		runBuffer(params?: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ summary: RunSummary; diagnostics: TextAnalysis["diagnostics"] }>>;
 		previewBuffer(params?: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ html: string; diagnostics: TextAnalysis["diagnostics"] }>>;
-		saveHtml(params: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ path: string; diagnostics: TextDiagnostic[] }>>;
-		exportPdf(params: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ path: string; bytes: number; diagnostics: TextDiagnostic[] }>>;
-		exportDocx(params: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ path: string; bytes: number; diagnostics: TextDiagnostic[] }>>;
 	};
 }
 
@@ -163,7 +165,8 @@ export type DesktopRPCSchema = {
 			pickCreateProject: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; root?: string }> };
 			pickProject: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; root?: string }> };
 			pickDocument: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; document?: OpenDocument }> };
-			pickDestination: { params: { extension: ".html" | ".pdf" | ".docx" }; response: DesktopRPCResponse<{ cancelled: boolean; path?: string }> };
+			pickDestination: { params: { extension: ".html" | ".pdf" | ".docx" | ".json" | ".csv"; fileName: string }; response: DesktopRPCResponse<{ cancelled: boolean; selectionId?: string; fileName?: string }> };
+			openExportedOutput: { params: { outputId: string; action: DesktopExportAction }; response: DesktopRPCResponse<Record<string, never>> };
 			openDocument: { params: { path: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			selectTab: { params: { path: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			getWorkbench: { params: Record<string, never>; response: DesktopRPCResponse<{ state: WorkbenchState }> };
@@ -178,7 +181,7 @@ export type DesktopRPCSchema = {
 			setProjectReportSettings: { params: { values: ReportSettingsValues; expectedRevision: string }; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot; state: WorkbenchState }> };
 			setDocumentReportSettings: { params: { values: ReportSettingsValues; expectedRevision: number }; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }> };
 			setAutosave: { params: { enabled: boolean; delayMs: number }; response: DesktopRPCResponse<{ enabled: boolean; delayMs: number }> };
-			startJob: { params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string } }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
+			startJob: { params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; selectionId?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string }; dataOutput?: { name: string; format: "json" | "csv" } }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			getJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			cancelJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			prepareTransition: { params: { action: TransitionAction }; response: DesktopRPCResponse<{ ready: boolean; state: WorkbenchState }> };
@@ -209,9 +212,6 @@ export type DesktopRPCSchema = {
 			runBuffer: { params: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ summary: RunSummary; diagnostics: TextAnalysis["diagnostics"] }> };
 			getInputConfiguration: { params: { inputMappings?: string[] }; response: DesktopRPCResponse<{ configuration: InputConfiguration }> };
 			previewBuffer: { params: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ html: string; diagnostics: TextAnalysis["diagnostics"] }> };
-			saveHtml: { params: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ path: string; diagnostics: TextDiagnostic[] }> };
-			exportPdf: { params: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ path: string; bytes: number; diagnostics: TextDiagnostic[] }> };
-			exportDocx: { params: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ path: string; bytes: number; diagnostics: TextDiagnostic[] }> };
 		};
 	}>;
 	webview: RPCSchema;

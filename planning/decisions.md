@@ -1,5 +1,22 @@
 # Planning Decisions
 
+## V0.6 Sprint 042 Lead Developer Acceptance (2026-10-03)
+
+- The Lead Developer reports testing all Sprint 042 functionality and confirms every acceptance requirement is met. Sprint 042 is **COMPLETE** by explicit direction; this supersedes the Builder's pending-acceptance disposition.
+- The direction did not include OS/session details or per-check observations, so no host matrix or additional measurements are inferred. Feature-sprint acceptance does not certify native release platforms, Hutch packaging, broad Office, licensing/Marketplace, or formal accessibility.
+- Sprint 041's measured 100k data-editor responsiveness exception remains assigned to Sprint 043; Sprint 042 acceptance does not waive the 100 ms target.
+
+## V0.6 Sprint 042 Builder Implementation (2026-10-02)
+
+- No Lead Developer product-policy amendment was made. Active-document identity, current unsaved import overlays, input/settings revision identity, eligibility through the existing explicit-export/core serializer contract, and main-process atomic commit authority remain unchanged.
+- Added opt-in `outputInspection` to `loadEntryModule`; it returns existing JSON/CSV eligibility metadata without evaluator/input loading. Normal loader/CLI calls retain their prior return shape and behavior. Named data export passes one selected `{name, format}` through the trusted worker and `serializeOutputs`; the worker never writes a destination.
+- Webview export now uses a one-use opaque native selection ID. Bun retains the canonical path, active identity, and selected destination byte snapshot; the RPC exposes only the ID and basename. Existing files receive a trusted Replace confirmation, and the selected file's streamed SHA-256 is rechecked immediately before commit. Only native-selected destinations may be outside the project; direct caller paths remain unsupported by the desktop export RPC.
+- Lead Developer bug remediation (2026-10-03): replace the `zenity`/AppleScript/PowerShell subprocess Save adapter with Electrobun's built-in `Utils.openFileDialog` directory picker. The Export modal shows an editable basename (not a path); Bun combines it with the selected directory and validates extension, basename, symlinks, conflicts, and project containment/explicit outside selection. This uses no separately installed OS package/executable.
+- Bun issues one native Replace/Cancel prompt containing only the basename. Direct target-host folder dialog/overwrite behavior remains unverified and requires native acceptance.
+- Worker-close race correction (2026-10-03): mark a result as received before dispatching asynchronous main-process export commit. A worker `close`/`error` after that result is cleanup, not a missing-result failure; pre-result exit remains an error. The atomic rename remains non-interruptible.
+- Export workers remain cancellable through complete serialization and same-directory staging. The job enters `committing` only in the final pre-rename guard; the atomic rename itself is non-interruptible. This corrects phase reporting to the accepted contract and preserves no-write behavior for pre-commit cancellation/staleness.
+- No output eligibility, format semantics, privacy boundary, or AMX/CLI/report behavior is broadened. Sprint 041's 100k responsiveness exception remains assigned to Sprint 043 without target adjustment.
+
 ## V0.6 Sprint 041 Candidate Gate (2026-10-02)
 
 - Lead Developer direction (2026-10-02): select `vxe-table@4.22.3` for the production CSV grid and `json-editor-vue@0.19.2` backed by `vanilla-jsoneditor@3.13.0` for the production JSON editor. Integrate and use both in `desktop-app`; the proof-only status is superseded. Pin dependencies and carry the audited production bundle, scale, fidelity, and service-boundary checks into implementation acceptance.

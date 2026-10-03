@@ -5,6 +5,7 @@ import { prepareReport } from "../../../src/renderer/reportPreparation";
 import { renderPreparedHtml } from "../../../src/renderer/renderHtml";
 import { preparePdfReport, serializePdfReport } from "../../../src/renderer/reportPdf";
 import { prepareDocxReport, serializeDocxReport } from "../../../src/renderer/reportDocx";
+import { serializeOutputs } from "../../../src/runtime/outputData";
 import type { TextDiagnostic, RunSummary } from "../shared/rpc";
 import type { WorkerJobMessage, WorkerJobRequest, WorkerJobResult } from "./jobProtocol";
 
@@ -81,7 +82,11 @@ async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
 		sourceOverlay: new Map(request.sourceOverlay),
 		inputMappings: request.inputMappings,
 		validation: request.validation,
-		inputInspection: request.inputInspection
+		inputInspection: request.inputInspection,
+		outputInspection: request.operation === "discover-outputs",
+		outputMappings: request.operation === "export-data" && request.dataOutput
+			? [`${request.dataOutput.name}=desktop-output.${request.dataOutput.format}`]
+			: undefined
 	});
 	if (request.operation === "run") return { kind: "run", summary: summarize(loaded), diagnostics: [] };
 	if (request.operation === "validate-data") {
@@ -118,6 +123,27 @@ async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
 			}))
 		};
 	}
+	if (request.operation === "discover-outputs") {
+		const outputs = loaded.outputSchemas ?? [];
+		return {
+			kind: "output-discovery",
+			outputs: outputs.slice(0, 100).map(output => ({
+				name: output.name.slice(0, MAX_SCHEMA_TEXT), type: output.type.slice(0, MAX_SCHEMA_TEXT), formats: output.formats
+			})),
+			...(outputs.length > 100 ? { outputsTruncated: true } : {})
+		};
+	}
+	if (request.operation === "export-data") {
+		const selection = request.dataOutput;
+		if (!selection || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(selection.name)
+			|| (selection.format !== "json" && selection.format !== "csv"))
+			throw new Error("Named data export selection is invalid.");
+		const output = loaded.outputs.find(item => item.name === selection.name && item.format === selection.format);
+		if (!output) throw new Error(`Export '${selection.name}' is not eligible for ${selection.format.toUpperCase()}.`);
+		const serialized = serializeOutputs([output], loaded.env)[0];
+		if (!serialized || serialized.contents.length > MAX_BINARY_EXPORT) throw new Error(`Data output exceeds the ${MAX_BINARY_EXPORT}-character limit.`);
+		return { kind: "export", format: selection.format, data: serialized.contents, bytes: Buffer.byteLength(serialized.contents), name: selection.name };
+	}
 
 	send({ kind: "progress", jobId: request.jobId, stage: "preparing-report" });
 	const prepared = await prepareReport(loaded.doc, loaded.env, { file: request.entryPath, projectRoot: request.projectRoot });
@@ -142,7 +168,7 @@ self.onmessage = async (event: MessageEvent<WorkerJobRequest>) => {
 	const request = event.data;
 	try {
 		const result = await execute(request);
-		const transfer = result.kind === "export" && result.format !== "html" ? [result.data] : [];
+		const transfer = result.kind === "export" && (result.format === "pdf" || result.format === "docx") ? [result.data] : [];
 		send({ kind: "complete", jobId: request.jobId, result }, transfer);
 	} catch (error) {
 		send({ kind: "failed", jobId: request.jobId, diagnostics: failureDiagnostics(error) });

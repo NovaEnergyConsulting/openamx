@@ -184,6 +184,26 @@ describe("Sprint 015 modules, imports, and exports", () => {
     expect(await Bun.file(dependencyPath).text()).toBe(diskText);
   });
 
+  it("discovers eligible explicit outputs through unsaved imports without loading inputs or evaluating", async () => {
+    const dir = await makeDir();
+    const dependencyPath = await write(dir, "types.amx", "```amx\nexport type Row {\n  id: String\n  amount: Number\n}\n```\n");
+    const entryPath = await write(dir, "entry.amx", [
+      "```amx", "import { Row } from \"./types.amx\"", "input sourceRows: Row[]", "export let result: Number = 1 / 0",
+      "let privateRows: Row[] = []", "export let rows: Row[] = []", "```", ""
+    ].join("\n"));
+    const canonicalDependencyPath = await realpath(dependencyPath);
+    const inspection = await loadEntryModule(entryPath, {
+      sourceOverlay: new Map([[canonicalDependencyPath, "```amx\nexport type Row {\n  id: String\n  amount: Number?\n}\n```\n"]]),
+      outputInspection: true
+    });
+
+    expect(inspection.outputSchemas).toEqual([
+      { name: "result", type: "Number", formats: ["json"] },
+      { name: "rows", type: "Row[]", formats: ["json", "csv"] }
+    ]);
+    expect(inspection.env.toObject()).toEqual({});
+  });
+
   it("rejects assignment to and redeclaration of an immutable imported binding", async () => {
     const dir = await makeDir();
     await write(dir, "lib.amx", "```amx\nexport let value: Number = 1\n```\n");

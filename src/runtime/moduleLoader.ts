@@ -42,6 +42,7 @@ export interface LoadedEntryModule {
   outputs: PreparedOutput[];
   viewEmissions: readonly ViewEmission[];
   inputInspection?: EntryInputInspection;
+  outputSchemas?: OutputSchema[];
 }
 
 export interface EntryInputInspection {
@@ -57,6 +58,7 @@ export interface ModuleLoadOptions {
   inputMappings?: string[];
   validation?: ValidationMode;
   inputInspection?: { name: string; format: InputTextFormat; text: string };
+  outputInspection?: boolean;
   outputMappings?: string[];
   reservedOutputPath?: string;
 }
@@ -253,6 +255,9 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     entryTypes,
     options.reservedOutputPath
   );
+  const outputSchemas = options.inputInspection || options.outputInspection
+    ? describeOutputSchemas(entryRecord.checkResult.exportedBindings, entryTypes)
+    : undefined;
   if (options.inputInspection) {
     const declaration = inputDeclarations.find(input => input.name === options.inputInspection!.name);
     if (!declaration) {
@@ -280,9 +285,12 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
         schema: describeInputSchema(declaration, entryTypes),
         valid: validation.diagnostics.length === 0,
         diagnostics: validation.diagnostics,
-        outputs: describeOutputSchemas(entryRecord.checkResult.exportedBindings, entryTypes)
+        outputs: outputSchemas ?? []
       }
     };
+  }
+  if (options.outputInspection) {
+    return { doc: entryRecord.doc, env: new Environment(entryTypes), outputs, viewEmissions: [], outputSchemas: outputSchemas ?? [] };
   }
   const inputValues = await loadInputValues(
     inputDeclarations,

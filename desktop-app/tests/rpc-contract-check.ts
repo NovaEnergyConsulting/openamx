@@ -1,27 +1,37 @@
 import assert from "node:assert/strict";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createPingResponse } from "../src/shared/rpc";
 import { createDesktopService } from "../src/bun/desktopService";
-import { chooseSaveDestination, saveDialogCommand } from "../src/bun/nativeSaveDialog";
+import { writeDesktopData, writeDesktopHtml } from "../src/bun/desktopWorkflow";
+import { preparePdfDestination, writePdfAtomically } from "../../src/runtime/pdfDestination";
+import { prepareDocxDestination, writeDocxAtomically } from "../../src/runtime/docxDestination";
 import { desktopWorkerUrl } from "../src/bun/workerEntrypoint";
+import type { WorkerJobMessage, WorkerJobRequest } from "../src/bun/jobProtocol";
+
+function workerThatReturnsThenCloses(): Worker {
+	const listeners = new Map<string, EventListener>();
+	return {
+		addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+			listeners.set(type, typeof listener === "function" ? listener : event => listener.handleEvent(event));
+		},
+		postMessage(request: WorkerJobRequest) {
+			const result: WorkerJobMessage = {
+				kind: "complete", jobId: request.jobId,
+				result: { kind: "export", format: "html", data: "<html>race-free</html>", bytes: 23 }
+			};
+			listeners.get("message")?.(new MessageEvent("message", { data: result }));
+			listeners.get("close")?.(new Event("close"));
+		},
+		terminate() { return Promise.resolve(0); }
+	} as unknown as Worker;
+}
 
 const result = createPingResponse("request-1", "1.4.2");
 assert.deepEqual(result, { nonce: "request-1", runtime: "bun", version: "1.4.2" });
 assert.deepEqual(Object.keys(result), ["nonce", "runtime", "version"]);
-for (const platform of ["linux", "darwin", "win32"] as const) {
-	const picker = saveDialogCommand(platform, "/project with spaces", ".html");
-	assert.ok(picker.args.some(arg => arg.includes("report.html") || arg.includes("OPENAMX_SAVE_NAME")) || picker.env.OPENAMX_SAVE_NAME === "report.html");
-	assert.equal(picker.args.some(arg => arg.includes("openFileDialog")), false);
-}
-assert.equal(await chooseSaveDestination("/project", ".html", "linux", async () => ({ stdout: "/project/new.html\n", stderr: "", exitCode: 0 })), "/project/new.html");
-assert.equal(await chooseSaveDestination("/project", ".pdf", "linux", async () => ({ stdout: "", stderr: "", exitCode: 1 })), undefined);
-assert.equal(await chooseSaveDestination("/project", ".pdf", "darwin", async () => ({ stdout: "", stderr: "execution error: User canceled. (-128)", exitCode: 1 })), undefined);
-assert.equal(await chooseSaveDestination("/project", ".docx", "win32", async () => ({ stdout: "", stderr: "", exitCode: 0 })), undefined);
-await assert.rejects(chooseSaveDestination("/project", ".html", "win32", async () => ({ stdout: "", stderr: "error", exitCode: 1 })), /Native save dialog failed/);
-await assert.rejects(chooseSaveDestination("/project", ".html", "linux", async () => ({ stdout: "/project/invalid\nname.html", stderr: "", exitCode: 0 })), /invalid path/);
 const webviewSource = readFileSync(join(import.meta.dir, "../src/mainview/App.vue"), "utf8");
 assert.match(webviewSource, /sandbox=""/);
 assert.doesNotMatch(webviewSource, /node:fs|node:child_process|loadEntryModule|loadInputValues|preparePdfReport|serializePdfReport|prepareDocxReport|serializeDocxReport|Bun\./);
@@ -35,6 +45,32 @@ mkdirSync(packagedWorkerRoot);
 writeFileSync(join(packagedWorkerRoot, "jobWorker.js"), "");
 assert.equal(fileURLToPath(desktopWorkerUrl(pathToFileURL(join(packagedWorkerRoot, "index.js")).href)), join(packagedWorkerRoot, "jobWorker.js"));
 console.log("Typed RPC and webview boundary contract passed (4 assertions)");
+
+const workerCloseRaceRoot = mkdtempSync(join(tmpdir(), "openamx-worker-close-race-"));
+const workerCloseRaceEntry = join(workerCloseRaceRoot, "report.amx");
+const workerCloseRaceTarget = join(workerCloseRaceRoot, "report.html");
+writeFileSync(workerCloseRaceEntry, "```amx\nexport let value: Number = 1\n```\n");
+const workerCloseRaceService = createDesktopService(undefined, { async choose() { return workerCloseRaceTarget; } }, undefined, workerThatReturnsThenCloses);
+assert.equal((await workerCloseRaceService.request.openProject({ path: workerCloseRaceRoot })).ok, true);
+assert.equal((await workerCloseRaceService.request.openDocument({ path: workerCloseRaceEntry })).ok, true);
+const workerCloseRaceSelection = await workerCloseRaceService.request.pickDestination({ extension: ".html", fileName: "report.html" });
+assert.equal(workerCloseRaceSelection.ok, true);
+if (!workerCloseRaceSelection.ok || !workerCloseRaceSelection.selectionId) throw new Error("Expected worker-close-race destination selection.");
+const workerCloseRaceWorkbench = await workerCloseRaceService.request.getWorkbench();
+if (!workerCloseRaceWorkbench.ok || !workerCloseRaceWorkbench.state.requestIdentity) throw new Error("Active identity unavailable for worker-close-race test.");
+const workerCloseRaceStart = await workerCloseRaceService.request.startJob({ operation: "html", identity: workerCloseRaceWorkbench.state.requestIdentity, selectionId: workerCloseRaceSelection.selectionId });
+assert.equal(workerCloseRaceStart.ok, true);
+if (!workerCloseRaceStart.ok) throw new Error(workerCloseRaceStart.error.message);
+let workerCloseRaceJob = workerCloseRaceStart.job;
+for (let attempt = 0; attempt < 100 && ["running", "committing"].includes(workerCloseRaceJob.status); attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 5));
+	const polled = await workerCloseRaceService.request.getJob({ jobId: workerCloseRaceStart.job.identity.jobId });
+	if (!polled.ok) throw new Error(polled.error.message);
+	workerCloseRaceJob = polled.job;
+}
+assert.equal(workerCloseRaceJob.status, "succeeded", JSON.stringify(workerCloseRaceJob));
+assert.equal(readFileSync(workerCloseRaceTarget, "utf8"), "<html>race-free</html>");
+console.log("Worker result followed by immediate close does not fail atomic export commit");
 
 const createdProjectRoot = mkdtempSync(join(tmpdir(), "openamx-create-parent-"));
 const createdProjectDirectory = join(createdProjectRoot, "new-project");
@@ -240,7 +276,29 @@ const outside = join(tmpdir(), `openamx-outside-${Date.now()}.amx`);
 writeFileSync(outside, "```amx\nlet value = 3\n```");
 symlinkSync(outside, join(root, "nested", "outside.amx"));
 
-const service = createDesktopService();
+let selectedServiceDestination: string | undefined;
+const service = createDesktopService(undefined, {
+	async choose() { return selectedServiceDestination; },
+	confirmOverwrite() { return true; }
+});
+async function selectedExport(target: string, operation: "html" | "pdf" | "docx") {
+	selectedServiceDestination = target;
+	const selection = await service.request.pickDestination({ extension: `.${operation}` as ".html" | ".pdf" | ".docx", fileName: basename(target) });
+	if (!selection.ok) return selection;
+	if (selection.cancelled || !selection.selectionId) throw new Error("Expected a native destination selection.");
+	const active = await service.request.getWorkbench();
+	if (!active.ok || !active.state.requestIdentity) throw new Error("Active export identity is unavailable.");
+	const started = await service.request.startJob({ operation, identity: active.state.requestIdentity, selectionId: selection.selectionId });
+	if (!started.ok) return started;
+	let job = started.job;
+	for (let attempt = 0; attempt < 200 && ["running", "committing"].includes(job.status); attempt++) {
+		await new Promise(resolve => setTimeout(resolve, 10));
+		const polled = await service.request.getJob({ jobId: job.identity.jobId });
+		if (!polled.ok) throw new Error(polled.error.message);
+		job = polled.job;
+	}
+	return { ok: true as const, job };
+}
 assert.deepEqual(await service.request.setAutosave({ enabled: false, delayMs: 500 }), { ok: true, enabled: false, delayMs: 500 });
 const project = await service.request.openProject({ path: root });
 assert.equal(project.ok, true);
@@ -489,6 +547,315 @@ assert.deepEqual(validatedData.result, {
 });
 assert.deepEqual(validatedData.diagnostics, []);
 
+const outputRoot = join(root, "named-output-project");
+mkdirSync(outputRoot);
+mkdirSync(join(outputRoot, "data"));
+mkdirSync(join(outputRoot, ".openamx"));
+const outputEntry = join(outputRoot, "report.amx");
+const outputEntryText = "# Unsaved report graph\n\nResult: {{ result }}\n\n```amx\nimport { Row, base } from \"./model.amx\"\ninput values: Number[]\ninput rows: Row[]\nexport let result: Number = base + sum(values)\nexport let results: Row[] = rows\nlet privateValue: Number = 99\n```\n";
+writeFileSync(outputEntry, outputEntryText);
+const outputModel = join(outputRoot, "model.amx");
+writeFileSync(outputModel, "```amx\nexport type Row {\n  amount: Number\n}\nexport let base: Number = 10\n```\n");
+writeFileSync(join(outputRoot, "data", "values.json"), "[5]");
+writeFileSync(join(outputRoot, "data", "rows.csv"), "amount\n2\n");
+writeFileSync(join(outputRoot, ".openamx", "project.json"), JSON.stringify({ version: 1, inputs: { values: "data/values.json", rows: "data/rows.csv" } }));
+let selectedOutputPath: string | undefined;
+let openedOutputPath = "";
+let revealedOutputPath = "";
+const outputService = createDesktopService(undefined, {
+	async choose() { return selectedOutputPath; },
+	confirmOverwrite() { return true; },
+	openPath(path) { openedOutputPath = path; return true; },
+	revealPath(path) { revealedOutputPath = path; return true; }
+});
+assert.equal((await outputService.request.setAutosave({ enabled: false, delayMs: 500 })).ok, true);
+assert.equal((await outputService.request.openProject({ path: outputRoot })).ok, true);
+assert.equal((await outputService.request.openDocument({ path: outputEntry })).ok, true);
+assert.equal((await outputService.request.openDocument({ path: outputModel })).ok, true);
+assert.equal((await outputService.request.updateBuffer({ text: "```amx\nexport type Row {\n  amount: Number\n}\nexport let base: Number = 30\n```\n" })).ok, true);
+assert.equal((await outputService.request.openDocument({ path: outputEntry })).ok, true);
+assert.equal((await outputService.request.updateBuffer({ text: `${outputEntryText}\n# current active buffer\n` })).ok, true);
+const discoveryWorkbench = await outputService.request.getWorkbench();
+assert.equal(discoveryWorkbench.ok, true);
+if (!discoveryWorkbench.ok || !discoveryWorkbench.state.requestIdentity) throw new Error("Active identity unavailable before output discovery.");
+const discoveredOutputs = await outputService.request.startJob({ operation: "discover-outputs", identity: discoveryWorkbench.state.requestIdentity });
+assert.equal(discoveredOutputs.ok, true);
+if (!discoveredOutputs.ok) throw new Error(discoveredOutputs.error.message);
+let outputDiscovery = discoveredOutputs.job;
+for (let attempt = 0; attempt < 100 && outputDiscovery.status === "running"; attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 10));
+	const polled = await outputService.request.getJob({ jobId: discoveredOutputs.job.identity.jobId });
+	assert.equal(polled.ok, true);
+	if (!polled.ok) throw new Error(polled.error.message);
+	outputDiscovery = polled.job;
+}
+assert.equal(outputDiscovery.status, "succeeded");
+assert.deepEqual(outputDiscovery.result, { kind: "output-discovery", outputs: [
+	{ name: "result", type: "Number", formats: ["json"] },
+	{ name: "results", type: "Row[]", formats: ["json", "csv"] }
+] });
+
+async function runOutputExport(target: string, operation: "html" | "pdf" | "docx" | "export-data", dataOutput?: { name: string; format: "json" | "csv" }) {
+	selectedOutputPath = target;
+	const extension = operation === "export-data" ? `.${dataOutput!.format}` as ".json" | ".csv" : `.${operation}` as ".html" | ".pdf" | ".docx";
+	const selection = await outputService.request.pickDestination({ extension, fileName: basename(target) });
+	if (!selection.ok) throw new Error(selection.error.message);
+	if (selection.cancelled || !selection.selectionId) throw new Error("Native output selection was cancelled.");
+	const active = await outputService.request.getWorkbench();
+	if (!active.ok || !active.state.requestIdentity) throw new Error("Active output identity is unavailable.");
+	const started = await outputService.request.startJob({ operation, identity: active.state.requestIdentity, selectionId: selection.selectionId, dataOutput });
+	if (!started.ok) throw new Error(started.error.message);
+	let job = started.job;
+	for (let attempt = 0; attempt < 100 && ["running", "committing"].includes(job.status); attempt++) {
+		await new Promise(resolve => setTimeout(resolve, 10));
+		const polled = await outputService.request.getJob({ jobId: job.identity.jobId });
+		if (!polled.ok) throw new Error(polled.error.message);
+		job = polled.job;
+	}
+	return job;
+}
+
+const namedJsonPath = join(outputRoot, "data", "result.json");
+selectedOutputPath = namedJsonPath;
+const namedJsonSelection = await outputService.request.pickDestination({ extension: ".json", fileName: "result.json" });
+assert.equal(namedJsonSelection.ok, true);
+if (!namedJsonSelection.ok) throw new Error(namedJsonSelection.error.message);
+assert.equal(namedJsonSelection.path, undefined);
+assert.equal(namedJsonSelection.fileName, "result.json");
+const namedJsonJob = await outputService.request.startJob({
+	operation: "export-data", identity: outputDiscovery.identity, selectionId: namedJsonSelection.selectionId,
+	dataOutput: { name: "result", format: "json" }
+});
+assert.equal(namedJsonJob.ok, true);
+if (!namedJsonJob.ok) throw new Error(namedJsonJob.error.message);
+let namedJsonResult = namedJsonJob.job;
+for (let attempt = 0; attempt < 100 && ["running", "committing"].includes(namedJsonResult.status); attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 10));
+	const polled = await outputService.request.getJob({ jobId: namedJsonJob.job.identity.jobId });
+	assert.equal(polled.ok, true);
+	if (!polled.ok) throw new Error(polled.error.message);
+	namedJsonResult = polled.job;
+}
+const namedJsonWorkbench = await outputService.request.getWorkbench();
+assert.equal(namedJsonResult.status, "succeeded", JSON.stringify({ job: namedJsonResult, state: namedJsonWorkbench }));
+assert.equal(namedJsonResult.result?.kind, "export");
+if (namedJsonResult.result?.kind !== "export") throw new Error("Expected named JSON output.");
+assert.equal(namedJsonResult.result.name, "result");
+assert.equal(namedJsonResult.result.path, undefined);
+assert.equal(typeof namedJsonResult.result.outputId, "string");
+assert.equal(namedJsonResult.result.fileName, "result.json");
+assert.equal(readFileSync(namedJsonPath, "utf8"), "35\n");
+assert.equal(JSON.stringify(namedJsonResult).includes(namedJsonPath), false);
+if (!namedJsonResult.result.outputId) throw new Error("Export output ID was not returned.");
+assert.deepEqual(await outputService.request.openExportedOutput({ outputId: namedJsonResult.result.outputId, action: "open" }), { ok: true });
+assert.deepEqual(await outputService.request.openExportedOutput({ outputId: namedJsonResult.result.outputId, action: "reveal" }), { ok: true });
+assert.equal(openedOutputPath, namedJsonPath);
+assert.equal(revealedOutputPath, namedJsonPath);
+
+const namedRowsJsonPath = join(outputRoot, "data", "results.json");
+const rowsJsonStartedAt = performance.now();
+const namedRowsJson = await runOutputExport(namedRowsJsonPath, "export-data", { name: "results", format: "json" });
+const rowsJsonDurationMs = performance.now() - rowsJsonStartedAt;
+assert.equal(namedRowsJson.status, "succeeded");
+assert.deepEqual(JSON.parse(readFileSync(namedRowsJsonPath, "utf8")), [{ amount: 2 }]);
+const namedRowsCsvPath = join(outputRoot, "data", "results.csv");
+const rowsCsvStartedAt = performance.now();
+const namedRowsCsv = await runOutputExport(namedRowsCsvPath, "export-data", { name: "results", format: "csv" });
+const rowsCsvDurationMs = performance.now() - rowsCsvStartedAt;
+assert.equal(namedRowsCsv.status, "succeeded");
+assert.equal(readFileSync(namedRowsCsvPath, "utf8"), "amount\n2\n");
+
+const outputHtmlPath = join(outputRoot, "data", "report.html");
+const htmlOutputStartedAt = performance.now();
+const currentHtml = await runOutputExport(outputHtmlPath, "html");
+const htmlOutputDurationMs = performance.now() - htmlOutputStartedAt;
+assert.equal(currentHtml.status, "succeeded");
+assert.match(readFileSync(outputHtmlPath, "utf8"), /Unsaved report graph/);
+assert.match(readFileSync(outputHtmlPath, "utf8"), /35/);
+assert.match(readFileSync(outputHtmlPath, "utf8"), /current active buffer/);
+assert.equal(JSON.stringify(currentHtml).includes("PRIVATE_EXPORT_PATH_SENTINEL"), false);
+
+const outputPdfPath = join(outputRoot, "data", "report.pdf");
+const currentPdf = await runOutputExport(outputPdfPath, "pdf");
+assert.equal(currentPdf.status, "succeeded");
+assert.match(readFileSync(outputPdfPath).toString("utf8", 0, 4), /^%PDF$/);
+const outputDocxPath = join(outputRoot, "data", "report.docx");
+const currentDocx = await runOutputExport(outputDocxPath, "docx");
+assert.equal(currentDocx.status, "succeeded");
+assert.match(readFileSync(outputDocxPath).toString("utf8", 0, 2), /^PK$/);
+console.log(`Sprint 042 five-format serialization: JSON=${rowsJsonDurationMs.toFixed(1)} ms; CSV=${rowsCsvDurationMs.toFixed(1)} ms; HTML=${htmlOutputDurationMs.toFixed(1)} ms; PDF=${currentPdf.result?.bytes} bytes; DOCX=${currentDocx.result?.bytes} bytes`);
+
+const serializationBase = await outputService.request.readDocument();
+if (!serializationBase.ok) throw new Error(serializationBase.error.message);
+const slowReportText = `# Cancellable PDF preparation\n\n${"This report paragraph exists to make trusted PDF preparation and serialization measurable.\n\n".repeat(8000)}${serializationBase.document.text}`;
+assert.equal((await outputService.request.updateBuffer({ text: slowReportText })).ok, true);
+const serializationCancelPath = join(outputRoot, "data", "cancel-during-serialization.pdf");
+writeFileSync(serializationCancelPath, "preserve-during-pdf-serialization");
+selectedOutputPath = serializationCancelPath;
+const serializationSelection = await outputService.request.pickDestination({ extension: ".pdf", fileName: "cancel-during-serialization.pdf" });
+assert.equal(serializationSelection.ok, true);
+if (!serializationSelection.ok || !serializationSelection.selectionId) throw new Error("Expected a selected PDF cancellation destination.");
+const serializationWorkbench = await outputService.request.getWorkbench();
+if (!serializationWorkbench.ok || !serializationWorkbench.state.requestIdentity) throw new Error("Active identity unavailable before PDF serialization cancellation.");
+const serializationRssBefore = process.memoryUsage().rss;
+const serializationStart = await outputService.request.startJob({
+	operation: "pdf", identity: serializationWorkbench.state.requestIdentity, selectionId: serializationSelection.selectionId
+});
+assert.equal(serializationStart.ok, true);
+if (!serializationStart.ok) throw new Error(serializationStart.error.message);
+let serializationJob = serializationStart.job;
+for (let attempt = 0; attempt < 1000 && serializationJob.status === "running" && serializationJob.stage !== "serializing"; attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 2));
+	const polled = await outputService.request.getJob({ jobId: serializationStart.job.identity.jobId });
+	if (!polled.ok) throw new Error(polled.error.message);
+	serializationJob = polled.job;
+}
+assert.equal(serializationJob.status, "running");
+assert.equal(serializationJob.stage, "serializing");
+const serializationCancelStarted = performance.now();
+const serializationCancelled = await outputService.request.cancelJob({ jobId: serializationStart.job.identity.jobId });
+const serializationCancelAckMs = performance.now() - serializationCancelStarted;
+assert.equal(serializationCancelled.ok, true);
+if (!serializationCancelled.ok) throw new Error(serializationCancelled.error.message);
+assert.equal(serializationCancelled.job.status, "cancelled");
+assert.ok(serializationCancelAckMs < 250, `PDF serialization cancellation acknowledgement took ${serializationCancelAckMs.toFixed(2)} ms`);
+assert.equal(readFileSync(serializationCancelPath, "utf8"), "preserve-during-pdf-serialization");
+let serializationCleanup = serializationCancelled.job;
+for (let attempt = 0; attempt < 500 && serializationCleanup.cleanupPending; attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 2));
+	const polled = await outputService.request.getJob({ jobId: serializationStart.job.identity.jobId });
+	if (!polled.ok) throw new Error(polled.error.message);
+	serializationCleanup = polled.job;
+}
+assert.equal(serializationCleanup.cleanupPending, false);
+const serializationRssDelta = process.memoryUsage().rss - serializationRssBefore;
+console.log(`Sprint 042 PDF serialization cancellation: stage=serializing, ack=${serializationCancelAckMs.toFixed(2)} ms, worker close observed, RSS delta=${serializationRssDelta} bytes`);
+assert.equal((await outputService.request.updateBuffer({ text: serializationBase.document.text })).ok, true);
+
+const writeFailurePath = join(outputRoot, "data", "write-failure.json");
+writeFileSync(writeFailurePath, "preserve-before-write-failure");
+await assert.rejects(writeDesktopData(outputRoot, writeFailurePath, ".json", [], "replacement", () => { throw new Error("injected pre-commit failure"); }), /Failed to write JSON output/);
+assert.equal(readFileSync(writeFailurePath, "utf8"), "preserve-before-write-failure");
+assert.equal(readdirSync(join(outputRoot, "data")).some(name => name.includes("write-failure.json") && name.endsWith(".tmp")), false);
+const writeFailureCases = [
+	{ extension: ".html" as const, name: "write-failure.html", contents: "preserve-html-write-failure" },
+	{ extension: ".csv" as const, name: "write-failure.csv", contents: "preserve-csv-write-failure" },
+	{ extension: ".pdf" as const, name: "write-failure.pdf", contents: "preserve-pdf-write-failure" },
+	{ extension: ".docx" as const, name: "write-failure.docx", contents: "preserve-docx-write-failure" }
+];
+for (const item of writeFailureCases) {
+	const target = join(outputRoot, "data", item.name);
+	writeFileSync(target, item.contents);
+	if (item.extension === ".html") {
+		await assert.rejects(writeDesktopHtml(outputRoot, target, outputEntry, [], "replacement", () => { throw new Error("injected pre-commit failure"); }, true), /Failed to write HTML/);
+	} else if (item.extension === ".csv") {
+		await assert.rejects(writeDesktopData(outputRoot, target, item.extension, [], "replacement", () => { throw new Error("injected pre-commit failure"); }, true), /Failed to write CSV output/);
+	} else if (item.extension === ".pdf") {
+		const destination = await preparePdfDestination(target, outputEntry, []);
+		await assert.rejects(writePdfAtomically(destination, new Uint8Array([1, 2, 3]), () => { throw new Error("injected pre-commit failure"); }), /Failed to write PDF/);
+	} else {
+		const destination = await prepareDocxDestination(target, outputEntry, []);
+		await assert.rejects(writeDocxAtomically(destination, new Uint8Array([1, 2, 3]), () => { throw new Error("injected pre-commit failure"); }), /Failed to write DOCX/);
+	}
+	assert.equal(readFileSync(target, "utf8"), item.contents);
+}
+assert.equal(readdirSync(join(outputRoot, "data")).some(name => name.includes("write-failure") && name.endsWith(".tmp")), false);
+
+const destinationRacePath = join(outputRoot, "data", "destination-race.json");
+writeFileSync(destinationRacePath, "original destination bytes");
+selectedOutputPath = destinationRacePath;
+const destinationRaceSelection = await outputService.request.pickDestination({ extension: ".json", fileName: "destination-race.json" });
+assert.equal(destinationRaceSelection.ok, true);
+if (!destinationRaceSelection.ok || !destinationRaceSelection.selectionId) throw new Error("Expected an overwrite selection.");
+writeFileSync(destinationRacePath, "external change after confirmation");
+const outputIdentity = await outputService.request.getWorkbench();
+if (!outputIdentity.ok || !outputIdentity.state.requestIdentity) throw new Error("Active identity is unavailable for overwrite race test.");
+const destinationRaceJob = await outputService.request.startJob({
+	operation: "export-data", identity: outputIdentity.state.requestIdentity, selectionId: destinationRaceSelection.selectionId,
+	dataOutput: { name: "result", format: "json" }
+});
+assert.equal(destinationRaceJob.ok, true);
+if (!destinationRaceJob.ok) throw new Error(destinationRaceJob.error.message);
+let destinationRaceResult = destinationRaceJob.job;
+for (let attempt = 0; attempt < 100 && ["running", "committing"].includes(destinationRaceResult.status); attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 10));
+	const polled = await outputService.request.getJob({ jobId: destinationRaceJob.job.identity.jobId });
+	if (!polled.ok) throw new Error(polled.error.message);
+	destinationRaceResult = polled.job;
+}
+assert.equal(destinationRaceResult.status, "failed");
+assert.match(destinationRaceResult.diagnostics[0]?.message ?? "", /changed after overwrite confirmation/);
+assert.equal(readFileSync(destinationRacePath, "utf8"), "external change after confirmation");
+
+const staleSelectionPath = join(outputRoot, "data", "stale-selection.html");
+selectedOutputPath = staleSelectionPath;
+const staleSelection = await outputService.request.pickDestination({ extension: ".html", fileName: "stale-selection.html" });
+assert.equal(staleSelection.ok, true);
+if (!staleSelection.ok || !staleSelection.selectionId) throw new Error("Expected a selected HTML destination.");
+const staleIdentity = await outputService.request.getWorkbench();
+if (!staleIdentity.ok || !staleIdentity.state.requestIdentity) throw new Error("Active identity is unavailable for stale selection test.");
+const activeOutputDocument = await outputService.request.readDocument();
+if (!activeOutputDocument.ok) throw new Error(activeOutputDocument.error.message);
+assert.equal((await outputService.request.updateBuffer({ text: `${activeOutputDocument.document.text}\n# changed after selection\n` })).ok, true);
+const staleSelectionJob = await outputService.request.startJob({ operation: "html", identity: staleIdentity.state.requestIdentity, selectionId: staleSelection.selectionId });
+assert.equal(staleSelectionJob.ok, false);
+assert.equal(existsSync(staleSelectionPath), false);
+assert.equal((await outputService.request.updateBuffer({ text: activeOutputDocument.document.text })).ok, true);
+
+const valuesInputPath = join(outputRoot, "data", "values.json");
+const validValuesInput = readFileSync(valuesInputPath, "utf8");
+writeFileSync(valuesInputPath, "{");
+const invalidInputExports = [
+	{ operation: "html" as const, extension: ".html" as const },
+	{ operation: "pdf" as const, extension: ".pdf" as const },
+	{ operation: "docx" as const, extension: ".docx" as const },
+	{ operation: "export-data" as const, extension: ".json" as const, dataOutput: { name: "result", format: "json" as const } },
+	{ operation: "export-data" as const, extension: ".csv" as const, dataOutput: { name: "results", format: "csv" as const } }
+];
+for (const [index, item] of invalidInputExports.entries()) {
+	const target = join(outputRoot, "data", `invalid-input-${index}${item.extension}`);
+	const sentinel = `preserve-invalid-input-${index}`;
+	writeFileSync(target, sentinel);
+	const failed = await runOutputExport(target, item.operation, item.dataOutput);
+	assert.equal(failed.status, "failed", `${item.operation}${item.dataOutput ? `:${item.dataOutput.format}` : ""}`);
+	assert.equal(readFileSync(target, "utf8"), sentinel);
+	assert.equal(JSON.stringify(failed).includes(valuesInputPath), false);
+}
+writeFileSync(valuesInputPath, validValuesInput);
+
+const projectConfigPath = join(outputRoot, ".openamx", "project.json");
+const validProjectConfig = readFileSync(projectConfigPath, "utf8");
+writeFileSync(projectConfigPath, JSON.stringify({ version: 1, inputs: { values: "data/values.json", rows: "data/rows.csv" }, report: { organization: 42 } }));
+for (const [index, format] of (["html", "pdf", "docx"] as const).entries()) {
+	const target = join(outputRoot, "data", `invalid-settings-${index}.${format}`);
+	const sentinel = `preserve-invalid-settings-${format}`;
+	writeFileSync(target, sentinel);
+	const failed = await runOutputExport(target, format);
+	assert.equal(failed.status, "failed", format);
+	assert.equal(readFileSync(target, "utf8"), sentinel);
+}
+writeFileSync(projectConfigPath, validProjectConfig);
+
+const cancelledJsonPath = join(outputRoot, "data", "cancelled.json");
+writeFileSync(cancelledJsonPath, "preserve-before-json-cancel");
+selectedOutputPath = cancelledJsonPath;
+const cancelledJsonSelection = await outputService.request.pickDestination({ extension: ".json", fileName: "cancelled.json" });
+assert.equal(cancelledJsonSelection.ok, true);
+if (!cancelledJsonSelection.ok) throw new Error(cancelledJsonSelection.error.message);
+const cancelledJsonWorkbench = await outputService.request.getWorkbench();
+if (!cancelledJsonWorkbench.ok || !cancelledJsonWorkbench.state.requestIdentity) throw new Error("Active identity unavailable before JSON cancellation.");
+const cancelledJsonJob = await outputService.request.startJob({
+	operation: "export-data", identity: cancelledJsonWorkbench.state.requestIdentity, selectionId: cancelledJsonSelection.selectionId,
+	dataOutput: { name: "result", format: "json" }
+});
+assert.equal(cancelledJsonJob.ok, true);
+if (!cancelledJsonJob.ok) throw new Error(cancelledJsonJob.error.message);
+const cancelledJsonResult = await outputService.request.cancelJob({ jobId: cancelledJsonJob.job.identity.jobId });
+assert.equal(cancelledJsonResult.ok, true);
+if (!cancelledJsonResult.ok) throw new Error(cancelledJsonResult.error.message);
+assert.equal(cancelledJsonResult.job.status, "cancelled");
+assert.equal(readFileSync(cancelledJsonPath, "utf8"), "preserve-before-json-cancel");
+
 const privateDataSentinel = "PRIVATE_DATA_SENTINEL";
 const invalidDataJob = await service.request.startJob({
 	operation: "validate-data", identity: runIdentity,
@@ -525,6 +892,55 @@ assert.equal(staleDataResult.ok, true);
 if (!staleDataResult.ok) throw new Error(staleDataResult.error.message);
 assert.equal(staleDataResult.job.status, "superseded");
 await service.request.updateBuffer({ path: entry, text: entrySource });
+
+const importWorkbench = await service.request.getWorkbench();
+assert.equal(importWorkbench.ok, true);
+if (!importWorkbench.ok || !importWorkbench.state.requestIdentity) throw new Error("Active identity unavailable before imported-source test.");
+const staleImportJob = await service.request.startJob({
+	operation: "validate-data", identity: importWorkbench.state.requestIdentity,
+	inputInspection: { name: "rows", format: "json", text: largeValidationText }
+});
+assert.equal(staleImportJob.ok, true);
+if (!staleImportJob.ok) throw new Error(staleImportJob.error.message);
+const newerDependencySource = `${overlayDependencySource}\n# newer imported source\n`;
+assert.equal((await service.request.updateBuffer({ path: dependencyPath, text: newerDependencySource })).ok, true);
+const staleImportResult = await service.request.getJob({ jobId: staleImportJob.job.identity.jobId });
+assert.equal(staleImportResult.ok, true);
+if (!staleImportResult.ok) throw new Error(staleImportResult.error.message);
+assert.equal(staleImportResult.job.status, "superseded");
+assert.equal((await service.request.updateBuffer({ path: dependencyPath, text: overlayDependencySource })).ok, true);
+
+const settingsStaleWorkbench = await service.request.getWorkbench();
+if (!settingsStaleWorkbench.ok || !settingsStaleWorkbench.state.requestIdentity) throw new Error("Active identity unavailable before settings revision test.");
+const settingsStaleJob = await service.request.startJob({
+	operation: "validate-data", identity: settingsStaleWorkbench.state.requestIdentity,
+	inputInspection: { name: "rows", format: "json", text: largeValidationText }
+});
+assert.equal(settingsStaleJob.ok, true);
+if (!settingsStaleJob.ok) throw new Error(settingsStaleJob.error.message);
+assert.equal((await service.request.setInputSettings({ inputMappings: jobMappings, validation: "fail-fast" })).ok, true);
+const supersededSettings = await service.request.getJob({ jobId: settingsStaleJob.job.identity.jobId });
+assert.equal(supersededSettings.ok, true);
+if (!supersededSettings.ok) throw new Error(supersededSettings.error.message);
+assert.equal(supersededSettings.job.status, "superseded");
+assert.equal((await service.request.setInputSettings({ inputMappings: jobMappings, validation: "aggregate" })).ok, true);
+
+const mappedDataPath = join(dataRoot, "rows.csv");
+const mappedDataBefore = readFileSync(mappedDataPath, "utf8");
+const dataStaleWorkbench = await service.request.getWorkbench();
+if (!dataStaleWorkbench.ok || !dataStaleWorkbench.state.requestIdentity) throw new Error("Active identity unavailable before mapped data revision test.");
+const dataStaleJob = await service.request.startJob({
+	operation: "validate-data", identity: dataStaleWorkbench.state.requestIdentity,
+	inputInspection: { name: "rows", format: "json", text: largeValidationText }
+});
+assert.equal(dataStaleJob.ok, true);
+if (!dataStaleJob.ok) throw new Error(dataStaleJob.error.message);
+writeFileSync(mappedDataPath, `${mappedDataBefore}\n`);
+const supersededData = await service.request.getJob({ jobId: dataStaleJob.job.identity.jobId });
+assert.equal(supersededData.ok, true);
+if (!supersededData.ok) throw new Error(supersededData.error.message);
+assert.equal(supersededData.job.status, "superseded");
+writeFileSync(mappedDataPath, mappedDataBefore);
 
 const cancellationInput = `[${Array.from({ length: 250_000 }, () => "{\"amount\":1}").join(",")}]`;
 const cancellationWorkbench = await service.request.getWorkbench();
@@ -591,7 +1007,8 @@ writeFileSync(generationEntry, "```amx\nexport let total: Number = 1 + 2\n```\n"
 const nextGenerationRoot = join(root, "next-generation-project");
 mkdirSync(nextGenerationRoot);
 writeFileSync(join(nextGenerationRoot, "next.amx"), "```amx\nlet next: Number = 1\n```\n");
-const generationService = createDesktopService();
+let generationDestination: string | undefined;
+const generationService = createDesktopService(undefined, { async choose() { return generationDestination; }, confirmOverwrite() { return true; } });
 assert.equal((await generationService.request.openProject({ path: generationRoot })).ok, true);
 assert.equal((await generationService.request.openDocument({ path: generationEntry })).ok, true);
 const generationState = await generationService.request.getWorkbench();
@@ -599,8 +1016,12 @@ assert.equal(generationState.ok, true);
 if (!generationState.ok || !generationState.state.requestIdentity) throw new Error("Active identity unavailable before project-switch test.");
 const protectedPdf = join(generationRoot, "existing.pdf");
 writeFileSync(protectedPdf, "preserve-across-project-switch");
+generationDestination = protectedPdf;
+const generationSelection = await generationService.request.pickDestination({ extension: ".pdf", fileName: "existing.pdf" });
+assert.equal(generationSelection.ok, true);
+if (!generationSelection.ok) throw new Error(generationSelection.error.message);
 const projectSwitchJob = await generationService.request.startJob({
-	operation: "pdf", identity: generationState.state.requestIdentity, destination: protectedPdf
+	operation: "pdf", identity: generationState.state.requestIdentity, selectionId: generationSelection.selectionId
 });
 assert.equal(projectSwitchJob.ok, true);
 if (!projectSwitchJob.ok) throw new Error(projectSwitchJob.error.message);
@@ -662,7 +1083,11 @@ const jobStartState = await service.request.getWorkbench();
 assert.equal(jobStartState.ok, true);
 if (!jobStartState.ok) throw new Error(jobStartState.error.message);
 if (!jobStartState.state.requestIdentity) throw new Error("Active document request identity was not available.");
-const pendingExport = await service.request.startJob({ operation: "pdf", identity: jobStartState.state.requestIdentity, destination: cancelledPdf });
+selectedServiceDestination = cancelledPdf;
+const cancelledPdfSelection = await service.request.pickDestination({ extension: ".pdf", fileName: "cancelled-report.pdf" });
+assert.equal(cancelledPdfSelection.ok, true);
+if (!cancelledPdfSelection.ok) throw new Error(cancelledPdfSelection.error.message);
+const pendingExport = await service.request.startJob({ operation: "pdf", identity: jobStartState.state.requestIdentity, selectionId: cancelledPdfSelection.selectionId });
 if (!pendingExport.ok) throw new Error(pendingExport.error.message);
 if (!pendingExport.ok) throw new Error(pendingExport.error.message);
 const cancelledExport = await service.request.cancelJob({ jobId: pendingExport.job.identity.jobId });
@@ -807,78 +1232,76 @@ const reportDirectory = join(root, "reports");
 mkdirSync(reportDirectory);
 const htmlPath = join(reportDirectory, "analysis.html");
 const htmlStartedAt = performance.now();
-const htmlSave = await service.request.saveHtml({ path: "reports/analysis.html" });
+const htmlSave = await selectedExport(htmlPath, "html");
 const htmlDurationMs = performance.now() - htmlStartedAt;
 assert.equal(htmlSave.ok, true);
 if (!htmlSave.ok) throw new Error(htmlSave.error.message);
-assert.equal(htmlSave.path, htmlPath);
+assert.equal(htmlSave.job.status, "succeeded");
+assert.equal(htmlSave.job.result?.kind, "export");
+if (htmlSave.job.result?.kind !== "export") throw new Error("Expected HTML export result.");
+assert.equal(htmlSave.job.result.fileName, "analysis.html");
+assert.equal(htmlSave.job.result.path, undefined);
 assert.equal(readFileSync(htmlPath, "utf8"), previewWithInputs.html);
 const pdfPath = join(reportDirectory, "analysis.pdf");
 const pdfStartedAt = performance.now();
-const pdfExport = await service.request.exportPdf({ path: "reports/analysis.pdf" });
+const pdfExport = await selectedExport(pdfPath, "pdf");
 const pdfDurationMs = performance.now() - pdfStartedAt;
 assert.equal(pdfExport.ok, true);
 if (!pdfExport.ok) throw new Error(pdfExport.error.message);
-assert.equal(pdfExport.path, pdfPath);
-assert.ok(pdfExport.bytes > 1000);
+assert.equal(pdfExport.job.status, "succeeded");
+assert.ok((pdfExport.job.result?.bytes ?? 0) > 1000);
 assert.match(readFileSync(pdfPath).toString("utf8", 0, 4), /^%PDF$/);
 const docxPath = join(reportDirectory, "analysis.docx");
 const docxStartedAt = performance.now();
-const docxExport = await service.request.exportDocx({ path: "reports/analysis.docx" });
+const docxExport = await selectedExport(docxPath, "docx");
 const docxDurationMs = performance.now() - docxStartedAt;
 assert.equal(docxExport.ok, true);
 if (!docxExport.ok) throw new Error(docxExport.error.message);
-assert.equal(docxExport.path, docxPath);
-assert.ok(docxExport.bytes > 1000);
+assert.equal(docxExport.job.status, "succeeded");
+assert.ok((docxExport.job.result?.bytes ?? 0) > 1000);
 assert.match(readFileSync(docxPath).toString("utf8", 0, 2), /^PK$/);
-console.log(`Sprint 036 real pipelines: preview=${previewDurationMs.toFixed(1)} ms/${previewWithInputs.html.length} chars; HTML=${htmlDurationMs.toFixed(1)} ms/${Buffer.byteLength(readFileSync(htmlPath, "utf8"))} bytes; PDF=${pdfDurationMs.toFixed(1)} ms/${pdfExport.bytes} bytes; DOCX=${docxDurationMs.toFixed(1)} ms/${docxExport.bytes} bytes`);
+console.log(`Sprint 042 real pipelines: preview=${previewDurationMs.toFixed(1)} ms/${previewWithInputs.html.length} chars; HTML=${htmlDurationMs.toFixed(1)} ms/${Buffer.byteLength(readFileSync(htmlPath, "utf8"))} bytes; PDF=${pdfDurationMs.toFixed(1)} ms/${pdfExport.job.result?.bytes} bytes; DOCX=${docxDurationMs.toFixed(1)} ms/${docxExport.job.result?.bytes} bytes`);
 
 const invalidSource = "```amx\nlet incomplete =\n```\n";
 await service.request.updateBuffer({ text: invalidSource });
 writeFileSync(htmlPath, "preserve-html");
 writeFileSync(pdfPath, "preserve-pdf");
 writeFileSync(docxPath, "preserve-docx");
-const failedHtml = await service.request.saveHtml({ path: "reports/analysis.html" });
-assert.equal(failedHtml.ok, true);
-if (!failedHtml.ok) throw new Error(failedHtml.error.message);
-assert.equal(failedHtml.diagnostics.length, 1);
+const failedHtml = await selectedExport(htmlPath, "html");
+assert.equal(failedHtml.ok, false, JSON.stringify(failedHtml));
+if (failedHtml.ok) throw new Error("Invalid AMX export unexpectedly started.");
 assert.equal(readFileSync(htmlPath, "utf8"), "preserve-html");
 const failedPreview = await service.request.previewBuffer();
 assert.equal(failedPreview.ok, true);
 if (!failedPreview.ok) throw new Error(failedPreview.error.message);
 assert.equal(failedPreview.html, "");
 assert.equal(failedPreview.diagnostics.length, 1);
-const failedPdf = await service.request.exportPdf({ path: "reports/analysis.pdf" });
-assert.equal(failedPdf.ok, true);
-if (!failedPdf.ok) throw new Error(failedPdf.error.message);
-assert.equal(failedPdf.diagnostics.length, 1);
+const failedPdf = await selectedExport(pdfPath, "pdf");
+assert.equal(failedPdf.ok, false);
+if (failedPdf.ok) throw new Error("Invalid AMX PDF export unexpectedly started.");
 assert.equal(readFileSync(pdfPath, "utf8"), "preserve-pdf");
-const failedDocx = await service.request.exportDocx({ path: "reports/analysis.docx" });
-assert.equal(failedDocx.ok, true);
-if (!failedDocx.ok) throw new Error(failedDocx.error.message);
-assert.equal(failedDocx.diagnostics.length, 1);
+const failedDocx = await selectedExport(docxPath, "docx");
+assert.equal(failedDocx.ok, false);
+if (failedDocx.ok) throw new Error("Invalid AMX DOCX export unexpectedly started.");
 assert.equal(readFileSync(docxPath, "utf8"), "preserve-docx");
 const htmlLink = join(reportDirectory, "linked.html");
 await service.request.updateBuffer({ text: entrySource });
 symlinkSync(htmlPath, htmlLink);
-const rejectedHtmlLink = await service.request.saveHtml({ path: "reports/linked.html" });
-assert.equal(rejectedHtmlLink.ok, true);
-if (!rejectedHtmlLink.ok) throw new Error(rejectedHtmlLink.error.message);
-assert.equal(rejectedHtmlLink.diagnostics[0]?.code, "AMX6001");
+const rejectedHtmlLink = await selectedExport(htmlLink, "html");
+assert.equal(rejectedHtmlLink.ok, false);
 assert.equal(existsSync(htmlLink), true);
-const outsideHtml = await service.request.saveHtml({ path: join(tmpdir(), `outside-${Date.now()}.html`) });
+const outsideHtmlPath = join(tmpdir(), `outside-${Date.now()}.html`);
+const outsideHtml = await selectedExport(outsideHtmlPath, "html");
 assert.equal(outsideHtml.ok, true);
 if (!outsideHtml.ok) throw new Error(outsideHtml.error.message);
-assert.equal(outsideHtml.diagnostics[0]?.code, "AMX6001");
-const missingParentPdf = await service.request.exportPdf({ path: "missing/analysis.pdf" });
-assert.equal(missingParentPdf.ok, true);
-if (!missingParentPdf.ok) throw new Error(missingParentPdf.error.message);
-assert.equal(missingParentPdf.diagnostics[0]?.code, "AMX6001");
+assert.equal(outsideHtml.job.status, "succeeded");
+assert.equal(existsSync(outsideHtmlPath), true);
+unlinkSync(outsideHtmlPath);
+const missingParentPdf = await selectedExport(join(root, "missing", "analysis.pdf"), "pdf");
+assert.equal(missingParentPdf.ok, false);
 assert.equal(readFileSync(pdfPath, "utf8"), "preserve-pdf");
-const missingParentDocx = await service.request.exportDocx({ path: "missing/analysis.docx" });
-assert.equal(missingParentDocx.ok, true);
-if (!missingParentDocx.ok) throw new Error(missingParentDocx.error.message);
-assert.equal(missingParentDocx.diagnostics[0]?.code, "AMX6001");
+const missingParentDocx = await selectedExport(join(root, "missing", "analysis.docx"), "docx");
+assert.equal(missingParentDocx.ok, false);
 assert.equal(readFileSync(docxPath, "utf8"), "preserve-docx");
 assert.equal(readFileSync(entry, "utf8"), savedSource);
 console.log("Desktop workflow contract passed (precedence, validation, current-buffer, HTML/PDF safety)");
@@ -888,7 +1311,13 @@ mkdirSync(ignored);
 writeFileSync(join(ignored, "hidden.amx"), "# hidden");
 writeFileSync(join(root, ".hidden.amx"), "# hidden");
 let selectedPath: string | undefined;
-const picked = createDesktopService(undefined, { async choose() { return selectedPath; } });
+let overwriteAccepted = false;
+let destinationPickerCalls = 0;
+let destinationPickerOptions: { directory: boolean; extension?: string; fileName?: string } | undefined;
+const picked = createDesktopService(undefined, {
+	async choose(options) { destinationPickerCalls++; destinationPickerOptions = options; return selectedPath; },
+	confirmOverwrite() { return overwriteAccepted; }
+});
 const cancelledProject = await picked.request.pickProject();
 assert.deepEqual(cancelledProject, { ok: true, cancelled: true });
 selectedPath = entry;
@@ -914,18 +1343,44 @@ assert.equal(beforeCancel.ok, true);
 const cancelledClose = await picked.request.closeTab({ path: entry, action: "cancel" });
 assert.deepEqual(cancelledClose, beforeCancel);
 await picked.request.updateBuffer({ text: "# dirty entry" });
+const callsBeforeInvalidName = destinationPickerCalls;
+const rejectedFilename = await picked.request.pickDestination({ extension: ".html", fileName: "../escape.html" });
+assert.equal(rejectedFilename.ok, false);
+assert.equal(destinationPickerCalls, callsBeforeInvalidName);
 selectedPath = outside;
-assert.equal((await picked.request.pickDestination({ extension: ".html" })).ok, false);
+assert.equal((await picked.request.pickDestination({ extension: ".html", fileName: "report.html" })).ok, false);
+selectedPath = join(tmpdir(), `outside-${Date.now()}.html`);
+const externalDestination = await picked.request.pickDestination({ extension: ".html", fileName: basename(selectedPath) });
+assert.equal(externalDestination.ok, true);
+if (!externalDestination.ok) throw new Error(externalDestination.error.message);
+assert.equal(externalDestination.path, undefined);
+assert.equal(externalDestination.fileName, basename(selectedPath));
+assert.equal(JSON.stringify(externalDestination).includes(selectedPath), false);
+const originalHtml = readFileSync(htmlPath, "utf8");
+selectedPath = htmlPath;
+overwriteAccepted = false;
+assert.deepEqual(await picked.request.pickDestination({ extension: ".html", fileName: basename(htmlPath) }), { ok: true, cancelled: true });
+assert.equal(readFileSync(htmlPath, "utf8"), originalHtml);
+overwriteAccepted = true;
+const overwriteSelection = await picked.request.pickDestination({ extension: ".html", fileName: basename(htmlPath) });
+assert.equal(overwriteSelection.ok, true);
+if (!overwriteSelection.ok) throw new Error(overwriteSelection.error.message);
+assert.equal(overwriteSelection.fileName, basename(htmlPath));
+overwriteAccepted = false;
 selectedPath = join(root, "reports", "new-report.html");
-const newDestination = await picked.request.pickDestination({ extension: ".html" });
+const newDestination = await picked.request.pickDestination({ extension: ".html", fileName: basename(selectedPath) });
 assert.equal(newDestination.ok, true);
 if (!newDestination.ok) throw new Error(newDestination.error.message);
-assert.equal(newDestination.path, selectedPath);
+assert.equal(newDestination.path, undefined);
+assert.equal(newDestination.fileName, basename(selectedPath));
+assert.equal(typeof newDestination.selectionId, "string");
+assert.equal(destinationPickerOptions?.directory, true);
+assert.equal(destinationPickerOptions?.fileName, basename(selectedPath));
 assert.equal(existsSync(selectedPath), false);
 selectedPath = join(root, "reports", "wrong.HTML");
-assert.equal((await picked.request.pickDestination({ extension: ".html" })).ok, false);
+assert.equal((await picked.request.pickDestination({ extension: ".html", fileName: "wrong.HTML" })).ok, false);
 selectedPath = undefined;
-assert.deepEqual(await picked.request.pickDestination({ extension: ".pdf" }), { ok: true, cancelled: true });
+assert.deepEqual(await picked.request.pickDestination({ extension: ".pdf", fileName: "report.pdf" }), { ok: true, cancelled: true });
 writeFileSync(entry, "# external edit");
 const failedClose = await picked.request.closeTab({ path: entry, action: "save" });
 assert.equal(failedClose.ok, false);

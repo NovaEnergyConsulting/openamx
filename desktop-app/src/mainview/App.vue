@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { Database, Eye, SlidersHorizontal } from "@lucide/vue";
-import type { DataInputSchema, DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
+import { Database, Download, ExternalLink, Eye, FolderOpen, Pause, Play, RefreshCw, SlidersHorizontal } from "@lucide/vue";
+import type { DataInputSchema, DataOutputSchema, DesktopExportAction, DesktopJobOperation, DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
 import { Button } from "@/components/ui/button";
 import CodeEditor from "./CodeEditor.vue";
 import CommandPalette from "./components/CommandPalette.vue";
 import DataEditorPane from "./components/DataEditorPane.vue";
+import ExportDialog from "./components/ExportDialog.vue";
 import InputsPanel from "./components/InputsPanel.vue";
 import ProjectExplorer from "./components/ProjectExplorer.vue";
 import ReportSettingsDialog from "./components/ReportSettingsDialog.vue";
@@ -31,6 +32,7 @@ let invoker: HTMLElement | null = null;
 let focusInvoker: HTMLElement | null = null;
 let settingsInvoker: HTMLElement | null = null;
 const preview = ref("");
+const previewPaused = ref(false);
 const analysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
 const staticAnalysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
 const inputConfiguration = ref<InputConfiguration>({ inputs: [], diagnostics: [] });
@@ -47,8 +49,21 @@ const summary = ref<RunSummary>({ values: [] });
 const runState = ref<"idle" | "running" | "success" | "failure" | "cancelled" | "stale">("idle");
 const previewState = ref<"idle" | "running" | "success" | "failure" | "cancelled" | "stale">("idle");
 const activeJobId = ref<number | null>(null);
+const cleanupJobId = ref<number | null>(null);
+const cleanupPending = ref(false);
 const jobStage = ref("");
 const exportStatus = ref("");
+const exportDialogOpen = ref(false);
+const exportOutputs = ref<DataOutputSchema[]>([]);
+const exportOutputsTruncated = ref(false);
+const exportFormat = ref<"html" | "pdf" | "docx" | "json" | "csv">("html");
+const exportBinding = ref("");
+const exportFileName = ref("report.html");
+const exportBusy = ref(false);
+const exportDialogError = ref("");
+const completedOutputId = ref("");
+const completedOutputName = ref("");
+const runtimeExpanded = ref(false);
 const files = ref<ProjectFile[]>([]);
 const folders = ref<string[]>([]);
 const status = ref("Open a project and an .amx file to begin.");
@@ -62,6 +77,8 @@ let staticRequest = 0;
 let pendingEdit: Promise<void> = Promise.resolve();
 let pendingInputSettings: Promise<void> = Promise.resolve();
 let dataValidationTimer: ReturnType<typeof setTimeout> | undefined;
+let previewTimer: ReturnType<typeof setTimeout> | undefined;
+const lastGoodPreviews = new Map<string, { html: string; revision: number; projectGeneration: number; settingsRevision: number; stale: boolean }>();
 
 function mappings(): string[] { return inputOverrides.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean); }
 function syncInputSettings(): Promise<void> {
@@ -73,18 +90,55 @@ function syncInputSettings(): Promise<void> {
 	});
 	return pendingInputSettings;
 }
-function cancelActiveJob() { const jobId = activeJobId.value; if (jobId === null) return; activeJobId.value = null; jobStage.value = ""; void props.rpc.request.cancelJob({ jobId }); }
-async function executeJob(operation: "run" | "preview" | "html" | "pdf" | "docx" | "validate-data", destination?: string) {
+async function cancelActiveJob() {
+	const jobId = activeJobId.value;
+	if (jobId === null) return;
+	try {
+		const cancelled = await props.rpc.request.cancelJob({ jobId });
+		if (activeJobId.value !== jobId) return;
+		if (cancelled.ok && cancelled.job.status === "committing") {
+			jobStage.value = "committing";
+			status.value = "The atomic file replacement has started and cannot be interrupted.";
+			return;
+		}
+		if (cancelled.ok && cancelled.job.cleanupPending) {
+			cleanupJobId.value = jobId;
+			cleanupPending.value = true;
+			void observeWorkerCleanup(jobId);
+		}
+	} catch { status.value = "Unable to confirm job cancellation."; }
+	if (activeJobId.value === jobId) {
+		activeJobId.value = null;
+		jobStage.value = "";
+	}
+}
+async function executeJob(operation: DesktopJobOperation, selectionId?: string, dataOutput?: { name: string; format: "json" | "csv" }) {
 	await pendingEdit; await pendingInputSettings; if (!workbench.value.requestIdentity) await syncWorkbench();
 	const identity = workbench.value.requestIdentity; if (!identity) throw new Error("Open an active AMX document before starting a job.");
-	const started = await props.rpc.request.startJob({ operation, identity, destination }); if (!started.ok) throw new Error(started.error.message);
+	const started = await props.rpc.request.startJob({ operation, identity, selectionId, dataOutput }); if (!started.ok) throw new Error(started.error.message);
 	let job = started.job; const jobId = job.identity.jobId; activeJobId.value = jobId; jobStage.value = job.stage ?? "";
+	cleanupJobId.value = null; cleanupPending.value = false;
 	for (let attempt = 0; ["running", "committing"].includes(job.status) && attempt < 600; attempt++) {
 		await new Promise(resolve => setTimeout(resolve, 50)); if (activeJobId.value !== jobId) return undefined;
 		const polled = await props.rpc.request.getJob({ jobId }); if (!polled.ok) throw new Error(polled.error.message); job = polled.job; jobStage.value = job.stage ?? "";
 	}
 	if (["running", "committing"].includes(job.status)) { void props.rpc.request.cancelJob({ jobId }); throw new Error("The desktop job did not complete before its polling limit."); }
-	if (activeJobId.value === jobId) activeJobId.value = null; jobStage.value = ""; return job;
+	if (activeJobId.value === jobId) activeJobId.value = null;
+	jobStage.value = "";
+	if (job.cleanupPending) { cleanupPending.value = true; cleanupJobId.value = jobId; void observeWorkerCleanup(jobId); }
+	return job;
+}
+
+async function observeWorkerCleanup(jobId: number) {
+	for (let attempt = 0; attempt < 200; attempt++) {
+		if (cleanupJobId.value !== jobId) return;
+		const result = await props.rpc.request.getJob({ jobId });
+		if (!result.ok || !result.job.cleanupPending) {
+			if (cleanupJobId.value === jobId) { cleanupPending.value = false; cleanupJobId.value = null; }
+			return;
+		}
+		await new Promise(resolve => setTimeout(resolve, 10));
+	}
 }
 
 function isCurrent(revision: number): boolean {
@@ -96,16 +150,48 @@ function resetResults() {
 	runState.value = "idle";
 	exportRequest++;
 	exportStatus.value = "";
+	completedOutputId.value = "";
+	completedOutputName.value = "";
+}
+
+function markLastGoodStale(path = document.value?.path) {
+	if (!path) return;
+	const cached = lastGoodPreviews.get(path);
+	if (cached) cached.stale = true;
+	if (document.value?.path === path && preview.value) previewState.value = "stale";
+}
+
+function markAllLastGoodStale() {
+	for (const cached of lastGoodPreviews.values()) cached.stale = true;
+	if (document.value?.kind === "amx" && preview.value) previewState.value = "stale";
+}
+
+function schedulePreview() {
+	if (previewTimer) clearTimeout(previewTimer);
+	if (previewPaused.value || document.value?.kind !== "amx") return;
+	previewTimer = setTimeout(() => { previewTimer = undefined; void refresh(); }, 400);
+}
+
+function togglePreviewPause() {
+	previewPaused.value = !previewPaused.value;
+	if (previewPaused.value) {
+		if (previewTimer) clearTimeout(previewTimer);
+		previewTimer = undefined;
+		cancelActiveJob();
+		markLastGoodStale();
+		if (!preview.value) previewState.value = "idle";
+	} else schedulePreview();
 }
 
 function invalidateInputResults() {
 	cancelActiveJob();
+	if (exportDialogOpen.value) { exportDialogOpen.value = false; exportRequest++; }
 	bufferRevision++;
 	previewRequest++;
 	pending.value = false;
 	resetResults();
-	preview.value = "";
-	previewState.value = "idle";
+	markAllLastGoodStale();
+	if (!preview.value) previewState.value = "idle";
 }
 
 function validationChanged() {
@@ -347,6 +433,23 @@ function dismissPalette() {
 	invoker?.focus();
 }
 
+function closeExportWorkflow() {
+	exportDialogOpen.value = false;
+	exportRequest++;
+	cancelActiveJob();
+}
+
+function setExportFormat(format: "html" | "pdf" | "docx" | "json" | "csv") {
+	const base = format === "json" || format === "csv" ? exportBinding.value || "output" : "report";
+	exportFormat.value = format;
+	exportFileName.value = `${base}.${format}`;
+}
+
+function setExportBinding(name: string) {
+	exportBinding.value = name;
+	if (exportFormat.value === "json" || exportFormat.value === "csv") exportFileName.value = `${name || "output"}.${exportFormat.value}`;
+}
+
 function cycleTab(direction: number) {
 	const tabs = workbench.value.tabs;
 	const index = tabs.findIndex(tab => tab.path === workbench.value.active);
@@ -367,20 +470,19 @@ const commands = computed<ShellCommand[]>(() => [
 	{ id: "document.format", label: "Format active tab", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: format },
 	{ id: "document.run", label: "Run active document", shortcut: "Ctrl/Cmd+Enter", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: runAnalysis },
 	{ id: "document.preview", label: "Refresh preview", shortcut: "Ctrl/Cmd+Shift+Enter", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: refresh },
-	{ id: "report.settings", label: "Report Settings", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: openReportSettings },
+	{ id: "document.preview-toggle", label: previewPaused.value ? "Resume live preview" : "Pause live preview", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: togglePreviewPause },
 	{ id: "report.settings", label: "Report Settings", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: openReportSettings },
 	{ id: "project.search", label: "Search project", shortcut: "Ctrl/Cmd+Shift+F", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => requestAnimationFrame(() => window.document.querySelector<HTMLInputElement>("#project-search")?.focus()) },
 	{ id: "view.focus-editor", label: "Focus editor", enabled: !!document.value, disabledReason: "Open a document first", run: () => setFocusMode("editor") },
 	{ id: "view.focus-preview", label: "Focus preview", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: () => setFocusMode("preview") },
-	{ id: "document.export-html", label: "Export HTML", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: saveHtml },
-	{ id: "document.export-pdf", label: "Export PDF", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: exportPdf },
-	{ id: "document.export-docx", label: "Export DOCX", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: exportDocx },
+	{ id: "document.export", label: "Export…", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: openExportWorkflow },
 	{ id: "project.clear-recents", label: "Clear recent projects", enabled: !!recents.value.length, disabledReason: "History is empty", run: clearRecents }
 ]);
 
 function onKeydown(event: KeyboardEvent) {
 	if (event.key === "Escape") {
 		if (palette.value) dismissPalette();
+		else if (exportDialogOpen.value) closeExportWorkflow();
 		else if (reportSettingsOpen.value) closeReportSettings();
 		else if (focusMode.value !== "none") setFocusMode("none");
 		return;
@@ -433,9 +535,16 @@ function dragDivider(event: PointerEvent, divider: "explorer" | "preview") {
 }
 
 onMounted(() => { setTheme(theme.value); window.addEventListener("keydown", onKeydown); void syncRecents(); void syncRecovery(); });
-onUnmounted(() => window.removeEventListener("keydown", onKeydown));
+onUnmounted(() => {
+	window.removeEventListener("keydown", onKeydown);
+	if (previewTimer) clearTimeout(previewTimer);
+	cancelActiveJob();
+});
 
 function clearView() {
+	if (previewTimer) clearTimeout(previewTimer);
+	previewTimer = undefined;
+	exportDialogOpen.value = false;
 	cancelActiveJob();
 	bufferRevision++;
 	previewRequest++;
@@ -510,8 +619,20 @@ async function activate(result: Awaited<ReturnType<typeof props.rpc.request.open
 	document.value = result.document;
 	contextView.value = result.document.kind === "amx" ? "preview" : "data";
 	await syncWorkbench();
-	if (result.document.kind === "amx") void refreshStaticAnalysis(result.document.path, result.document.revision);
-	else if (["csv", "json", "external-data"].includes(result.document.kind)) void validateMappedData(result.document.path, result.document.revision);
+	if (result.document.kind === "amx") {
+		const cached = lastGoodPreviews.get(result.document.path);
+		preview.value = cached?.html ?? "";
+		const identity = workbench.value.requestIdentity;
+		const matches = !!cached && !cached.stale && cached.revision === result.document.revision
+			&& cached.projectGeneration === workbench.value.generation
+			&& cached.settingsRevision === (identity?.inputSettingsRevision ?? -1);
+		previewState.value = cached ? (matches ? "success" : "stale") : "idle";
+		void refreshStaticAnalysis(result.document.path, result.document.revision);
+		schedulePreview();
+	} else {
+		preview.value = "";
+		if (["csv", "json", "external-data"].includes(result.document.kind)) void validateMappedData(result.document.path, result.document.revision);
+	}
 	void syncInputConfiguration();
 	status.value = `Active: ${result.document.label ?? result.document.path.split(/[\\/]/).pop()}`;
 }
@@ -711,10 +832,10 @@ async function reload() {
 async function refresh() {
 	await pendingEdit;
 	await syncInputSettings();
-	if (!document.value) return;
+	if (document.value?.kind !== "amx") return;
 	const revision = bufferRevision;
 	const request = ++previewRequest;
-	preview.value = "";
+	cancelActiveJob();
 	previewState.value = "running";
 	pending.value = true;
 	const selectedInputs = mappings();
@@ -727,8 +848,7 @@ async function refresh() {
 		]);
 	} catch (error) {
 		if (isCurrent(revision) && request === previewRequest) {
-			preview.value = "";
-			previewState.value = "failure";
+			previewState.value = preview.value ? "stale" : "failure";
 			analysis.value = { diagnostics: [{ code: "DESKTOP_RPC", message: error instanceof Error ? error.message.slice(0, 1000) : "Preview request failed." }], completions: [] };
 			status.value = "Preview failed for the current buffer.";
 			pending.value = false;
@@ -747,31 +867,38 @@ async function refresh() {
 	}
 	if (rendered.status === "succeeded" && rendered.result?.kind === "preview") {
 		preview.value = rendered.result.html ?? "";
+		lastGoodPreviews.set(document.value.path, {
+			html: preview.value, revision: document.value.revision,
+			projectGeneration: workbench.value.generation, settingsRevision: workbench.value.inputSettingsRevision, stale: false
+		});
+		while (lastGoodPreviews.size > 10) lastGoodPreviews.delete(lastGoodPreviews.keys().next().value!);
 		analysis.value = { diagnostics: rendered.diagnostics, completions: [] };
 		previewState.value = "success";
 	} else if (rendered.status === "cancelled" || rendered.status === "superseded") {
-		previewState.value = rendered.status === "cancelled" ? "cancelled" : "stale";
+		previewState.value = preview.value ? "stale" : rendered.status === "cancelled" ? "cancelled" : "stale";
 	} else {
-		preview.value = "";
-		previewState.value = "failure";
+		previewState.value = preview.value ? "stale" : "failure";
 		analysis.value = { diagnostics: rendered.diagnostics, completions: [] };
 	}
 	applyInputValidation(rendered.diagnostics, rendered.status === "succeeded");
 	const issues = [...analysis.value.diagnostics, ...inputConfiguration.value.diagnostics];
-	status.value = issues.length ? `${issues.length} issue(s)` : "Preview reflects the current buffer.";
+	status.value = issues.length ? `Preview is stale; ${issues.length} issue(s).` : "Preview reflects the current buffer.";
 	pending.value = false;
 }
 
 async function updateText(text: string) {
 	if (!document.value) return;
 	const path = document.value.path;
+	const currentDocument = document.value;
+	cancelActiveJob();
+	if (exportDialogOpen.value) { exportDialogOpen.value = false; exportRequest++; }
 	const revision = ++bufferRevision;
 	staticRequest++;
 	staticAnalysis.value = { diagnostics: [], completions: [] };
 	previewRequest++;
 	pending.value = false;
-	preview.value = "";
-	previewState.value = "running";
+	markAllLastGoodStale();
+	previewState.value = preview.value ? "stale" : "running";
 	resetResults();
 	const write = props.rpc.request.updateBuffer({ text, path, sequence: revision });
 	pendingEdit = write.then(() => undefined, () => undefined);
@@ -780,7 +907,10 @@ async function updateText(text: string) {
 	if (!result.ok) { status.value = result.error.message; return; }
 	document.value = result.document;
 	await syncWorkbench();
-	if (result.document.kind === "amx") void refreshStaticAnalysis(path, result.document.revision);
+	if (result.document.kind === "amx") {
+		void refreshStaticAnalysis(path, result.document.revision);
+		schedulePreview();
+	}
 	else if (dataEditorContexts.value.has(path)) {
 		if (dataValidationTimer) clearTimeout(dataValidationTimer);
 		dataValidationTimer = setTimeout(() => void validateMappedData(path, result.document.revision), 250);
@@ -817,9 +947,8 @@ async function runAnalysis() {
 	if (!document.value) return;
 	const revision = bufferRevision;
 	const request = ++runRequest;
+	cancelActiveJob();
 	previewRequest++;
-	preview.value = "";
-	previewState.value = "idle";
 	runState.value = "running";
 	summary.value = { values: [] };
 	let result: Awaited<ReturnType<typeof executeJob>>;
@@ -852,39 +981,79 @@ async function runAnalysis() {
 	status.value = result.diagnostics.length ? "Analysis failed for the current buffer." : "Analysis completed for the current buffer.";
 }
 
-async function exportDocument(format: "html" | "pdf" | "docx", extension: ".html" | ".pdf" | ".docx") {
+async function openExportWorkflow() {
 	await pendingEdit;
 	await syncInputSettings();
-	if (!document.value) return;
-	const started = bufferRevision;
-	const request = ++exportRequest;
-	const label = format.toUpperCase();
-	exportStatus.value = `Choosing ${label} destination…`;
-	const destination = await props.rpc.request.pickDestination({ extension }, { maxRequestTime: Infinity });
-	if (!isCurrent(started) || request !== exportRequest) return;
-	if (!destination.ok) { exportStatus.value = destination.error.message; return; }
-	if (destination.cancelled || !destination.path) { exportStatus.value = ""; return; }
-	const revision = bufferRevision;
-	exportStatus.value = `Preparing ${label}…`;
-	let result: Awaited<ReturnType<typeof executeJob>>;
+	if (document.value?.kind !== "amx") return;
+	const path = document.value.path;
+	const revision = document.value.revision;
+	exportDialogOpen.value = true;
+	exportBusy.value = true;
+	exportDialogError.value = "";
+	exportOutputs.value = [];
+	exportOutputsTruncated.value = false;
+	exportFormat.value = "html";
+	exportBinding.value = "";
+	exportFileName.value = "report.html";
 	try {
-		result = await executeJob(format, destination.path);
+		const discovered = await executeJob("discover-outputs");
+		if (document.value?.path !== path || document.value.revision !== revision) return;
+		if (!discovered || discovered.status !== "succeeded" || discovered.result?.kind !== "output-discovery") {
+			exportDialogError.value = discovered?.diagnostics[0]?.message ?? "Unable to discover current export formats.";
+			return;
+		}
+		exportOutputs.value = discovered.result.outputs ?? [];
+		exportOutputsTruncated.value = !!discovered.result.outputsTruncated;
+		exportBinding.value = exportOutputs.value[0]?.name ?? "";
 	} catch (error) {
-		if (isCurrent(revision) && request === exportRequest) exportStatus.value = error instanceof Error ? error.message.slice(0, 1000) : `${label} export request failed.`;
-		return;
+		exportDialogError.value = error instanceof Error ? error.message.slice(0, 1000) : "Unable to discover current export formats.";
+	} finally {
+		exportBusy.value = false;
 	}
-	if (!isCurrent(revision) || request !== exportRequest) return;
-	if (!result) { exportStatus.value = "Export cancelled."; return; }
-	if (result.status === "cancelled" || result.status === "superseded") { exportStatus.value = result.status === "cancelled" ? "Export cancelled." : "Export superseded."; return; }
-	if (result.status !== "succeeded" || result.result?.kind !== "export") {
-		analysis.value = { ...analysis.value, diagnostics: result.diagnostics };
-		exportStatus.value = `${label} export failed.`;
-	} else exportStatus.value = `Saved ${result.result.path} (${(result.result.bytes ?? 0).toLocaleString()} bytes)`;
 }
 
-const saveHtml = () => exportDocument("html", ".html");
-const exportPdf = () => exportDocument("pdf", ".pdf");
-const exportDocx = () => exportDocument("docx", ".docx");
+async function performExport() {
+	if (document.value?.kind !== "amx" || exportBusy.value) return;
+	const format = exportFormat.value;
+	const dataFormat = format === "json" || format === "csv" ? format : undefined;
+	const dataOutput = dataFormat ? { name: exportBinding.value, format: dataFormat } : undefined;
+	const operation: DesktopJobOperation = dataFormat ? "export-data" : format as "html" | "pdf" | "docx";
+	const extension = `.${format}` as ".html" | ".pdf" | ".docx" | ".json" | ".csv";
+	const path = document.value.path;
+	const revision = document.value.revision;
+	const request = ++exportRequest;
+	exportDialogError.value = "";
+	exportBusy.value = true;
+	try {
+		const selection = await props.rpc.request.pickDestination({ extension, fileName: exportFileName.value }, { maxRequestTime: Infinity });
+		if (!isCurrent(bufferRevision) || request !== exportRequest || document.value?.path !== path || document.value.revision !== revision) return;
+		if (!selection.ok) { exportDialogError.value = selection.error.message; return; }
+		if (selection.cancelled || !selection.selectionId) return;
+		const job = await executeJob(operation, selection.selectionId, dataOutput);
+		if (!isCurrent(bufferRevision) || request !== exportRequest || document.value?.path !== path || document.value.revision !== revision) return;
+		if (!job) { exportDialogError.value = "Export cancelled."; return; }
+		if (job.status !== "succeeded" || job.result?.kind !== "export") {
+			analysis.value = { ...analysis.value, diagnostics: job.diagnostics };
+			exportDialogError.value = job.diagnostics[0]?.message ?? `The ${format.toUpperCase()} export failed.`;
+			return;
+		}
+		completedOutputId.value = job.result.outputId ?? "";
+		completedOutputName.value = job.result.fileName ?? `${format.toUpperCase()} export`;
+		exportStatus.value = `Saved ${completedOutputName.value} (${(job.result.bytes ?? 0).toLocaleString()} bytes)`;
+		exportDialogOpen.value = false;
+		await loadProject();
+	} catch (error) {
+		if (isCurrent(bufferRevision) && request === exportRequest) exportDialogError.value = error instanceof Error ? error.message.slice(0, 1000) : "Export request failed.";
+	} finally {
+		exportBusy.value = false;
+	}
+}
+
+async function openExportedOutput(action: DesktopExportAction) {
+	if (!completedOutputId.value) return;
+	const result = await props.rpc.request.openExportedOutput({ outputId: completedOutputId.value, action });
+	status.value = result.ok ? `${action === "open" ? "Opened" : "Revealed"} ${completedOutputName.value}.` : result.error.message;
+}
 
 function displayDiagnostic(item: TextDiagnostic): string {
 	const context = [item.inputName, item.dataPath, item.dataLine ? `data line ${item.dataLine}` : ""].filter(Boolean).join(" · ");
@@ -927,9 +1096,6 @@ function displayDiagnostic(item: TextDiagnostic): string {
 				</div>
 			</div>
 			<div class="export-row" :class="{ 'mobile-hidden': sidePanel !== 'export' }">
-				<Button :disabled="!workbench.active" type="button" @click="saveHtml">Save HTML…</Button>
-				<Button :disabled="!workbench.active" type="button" @click="exportPdf">Export PDF…</Button>
-				<Button :disabled="!workbench.active" type="button" @click="exportDocx">Export DOCX…</Button>
 				<span class="export-status" aria-live="polite">{{ exportStatus }}</span>
 			</div>
 		</section>
@@ -979,8 +1145,16 @@ function displayDiagnostic(item: TextDiagnostic): string {
 						<button v-if="document?.kind === 'amx'" type="button" role="tab" :aria-selected="contextView === 'inputs'" @click="contextView = 'inputs'"><Database :size="14" /> Inputs</button>
 						<button v-else-if="document?.kind === 'csv' || document?.kind === 'json' || document?.kind === 'external-data'" type="button" role="tab" aria-selected="true"><Database :size="14" /> Data</button>
 					</div>
-					<span v-if="contextView === 'preview'" class="state" :class="`state-${previewState}`">{{ previewState }}</span>
-					<span class="actions"><button type="button" :disabled="document?.kind !== 'amx'" @click="openReportSettings"><SlidersHorizontal :size="14" /> Report settings</button><button v-if="document?.kind === 'amx'" type="button" :aria-pressed="focusMode === 'editor'" @click="setFocusMode('editor')">Source</button><button v-if="document?.kind === 'amx'" type="button" :aria-pressed="focusMode === 'preview'" @click="setFocusMode('preview')">Preview</button></span>
+					<span v-if="contextView === 'preview'" class="state" :class="`state-${previewPaused ? 'paused' : previewState}`">{{ previewPaused ? "paused" : previewState }}</span>
+					<span class="actions">
+						<button v-if="document?.kind === 'amx' && !previewPaused" type="button" title="Pause live preview" aria-label="Pause live preview" @click="togglePreviewPause"><Pause :size="14" /></button>
+						<button v-else-if="document?.kind === 'amx'" type="button" title="Resume live preview" aria-label="Resume live preview" @click="togglePreviewPause"><Play :size="14" /></button>
+						<button v-if="document?.kind === 'amx'" type="button" title="Refresh preview" aria-label="Refresh preview" @click="refresh"><RefreshCw :size="14" /></button>
+						<button v-if="document?.kind === 'amx'" type="button" title="Export active document" aria-label="Export active document" @click="openExportWorkflow"><Download :size="14" /> Export</button>
+						<button type="button" :disabled="document?.kind !== 'amx'" @click="openReportSettings"><SlidersHorizontal :size="14" /> Report settings</button>
+						<button v-if="document?.kind === 'amx'" type="button" :aria-pressed="focusMode === 'editor'" @click="setFocusMode('editor')">Source</button>
+						<button v-if="document?.kind === 'amx'" type="button" :aria-pressed="focusMode === 'preview'" @click="setFocusMode('preview')">Preview</button>
+					</span>
 				</div>
 				<InputsPanel v-if="contextView === 'inputs' && document?.kind === 'amx'" :configuration="inputConfiguration" :diagnostics="analysis.diagnostics" :validation="validation" :busy="inputsBusy" @browse="browseInput" @clear="clearInput" @promote="promoteInput" @open="openMappedInput" @diagnostic="navigateInputDiagnostic" @validation-change="validation = $event; validationChanged()" @declaration="(line, column) => editorElement?.selectLocation(line, column)" />
 				<section v-else-if="contextView === 'data' && (document?.kind === 'csv' || document?.kind === 'json' || document?.kind === 'external-data')" class="inputs-panel data-inspector" aria-label="Data schema and validation">
@@ -998,9 +1172,35 @@ function displayDiagnostic(item: TextDiagnostic): string {
 					<div v-else class="file-kind-shell"><strong>Context</strong><p>Select an AMX document to show its live report preview.</p></div>
 				</template>
 			</section>
-			<section class="runtime-drawer" aria-label="Runtime drawer"><div class="drawer-heading"><strong>RUNTIME</strong><span class="state" :class="`state-${runState}`">{{ runState }}</span><span class="actions"><button type="button" :aria-pressed="drawerDock === 'bottom'" @click="setDrawerDock('bottom')">Bottom</button><button type="button" :aria-pressed="drawerDock === 'right'" @click="setDrawerDock('right')">Right</button><button v-if="activeJobId !== null" type="button" @click="cancelActiveJob">Cancel</button></span></div><p class="runtime-status" role="status" aria-live="polite">{{ status }}<span v-if="jobStage"> · {{ jobStage }}</span></p><div class="runtime-details"><p v-for="(item, index) in staticAnalysis.diagnostics" :key="`static-${item.code}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Static {{ item.code }}: {{ displayDiagnostic(item) }}</button></p><p v-for="(item, index) in analysis.diagnostics" :key="`run-${item.code}-${index}`">Run {{ item.code }}: {{ displayDiagnostic(item) }}</p><p v-for="item in summary.values" :key="item.name"><code>{{ item.name }}</code> {{ item.value }}</p><p v-if="!analysis.diagnostics.length && !staticAnalysis.diagnostics.length && !summary.values.length" class="muted">No runtime details.</p></div></section>
+			<section class="runtime-drawer" aria-label="Runtime drawer">
+				<div class="drawer-heading">
+					<strong>RUNTIME</strong><span class="state" :class="`state-${activeJobId !== null ? 'running' : runState}`">{{ activeJobId !== null ? "running" : runState }}</span>
+					<span v-if="jobStage" class="drawer-stage">{{ jobStage }}</span><span class="header-spacer"></span>
+					<button v-if="document?.kind === 'amx'" type="button" title="Run active document" aria-label="Run active document" @click="runAnalysis"><Play :size="14" /></button>
+					<button v-if="activeJobId !== null" type="button" title="Cancel current job" aria-label="Cancel current job" @click="cancelActiveJob">Cancel</button>
+					<button type="button" :aria-expanded="runtimeExpanded" @click="runtimeExpanded = !runtimeExpanded">{{ runtimeExpanded ? "Hide details" : "Details" }}</button>
+					<button type="button" :aria-pressed="drawerDock === 'bottom'" @click="setDrawerDock('bottom')">Bottom</button>
+					<button type="button" :aria-pressed="drawerDock === 'right'" @click="setDrawerDock('right')">Right</button>
+				</div>
+				<p class="runtime-status" role="status" aria-live="polite">{{ status }}<span v-if="jobStage"> · {{ jobStage }}</span></p>
+				<progress v-if="activeJobId !== null" class="runtime-progress" aria-label="Current operation is running"></progress>
+				<p v-if="cleanupPending" class="runtime-status" role="status" aria-live="polite">Worker cleanup is pending.</p>
+				<p v-if="exportStatus" class="export-status" aria-live="polite">{{ exportStatus }}</p>
+				<div v-if="completedOutputId" class="output-actions">
+					<button type="button" title="Open exported file" aria-label="Open exported file" @click="openExportedOutput('open')"><ExternalLink :size="14" /> Open</button>
+					<button type="button" title="Reveal exported file" aria-label="Reveal exported file" @click="openExportedOutput('reveal')"><FolderOpen :size="14" /> Reveal</button>
+				</div>
+				<div v-if="runtimeExpanded" class="runtime-details">
+					<p v-for="(item, index) in staticAnalysis.diagnostics" :key="`static-${item.code}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Static {{ item.code }}: {{ displayDiagnostic(item) }}</button></p>
+					<p v-for="(item, index) in analysis.diagnostics" :key="`run-${item.code}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Run {{ item.code }}: {{ displayDiagnostic(item) }}</button></p>
+					<p v-for="item in summary.values" :key="item.name"><code>{{ item.name }}</code> {{ item.value }}</p>
+					<p v-for="item in inputConfiguration.diagnostics" :key="`input-${item.code}-${item.inputName}`"><button class="diagnostic-link" :disabled="!item.line && !item.inputName" @click="navigateInputDiagnostic(item)">Input {{ item.code }}: {{ displayDiagnostic(item) }}</button></p>
+					<p v-if="!analysis.diagnostics.length && !staticAnalysis.diagnostics.length && !summary.values.length && !inputConfiguration.diagnostics.length" class="muted">No runtime details.</p>
+				</div>
+			</section>
 		</div>
 		<CommandPalette :open="palette" :commands="commands" @dismiss="dismissPalette" />
+		<ExportDialog :open="exportDialogOpen" :active-label="document?.label ?? document?.path.split(/[\\/]/).pop() ?? ''" :outputs="exportOutputs" :selected-format="exportFormat" :selected-output="exportBinding" :file-name="exportFileName" :busy="exportBusy" :error="exportDialogError" :outputs-truncated="exportOutputsTruncated" @close="closeExportWorkflow" @format="setExportFormat" @output="setExportBinding" @file-name="exportFileName = $event" @export="performExport" />
 		<ReportSettingsDialog :open="reportSettingsOpen" :settings="reportSettings" :busy="reportSettingsBusy" :error="reportSettingsError" @close="closeReportSettings" @save="saveReportSettings" @pick-logo="pickReportLogo" />
 	</main>
 </template>

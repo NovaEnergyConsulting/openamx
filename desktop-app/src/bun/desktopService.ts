@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { closeSync, existsSync, fchmodSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, fchmodSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { AmxError, type AmxDiagnostic } from "../../../src/diagnostics/errors";
@@ -23,7 +23,7 @@ import { effectiveReportAccent, validateReportSettings } from "../../../src/rend
 import { parseFrontMatter } from "../../../src/parser/parseFrontMatter";
 import { readConfiguration, readConfigurationRevision, updateConfiguration } from "./configuration";
 import { updateReportFrontmatter } from "./desktopSettings";
-import { resolveDesktopInputs, validateDesktopDestination, validateDesktopMappings, writeDesktopHtml } from "./desktopWorkflow";
+	import { resolveDesktopInputs, validateDesktopDestination, validateDesktopMappings, writeDesktopData, writeDesktopHtml } from "./desktopWorkflow";
 import { desktopWorkerUrl } from "./workerEntrypoint";
 import { createPingResponse, type ActiveDocumentRequestIdentity, type DesktopJobIdentity, type DesktopJobOperation, type DesktopJobResult, type DesktopJobSnapshot, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type DocumentKind, type OpenDocument, type ProjectFile, type ProjectFileKind, type RecoveryItem, type RunSummary, type TextAnalysis, type TextDiagnostic, type WorkbenchState, type RecentProject, type ReportSettingKey, type ReportSettingsSnapshot, type ReportSettingsValues, type TransitionAction } from "../shared/rpc";
 import type { WorkerJobMessage, WorkerJobRequest, WorkerJobResult } from "./jobProtocol";
@@ -38,6 +38,33 @@ const REPORT_SETTING_KEYS: ReportSettingKey[] = ["organization", "logo", "logoAl
 
 function hash(text: string): string {
 	return createHash("sha256").update(text).digest("hex");
+}
+
+function destinationSnapshot(path: string): DestinationSnapshot {
+	try {
+		const metadata = lstatSync(path);
+		if (metadata.isSymbolicLink() || !metadata.isFile()) throw new Error("Export destination must be a regular file, not a symlink.");
+		const file = openSync(path, "r");
+		try {
+			const digest = createHash("sha256");
+			const chunk = Buffer.allocUnsafe(64 * 1024);
+			let position = 0;
+			while (true) {
+				const bytes = readSync(file, chunk, 0, chunk.length, position);
+				if (bytes === 0) break;
+				digest.update(chunk.subarray(0, bytes));
+				position += bytes;
+			}
+			return { exists: true, hash: digest.digest("hex") };
+		} finally { closeSync(file); }
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return { exists: false };
+		throw error;
+	}
+}
+
+function sameDestinationSnapshot(left: DestinationSnapshot, right: DestinationSnapshot): boolean {
+	return left.exists === right.exists && left.hash === right.hash;
 }
 
 function errorResult<T>(error: DesktopRPCError): DesktopRPCResponse<T> {
@@ -156,6 +183,21 @@ interface RecoverySnapshot {
 	documents: Array<{ path: string; text: string; diskHash: string; revision: number }>;
 }
 
+type ExportExtension = ".html" | ".pdf" | ".docx" | ".json" | ".csv";
+
+interface DestinationSnapshot {
+	exists: boolean;
+	hash?: string;
+}
+
+interface ExportSelection {
+	id: string;
+	path: string;
+	extension: ExportExtension;
+	identity: ActiveDocumentRequestIdentity;
+	snapshot: DestinationSnapshot;
+}
+
 interface ActiveJob extends DesktopJobSnapshot {
 	worker?: Worker;
 	documentPath: string;
@@ -164,8 +206,12 @@ interface ActiveJob extends DesktopJobSnapshot {
 	inputPaths: string[];
 	privatePaths: string[];
 	sourcePaths: string[];
-	sourceRevisions: Array<{ path: string; revision: number }>;
+	sourceRevisions: Array<{ path: string; revision?: number; diskHash?: string; present: boolean }>;
 	destination?: string;
+	destinationSelected?: boolean;
+	destinationSelectionId?: string;
+	destinationSnapshot?: DestinationSnapshot;
+	workerResultReceived: boolean;
 }
 
 export interface DesktopService extends DesktopRPCClient {
@@ -173,11 +219,14 @@ export interface DesktopService extends DesktopRPCClient {
 }
 
 export interface DesktopPicker {
-	choose(options: { directory: boolean; extension?: string; root?: string }): Promise<string | undefined>;
+	choose(options: { directory: boolean; extension?: string; fileName?: string; root?: string }): Promise<string | undefined>;
 	confirmTransition?(operation: "project" | "quit"): Promise<TransitionAction>;
+	confirmOverwrite?(fileName: string): boolean | Promise<boolean>;
+	openPath?(path: string): boolean | Promise<boolean>;
+	revealPath?(path: string): boolean | Promise<boolean>;
 }
 
-export function createDesktopService(initialRoot?: string, picker?: DesktopPicker, sessionFile?: string): DesktopService {
+export function createDesktopService(initialRoot?: string, picker?: DesktopPicker, sessionFile?: string, workerFactory: (url: string) => Worker = url => new Worker(url)): DesktopService {
 	let projectRoot = initialRoot && realpathSync(initialRoot);
 	let current: SessionDocument | undefined;
 	const tabs = new Map<string, SessionDocument>();
@@ -194,6 +243,8 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 	let nextJobId = 0;
 	let latestJobId = 0;
 	const jobs = new Map<number, ActiveJob>();
+	const exportSelections = new Map<string, ExportSelection>();
+	const exportedOutputs = new Map<string, { path: string; root: string; fileName: string }>();
 	let recents: RecentProject[] = [];
 	const recoveryFile = sessionFile ? `${sessionFile}.recovery.json` : undefined;
 	let recovery: RecoverySnapshot | undefined;
@@ -318,15 +369,18 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		};
 	}
 
-	function requireActive(documentOverride?: SessionDocument): { document: SessionDocument; sourceOverlay: ReadonlyMap<string, string> } {
+	function requireActive(documentOverride?: SessionDocument): { document: SessionDocument; sourceOverlay: ReadonlyMap<string, string>; sourceRevisions: ActiveJob["sourceRevisions"] } {
 		const document = documentOverride ?? requireCurrent();
 		const sourceOverlay = new Map<string, string>();
+		const sourceRevisions: ActiveJob["sourceRevisions"] = [];
 		const visited = new Set<string>();
 		function collectOpenModules(file: string, text: string) {
 			if (visited.has(file)) return;
 			visited.add(file);
 			const openTab = tabs.get(file);
 			if (openTab) sourceOverlay.set(file, openTab.text);
+			const diskText = readFileSync(file, "utf8");
+			sourceRevisions.push({ path: file, revision: openTab?.revision, diskHash: hash(diskText), present: true });
 			let parsed;
 			try { parsed = parseDocumentText(text); }
 			catch { return; }
@@ -342,7 +396,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			}
 		}
 		collectOpenModules(document.path, document.text);
-		return { document, sourceOverlay };
+		return { document, sourceOverlay, sourceRevisions };
 	}
 
 	function identityMatchesCurrent(identity: ActiveDocumentRequestIdentity): boolean {
@@ -354,9 +408,22 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			&& identity.inputSettingsRevision === currentIdentity.inputSettingsRevision;
 	}
 
+	function sameRequestIdentity(left: ActiveDocumentRequestIdentity, right: ActiveDocumentRequestIdentity): boolean {
+		return left.canonicalActiveUri === right.canonicalActiveUri
+			&& left.projectGeneration === right.projectGeneration
+			&& left.documentRevision === right.documentRevision
+			&& left.inputSettingsRevision === right.inputSettingsRevision;
+	}
+
 	function jobIsCurrent(job: ActiveJob): boolean {
 		if (!identityMatchesCurrent(job.identity)) return false;
-		return job.sourceRevisions.every(source => findDocument(source.path)?.revision === source.revision);
+		return job.sourceRevisions.every(source => {
+			if (source.revision !== undefined && findDocument(source.path)?.revision !== source.revision) return false;
+			if (!source.present) return !existsSync(source.path);
+			if (source.diskHash === undefined) return existsSync(source.path);
+			try { return hash(readFileSync(source.path, "utf8")) === source.diskHash; }
+			catch { return false; }
+		});
 	}
 
 	function snapshotJob(job: ActiveJob): DesktopJobSnapshot {
@@ -402,37 +469,59 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		if (tabs.get(job.documentPath)?.conflict || job.sourcePaths.some(file => tabs.get(file)?.conflict)) {
 			throw new Error("Resolve active document or dependency disk conflicts before export.");
 		}
-		job.status = "committing";
-		job.stage = "committing";
+		job.stage = "preparing-output";
 		const conflicts = [job.documentPath, ...job.inputPaths];
 		const beforeCommit = () => {
+			if (job.status !== "running") throw new Error("Export was cancelled before atomic replacement.");
 			if (job.identity.jobId !== latestJobId || !jobIsCurrent(job)) throw new Error("Export job became stale before its atomic commit.");
+			if (job.destinationSelected && job.destination && job.destinationSnapshot && !sameDestinationSnapshot(destinationSnapshot(job.destination), job.destinationSnapshot))
+				throw new Error("Export destination changed after overwrite confirmation; no output was written.");
 			refreshConflicts();
 			if (tabs.get(job.documentPath)?.conflict || job.sourcePaths.some(file => tabs.get(file)?.conflict)) {
 				throw new Error("Resolve active document or dependency disk conflicts before export.");
 			}
+			job.status = "committing";
+			job.stage = "committing";
 		};
 		if (result.format === "html") {
-			const validated = validateDesktopDestination(job.projectRoot, job.destination, ".html", conflicts);
-			const path = await writeDesktopHtml(job.projectRoot, validated.path, job.documentPath, job.inputPaths, result.data, beforeCommit);
-			job.result = { kind: "export", path, bytes: result.bytes };
+			const validated = validateDesktopDestination(job.projectRoot, job.destination, ".html", conflicts, job.destinationSelected);
+			const path = await writeDesktopHtml(job.projectRoot, validated.path, job.documentPath, job.inputPaths, result.data, beforeCommit, job.destinationSelected);
+			recordExportResult(job, path, result.bytes);
 		} else if (result.format === "pdf") {
-			const validated = validateDesktopDestination(job.projectRoot, job.destination, ".pdf", conflicts);
+			const validated = validateDesktopDestination(job.projectRoot, job.destination, ".pdf", conflicts, job.destinationSelected);
 			const destination = await preparePdfDestination(validated.path, job.documentPath, job.inputPaths.map(path => `input=${path}`));
 			await writePdfAtomically(destination, new Uint8Array(result.data), beforeCommit);
-			job.result = { kind: "export", path: destination.path, bytes: result.bytes };
-		} else {
-			const validated = validateDesktopDestination(job.projectRoot, job.destination, ".docx", conflicts);
+			recordExportResult(job, destination.path, result.bytes);
+		} else if (result.format === "docx") {
+			const validated = validateDesktopDestination(job.projectRoot, job.destination, ".docx", conflicts, job.destinationSelected);
 			const destination = await prepareDocxDestination(validated.path, job.documentPath, job.inputPaths.map(path => `input=${path}`));
 			await writeDocxAtomically(destination, new Uint8Array(result.data), beforeCommit);
-			job.result = { kind: "export", path: destination.path, bytes: result.bytes };
+			recordExportResult(job, destination.path, result.bytes);
+		} else if (result.format === "json" || result.format === "csv") {
+			const extension = `.${result.format}` as ".json" | ".csv";
+			const path = await writeDesktopData(job.projectRoot, job.destination, extension, conflicts, result.data, beforeCommit, job.destinationSelected);
+			recordExportResult(job, path, result.bytes, result.name);
+		} else {
+			throw new Error("Unsupported export format.");
 		}
 		job.status = "succeeded";
 		job.stage = undefined;
 	}
 
+	function recordExportResult(job: ActiveJob, path: string, bytes: number, name?: string): void {
+		if (job.destinationSelectionId) {
+			const fileName = basename(path);
+			exportedOutputs.set(job.destinationSelectionId, { path, root: job.projectRoot, fileName });
+			while (exportedOutputs.size > 50) exportedOutputs.delete(exportedOutputs.keys().next().value!);
+			job.result = { kind: "export", outputId: job.destinationSelectionId, fileName, bytes, ...(name ? { name } : {}) };
+		} else {
+			job.result = { kind: "export", path, bytes, ...(name ? { name } : {}) };
+		}
+	}
+
 	function handleWorkerMessage(job: ActiveJob, message: WorkerJobMessage): void {
 		if (message.jobId !== job.identity.jobId || job.status !== "running") return;
+		if (message.kind === "complete" || message.kind === "failed") job.workerResultReceived = true;
 		if (message.kind === "progress") {
 			if (latestJobId !== job.identity.jobId || !jobIsCurrent(job)) terminateJob(job, "superseded");
 			else job.stage = message.stage;
@@ -472,6 +561,15 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			job.stage = undefined;
 			return;
 		}
+		if (message.result.kind === "output-discovery") {
+			job.result = {
+				kind: "output-discovery", outputs: message.result.outputs,
+				...(message.result.outputsTruncated ? { outputsTruncated: true } : {})
+			};
+			job.status = "succeeded";
+			job.stage = undefined;
+			return;
+		}
 		job.stage = "prepared";
 		void commitJobExport(job, message.result).catch(error => failJob(job, error));
 	}
@@ -480,50 +578,72 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		operation: DesktopJobOperation,
 		identity: ActiveDocumentRequestIdentity,
 		destination?: string,
-		inputInspection?: { name: string; format: "json" | "csv"; text: string }
+		inputInspection?: { name: string; format: "json" | "csv"; text: string },
+		dataOutput?: { name: string; format: "json" | "csv" },
+		destinationSelection?: ExportSelection
 	): DesktopRPCResponse<{ job: DesktopJobSnapshot }> {
 		let worker: Worker | undefined;
 		try {
 			const activeDocument = requireCurrent();
 			let entryDocument = activeDocument;
 			let sourceOverlay: ReadonlyMap<string, string>;
+			let moduleRevisions: ActiveJob["sourceRevisions"];
 			let jobInputInspection = inputInspection;
-			const sourceRevisions: ActiveJob["sourceRevisions"] = [];
 			if (operation === "validate-data" && ["csv", "json", "external-data"].includes(activeDocument.kind)) {
 				const binding = activeDocument.mappedInput;
 				if (!binding) throw new Error("Open this data document from a declared AMX input before schema validation.");
 				const owner = tabs.get(binding.ownerPath);
 				if (!owner || owner.kind !== "amx") throw new Error("The owning AMX document is no longer open.");
 				entryDocument = owner;
-				sourceOverlay = requireActive(owner).sourceOverlay;
-				sourceRevisions.push({ path: owner.path, revision: owner.revision });
+				const ownerGraph = requireActive(owner);
+				sourceOverlay = ownerGraph.sourceOverlay;
+				moduleRevisions = ownerGraph.sourceRevisions;
 				const expectedInspection = { name: binding.inputName, format: binding.dataFormat, text: activeDocument.text };
 				if (inputInspection && (inputInspection.name !== expectedInspection.name || inputInspection.format !== expectedInspection.format || inputInspection.text !== expectedInspection.text))
 					throw new Error("Data validation must use the current mapped document buffer and declared input.");
 				jobInputInspection = expectedInspection;
 			} else {
 				if (!activeDocument.path.endsWith(".amx")) throw new Error("Run, preview, and report export require an active .amx document.");
-				sourceOverlay = requireActive(activeDocument).sourceOverlay;
+				const activeGraph = requireActive(activeDocument);
+				sourceOverlay = activeGraph.sourceOverlay;
+				moduleRevisions = activeGraph.sourceRevisions;
 			}
 			const document = activeDocument;
 			if (!identityMatchesCurrent(identity)) return errorResult({ code: "DESKTOP_STALE", message: "The active document or settings changed before the job started." });
-			if (!["run", "preview", "html", "pdf", "docx", "validate-data"].includes(operation)) throw new Error("Unsupported desktop job operation.");
+			if (!["run", "preview", "html", "pdf", "docx", "export-data", "discover-outputs", "validate-data"].includes(operation)) throw new Error("Unsupported desktop job operation.");
 			if (operation === "validate-data") {
 				if (!jobInputInspection || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(jobInputInspection.name)
 					|| (jobInputInspection.format !== "json" && jobInputInspection.format !== "csv")
 					|| typeof jobInputInspection.text !== "string" || jobInputInspection.text.length > 20_000_000)
 					throw new Error("In-memory data inspection exceeds its request bounds or has an invalid input.");
 			} else if (jobInputInspection) throw new Error("Input inspection is valid only for a validate-data job.");
-			const extension = operation === "html" ? ".html" : operation === "pdf" ? ".pdf" : operation === "docx" ? ".docx" : undefined;
+			if (operation === "export-data") {
+				if (!dataOutput || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(dataOutput.name) || (dataOutput.format !== "json" && dataOutput.format !== "csv"))
+					throw new Error("Named data export selection is invalid.");
+			} else if (dataOutput) throw new Error("Named data export selection is valid only for export-data jobs.");
+			const extension = operation === "html" ? ".html" : operation === "pdf" ? ".pdf" : operation === "docx" ? ".docx"
+				: operation === "export-data" ? `.${dataOutput!.format}` as ".json" | ".csv" : undefined;
 			if (extension && (!destination || extname(destination) !== extension)) throw new Error(`A ${extension} destination is required.`);
 			for (const job of jobs.values()) if (job.status === "running") terminateJob(job, "superseded");
-			const resolved = resolveDesktopInputs(requireRoot(), entryDocument.text, activeInputMappings, activeValidation);
+			const resolved = operation === "discover-outputs"
+				? { mappings: [], privatePaths: [], configuration: { inputs: [], diagnostics: [] } }
+				: resolveDesktopInputs(requireRoot(), entryDocument.text, activeInputMappings, activeValidation);
+			const sourceRevisions = [...moduleRevisions];
+			for (const mapping of resolved.mappings) {
+				const inputPath = mapping.slice(mapping.indexOf("=") + 1);
+				if (sourceRevisions.some(source => source.path === inputPath)) continue;
+				const present = existsSync(inputPath);
+				let diskHash: string | undefined;
+				if (present) { try { diskHash = hash(readFileSync(inputPath, "utf8")); } catch {} }
+				sourceRevisions.push({ path: inputPath, revision: findDocument(inputPath)?.revision, diskHash, present });
+			}
 			const jobId = ++nextJobId;
 			latestJobId = jobId;
 			const job: ActiveJob = {
 				identity: { ...identity, jobId }, operation, status: "running", cleanupPending: false, stage: "starting", diagnostics: [],
 				documentPath: document.path, diagnosticPath: publicPath(document), projectRoot: requireRoot(), inputPaths: resolved.mappings.map(mapping => mapping.slice(mapping.indexOf("=") + 1)),
-				privatePaths: resolved.privatePaths, sourcePaths: [...sourceOverlay.keys()], sourceRevisions, destination
+				privatePaths: resolved.privatePaths, sourcePaths: sourceRevisions.map(source => source.path), sourceRevisions, destination, workerResultReceived: false,
+				destinationSelected: !!destinationSelection, destinationSelectionId: destinationSelection?.id, destinationSnapshot: destinationSelection?.snapshot
 			};
 			jobs.set(jobId, job);
 			if (resolved.configuration.diagnostics.length) {
@@ -532,19 +652,21 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				job.diagnostics = resolved.configuration.diagnostics;
 				return { ok: true, job: snapshotJob(job) };
 			}
-			if (extension) job.destination = validateDesktopDestination(job.projectRoot, destination!, extension, [job.documentPath, ...job.inputPaths]).path;
-			worker = new Worker(desktopWorkerUrl(import.meta.url));
+			if (extension) job.destination = validateDesktopDestination(job.projectRoot, destination!, extension, [job.documentPath, ...job.inputPaths], !!destinationSelection).path;
+			worker = workerFactory(desktopWorkerUrl(import.meta.url));
 			job.worker = worker;
 			worker.addEventListener("message", event => handleWorkerMessage(job, event.data as WorkerJobMessage));
-			worker.addEventListener("error", event => failJob(job, new Error(event.message || "Worker failed.")));
+			worker.addEventListener("error", event => {
+				if (!job.workerResultReceived) failJob(job, new Error(event.message || "Worker failed."));
+			});
 			worker.addEventListener("close", () => {
-				if (job.status === "running") failJob(job, new Error("Worker exited before returning a result."));
+				if (job.status === "running" && !job.workerResultReceived) failJob(job, new Error("Worker exited before returning a result."));
 				job.worker = undefined;
 			});
 			const request: WorkerJobRequest = {
 				kind: "start", jobId, operation, entryPath: entryDocument.path, entryText: entryDocument.text,
 				projectRoot: job.projectRoot, sourceOverlay: [...sourceOverlay],
-				inputMappings: resolved.mappings, validation: activeValidation, inputInspection: jobInputInspection
+				inputMappings: resolved.mappings, validation: activeValidation, inputInspection: jobInputInspection, dataOutput
 			};
 			worker.postMessage(request);
 			return { ok: true, job: snapshotJob(job) };
@@ -554,7 +676,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		}
 	}
 
-	async function runManagedJob(operation: DesktopJobOperation, inputMappings: string[], validation: "aggregate" | "fail-fast", destination?: string): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>> {
+	async function runManagedJob(operation: DesktopJobOperation, inputMappings: string[], validation: "aggregate" | "fail-fast"): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>> {
 		const priorMappings = activeInputMappings;
 		const priorValidation = activeValidation;
 		const priorSettingsKey = inputSettingsKey;
@@ -571,7 +693,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			await restoreSettings();
 			return errorResult(projectError("Open an active AMX document before starting a job."));
 		}
-		const started = beginJob(operation, identity, destination);
+		const started = beginJob(operation, identity);
 		if (!started.ok) {
 			await restoreSettings();
 			return started;
@@ -894,17 +1016,41 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					return result.ok ? { ok: true, cancelled: false, document: result.document } : errorResult<{ cancelled: boolean; document?: OpenDocument }>(result.error);
 				} catch (error) { return errorResult<{ cancelled: boolean; document?: OpenDocument }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},
-			async pickDestination({ extension }: { extension: ".html" | ".pdf" | ".docx" }) {
+			async pickDestination({ extension, fileName }: { extension: ExportExtension; fileName: string }) {
 				try {
-					if (![".html", ".pdf", ".docx"].includes(extension)) throw new Error("Invalid destination type.");
+					if (![".html", ".pdf", ".docx", ".json", ".csv"].includes(extension)) throw new Error("Invalid destination type.");
+				if (typeof fileName !== "string" || fileName.length > 200 || !fileName || fileName.startsWith(".")
+					|| /[\\/\0\r\n<>:"|?*]/.test(fileName) || extname(fileName) !== extension || basename(fileName) !== fileName)
+					throw new Error("Export filename must be a visible filename with the selected extension.");
 					const started = generation;
 					const { document } = requireActive();
-					const path = await picker?.choose({ directory: false, extension, root: requireRoot() });
+					if (document.kind !== "amx") throw new Error("Export requires an active AMX document.");
+					const identity = state().requestIdentity;
+					if (!identity) throw new Error("Export requires a current active-document identity.");
+					const path = await picker?.choose({ directory: true, extension, fileName, root: requireRoot() });
 					if (!path) return { ok: true, cancelled: true };
-					if (started !== generation || !tabs.has(document.path)) return { ok: true, cancelled: true };
-					const validated = validateDesktopDestination(requireRoot(), path, extension, [document.path]);
-					return { ok: true, cancelled: false, path: validated.path };
-				} catch (error) { return errorResult<{ cancelled: boolean; path?: string }>(projectError(error instanceof Error ? error.message : String(error))); }
+					if (started !== generation || !tabs.has(document.path) || !identityMatchesCurrent(identity)) return { ok: true, cancelled: true };
+					const validated = validateDesktopDestination(requireRoot(), path, extension, [document.path], true);
+					const id = randomUUID();
+					const snapshot = destinationSnapshot(validated.path);
+					if (snapshot.exists && !await picker?.confirmOverwrite?.(basename(validated.path))) return { ok: true, cancelled: true };
+					exportSelections.set(id, { id, path: validated.path, extension, identity, snapshot });
+					while (exportSelections.size > 20) exportSelections.delete(exportSelections.keys().next().value!);
+					return { ok: true, cancelled: false, selectionId: id, fileName };
+				} catch (error) { return errorResult<{ cancelled: boolean; selectionId?: string; fileName?: string }>(projectError(error instanceof Error ? error.message : String(error))); }
+			},
+			async openExportedOutput({ outputId, action }: { outputId: string; action: "open" | "reveal" }) {
+				const output = exportedOutputs.get(outputId);
+				if (!output || (action !== "open" && action !== "reveal")) return errorResult<Record<string, never>>(projectError("Exported output is no longer available."));
+				try {
+					const opened = action === "open"
+						? await picker?.openPath?.(output.path)
+						: await picker?.revealPath?.(output.path);
+					if (opened === false || opened === undefined) throw new Error("Native Open or Reveal is unavailable on this host.");
+					return { ok: true };
+				} catch {
+					return errorResult<Record<string, never>>(projectError(`Unable to ${action} the exported file.`));
+				}
 			},
 			async getRecents() { return { ok: true, projects: recents }; },
 			async clearSession() {
@@ -1274,8 +1420,21 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				if (enabled) for (const tab of allDocuments()) scheduleAutosave(tab);
 				return { ok: true, enabled: autosaveEnabled, delayMs: autosaveDelayMs };
 			},
-			async startJob({ operation, identity, destination, inputInspection }: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; destination?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string } }) {
-				return beginJob(operation, identity, destination, inputInspection);
+			async startJob({ operation, identity, selectionId, inputInspection, dataOutput }: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; selectionId?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string }; dataOutput?: { name: string; format: "json" | "csv" } }) {
+				const exportExtension: ExportExtension | undefined = operation === "html" ? ".html" : operation === "pdf" ? ".pdf" : operation === "docx" ? ".docx"
+					: operation === "export-data" && dataOutput ? `.${dataOutput.format}` as ".json" | ".csv" : undefined;
+				if (exportExtension) {
+					const selection = selectionId ? exportSelections.get(selectionId) : undefined;
+					if (!selection || selection.extension !== exportExtension) return errorResult<{ job: DesktopJobSnapshot }>(projectError("Choose a native destination for this export first."));
+					if (!sameRequestIdentity(identity, selection.identity) || !identityMatchesCurrent(identity)) {
+						exportSelections.delete(selection.id);
+						return errorResult<{ job: DesktopJobSnapshot }>({ code: "DESKTOP_STALE", message: "The active document changed after destination selection." });
+					}
+					exportSelections.delete(selection.id);
+					return beginJob(operation, identity, selection.path, inputInspection, dataOutput, selection);
+				}
+				if (selectionId) return errorResult<{ job: DesktopJobSnapshot }>(projectError("A native destination is valid only for an export job."));
+				return beginJob(operation, identity, undefined, inputInspection, dataOutput);
 			},
 			async getJob({ jobId }: { jobId: number }) {
 				if (!Number.isSafeInteger(jobId) || jobId < 1) return errorResult<{ job: DesktopJobSnapshot }>(projectError("Invalid job identifier."));
@@ -1905,24 +2064,6 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					return { ok: true, html: "", diagnostics: diagnostics(error, current?.path) };
 				}
 			},
-			async saveHtml({ path, inputMappings = activeInputMappings, validation = activeValidation }: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }) {
-			const result = await runManagedJob("html", inputMappings, validation, path);
-			if (!result.ok) return { ok: true, path: "", diagnostics: [{ code: result.error.code, message: result.error.message }] };
-			if (result.job.status === "succeeded" && result.job.result?.kind === "export") return { ok: true, path: result.job.result.path ?? "", diagnostics: result.job.diagnostics };
-			return { ok: true, path: "", diagnostics: result.job.diagnostics.length ? result.job.diagnostics : [{ code: "DESKTOP_JOB", message: `HTML export ${result.job.status}.` }] };
-			},
-			async exportPdf({ path, inputMappings = activeInputMappings, validation = activeValidation }: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }) {
-			const result = await runManagedJob("pdf", inputMappings, validation, path);
-			if (!result.ok) return { ok: true, path: "", bytes: 0, diagnostics: [{ code: result.error.code, message: result.error.message }] };
-			if (result.job.status === "succeeded" && result.job.result?.kind === "export") return { ok: true, path: result.job.result.path ?? "", bytes: result.job.result.bytes ?? 0, diagnostics: result.job.diagnostics };
-			return { ok: true, path: "", bytes: 0, diagnostics: result.job.diagnostics.length ? result.job.diagnostics : [{ code: "DESKTOP_JOB", message: `PDF export ${result.job.status}.` }] };
-			},
-			async exportDocx({ path, inputMappings = activeInputMappings, validation = activeValidation }: { path: string; inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }) {
-				const result = await runManagedJob("docx", inputMappings, validation, path);
-				if (!result.ok) return { ok: true, path: "", bytes: 0, diagnostics: [{ code: result.error.code, message: result.error.message }] };
-				if (result.job.status === "succeeded" && result.job.result?.kind === "export") return { ok: true, path: result.job.result.path ?? "", bytes: result.job.result.bytes ?? 0, diagnostics: result.job.diagnostics };
-				return { ok: true, path: "", bytes: 0, diagnostics: result.job.diagnostics.length ? result.job.diagnostics : [{ code: "DESKTOP_JOB", message: `DOCX export ${result.job.status}.` }] };
-			}
 		}
 	} as DesktopService;
 	return service;

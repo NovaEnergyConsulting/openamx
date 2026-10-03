@@ -203,14 +203,14 @@ export function validateDesktopMappings(root: string, inputs: Record<string, str
 	return diagnostics;
 }
 
-export function validateDesktopDestination(root: string, target: string, extension: ".html" | ".pdf" | ".docx", conflicts: string[]): { path: string; parent: string } {
+	export function validateDesktopDestination(root: string, target: string, extension: ".html" | ".pdf" | ".docx" | ".json" | ".csv", conflicts: string[], allowOutsideProject = false): { path: string; parent: string } {
 	if (typeof target !== "string" || !target || target.length > MAX_PATH_LENGTH || extname(target) !== extension) outputError("AMX6001", `Destination must use an explicit exact lowercase ${extension} path.`);
 	const canonicalRoot = realpathSync(root);
 	const absolute = isAbsolute(target) ? resolve(target) : resolve(canonicalRoot, target);
 	let canonicalParent: string;
 	try { canonicalParent = realpathSync(resolve(absolute, "..")); }
 	catch { return outputError("AMX6001", "Destination parent must already exist."); }
-	if (!within(canonicalRoot, canonicalParent)) outputError("AMX6001", "Destination must be inside the project root.");
+	if (!allowOutsideProject && !within(canonicalRoot, canonicalParent)) outputError("AMX6001", "Destination must be inside the project root.");
 	const destination = join(canonicalParent, basename(absolute));
 	const canonicalConflicts = conflicts.map(file => {
 		try { return realpathSync(file); } catch { return resolve(file); }
@@ -220,13 +220,33 @@ export function validateDesktopDestination(root: string, target: string, extensi
 		const targetStat = lstatSync(destination);
 		if (targetStat.isSymbolicLink() || !targetStat.isFile()) outputError("AMX6001", "Destination must be a regular file, not a symlink.");
 	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code !== "ENOENT") outputError("AMX6001", "Cannot inspect HTML destination.");
+		if ((error as NodeJS.ErrnoException).code !== "ENOENT") outputError("AMX6001", "Cannot inspect export destination.");
 	}
 	return { path: destination, parent: canonicalParent };
 }
+export async function writeDesktopData(root: string, target: string, extension: ".json" | ".csv", conflicts: string[], contents: string, beforeCommit?: () => void, allowOutsideProject = false): Promise<string> {
+	const prepared = validateDesktopDestination(root, target, extension, conflicts, allowOutsideProject);
+	const temporary = join(prepared.parent, `.${basename(prepared.path)}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`);
+	let handle: Awaited<ReturnType<typeof open>> | undefined;
+	try {
+		handle = await open(temporary, "wx", 0o600);
+		await handle.writeFile(contents, "utf8");
+		await handle.sync();
+		await handle.close();
+		handle = undefined;
+		beforeCommit?.();
+		await rename(temporary, prepared.path);
+		return prepared.path;
+	} catch (error) {
+		if (handle) await handle.close().catch(() => undefined);
+		await unlink(temporary).catch(() => undefined);
+		const detail = error instanceof Error ? error.message : String(error);
+		return outputError("AMX6002", `Failed to write ${extension.slice(1).toUpperCase()} output: ${detail.slice(0, 500)}`);
+	}
+}
 
-export async function writeDesktopHtml(root: string, target: string, entryPath: string, inputPaths: string[], contents: string, beforeCommit?: () => void): Promise<string> {
-	const prepared = validateDesktopDestination(root, target, ".html", [entryPath, ...inputPaths]);
+export async function writeDesktopHtml(root: string, target: string, entryPath: string, inputPaths: string[], contents: string, beforeCommit?: () => void, allowOutsideProject = false): Promise<string> {
+	const prepared = validateDesktopDestination(root, target, ".html", [entryPath, ...inputPaths], allowOutsideProject);
 	const temporary = join(prepared.parent, `.${basename(prepared.path)}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`);
 	let handle: Awaited<ReturnType<typeof open>> | undefined;
 	try {

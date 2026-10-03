@@ -4,13 +4,17 @@ import { join } from "node:path";
 import Electrobun, { BrowserWindow, Utils, createRPC } from "electrobun/main";
 import { createPingResponse, type DesktopRPCSchema } from "../shared/rpc";
 import { createDesktopService } from "./desktopService";
-import { chooseSaveDestination } from "./nativeSaveDialog";
 
 const service = createDesktopService(undefined, {
-	async choose({ directory, extension, root }) {
+	async choose({ directory, extension, fileName, root }) {
 		if (extension && extension !== ".amx") {
 			if (!root) throw new Error("Open a project before choosing a report destination.");
-			return chooseSaveDestination(root, extension as ".html" | ".pdf" | ".docx");
+			if (!fileName) throw new Error("Export filename is unavailable.");
+			const folders = await Utils.openFileDialog({
+				startingFolder: root, allowedFileTypes: "*", canChooseDirectory: true,
+				canChooseFiles: false, allowsMultipleSelection: false
+			});
+			return folders.length === 1 && folders[0] ? join(folders[0], fileName) : undefined;
 		}
 		const selected = await Utils.openFileDialog({
 			startingFolder: root ?? homedir(), allowedFileTypes: extension ? extension.slice(1) : "*",
@@ -27,7 +31,17 @@ const service = createDesktopService(undefined, {
 			buttons: ["Save All", "Discard All", "Cancel"], defaultId: 2, cancelId: 2
 		});
 		return response === 0 ? "save-all" : response === 1 ? "discard-all" : "cancel";
-	}
+	},
+	async confirmOverwrite(fileName) {
+		const { response } = await Utils.showMessageBox({
+			type: "question", title: "Replace existing file?", message: `Replace ${fileName}?`,
+			detail: "The selected file's bytes will be replaced only after export preparation succeeds.",
+			buttons: ["Replace", "Cancel"], defaultId: 1, cancelId: 1
+		});
+		return response === 0;
+	},
+	openPath(path) { return Utils.openPath(path); },
+	revealPath(path) { Utils.showItemInFolder(path); return true; }
 }, join(homedir(), ".config", "openamx", "desktop-session.json"));
 
 let quitApproved = false;
