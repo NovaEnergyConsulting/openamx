@@ -10,6 +10,7 @@
 		"build:web": "hutch electrobun prepare && vite build && bun build src/bun/jobWorker.ts --target=bun --outfile=dist/jobWorker.js",
 		"build": "bun run build:web && hutch electrobun build --env=stable",
 		"test": "bun run tests/rpc-contract-check.ts",
+		"test:ui": "playwright test",
 		"run": "bun run build:web && hutch electrobun build --env=dev && hutch electrobun run --env=dev"
 	},
 	"dependencies": {
@@ -35,6 +36,7 @@
 		"xe-utils": "4.1.2"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.63.0",
 		"@tailwindcss/vite": "4.3.3",
 		"@types/bun": "1.4.0",
 		"@vitejs/plugin-vue": "5.2.4",

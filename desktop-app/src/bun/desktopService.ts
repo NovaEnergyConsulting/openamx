@@ -417,10 +417,12 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 	function jobIsCurrent(job: ActiveJob): boolean {
 		if (!identityMatchesCurrent(job.identity)) return false;
 		return job.sourceRevisions.every(source => {
-			if (source.revision !== undefined && findDocument(source.path)?.revision !== source.revision) return false;
+			const sourceDocument = source.revision === undefined ? undefined : findDocument(source.path);
+			if (source.revision !== undefined && sourceDocument?.revision !== source.revision) return false;
 			if (!source.present) return !existsSync(source.path);
-			if (source.diskHash === undefined) return existsSync(source.path);
-			try { return hash(readFileSync(source.path, "utf8")) === source.diskHash; }
+			const expectedDiskHash = sourceDocument?.kind === "amx" && !sourceDocument.dirty ? sourceDocument.diskHash : source.diskHash;
+			if (expectedDiskHash === undefined) return existsSync(source.path);
+			try { return hash(readFileSync(source.path, "utf8")) === expectedDiskHash; }
 			catch { return false; }
 		});
 	}

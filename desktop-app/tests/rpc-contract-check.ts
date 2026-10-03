@@ -29,6 +29,40 @@ function workerThatReturnsThenCloses(): Worker {
 	} as unknown as Worker;
 }
 
+function delayedPreviewWorkerFactory() {
+	let releaseResult!: () => void;
+	let signalResultCaptured!: () => void;
+	let capturedResult: WorkerJobMessage | undefined;
+	const resultCaptured = new Promise<void>(resolve => { signalResultCaptured = resolve; });
+	const factory = (_url: string): Worker => {
+		const listeners = new Map<string, EventListener[]>();
+		const emit = (type: string, event: Event) => { for (const listener of listeners.get(type) ?? []) listener(event); };
+		releaseResult = () => {
+			if (!capturedResult) throw new Error("No delayed preview result was prepared.");
+			emit("message", new MessageEvent("message", { data: capturedResult }));
+			emit("close", new Event("close"));
+		};
+		return {
+			addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+				const eventListener = typeof listener === "function" ? listener : (event: Event) => listener.handleEvent(event);
+				listeners.set(type, [...(listeners.get(type) ?? []), eventListener]);
+			},
+			postMessage(message: WorkerJobRequest) {
+				const source = message.entryText.match(/let value: Number = (\d+)/);
+				if (message.kind !== "start" || message.operation !== "preview" || !source) throw new Error("Unexpected delayed preview worker request.");
+				emit("message", new MessageEvent("message", { data: { kind: "progress", jobId: message.jobId, stage: "loading-inputs" } }));
+				capturedResult = {
+					kind: "complete", jobId: message.jobId,
+					result: { kind: "preview", html: `<!doctype html><html><body><p>${source[1]}</p></body></html>`, diagnostics: [] }
+				};
+				signalResultCaptured();
+			},
+			terminate() { return Promise.resolve(0); }
+		} as unknown as Worker;
+	};
+	return { factory, resultCaptured, releaseResult: () => releaseResult() };
+}
+
 const result = createPingResponse("request-1", "1.4.2");
 assert.deepEqual(result, { nonce: "request-1", runtime: "bun", version: "1.4.2" });
 assert.deepEqual(Object.keys(result), ["nonce", "runtime", "version"]);
@@ -45,6 +79,44 @@ mkdirSync(packagedWorkerRoot);
 writeFileSync(join(packagedWorkerRoot, "jobWorker.js"), "");
 assert.equal(fileURLToPath(desktopWorkerUrl(pathToFileURL(join(packagedWorkerRoot, "index.js")).href)), join(packagedWorkerRoot, "jobWorker.js"));
 console.log("Typed RPC and webview boundary contract passed (4 assertions)");
+
+const previewFreshnessRoot = mkdtempSync(join(tmpdir(), "openamx-preview-freshness-"));
+const previewFreshnessEntry = join(previewFreshnessRoot, "report.amx");
+const savedPreviewSource = "# Freshness\n\n```amx\nlet value: Number = 1\n```\n";
+const editedPreviewSource = savedPreviewSource.replace("Number = 1", "Number = 42");
+writeFileSync(previewFreshnessEntry, savedPreviewSource);
+const delayedPreview = delayedPreviewWorkerFactory();
+const previewFreshnessService = createDesktopService(undefined, undefined, undefined, delayedPreview.factory);
+assert.equal((await previewFreshnessService.request.openProject({ path: previewFreshnessRoot })).ok, true);
+assert.equal((await previewFreshnessService.request.openDocument({ path: previewFreshnessEntry })).ok, true);
+assert.deepEqual(await previewFreshnessService.request.setAutosave({ enabled: true, delayMs: 100 }), { ok: true, enabled: true, delayMs: 100 });
+const previewEdit = await previewFreshnessService.request.updateBuffer({ text: editedPreviewSource });
+assert.equal(previewEdit.ok, true);
+const previewFreshnessWorkbench = await previewFreshnessService.request.getWorkbench();
+if (!previewFreshnessWorkbench.ok || !previewFreshnessWorkbench.state.requestIdentity) throw new Error("Active identity unavailable for preview freshness test.");
+const previewFreshnessStart = await previewFreshnessService.request.startJob({ operation: "preview", identity: previewFreshnessWorkbench.state.requestIdentity });
+if (!previewFreshnessStart.ok) throw new Error(previewFreshnessStart.error.message);
+await Promise.race([
+	delayedPreview.resultCaptured,
+	new Promise<never>((_, reject) => setTimeout(() => reject(new Error("delayed preview worker did not produce a result")), 5000))
+]);
+assert.equal(readFileSync(previewFreshnessEntry, "utf8"), savedPreviewSource, "worker result must be held until autosave has changed the on-disk source");
+for (let attempt = 0; attempt < 100 && readFileSync(previewFreshnessEntry, "utf8") !== editedPreviewSource; attempt++)
+	await new Promise(resolve => setTimeout(resolve, 10));
+assert.equal(readFileSync(previewFreshnessEntry, "utf8"), editedPreviewSource, "autosave must finish while the current preview result is delayed");
+delayedPreview.releaseResult();
+let previewFreshnessJob = previewFreshnessStart.job;
+for (let attempt = 0; attempt < 100 && previewFreshnessJob.status === "running"; attempt++) {
+	await new Promise(resolve => setTimeout(resolve, 10));
+	const polled = await previewFreshnessService.request.getJob({ jobId: previewFreshnessStart.job.identity.jobId });
+	if (!polled.ok) throw new Error(polled.error.message);
+	previewFreshnessJob = polled.job;
+}
+assert.equal(previewFreshnessJob.status, "succeeded", `current preview was rejected after autosave: ${previewFreshnessJob.status}`);
+assert.equal(previewFreshnessJob.result?.kind, "preview");
+if (previewFreshnessJob.result?.kind !== "preview") throw new Error("Expected a current preview result.");
+assert.match(previewFreshnessJob.result.html, /42/);
+console.log("Delayed source-dependent preview remains current after autosave");
 
 const workerCloseRaceRoot = mkdtempSync(join(tmpdir(), "openamx-worker-close-race-"));
 const workerCloseRaceEntry = join(workerCloseRaceRoot, "report.amx");
@@ -464,6 +536,8 @@ const unsaved = await service.request.updateBuffer({ text: entrySource });
 assert.equal(unsaved.ok, true);
 const openedDependency = await service.request.openDocument({ path: join(root, "nested", "module.amx") });
 assert.equal(openedDependency.ok, true);
+const reloadedDependency = await service.request.reloadTab({ action: "discard" });
+assert.equal(reloadedDependency.ok, true);
 const overlayDependencySource = `\`\`\`amx\nexport type Row {\n  amount: Number\n}\nexport fn addTen(value: Number): Number = value + 20\n\`\`\`\n`;
 const dirtyDependency = await service.request.updateBuffer({ text: overlayDependencySource });
 assert.equal(dirtyDependency.ok, true);

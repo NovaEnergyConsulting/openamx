@@ -1,5 +1,20 @@
 # Planning Decisions
 
+## V0.7 Sprint 044 Architect Preparation (2026-10-03)
+
+- Sprint 044 is authorized to investigate and correct the reported preview freshness behavior within the existing active-document contract. The proposed autosave/disk-hash race remains a hypothesis; do not select a production fix until a deterministic delayed-worker regression confirms or falsifies it.
+- Preserve all project/document/input/settings/job/cancellation freshness checks and last-good preview behavior. Automatic refresh pauses and resumes with the existing controls; manual refresh remains available while paused.
+- Retain the 400 ms default preview debounce unless evidence supports a change, and preserve the 500 ms maximum.
+- Reuse the Sprint 042 workflow harness if a bounded browser-automation compatibility proof supports it. Add a maintained browser dependency only if needed, and scope it to desktop test tooling.
+- Sprint 044 scope is limited to the preview investigation/regression and UI-test feasibility in its requirements. Sprint 045/046 features, unrelated V0.7 backlog, native certification, accessibility certification, and release engineering are not authorized by this sprint.
+
+## V0.7 Sprint 044 Builder Decisions (2026-10-03)
+
+- Deterministic delayed-worker evidence confirmed the disk-hash/autosave cause before the production correction: the active request identity and document revision remained current, autosave committed the current AMX buffer and advanced the open tab's trusted disk hash, but the running job still held the pre-save hash and was rejected.
+- For an open, clean AMX source only, job freshness now compares disk bytes against the document's current trusted disk hash while continuing to compare the captured document revision. Dirty AMX overlays retain the job-captured disk hash; closed sources and CSV/JSON inputs continue to use captured hashes. External changes remain rejected. No identity, job, cancellation, input/settings, or last-good guard was removed.
+- Keep the product debounce at 400 ms; a Playwright UI assertion measured automatic job start within 380-600 ms of the edit and confirmed autosave preceded result publication. The UI spec also proves automatic pause suppression, resume, manual refresh while paused, iframe current output, and stale last-good retention.
+- Reuse `spikes/sprint042-workflow-harness` as the production-App component fixture, but add `@playwright/test` 1.63.0 only to desktop devDependencies because the existing harness had no maintained runner and its RPC mock did not model delayed/source-dependent/autosaved output. Playwright's Chromium is test infrastructure only. Native Electrobun/browser certification is not inferred.
+
 ## V0.6 Sprint 043 Lead Developer Closeout and Release Decision (2026-10-03)
 
 - The Lead Developer reports completing end-to-end testing of the integrated desktop app and explicitly accepts all open or partial residuals in the Sprint 043 Builder evidence as closed for V0.6. Sprint 043 and V0.6 are **COMPLETE**; V0.6 is approved for release with accepted exceptions.

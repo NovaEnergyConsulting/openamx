@@ -5,3 +5,5 @@ build/
 dist/
 artifacts/
 *.tsbuildinfo
+test-results/
+playwright-report/

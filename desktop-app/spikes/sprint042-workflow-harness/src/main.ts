@@ -7,10 +7,11 @@ import "vxe-pc-ui/lib/style.css";
 import "vxe-table/lib/style.css";
 import "vanilla-jsoneditor/themes/jse-theme-dark.css";
 import { createApp, defineComponent, h } from "vue";
-import { rpc, failNextPreview } from "./mockRpc";
+import { harnessSnapshot, rpc, failNextPreview } from "./mockRpc";
 
 VxeUIBase.setI18n("en-US", VxeEnglish);
 VxeUIBase.setLanguage("en-US");
+Object.assign(window, { __openamxHarnessSnapshot: harnessSnapshot });
 
 const Harness = defineComponent({
 	setup() {

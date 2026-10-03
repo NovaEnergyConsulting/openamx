@@ -6,7 +6,13 @@ const activePath = `${projectRoot}/report.amx`;
 let documentRevision = 0;
 let generation = 0;
 let inputSettingsRevision = 0;
-let currentText = "# Sprint 042 report\n\n```amx\nexport let result: Number = 1 + 2\n```\n";
+let currentText = "# Sprint 042 report\n\n```amx\nexport let result: Number = 3\n```\n";
+let savedText = currentText;
+let autosaveDelayMs = 500;
+let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
+let previewCompletions = 0;
+let previewAutosavedAtCompletion: boolean[] = [];
+let previewStartedAt: number[] = [];
 let inputSettingsKey = "[]";
 let nextJobId = 0;
 let selectedId = 0;
@@ -37,14 +43,26 @@ function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchStat
 	const jobIdentity: DesktopJobIdentity = { ...requestIdentity, jobId: ++nextJobId };
 	let result: DesktopJobResult | undefined;
 	let diagnostics: DesktopJobSnapshot["diagnostics"] = [];
-	let status: DesktopJobSnapshot["status"] = "succeeded";
+	let status: DesktopJobSnapshot["status"] = operation === "preview" ? "running" : "succeeded";
 	if (operation === "discover-outputs") result = { kind: "output-discovery", outputs: [{ name: "result", type: "Number", formats: ["json"] }] };
 	else if (operation === "preview") {
-		if (failNextPreview.value) {
-			failNextPreview.value = false;
-			status = "failed";
-			diagnostics = [{ code: "AMX3001", message: "Simulated current-buffer diagnostic", file: activePath, line: 3, column: 1 }];
-		} else result = { kind: "preview", html: "<!doctype html><html><body><h1>Current preview</h1><p>3</p></body></html>" };
+		const previewSource = currentText;
+		const pending: DesktopJobSnapshot = { identity: jobIdentity, operation: "preview", status, cleanupPending: false, diagnostics, result };
+		jobs.set(jobIdentity.jobId, pending);
+		setTimeout(() => {
+			previewCompletions++;
+			previewAutosavedAtCompletion.push(savedText === previewSource);
+			if (failNextPreview.value) {
+				failNextPreview.value = false;
+				pending.status = "failed";
+				pending.diagnostics = [{ code: "AMX3001", message: "Simulated current-buffer diagnostic", file: activePath, line: 3, column: 1 }];
+			} else {
+				const value = previewSource.match(/export let result: Number = (\d+)/)?.[1] ?? "unknown";
+				pending.status = "succeeded";
+				pending.result = { kind: "preview", html: `<!doctype html><html><body><h1>Current preview</h1><p>${value}</p></body></html>` };
+			}
+		}, 250);
+		return pending;
 	} else if (operation === "run") result = { kind: "run", summary: { values: [{ name: "result", value: 3 }] } };
 	else result = { kind: "export", outputId: `mock-output-${jobIdentity.jobId}`, fileName: `report.${operation === "export-data" ? "json" : operation}`, bytes: 256, ...(operation === "export-data" ? { name: "result" } : {}) };
 	const job: DesktopJobSnapshot = { identity: jobIdentity, operation: operation as DesktopJobSnapshot["operation"], status, cleanupPending: false, diagnostics, result };
@@ -61,7 +79,7 @@ const request = {
 	async listProjectFiles() { return { ok: true as const, files: [{ path: activePath, kind: "amx" as const }], folders: [] }; },
 	async getRecents() { return { ok: true as const, projects: [] }; },
 	async getRecovery() { return { ok: true as const, available: false, items: [] }; },
-	async setAutosave({ enabled, delayMs }: { enabled: boolean; delayMs: number }) { return { ok: true as const, enabled, delayMs }; },
+	async setAutosave({ enabled, delayMs }: { enabled: boolean; delayMs: number }) { autosaveDelayMs = delayMs; return { ok: true as const, enabled, delayMs }; },
 	async readDocument() { return { ok: true as const, document: document() }; },
 	async openDocument() { return { ok: true as const, document: document() }; },
 	async selectTab() { return { ok: true as const, document: document() }; },
@@ -75,9 +93,12 @@ const request = {
 	async updateBuffer({ text }: { text: string }) {
 		currentText = text;
 		documentRevision++;
+		if (autosaveTimer) clearTimeout(autosaveTimer);
+		autosaveTimer = setTimeout(() => { savedText = currentText; autosaveTimer = undefined; }, autosaveDelayMs);
 		return { ok: true as const, document: document() };
 	},
 	async startJob({ operation, identity: requestIdentity }: { operation: string; identity: NonNullable<WorkbenchState["requestIdentity"]> }) {
+		if (operation === "preview") previewStartedAt.push(performance.now());
 		return { ok: true as const, job: finishJob(operation, requestIdentity) };
 	},
 	async getJob({ jobId }: { jobId: number }) {
@@ -100,3 +121,7 @@ const request = {
 };
 
 export const rpc = { request } as unknown as DesktopRPCClient;
+
+export function harnessSnapshot() {
+	return { currentText, savedText, previewCompletions, previewStartedAt: [...previewStartedAt], previewAutosavedAtCompletion: [...previewAutosavedAtCompletion] };
+}

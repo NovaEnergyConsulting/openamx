@@ -1,5 +1,13 @@
 # Planning Questions (Sprint 002)
 
+## V0.7 Sprint 044 Investigation Questions (2026-10-03)
+
+- **Resolved: autosave/disk-hash hypothesis confirmed.** A deterministic source-dependent preview result held until autosave completed was rejected as `superseded` before the fix despite unchanged request identity/revision. The trusted current hash for a clean open AMX source is now used; captured hashes remain for dirty overlays and non-AMX sources. See [Sprint 044 Builder evidence](sprints/0044-v07-preview-freshness-ui-test-foundation/builder-evidence.md).
+- **Resolved: controlling condition identified.** `jobIsCurrent()` compared all captured source disk hashes unconditionally; conflict-safe autosave changed the active AMX file's hash after the request had captured it. UI scheduling remained at 400 ms, and the browser test confirms current iframe publication and stale-last-good presentation.
+- **Resolved: harness is compatible but required a maintained runner.** The existing fixture mounts production `App.vue`; its original synchronous constant-output mock could not represent the required delayed autosave race. Added test-only Playwright coverage using the Vite fixture and pinned Chromium; frozen-lock install and focused UI test pass.
+- **Residual / open evidence boundary:** no direct Electrobun IPC/native-window run was performed. The service delayed-worker case and browser UI harness validate adjacent boundaries independently; they do not certify native integrated timing or platform behavior. Owner: Lead Developer/native acceptance; close only with actual supported-host observation if required.
+- Preserved constraints: 400 ms default debounce (500 ms maximum), pause suppresses automatic refresh, manual refresh remains available, obsolete identities remain rejected, and invalid/stale input retains the last-good preview.
+
 ## V0.6 Sprint 043 Closeout (2026-10-03)
 
 - **Resolved by Lead Developer direction:** the Lead Developer reports completing end-to-end testing of the integrated desktop app, accepts all listed Sprint 043 residuals/gaps as closed for V0.6, marks Sprint 043 and V0.6 complete, and approves V0.6 for release with accepted exceptions. No additional Sprint 043 work remains.

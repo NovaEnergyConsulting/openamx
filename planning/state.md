@@ -1,5 +1,14 @@
 # Planning State
 
+## V0.7 Sprint 044 Builder Outcome (2026-10-03)
+
+- **Builder verification complete; Lead Developer disposition pending.** Sprint 044 has no sprint dependency. Detailed reproduction, code path, test results, browser proof, and limitations are in [Sprint 044 Builder evidence](sprints/0044-v07-preview-freshness-ui-test-foundation/builder-evidence.md).
+- A deterministic delayed-worker regression confirmed the autosave/disk-hash race: autosave changed the active AMX file on disk while the current preview result was held, and the old freshness comparison marked it `superseded` despite unchanged active request identity/revision. The service now uses the trusted current disk hash only for a clean, open AMX source; dirty overlays and non-AMX inputs retain captured-hash checks. Project/document/input/settings/job/cancellation guards remain.
+- The corrected delayed-worker service regression passes and proves source-derived output succeeds after autosave. Existing RPC cases continue to reject superseded document, input/settings, project-generation, tab-switch, and cancelled jobs. The browser UI test verifies iframe publication, invalid last-good retention, pause/resume/manual refresh, and a measured automatic debounce in the 400 ms contract window.
+- The default preview debounce remains 400 ms (maximum contract remains 500 ms). Pause suppresses automatic work; manual refresh works while paused.
+- The Sprint 042 Vite workflow harness mounts production `App.vue`; its original fake RPC was insufficient for repeatable freshness tests. Added `@playwright/test` 1.63.0 as a desktop dev dependency, with a pinned Playwright Chromium 153.0.8010.12 regression. Browser evidence is not native-platform or accessibility certification. The installer selected its Ubuntu 24.04 fallback on this Omarchy host.
+- Native Electrobun IPC/window checks were not run. Builder service and browser-harness tests exercise trusted service and UI boundaries separately, not a native integrated host.
+
 ## V0.6 Sprint 043 Architect Preparation (2026-10-03)
 
 - Prepared the four Sprint 043 artifacts in `planning/sprints/0043-v06-onboarding-ux-acceptance-release-record/` for onboarding/help, V0.5 session migration, integrated end-to-end acceptance, visual review, documentation alignment, and separate feature/release dispositions.
