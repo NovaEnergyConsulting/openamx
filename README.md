@@ -8,8 +8,9 @@ editor/provider limitations remain V0.6 work. This feature acceptance is not a
 release claim. Native macOS 14+, Windows 11+,
 native Ubuntu 24.04+, Hutch packaging/launch, broad Office compatibility, the
 project license and Marketplace publication remain separate OPEN release gates.
-Package versions remain at 0.4.0; this is not a release-ready or publication
-claim.
+V0.6 desktop feature acceptance is pending Sprint 043 Builder evidence and Lead
+Developer disposition. Root package metadata is 0.5.0 and desktop development
+metadata is 0.1.0; neither is a public release version or publication claim.
 
 OpenAMX combines Markdown narrative, executable `amx` fences, and inline
 `{{ expression }}` calculations in plain-text `.amx` documents. The TypeScript
@@ -31,6 +32,10 @@ bun install
 bun run build
 bun test
 ```
+
+## Desktop Workbench
+
+The repository includes an offline-first desktop authoring workbench with active-document preview, project recovery, AMX editor intelligence, structured CSV/JSON editing, logical inputs, report settings, and a unified export workflow. Sprint 043 is completing onboarding, migration, and integrated acceptance; native target certification and release readiness are not implied. See the [desktop development guide](desktop-app/README.md) for current workflows, privacy limits, and verification status.
 
 ## Write a document
 

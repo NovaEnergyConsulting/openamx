@@ -173,7 +173,7 @@ Sprint 041 is complete with recorded exceptions by explicit direction on 2026-10
 
 ## Further Considerations
 
-1. The current package is still named and documented as a spike, and Hutch prepare/build reliability remains open. V0.6 removes prototype naming only after integrated feature acceptance; it does not close packaging reliability.
+1. Sprint 043 Builder alignment removes “spike” from desktop package/app naming and the desktop guide. The desktop development version remains 0.1.0 until integrated feature acceptance and Lead Developer closeout; this naming change does not close Hutch, native packaging, or release gates.
 2. True cancellation may require cooperative abort points, worker termination, or both. Sprint 035 must measure cleanup, memory, and final-write behavior before selecting the production boundary.
 3. The current VS Code providers contain useful facts mixed with VS Code ranges/documents. Extraction must preserve host tests and avoid turning the shared layer into an LSP or UI-specific abstraction.
 4. Strict input loaders currently read files and validate in one path. The data editor needs in-memory parse/validate APIs without changing diagnostic order, duplicate-key behavior, CSV semantics, or runtime materialization.

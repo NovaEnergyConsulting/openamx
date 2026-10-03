@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
-import { Database, Download, ExternalLink, Eye, FolderOpen, Pause, Play, RefreshCw, SlidersHorizontal } from "@lucide/vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { CircleHelp, Database, Download, ExternalLink, Eye, FolderOpen, Pause, Play, RefreshCw, Settings, SlidersHorizontal } from "@lucide/vue";
 import type { DataInputSchema, DataOutputSchema, DesktopExportAction, DesktopJobOperation, DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
 import { Button } from "@/components/ui/button";
 import CodeEditor from "./CodeEditor.vue";
 import CommandPalette from "./components/CommandPalette.vue";
 import DataEditorPane from "./components/DataEditorPane.vue";
 import ExportDialog from "./components/ExportDialog.vue";
+import HelpCenterDialog from "./components/HelpCenterDialog.vue";
 import InputsPanel from "./components/InputsPanel.vue";
+import PreferencesDialog from "./components/PreferencesDialog.vue";
 import ProjectExplorer from "./components/ProjectExplorer.vue";
 import ReportSettingsDialog from "./components/ReportSettingsDialog.vue";
 import WelcomeView from "./components/WelcomeView.vue";
 import WorkbenchTabs from "./components/WorkbenchTabs.vue";
+import { createDiagnosticSummary } from "./diagnosticSummary";
 import type { DrawerDock, ShellCommand, ShellFocusMode, ShellTheme } from "./shell";
 
 const props = defineProps<{ rpc: DesktopRPCClient }>();
@@ -21,6 +24,12 @@ const projectRoot = ref("");
 const recents = ref<RecentProject[]>([]);
 const recovery = ref<RecoveryItem[]>([]);
 const palette = ref(false);
+const helpOpen = ref(false);
+const helpSection = ref("getting-started");
+const preferencesOpen = ref(false);
+const autosaveEnabled = ref(localStorage.getItem("openamx.autosave") !== "false");
+const autosaveDelayMs = ref(Number(localStorage.getItem("openamx.autosave-delay")) || 500);
+const diagnosticTrail = ref<Array<{ at: string; codes: string[] }>>([]);
 const focusMode = ref<ShellFocusMode>("none");
 const drawerDock = ref<DrawerDock>((localStorage.getItem("openamx.drawer-dock") as DrawerDock) || "bottom");
 const theme = ref<ShellTheme>((localStorage.getItem("openamx.theme") as ShellTheme) || "system");
@@ -457,6 +466,10 @@ function cycleTab(direction: number) {
 }
 
 const commands = computed<ShellCommand[]>(() => [
+	{ id: "help.open", label: "Help and shortcuts", enabled: true, run: () => openHelp("getting-started") },
+	{ id: "help.release-notes", label: "Release notes", enabled: true, run: () => openHelp("release-notes") },
+	{ id: "help.diagnostic-export", label: "Download diagnostic summary", enabled: true, run: downloadDiagnosticSummary },
+	{ id: "preferences.open", label: "Preferences", enabled: true, run: () => { preferencesOpen.value = true; } },
 	{ id: "project.open", label: "Open project", shortcut: "Ctrl/Cmd+O", enabled: true, run: openProject },
 	{ id: "project.create", label: "Create project", enabled: true, run: createProject },
 	{ id: "project.new-amx", label: "New AMX file", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => createProjectFile("amx") },
@@ -482,6 +495,8 @@ const commands = computed<ShellCommand[]>(() => [
 function onKeydown(event: KeyboardEvent) {
 	if (event.key === "Escape") {
 		if (palette.value) dismissPalette();
+		else if (helpOpen.value) helpOpen.value = false;
+		else if (preferencesOpen.value) preferencesOpen.value = false;
 		else if (exportDialogOpen.value) closeExportWorkflow();
 		else if (reportSettingsOpen.value) closeReportSettings();
 		else if (focusMode.value !== "none") setFocusMode("none");
@@ -517,6 +532,48 @@ function setDrawerDock(next: DrawerDock) {
 	localStorage.setItem("openamx.drawer-dock", next);
 }
 
+function openHelp(section = "getting-started") {
+	helpSection.value = section;
+	helpOpen.value = true;
+}
+
+function downloadDiagnosticSummary() {
+	const diagnosticCodes = [...staticAnalysis.value.diagnostics, ...analysis.value.diagnostics, ...inputConfiguration.value.diagnostics].map(item => item.code);
+	const contents = createDiagnosticSummary({
+		generatedAt: new Date().toISOString(),
+		openTabs: workbench.value.tabs.length,
+		dirtyTabs: workbench.value.tabs.filter(tab => tab.dirty).length,
+		diagnosticCodes,
+		events: diagnosticTrail.value
+	});
+	const url = URL.createObjectURL(new Blob([contents], { type: "application/json" }));
+	const link = window.document.createElement("a");
+	link.href = url;
+	link.download = "openamx-diagnostic-summary.json";
+	link.click();
+	URL.revokeObjectURL(url);
+	status.value = "Downloaded a diagnostic summary without paths, messages, source, or input values.";
+}
+
+watch(() => [...staticAnalysis.value.diagnostics, ...analysis.value.diagnostics, ...inputConfiguration.value.diagnostics].map(item => item.code), codes => {
+	if (!codes.length) return;
+	diagnosticTrail.value = [...diagnosticTrail.value, { at: new Date().toISOString(), codes: codes.slice(0, 100) }].slice(-20);
+});
+
+async function savePreferences(value: { theme: ShellTheme; drawerDock: DrawerDock; autosave: boolean; autosaveDelayMs: number }) {
+	if (!Number.isSafeInteger(value.autosaveDelayMs) || value.autosaveDelayMs < 100 || value.autosaveDelayMs > 10_000) return;
+	const result = await props.rpc.request.setAutosave({ enabled: value.autosave, delayMs: value.autosaveDelayMs });
+	if (!result.ok) { status.value = result.error.message; return; }
+	setTheme(value.theme);
+	setDrawerDock(value.drawerDock);
+	autosaveEnabled.value = result.enabled;
+	autosaveDelayMs.value = result.delayMs;
+	localStorage.setItem("openamx.autosave", String(result.enabled));
+	localStorage.setItem("openamx.autosave-delay", String(result.delayMs));
+	preferencesOpen.value = false;
+	status.value = "Preferences saved on this device.";
+}
+
 function dragDivider(event: PointerEvent, divider: "explorer" | "preview") {
 	const start = event.clientX;
 	const initial = divider === "explorer" ? explorerWidth.value : previewWidth.value;
@@ -534,7 +591,7 @@ function dragDivider(event: PointerEvent, divider: "explorer" | "preview") {
 	window.addEventListener("pointerup", finish, { once: true });
 }
 
-onMounted(() => { setTheme(theme.value); window.addEventListener("keydown", onKeydown); void syncRecents(); void syncRecovery(); });
+onMounted(() => { setTheme(theme.value); setDrawerDock(drawerDock.value); void props.rpc.request.setAutosave({ enabled: autosaveEnabled.value, delayMs: autosaveDelayMs.value }); window.addEventListener("keydown", onKeydown); void syncRecents(); void syncRecovery(); });
 onUnmounted(() => {
 	window.removeEventListener("keydown", onKeydown);
 	if (previewTimer) clearTimeout(previewTimer);
@@ -584,7 +641,7 @@ async function openProject() {
 	status.value = listingError ?? (document.value ? `Restored active file. ${files.value.length} .amx file(s) in project.` : `Project ready: ${files.value.length} .amx file(s). Select a file in the explorer or use Open file.`);
 }
 
-async function createProject() {
+async function createProject(starterSource?: string) {
 	await pendingEdit;
 	const request = ++navigationRequest;
 	let failure = "";
@@ -610,7 +667,8 @@ async function createProject() {
 		const active = await props.rpc.request.readDocument();
 		if (active.ok) document.value = active.document;
 	}
-	status.value = listingError ?? (document.value ? "Created a new project and opened report.amx." : "Created a new project. Select report.amx in the explorer.");
+	if (starterSource && document.value?.kind === "amx") await updateText(starterSource);
+	status.value = listingError ?? (starterSource ? "Created a starter project. The report is open and will autosave locally." : document.value ? "Created a new project and opened report.amx." : "Created a new project. Select report.amx in the explorer.");
 }
 
 async function activate(result: Awaited<ReturnType<typeof props.rpc.request.openDocument>>) {
@@ -1123,10 +1181,11 @@ function displayDiagnostic(item: TextDiagnostic): string {
 	<main :class="`theme-${theme}`">
 		<header class="app-header">
 			<span class="wordmark">OpenAMX</span><span class="project-label">{{ projectRoot || "Welcome" }}</span><span class="header-spacer"></span>
-			<select v-model="theme" aria-label="Theme" @change="setTheme(theme)"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+			<button type="button" aria-label="Help and shortcuts" title="Help and shortcuts" @click="openHelp('getting-started')"><CircleHelp :size="16" /></button>
+			<button type="button" aria-label="Preferences" title="Preferences" @click="preferencesOpen = true"><Settings :size="16" /></button>
 			<button type="button" @click="showPalette">Commands</button>
 		</header>
-		<WelcomeView v-if="!projectRoot" :recents="recents" :recovery="recovery" :status="status" @open-project="openProject" @create-project="createProject" @restore="restore" @restore-recovery="resolveRecovery('restore')" @discard-recovery="resolveRecovery('discard')" @clear-recents="clearRecents" @open-help="status = 'Help and shortcut reference will be completed in Sprint 043.'" />
+		<WelcomeView v-if="!projectRoot" :recents="recents" :recovery="recovery" :status="status" @open-project="openProject" @create-project="createProject" @restore="restore" @restore-recovery="resolveRecovery('restore')" @discard-recovery="resolveRecovery('discard')" @clear-recents="clearRecents" @open-help="openHelp" />
 		<div v-else class="workbench" :class="[`focus-${focusMode}`, `drawer-${drawerDock}`]" :style="{ '--explorer-width': `${explorerWidth}px`, '--preview-width': `${previewWidth}%` }">
 			<ProjectExplorer :files="files" :folders="folders" :workbench="workbench" :can-move-active="!!document && ['amx', 'csv', 'json'].includes(document.kind)" @open="openDocument" @create-amx="createProjectFile('amx')" @create-folder="createProjectFolder" @move-active="moveActiveProjectFile" />
 			<div class="divider divider-explorer" role="separator" aria-label="Resize explorer" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'explorer')"></div>
@@ -1200,6 +1259,8 @@ function displayDiagnostic(item: TextDiagnostic): string {
 			</section>
 		</div>
 		<CommandPalette :open="palette" :commands="commands" @dismiss="dismissPalette" />
+		<HelpCenterDialog :open="helpOpen" :initial-section="helpSection" :shortcuts="commands" @close="helpOpen = false" @create-project="helpOpen = false; createProject($event)" @export-diagnostics="downloadDiagnosticSummary" />
+		<PreferencesDialog :open="preferencesOpen" :theme="theme" :drawer-dock="drawerDock" :autosave="autosaveEnabled" :autosave-delay-ms="autosaveDelayMs" @close="preferencesOpen = false" @save="savePreferences" />
 		<ExportDialog :open="exportDialogOpen" :active-label="document?.label ?? document?.path.split(/[\\/]/).pop() ?? ''" :outputs="exportOutputs" :selected-format="exportFormat" :selected-output="exportBinding" :file-name="exportFileName" :busy="exportBusy" :error="exportDialogError" :outputs-truncated="exportOutputsTruncated" @close="closeExportWorkflow" @format="setExportFormat" @output="setExportBinding" @file-name="exportFileName = $event" @export="performExport" />
 		<ReportSettingsDialog :open="reportSettingsOpen" :settings="reportSettings" :busy="reportSettingsBusy" :error="reportSettingsError" @close="closeReportSettings" @save="saveReportSettings" @pick-logo="pickReportLogo" />
 	</main>

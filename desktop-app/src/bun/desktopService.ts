@@ -259,8 +259,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				try { return allowedFile(item.root, resolve(item.root, path)) ? relative(item.root, resolve(item.root, path)) : undefined; }
 				catch { return undefined; }
 			}
-			const legacy = item as RecentProject & { entry?: unknown };
-			return { root: item.root, active: safePath(item.active) ?? safePath(legacy.entry),
+			return { root: item.root, active: safePath(item.active),
 				explorerWidth: typeof item.explorerWidth === "number" && item.explorerWidth >= 160 && item.explorerWidth <= 400 ? item.explorerWidth : undefined,
 				previewWidth: typeof item.previewWidth === "number" && item.previewWidth >= 25 && item.previewWidth <= 65 ? item.previewWidth : undefined };
 		});

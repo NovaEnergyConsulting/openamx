@@ -2,7 +2,7 @@
 import type { RecentProject, RecoveryItem } from "../../shared/rpc";
 
 defineProps<{ recents: RecentProject[]; recovery: RecoveryItem[]; status: string }>();
-const emit = defineEmits<{ openProject: []; createProject: []; restore: [root: string]; restoreRecovery: []; discardRecovery: []; clearRecents: []; openHelp: [] }>();
+const emit = defineEmits<{ openProject: []; createProject: []; restore: [root: string]; restoreRecovery: []; discardRecovery: []; clearRecents: []; openHelp: [section?: string] }>();
 </script>
 
 <template>
@@ -13,6 +13,7 @@ const emit = defineEmits<{ openProject: []; createProject: []; restore: [root: s
 		<div class="welcome-actions">
 			<button type="button" @click="emit('openProject')">Open project</button>
 			<button type="button" @click="emit('createProject')">Create project</button>
+			<button type="button" class="quiet-button" @click="emit('openHelp', 'getting-started')">Guided first project</button>
 			<button type="button" class="quiet-button" @click="emit('openHelp')">Help and shortcuts</button>
 		</div>
 		<p class="project-feedback" role="status" aria-live="polite">{{ status }}</p>
@@ -21,6 +22,6 @@ const emit = defineEmits<{ openProject: []; createProject: []; restore: [root: s
 			<button v-for="recent in recents" :key="recent.root" class="recent-project" type="button" @click="emit('restore', recent.root)">{{ recent.root }}</button>
 			<p v-if="!recents.length" class="muted">No validated recent projects.</p>
 		</section>
-		<div class="welcome-notices"><span v-if="!recovery.length">Recovery: no snapshots to restore</span><span v-else>Recovery: {{ recovery.length }} unsaved file{{ recovery.length === 1 ? '' : 's' }} available <button type="button" @click="emit('restoreRecovery')">Restore</button><button type="button" @click="emit('discardRecovery')">Discard</button></span><span>Release notes available from Help</span></div>
+		<div class="welcome-notices"><span v-if="!recovery.length">Recovery: no snapshots to restore</span><span v-else>Recovery: {{ recovery.length }} unsaved file{{ recovery.length === 1 ? '' : 's' }} available <button type="button" @click="emit('restoreRecovery')">Restore</button><button type="button" @click="emit('discardRecovery')">Discard</button></span><button type="button" class="text-button" @click="emit('openHelp', 'release-notes')">Release notes</button></div>
 	</section>
 </template>

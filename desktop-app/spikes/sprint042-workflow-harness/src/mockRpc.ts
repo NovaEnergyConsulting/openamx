@@ -55,11 +55,13 @@ function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchStat
 const request = {
 	async ping({ nonce }: { nonce: string }) { return { nonce, runtime: "bun" as const, version: "browser-harness" }; },
 	async pickProject() { generation++; return { ok: true as const, cancelled: false, root: projectRoot }; },
+	async pickCreateProject() { generation++; return { ok: true as const, cancelled: false, root: projectRoot }; },
 	async getWorkbench() { return { ok: true as const, state: state() }; },
 	async getProjectContext() { return { ok: true as const, root: projectRoot, state: state() }; },
 	async listProjectFiles() { return { ok: true as const, files: [{ path: activePath, kind: "amx" as const }], folders: [] }; },
 	async getRecents() { return { ok: true as const, projects: [] }; },
 	async getRecovery() { return { ok: true as const, available: false, items: [] }; },
+	async setAutosave({ enabled, delayMs }: { enabled: boolean; delayMs: number }) { return { ok: true as const, enabled, delayMs }; },
 	async readDocument() { return { ok: true as const, document: document() }; },
 	async openDocument() { return { ok: true as const, document: document() }; },
 	async selectTab() { return { ok: true as const, document: document() }; },

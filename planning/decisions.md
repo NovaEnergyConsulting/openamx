@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.6 Sprint 043 Builder Decisions (2026-10-03)
+
+- Implemented the V0.5 desktop session migration narrowly: accept the old `active` field only after existing root/containment validation, ignore the obsolete `entry` field, preserve bounded panel sizes, and persist normalized recents on normal restore. Migration does not invoke a worker or mutate project source. Corrupt/unsafe active paths remain omitted.
+- Keep the new diagnostic artifact a local bounded summary rather than exporting raw process logs (none are retained by this workbench). It contains validated timestamps/codes and coarse tab counts only; paths, messages, source, data, recovery text, and credentials are not representable in its schema.
+- Rename package/app presentation metadata from “OpenAMX Desktop Spike” to “OpenAMX Desktop” after verifying the current onboarding/workbench behaviors. Keep development version `0.1.0` and defer V0.6 version alignment until the integrated fixture and Lead Developer acceptance pass. The identifier change does not alter the hard-coded `~/.config/openamx/desktop-session.json` session path.
+- No AMX, CLI, report, data, or VS Code semantics changed. No new 100k timing threshold was introduced; measured 100k timings remain descriptive under the 2026-10-03 product decision.
+
 ## V0.6 Sprint 043 Data-Editor Performance Disposition (2026-10-03)
 
 - By explicit user direction, the current 100,000-row CSV/JSON table experience is acceptable; the prior strict timing objective does not materially affect the desired UX. Update the authoritative V0.6 contract: the 3-second first-viewport and 100-ms grid-task targets are no longer hard pass/fail limits for 100k data-editor load/edit.

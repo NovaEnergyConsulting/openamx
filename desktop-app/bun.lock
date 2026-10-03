@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "openamx-desktop-spike",
+      "name": "openamx-desktop",
       "dependencies": {
         "@codemirror/autocomplete": "6.20.3",
         "@codemirror/lang-markdown": "6.5.2",

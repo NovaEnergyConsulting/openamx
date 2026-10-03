@@ -1,9 +1,9 @@
 {
-	"name": "openamx-desktop-spike",
+	"name": "openamx-desktop",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
-	"description": "Isolated OpenAMX desktop architecture spike",
+	"description": "OpenAMX desktop authoring workbench",
 	"scripts": {
 		"dev": "bun run build:web && hutch electrobun dev --watch",
 		"typecheck": "hutch electrobun prepare && vue-tsc --noEmit",

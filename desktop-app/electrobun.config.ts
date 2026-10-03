@@ -1,7 +1,7 @@
 export default {
 	app: {
-		name: "OpenAMX Desktop Spike",
-		identifier: "dev.openamx.desktop-spike",
+		name: "OpenAMX Desktop",
+		identifier: "dev.openamx.desktop",
 		version: "0.1.0",
 	},
 	build: {

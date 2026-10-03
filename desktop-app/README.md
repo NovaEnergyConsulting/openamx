@@ -1,12 +1,8 @@
-# OpenAMX Desktop Analysis Workbench
+# OpenAMX Desktop
 
-This isolated Electrobun + Bun + Vue 3 + shadcn-vue application provides project editing, entry-buffer analysis/run, HTML preview/save, and PDF/DOCX export. Report operations use the selected project root for V0.5 report identity and the shared prepared-report path. The Bun main process owns project paths, configuration, file reads/writes, module loading, parsing, checking, input validation, evaluation, rendering, and report generation. The Vue webview receives bounded typed payloads and has no filesystem, Bun/Node, shell, evaluator, module-loader, input-loader, PDF, or DOCX capability. V0.5 is accepted with native desktop and visual exceptions deferred to V0.6; separate native release gates remain open. See `planning/state.md`.
+The desktop workbench is an offline-first authoring environment for local OpenAMX projects. The active AMX tab owns static analysis, live preview, explicit Run, and Export. Open tabs, project files, recovery, settings, data editing, and output destinations remain under the trusted Bun service; the webview receives bounded RPC state.
 
-shadcn-vue components and helpers are application source under `src/mainview/components` and `src/mainview/lib`. `.hutch/devkit` is reserved for Hutch-generated Electrobun SDK files; never place application components there because Hutch may replace that projection.
-
-TypeScript and Vite resolve only Electrobun API imports through explicit aliases into the generated SDK projection; shadcn imports use the source alias `@/`. The app tsconfig does not extend Hutch's generated tsconfig, so application paths and compiler settings remain source-owned. Run a Hutch prepare before standalone typecheck or Vite use; package scripts do this before loading the SDK-aware config.
-
-## Commands
+## Development
 
 Run from `desktop-app/`:
 
@@ -17,69 +13,52 @@ bunx vue-tsc --noEmit
 bunx vite build
 ```
 
-The focused contract test exercises typed payloads, canonical project containment, ignored paths, native picker return validation/cancel, independent dirty tabs/entry, conflict/close/reload, saved dependency barriers, private session restore, stale picker replies, current entry-buffer execution with a local import and JSON/CSV data, configuration precedence, bounded diagnostics, HTML/PDF/DOCX output, and no-write behavior. RPC report operations execute in the main process against the exact unsaved designated entry buffer; they reuse the shared module loader, validators, evaluator, renderer, and report adapters.
+The package typecheck/build scripts prepare the pinned Electrobun SDK through Hutch. Direct typecheck, Vite, and browser-harness checks are not native packaging or launch certification. Current development metadata remains `0.1.0`; this sprint does not assign a public release version.
 
-## Workbench Controls
+## First Project
 
-Open a project with the native folder picker, then open `.amx` files from the searchable project explorer or native file picker. A previously used project reopens its safe saved active/entry tabs when chosen in either the folder picker or Recent projects; a new project lists files without opening one automatically. The explorer excludes hidden and generated paths, symlinks, and files outside the root. Each open file keeps a separate in-memory tab; designate any open contained file as entry. Save, format and static analysis act on the active tab. Run, preview and explicit exports use the entry tab's unsaved text and saved imports. Save a dirty imported tab before reporting; a disk conflict refuses save. Closing a dirty tab offers Save, Discard or Cancel; reload asks before discarding edits. Closing the entry disables report actions until another tab is designated.
+From Welcome, choose **Guided first project** to open searchable local help, or select **Starter examples** for an input-free Hello OpenAMX or Operations Note report. The app creates a project through the trusted project service, installs the selected starter into the active report buffer, and lets the normal conflict-aware autosave path persist it. Live preview follows the active buffer; no explicit Run command is issued.
 
-The source editor uses CodeMirror with Markdown fence coloring, line numbers, bracket matching, per-tab selection/undo state and a Find button opening its find/replace panel. Format applies a minimal undoable change to executable AMX fences through the shared formatter. AMX-specific token colors and complete import-aware static completion are not yet verified Sprint 030 behavior. The command palette is searchable and shares its operations with the toolbar. Ctrl on Linux/Windows or Cmd on macOS is used below:
+Open an existing folder with **Open project**. Recent projects preserve only validated project roots, a safe relative active file, and panel sizes. Existing sessions with a V0.5 `entry` field migrate by retaining a safe `active` file when present and discarding the obsolete entry field; entry-only sessions restore the project without opening a document. Migration does not run AMX or overwrite project source. Recovery is a separate inspect/restore/discard flow; restoring buffers does not write them to disk.
+
+## Workbench
+
+- The active `.amx` document controls analysis, preview, explicit Run, and all export formats. Open unsaved imported modules are used by the contained module graph.
+- Live preview is debounced, can be paused/resumed or refreshed, and marks retained output stale after relevant edits. Run is explicit.
+- AMX completion, diagnostics, navigation, references, rename, and safe actions use shared parser/checker facts. Only exact executable `amx` fences run; ordinary Markdown and code fences remain narrative.
+- CSV and JSON tabs offer virtualized structured editing, raw mode, schema/validation details, and edit history. Supported table data is capped at 100,000 rows; larger or unsupported values retain a bounded raw fallback without silent truncation.
+- The Inputs pane maps declared logical inputs. Local choices remain private by default; contained project defaults require explicit promotion. External mapped data is labeled private.
+- Report Settings supports project defaults and current-document overrides. One Export workflow supports HTML, PDF, DOCX, and eligible explicitly exported JSON/CSV bindings.
+- File writes, settings updates, autosave, recovery, trash, conflicts, output preparation, and atomic commits are owned by Bun. Cancellation or staleness before atomic replacement preserves the previous file; a rename already in progress is not interruptible.
+
+## Help and Preferences
+
+Help is bundled and searchable offline. It includes first-project guidance, bundled starters, AMX essentials, imports/data, preview/export, recovery, diagnostic privacy, current command shortcuts, and V0.6 release notes. The command palette and header also open Help and Preferences.
+
+Preferences store theme, drawer placement, and autosave settings locally on this device. Diagnostic export downloads a capped JSON summary containing coarse tab counts, timestamps, and validated diagnostic codes only. It excludes paths, messages, source text, input values, recovery content, and credentials; it is not a raw process log.
+
+## Keyboard Shortcuts
+
+Ctrl on Linux/Windows or Cmd on macOS:
 
 | Keys | Action |
 | --- | --- |
-| Ctrl/Cmd+O | Open project picker |
-| Ctrl/Cmd+Shift+O | Open file picker |
+| Ctrl/Cmd+O | Open project |
+| Ctrl/Cmd+Shift+O | Open file |
 | Ctrl/Cmd+S | Save active tab |
 | Ctrl/Cmd+Shift+P | Command palette |
-| Ctrl/Cmd+Shift+F | Focus project search |
+| Ctrl/Cmd+Shift+F | Search project |
 | Ctrl/Cmd+Alt+Left/Right | Previous/next tab |
-| Ctrl/Cmd+Enter | Run entry |
-| Ctrl/Cmd+Shift+Enter | Preview entry |
-| Escape | Dismiss palette or focused layout |
+| Ctrl/Cmd+Enter | Run active document |
+| Ctrl/Cmd+Shift+Enter | Refresh preview |
+| Escape | Close the topmost dialog/palette or exit focus mode |
 
-The toolbar exposes bounded keyboard-operable pane sizing, explorer/inputs/export and preview/diagnostics/results panels, and reversible editor/preview focus. Machine-local session metadata lives under the user's `.config/openamx/desktop-session.json`: at most ten canonical project roots, optional safe relative active/entry paths and panel sizes. No unsaved text, input overrides, config contents, results or HTML are persisted; Clear history removes recent/session metadata. Restoring never auto-runs.
+The Help Center reflects shortcuts from the same command registry as the command palette.
 
-On project switch (including recent-project restore), a native prompt offers Save All, Discard All or Cancel after a project is selected. A known disk conflict prevents Save All before any tab is written; failure or Cancel keeps the original project and tab buffers open. Electrobun `before-quit` and `will-close` handlers veto app quit and window close while the same native confirmation runs. Actual window-close and quit behavior must still be verified on native hosts.
+## Project Inputs
 
-The Export workflow uses Electrobun's built-in native directory picker and an editable filename field (never a path field). Bun combines the selected folder with the validated basename, retains the resulting path privately, and returns only a one-use selection ID and basename to the webview. Existing files receive an explicit Replace/Cancel prompt. Analysis, input validation, report preparation, and serialization finish before a same-directory temporary file is atomically renamed into place. The export flow does not invoke `zenity`, AppleScript, PowerShell, or another OS-installed executable. Native folder selection, overwrite prompt, Open/Reveal, and close/quit behavior still require direct target-host acceptance.
+Project defaults live in `.openamx/project.json`; machine-local overrides live in ignored `.openamx/local.json`. Existing V0.5 `version: 1`, input precedence, report identity, and CLI behavior are unchanged. Use the Inputs pane to pick, clear, open, or explicitly promote mappings instead of typing `name=path` in the workbench. Private paths and data contents are not included in RPC diagnostics or diagnostic summaries.
 
-The package scripts `bun run typecheck`, `bun run build:web`, `bun run build`, and `bun run run` invoke Hutch preparation. Hutch may stall after Electrobun config serialization; direct `bunx vue-tsc --noEmit` and `bunx vite build` are available diagnostics but do not count as native packaging or launch acceptance. Sprint 025 reproduced the Hutch timeout; see `planning/state.md` for exact commands and outcomes.
+## Evidence and Limits
 
-## Input Configuration
-
-Portable defaults live in `.openamx/project.json` and use paths relative to the project root:
-
-```json
-{
-	"version": 1,
-	"inputs": {
-		"assets": "data/assets.json",
-		"screenings": "data/screenings.csv"
-	},
-	"report": {
-		"organization": "Example Utilities",
-		"accent": "#146C94",
-		"footer": "Illustrative report"
-	}
-}
-```
-
-Machine-local overrides use the same schema in ignored `.openamx/local.json`. Create it explicitly; the application never creates or overwrites configuration files. On POSIX systems, it must be owned by the current user with group/other access disabled (for example, `chmod 600 .openamx/local.json`). Local paths may be absolute or project-relative. Per-run overrides are entered one `name=path` mapping per line. Precedence is per-run, local, then project. Relative paths resolve from the project root; project-default paths must remain inside it. Local and per-run data files may be outside the root. URL/network paths are unsupported, and private paths are redacted from diagnostics.
-
-Both configuration files accept only `version: 1` and an `inputs` object of logical names to paths; unknown keys, invalid names, unsupported extensions, insecure or incorrectly owned POSIX local files, and invalid project paths are reported without rewriting the file. Missing configuration files mean no defaults. Core aggregate and fail-fast validation behavior is preserved.
-The portable `.openamx/project.json` accepts `version: 1`, `inputs`, and the optional V0.5 `report` identity object. The ignored `.openamx/local.json` accepts only `version: 1` and `inputs`; report identity cannot be overridden locally. Unknown keys, invalid names, unsupported extensions, insecure or incorrectly owned POSIX local files, and invalid project paths are reported without rewriting the file. Missing configuration files mean no defaults. Core aggregate and fail-fast validation behavior is preserved.
-
-Report `report` values may also be overridden field by field in the entry document's YAML frontmatter. `sourceVisible` defaults to true; setting it false hides only the formatted source listing, not values, views or other report content. A logo must be a contained local PNG/JPEG asset with descriptive alt text, and is validated and re-encoded by the main process before output.
-
-## Outputs and Limits
-
-HTML preview, HTML save, PDF export, and DOCX export analyze the designated entry buffer with the selected inputs. Output paths are explicit, resolve from the project root, must stay inside that root, use exact lowercase `.html`, `.pdf`, or `.docx`, and require an existing parent directory. Symlinks and entry/input conflicts are rejected. All report outputs use same-directory temporary files and atomic rename. Existing outputs are preserved when analysis or preparation fails. DOCX output contains editable semantic text/tables and static chart images; interactive charts and broad Office compatibility are not claimed. The webview receives only a bounded scalar/list-count/record-kind result summary, never input contents or arbitrary evaluated objects.
-
-## Verification Status
-
-The Sprint 026 builder environment was Ubuntu 24.04.4 LTS under WSL2 (Linux x86_64), Bun 1.4.2, and Node 24.20.0. This is not native Ubuntu release-owner evidence. macOS 14+, Windows 11+, and native Ubuntu 24.04+ build/launch checks remain required. The PDF adapter uses pdfmake 0.3.11 and bundled Roboto fonts; retain the recorded Apache 2.0 font notice with redistributed font assets. DOCX uses `docx` 9.8.1 (MIT), embeds local SVG chart media with a local PNG fallback, and has package-structure evidence on this host; native Office round trips remain unverified. Marketplace publication remains deferred pending an explicit project license decision.
-Recorded direct desktop verification is on Ubuntu 24.04 under WSL2, not native Ubuntu release-owner evidence. macOS 14+, Windows 11+, and native Ubuntu 24.04+ build/launch checks remain required. The PDF adapter uses pdfmake 0.3.11 and bundled Roboto fonts; retain the recorded Apache 2.0 font notice with redistributed font assets. DOCX uses `docx` 9.8.1 (MIT), embeds local SVG chart media with a local PNG fallback, and has package-structure evidence; native Office round trips remain unverified. Sprint 029 native project/save/close and populated accessibility checks, Sprint 030 editor exceptions, and Sprint 034 visual sign-off remain open. Marketplace publication remains deferred pending an explicit project license decision.
-
-## Native Prerequisites
-
-Electrobun's Linux runtime requires GTK 3, WebKitGTK 4.1, Ayatana AppIndicator, and librsvg. Ubuntu/Debian package names are `libgtk-3-0`, `libwebkit2gtk-4.1-0`, `libayatana-appindicator3-1`, and `librsvg2-2`. Export destination selection uses the Electrobun native folder picker and does not require an additional OS-installed dialog package. Native builds must run on their target operating system. Official release targets are macOS 14+, Windows 11+, and Ubuntu 24.04+; none is claimed complete by this WSL2 prototype.
+Sprint 043 Builder evidence is in [the sprint record](../planning/sprints/0043-v06-onboarding-ux-acceptance-release-record/builder-evidence.md). Available-browser and direct-service checks do not certify native macOS, Windows, or Ubuntu behavior. Native release packaging/launch, Hutch reliability, Office compatibility, project licensing/Marketplace, and formal accessibility remain separate release gates. Sprint 043 feature disposition and Lead Developer usability/visual acceptance are tracked separately from those gates.
