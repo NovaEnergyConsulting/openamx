@@ -1,5 +1,14 @@
 # Planning Decisions
 
+## V0.8 Sprint 049 Builder Decisions (2026-10-04)
+
+- Keep `EngineersTools` unchanged and build through existing esbuild/vsce tooling. VSIX inspection requires the stable root-authoritative version, publisher, `./dist/extension.js`, AMX grammar, language configuration and exact allowed archive entries. The actual package contains only JavaScript/JSON and no native binary, supporting one platform-neutral VSIX package without implying native desktop certification.
+- Exclude `install-local.mjs` from the VSIX because it is a development/operator helper, not extension runtime. Preserve manual local install and manual-only Marketplace submission documentation.
+- Preserve the user's supplied full AGPLv3 text in root `LICENSE.md` unchanged. The installed vsce 3.9.2 source supports `SEE LICENSE IN <file>`; the extension declares `SEE LICENSE IN LICENSE.md`, and package staging copies that file byte-for-byte beside the extension manifest. Do not claim that this resolves how the separate commercial option should be represented in Marketplace metadata or whether third-party notices are required. Keep readiness `blocked` until the license owner confirms both questions; do not suppress warnings.
+- Keep the real output layout at `releases/<version>/assembled/` for release-wide assembly, rather than occupying/replacing `releases/<version>/linux-x64` or the extension bundle input. Collection stages only declared artifact bytes, validates all source bundle files first, and refuses an existing assembly.
+- Publish only drafts; verify existing/created `v<version>` resolves to the recorded full commit before uploading. Never edit published releases, move tags, or replace remote asset bytes. Inject the GitHub client in tests; no public endpoint is part of automated verification.
+- Current VSIX package evidence indicates platform-neutral package contents. This does not alter the Linux x64-only desktop package evidence or unverified remote native target status.
+
 ## V0.8 Sprint 049 Architect Preparation (2026-10-04)
 
 - Sprint 047 is COMPLETE WITH RECORDED RESIDUALS and Sprint 048 is COMPLETE / APPROVED by explicit Lead Developer direction. Sprint 049 may proceed; these dispositions do not certify remote native targets or make Builder-time/manual-install evidence interchangeable.

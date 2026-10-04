@@ -6,6 +6,8 @@ node_modules/**
 *.vsix
 .gitignore
 esbuild.mjs
+install-local.mjs
+package-local.mjs
 tsconfig.test.json
 bun.lock
 bun.lockb

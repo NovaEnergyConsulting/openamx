@@ -10,13 +10,13 @@ targets do not navigate. It requires VS Code 1.85.0 or newer. Editor analysis do
 not run documents or load CSV/JSON inputs; runtime validation remains a CLI
 concern.
 
-V0.6 is complete and approved for release with accepted exceptions. The
-extension package version is `0.6.0`. The quick fix rechecks document version,
+The root package is the release version authority; the current extension
+package version is `0.8.0` and its publisher is `EngineersTools`. The quick fix rechecks document version,
 token and live diagnostic when the action is resolved, but VS Code 1.85
 `WorkspaceEdit` has no apply-time version precondition; a stale already-resolved
-edit cannot be guaranteed safe. Native platform certification, project license,
-and Marketplace publication were not verified and remain V0.7 follow-up
-requirements; release approval does not claim those outcomes.
+edit cannot be guaranteed safe. This package's contents are platform-neutral
+(Node-hosted JavaScript and JSON resources), but that does not certify native
+desktop targets or Marketplace acceptance.
 
 ## Local Development
 
@@ -38,6 +38,21 @@ bun run install-local
 code --list-extensions --show-versions
 ```
 
-Packaging creates a local VSIX only; it does not publish or upload the extension.
-No project license file exists yet; the license warning during packaging must be
-resolved by a project license decision before Marketplace publication.
+Run `bun run package` from this directory to create a local VSIX for installation.
+The package helper stages the root `LICENSE.md` unchanged because vsce expects the
+referenced license file beside the extension package metadata.
+From the repository root, `bun run release:extension` instead requires a clean
+committed source tree and writes the versioned bundle under
+`releases/<version>/extension/`. Neither workflow publishes the extension.
+Marketplace submission remains a manual operator action under the
+`EngineersTools` publisher.
+
+The root `LICENSE.md` now contains full AGPLv3 terms. The extension package
+declares `SEE LICENSE IN LICENSE.md`, and the packaging helper stages that file
+unchanged beside the manifest; `vsce` includes it as the VSIX license asset
+without a missing-license warning. The package's AGPL reference has not been
+confirmed as the correct Marketplace metadata for the project's separate
+commercial option, and required third-party notices (or confirmation that none
+are required) remain unresolved. Release verification and GitHub publication
+stay blocked until the license owner confirms those requirements. Marketplace
+submission remains manual.

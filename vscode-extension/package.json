@@ -4,6 +4,7 @@
   "description": "Formatting, completion, static diagnostics, navigation, outline, references and contextual fixes for OpenAMX documents.",
   "version": "0.8.0",
   "publisher": "EngineersTools",
+  "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
     "type": "git",
     "url": "https://github.com/NovaEnergyConsulting/openamx.git",
@@ -42,7 +43,7 @@
     "compile": "node ./esbuild.mjs",
     "compile-tests": "tsc -p ./tsconfig.test.json",
     "test": "bun run compile && bun run compile-tests && node ./out/vscode-extension/src/test/runTest.js",
-    "package": "bun run compile && vsce package --no-dependencies",
+    "package": "node ./package-local.mjs",
     "install-local": "node ./install-local.mjs"
   },
   "devDependencies": {

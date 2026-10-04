@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.8 Sprint 049 Builder Outcome (2026-10-04)
+
+- Implemented `release:extension`, `release:collect`, `release:verify`, and explicit draft-only `release:publish`, with safe package/bundle inspection, full source provenance, checksums, immutable staging/promotion, and mocked GitHub retry/conflict coverage. Detailed evidence and exact results are in [Sprint 049 Builder evidence](sprints/0049-v08-extension-packaging-release-assembly/builder-evidence.md).
+- Focused release tests pass (38 tests, 124 expectations); root build/full tests pass (283 tests across 26 files); repository-owned root tests pass (257 tests across 18 files); extension Development Host passes 19 tests; desktop RPC/workflow and typecheck pass. Release adapters type-check; `git diff --check` passes.
+- The user supplied complete AGPLv3 terms in `LICENSE.md` during the sprint. Extension metadata uses vsce's supported `SEE LICENSE IN LICENSE.md`, and the local/package staging helpers include that file unchanged. The final package contains 8 files and vsce no longer emits the missing-license warning. The license owner has not confirmed the custom AGPL reference is the intended Marketplace metadata for the dual-license offer or whether bundled dependency notices are required. Verify/publication readiness remains blocked; Marketplace upload remains manual.
+- The active tree is dirty at full commit `b92f6021284a58213641287043989267ebf387a5`; the existing Sprint 048 Linux x64 bundle records `1a9585a24b5ec3c69afbccab0501e46752cbd104`. It was not collected or modified. Fixture tests prove mixed provenance rejection and accepted-output preservation. The accepted extension release bundle must be built after the source changes are committed.
+- Linux x64 remains the only packaged target; other requested native targets remain unverified. The Lead Developer-reported Sprint 048 install/launch disposition remains separate from the bundle's Builder-time `not_performed` record. No real GitHub release or Marketplace submission occurred. Sprint 050 repeat-release/runbook scope remains deferred.
+
 ## V0.8 Sprint 049 Architect Preparation (2026-10-04)
 
 - Prepared the four Sprint 049 artifacts in `planning/sprints/0049-v08-extension-packaging-release-assembly/` for VSIX build/inspection, license/notices readiness, safe collection and verification of transferred bundles, explicit GitHub Release publication, retry/conflict handling, and focused evidence.

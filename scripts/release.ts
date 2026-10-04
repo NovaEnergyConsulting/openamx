@@ -259,7 +259,57 @@ async function main(args: string[]): Promise<void> {
 		await runDesktopRelease(process.cwd());
 		return;
 	}
-	console.error("Usage: bun run scripts/release.ts prepare <version> | check | desktop");
+	if (command === "extension" && parameters.length === 0) {
+		const { runExtensionRelease } = await import("./release/extension");
+		await runExtensionRelease(process.cwd());
+		return;
+	}
+	if (command === "collect") {
+		const addition = parameters.includes("--addition");
+		const bundles = parameters.filter((parameter) => parameter !== "--addition");
+		if (bundles.length < 2) throw new Error("Collection requires at least one desktop bundle and one VSIX bundle.");
+		const { collectRelease } = await import("./release/assembly");
+		const destination = await collectRelease(process.cwd(), bundles.map((bundle) => path.resolve(process.cwd(), bundle)), { addition });
+		console.log(`Release assembled: ${path.relative(process.cwd(), destination)}`);
+		return;
+	}
+	if (command === "verify" && parameters.length <= 1) {
+		const version = parameters[0] ?? (JSON.parse(await readFile(path.join(process.cwd(), "package.json"), "utf8")) as { version: string }).version;
+		if (!isStableVersion(version)) throw new Error("Verification version must be a stable MAJOR.MINOR.PATCH version.");
+		const { verifyRelease } = await import("./release/assembly");
+		const result = await verifyRelease(process.cwd(), path.join(process.cwd(), "releases", version, "assembled"));
+		console.log(`Release ${result.version} at ${result.sourceCommit}: integrity ${result.integrity}; build/package ${result.packageStatus}; desktop manual install/launch ${result.desktopManualInstallLaunchStatus}; extension manual install/launch ${result.manualInstallLaunchStatus}; license/notices ${result.licenseReadiness}.`);
+		for (const target of result.targets) console.log(`Target ${target.target}: artifact ${target.status}; platform support ${target.supportStatus}; manual install/launch ${target.manualInstallLaunchStatus}`);
+		for (const blocker of result.blockers) console.error(`Blocked: ${blocker}`);
+		if (result.licenseReadiness !== "ready" || result.blockers.length || result.integrity !== "passed") process.exitCode = 1;
+		return;
+	}
+	if (command === "publish") {
+		let version: string | undefined;
+		let repository: string | undefined;
+		let assemblyPath: string | undefined;
+		let allowPartial = false;
+		for (const parameter of parameters) {
+			if (parameter === "--allow-partial") allowPartial = true;
+			else if (parameter.startsWith("--version=")) version = parameter.slice("--version=".length);
+			else if (parameter.startsWith("--repo=")) repository = parameter.slice("--repo=".length);
+			else if (parameter.startsWith("--assembly=")) assemblyPath = parameter.slice("--assembly=".length);
+			else throw new Error(`Unknown release:publish option: ${parameter}`);
+		}
+		version ??= (JSON.parse(await readFile(path.join(process.cwd(), "package.json"), "utf8")) as { version: string }).version;
+		if (!isStableVersion(version)) throw new Error("Publication version must be a stable MAJOR.MINOR.PATCH version.");
+		const { publishRelease } = await import("./release/publish");
+		const result = await publishRelease({
+			rootDirectory: process.cwd(),
+			releaseDirectory: assemblyPath ? path.resolve(process.cwd(), assemblyPath) : path.join(process.cwd(), "releases", version, "assembled"),
+			repository,
+			allowPartial,
+		});
+		console.log(`Draft release ${result.tag} in ${result.repository}: uploaded ${result.uploaded.length}, confirmed identical ${result.confirmed.length}.`);
+		if (result.partialTargets.length) console.log(`Partial targets acknowledged: ${result.partialTargets.join(", ")}`);
+		return;
+	}
+	console.error("Usage: bun run scripts/release.ts prepare <version> | check | desktop | extension | collect [--addition] <bundle> <bundle...> | verify [version] | publish [--version=<version>] [--assembly=<path>] [--repo=OWNER/REPO] [--allow-partial]");
 	process.exitCode = 2;
 }
 

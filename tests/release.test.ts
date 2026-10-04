@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -8,6 +9,11 @@ import { inspectRelease, isStableVersion, manifestPaths, mapNativeTarget, prepar
 import { binaryArchitecture, finalizeTargetBundle, findInstaller, installerFormat, runDesktopRelease, sanitizeBuildWarning, unsupportedInstallerArchiveMembers, verifyBuiltApp, verifyUpdateMetadata } from "../scripts/release/desktop";
 import { appMetadata } from "../desktop-app/app-metadata";
 import { localInstallInvocation } from "../vscode-extension/install-local.mjs";
+import JSZip from "jszip";
+import { inspectVsix, inspectLicenseReadiness } from "../scripts/release/extension";
+import { collectRelease, verifyRelease } from "../scripts/release/assembly";
+import type { ReleaseVerification } from "../scripts/release/assembly";
+import { createGitHubReleaseClient, publishRelease, type GitHubReleaseClient } from "../scripts/release/publish";
 
 const temporaryDirectories: string[] = [];
 
@@ -368,5 +374,374 @@ describe("desktop release packaging", () => {
 			expect(actualHash).toBe(expectedHash);
 		}
 		await expect(finalizeTargetBundle(bundle, accepted, "deadbeef", {}, {}, [])).rejects.toThrow();
+	});
+});
+
+describe("VS Code extension release packaging", () => {
+	test("inspects package identity, runtime assets, archive hash, and platform-neutral contents", async () => {
+		const directory = await fixture();
+		await writeFile(path.join(directory, "vscode-extension/package.json"), JSON.stringify({
+			name: "openamx-vscode", version: "0.6.0", publisher: "EngineersTools", main: "./dist/extension.js",
+		}));
+		const zip = new JSZip();
+		for (const file of ["[Content_Types].xml", "extension.vsixmanifest", "extension/LICENSE.md", "extension/amx.tmGrammar.json", "extension/language-configuration.json", "extension/readme.md", "extension/dist/extension.js"]) zip.file(file, "fixture");
+		zip.file("extension/package.json", JSON.stringify({ name: "openamx-vscode", version: "0.6.0", publisher: "EngineersTools", main: "./dist/extension.js" }));
+		const bytes = await zip.generateAsync({ type: "uint8array" });
+		const inspection = await inspectVsix(bytes, directory);
+		expect(inspection).toMatchObject({
+			version: "0.6.0", publisher: "EngineersTools", main: "./dist/extension.js",
+			platformNeutral: true, licenseReadiness: { status: "blocked" },
+		});
+		expect(inspection.files.map(({ file }) => file)).toContain("extension/amx.tmGrammar.json");
+		expect(inspection.sha256).toHaveLength(64);
+	});
+
+	test("rejects unsafe archive paths and missing required runtime assets", async () => {
+		const directory = await fixture();
+		const zip = new JSZip();
+		zip.file("abcdef", "unsafe");
+		const bytes = Buffer.from(await zip.generateAsync({ type: "uint8array" }));
+		const originalName = Buffer.from("abcdef");
+		const traversalName = Buffer.from("../abc");
+		let offset = 0;
+		while ((offset = bytes.indexOf(originalName, offset)) >= 0) {
+			traversalName.copy(bytes, offset);
+			offset += traversalName.length;
+		}
+		await expect(inspectVsix(bytes, directory)).rejects.toThrow("unsafe archive path");
+	});
+
+	test("does not treat the supplied license overview as authoritative full terms", async () => {
+		const directory = await fixture();
+		await writeFile(path.join(directory, "LICENSE.md"), "See the absent LICENSE file for full terms.");
+		expect(inspectLicenseReadiness(directory)).toMatchObject({ status: "blocked" });
+	});
+
+	test("requires owner confirmation of license reference and notice requirements", async () => {
+		const directory = await fixture();
+		await writeFile(path.join(directory, "LICENSE.md"), "Fixture AGPL terms; not production legal text.");
+		await writeFile(path.join(directory, "NOTICE"), "Fixture notices; not production notice text.");
+		const packageEvidence = { packageLicense: "SEE LICENSE IN LICENSE.md", packagedFiles: ["extension/LICENSE.md", "extension/NOTICE"] };
+		expect(inspectLicenseReadiness(directory, packageEvidence)).toMatchObject({ status: "blocked" });
+		expect(inspectLicenseReadiness(directory, { ...packageEvidence, licenseReferenceConfirmed: true, noticeRequirementsConfirmed: true })).toMatchObject({ status: "ready" });
+	});
+});
+
+describe("release collection and verification", () => {
+	const bundleHash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
+	function tarGzip(members: Array<{ name: string; type?: string; data?: string; linkName?: string }>): Buffer {
+		const records: Buffer[] = [];
+		for (const member of members) {
+			const body = Buffer.from(member.data ?? "");
+			const header = Buffer.alloc(512);
+			header.write(member.name, 0, 100, "utf8");
+			header.write("0000644\0", 100, 8, "ascii");
+			header.write("0000000\0", 108, 8, "ascii");
+			header.write("0000000\0", 116, 8, "ascii");
+			header.write(`${body.byteLength.toString(8).padStart(11, "0")}\0`, 124, 12, "ascii");
+			header.write("00000000000\0", 136, 12, "ascii");
+			header.fill(0x20, 148, 156);
+			header[156] = (member.type ?? "0").charCodeAt(0);
+			if (member.linkName) header.write(member.linkName, 157, 100, "utf8");
+			header.write("ustar\0", 257, 6, "ascii");
+			header.write("00", 263, 2, "ascii");
+			let checksum = 0;
+			for (const byte of header) checksum += byte;
+			header.write(`${checksum.toString(8).padStart(6, "0")}\0 `, 148, 8, "ascii");
+			records.push(header);
+			if (body.length) {
+				records.push(body);
+				const padding = (512 - body.length % 512) % 512;
+				if (padding) records.push(Buffer.alloc(padding));
+			}
+		}
+		records.push(Buffer.alloc(1024));
+		return gzipSync(Buffer.concat(records));
+	}
+	async function committedReleaseFixture() {
+		const directory = await fixture();
+		await writeFile(path.join(directory, "LICENSE.md"), "Fixture license text; not production terms.");
+		const extensionManifestPath = path.join(directory, "vscode-extension/package.json");
+		const extensionManifest = JSON.parse(await readFile(extensionManifestPath, "utf8"));
+		extensionManifest.publisher = "EngineersTools";
+		extensionManifest.main = "./dist/extension.js";
+		extensionManifest.license = "SEE LICENSE IN LICENSE.md";
+		await writeFile(extensionManifestPath, JSON.stringify(extensionManifest, null, 2));
+		await prepareVersion(directory, "0.6.0");
+		await writeFile(path.join(directory, ".gitignore"), "/releases/\n");
+		execFileSync("git", ["init", "-q"], { cwd: directory });
+		execFileSync("git", ["config", "user.email", "release-test@example.invalid"], { cwd: directory });
+		execFileSync("git", ["config", "user.name", "Release Test"], { cwd: directory });
+		execFileSync("git", ["add", "-A"], { cwd: directory });
+		execFileSync("git", ["commit", "-qm", "fixture"], { cwd: directory });
+		const sourceCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: directory, encoding: "utf8" }).trim();
+		const bundleRoot = await mkdtemp(path.join(os.tmpdir(), "openamx-transfer-fixtures-"));
+		temporaryDirectories.push(bundleRoot);
+		return { directory, sourceCommit, bundleRoot };
+	}
+	async function writeBundle(directory: string, kind: "desktop" | "extension", sourceCommit: string, target = "linux-x64", installerArchive = tarGzip([{ name: "installer", data: "desktop payload" }])) {
+		const artifactsDirectory = path.join(directory, "artifacts");
+		await mkdir(artifactsDirectory, { recursive: true });
+		const artifactFile = kind === "desktop" ? `artifacts/OpenAMX-${target}.tar.gz` : "artifacts/openamx-vscode-0.6.0.vsix";
+		let artifactBytes = installerArchive;
+		if (kind === "extension") {
+			const zip = new JSZip();
+			for (const file of ["[Content_Types].xml", "extension.vsixmanifest", "extension/LICENSE.md", "extension/amx.tmGrammar.json", "extension/language-configuration.json", "extension/readme.md", "extension/dist/extension.js"]) zip.file(file, "fixture");
+			zip.file("extension/package.json", JSON.stringify({ name: "openamx-vscode", version: "0.6.0", publisher: "EngineersTools", main: "./dist/extension.js", license: "SEE LICENSE IN LICENSE.md" }));
+			artifactBytes = Buffer.from(await zip.generateAsync({ type: "uint8array" }));
+		}
+		await writeFile(path.join(directory, artifactFile), artifactBytes);
+		const artifact = { file: artifactFile, sizeBytes: artifactBytes.byteLength, sha256: bundleHash(artifactBytes), role: kind === "desktop" ? "installer" : undefined };
+		const manifest = kind === "desktop" ? {
+			schemaVersion: 1, product: "OpenAMX Desktop", version: "0.6.0", sourceCommit,
+			target: { os: target.split("-")[0], architecture: target.split("-")[1], status: "available" },
+			application: { name: "OpenAMX Desktop", identifier: "dev.openamx.desktop" }, installerFormat: "tar.gz", artifacts: [artifact],
+		} : {
+			schemaVersion: 1, kind: "vscode-extension", version: "0.6.0", sourceCommit,
+			name: "openamx-vscode", publisher: "EngineersTools", main: "./dist/extension.js", platformNeutral: true,
+			licenseReadiness: { status: "blocked", blockers: ["fixture license blocker"] }, artifact,
+		};
+		const evidence = { schemaVersion: 1, buildPackageStatus: "passed", manualInstallLaunchStatus: "not_performed" };
+		await writeFile(path.join(directory, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+		await writeFile(path.join(directory, "evidence.json"), `${JSON.stringify(evidence, null, 2)}\n`);
+		const sums = ["manifest.json", "evidence.json", artifactFile].map((file) => `${bundleHash(requireBuffer(path.join(directory, file)))}  ${file}`);
+		await writeFile(path.join(directory, "SHA256SUMS"), `${sums.join("\n")}\n`);
+		await writeFile(path.join(directory, "COMPLETE"), `${sourceCommit}\n`);
+		return directory;
+	}
+
+	test("collects matching bundles immutably and verifies without rewriting evidence", async () => {
+		const { directory, sourceCommit, bundleRoot } = await committedReleaseFixture();
+		const desktop = await writeBundle(path.join(bundleRoot, "linux-x64"), "desktop", sourceCommit);
+		const extension = await writeBundle(path.join(bundleRoot, "extension"), "extension", sourceCommit);
+		const collected = await collectRelease(directory, [desktop, extension]);
+		const manifestBefore = await readFile(path.join(collected, "manifest.json"), "utf8");
+		const result = await verifyRelease(directory, collected);
+		expect(result).toMatchObject({ version: "0.6.0", sourceCommit, integrity: "passed", licenseReadiness: "blocked" });
+		expect(result.targets.find(({ target }) => target === "linux-x64")?.status).toBe("available");
+		expect(result.targets.find(({ target }) => target === "windows-x64")?.status).toBe("missing");
+		expect(await readFile(path.join(collected, "manifest.json"), "utf8")).toBe(manifestBefore);
+		expect((await readFile(path.join(collected, "targets/linux-x64/artifacts/OpenAMX-linux-x64.tar.gz"))).subarray(0, 2)).toEqual(Buffer.from([0x1f, 0x8b]));
+		await expect(publishRelease({ rootDirectory: directory, releaseDirectory: collected, allowPartial: true })).rejects.toThrow("Publication blocked by license/notices readiness");
+		await expect(collectRelease(directory, [desktop, extension])).rejects.toThrow("Refusing to overwrite accepted");
+	});
+
+	test("rejects mixed source commits and preserves an existing assembly", async () => {
+		const { directory, sourceCommit, bundleRoot } = await committedReleaseFixture();
+		const desktop = await writeBundle(path.join(bundleRoot, "linux-x64"), "desktop", sourceCommit);
+		const otherCommit = "a".repeat(40);
+		const extension = await writeBundle(path.join(bundleRoot, "extension"), "extension", otherCommit);
+		const accepted = path.join(directory, "releases/0.6.0/assembled");
+		await mkdir(accepted, { recursive: true });
+		await writeFile(path.join(accepted, "preserve.txt"), "accepted bytes");
+		await expect(collectRelease(directory, [desktop, extension])).rejects.toThrow("does not match the clean current release source");
+		expect(await readFile(path.join(accepted, "preserve.txt"), "utf8")).toBe("accepted bytes");
+	});
+
+	test("collects same-revision additions without changing the base assembly", async () => {
+		const { directory, sourceCommit, bundleRoot } = await committedReleaseFixture();
+		const desktopBase = await writeBundle(path.join(bundleRoot, "linux-x64"), "desktop", sourceCommit);
+		const extension = await writeBundle(path.join(bundleRoot, "extension"), "extension", sourceCommit);
+		const baseDirectory = await collectRelease(directory, [desktopBase, extension]);
+		const baseManifest = await readFile(path.join(baseDirectory, "manifest.json"), "utf8");
+		const windowsBundle = await writeBundle(path.join(bundleRoot, "windows-x64"), "desktop", sourceCommit, "windows-x64");
+		const addition = await collectRelease(directory, [windowsBundle, extension], { addition: true });
+		const additionManifest = JSON.parse(await readFile(path.join(addition, "manifest.json"), "utf8"));
+		const verifiedAddition = await verifyRelease(directory, addition);
+		expect(addition).toContain("/additions/");
+		expect(additionManifest.sourceCommit).toBe(sourceCommit);
+		expect(verifiedAddition.targets.find(({ target }) => target === "linux-x64")?.status).toBe("available");
+		expect(verifiedAddition.targets.find(({ target }) => target === "windows-x64")?.status).toBe("available");
+		expect(await readFile(path.join(baseDirectory, "manifest.json"), "utf8")).toBe(baseManifest);
+		await expect(collectRelease(directory, [windowsBundle, extension], { addition: true })).rejects.toThrow("already present in the base assembly");
+	});
+
+	test("rejects corrupted assets, symlink members, and duplicate target bundles", async () => {
+		const { directory, sourceCommit, bundleRoot } = await committedReleaseFixture();
+		const desktop = await writeBundle(path.join(bundleRoot, "linux-x64"), "desktop", sourceCommit);
+		const extension = await writeBundle(path.join(bundleRoot, "extension"), "extension", sourceCommit);
+		await writeFile(path.join(desktop, "artifacts/OpenAMX-linux-x64.tar.gz"), "corrupt");
+		await expect(collectRelease(directory, [desktop, extension])).rejects.toThrow("size or SHA-256 mismatch");
+		const duplicate = await writeBundle(path.join(bundleRoot, "linux-x64-copy"), "desktop", sourceCommit);
+		await expect(collectRelease(directory, [duplicate, extension, await writeBundle(path.join(bundleRoot, "linux-x64-again"), "desktop", sourceCommit)])).rejects.toThrow("Conflicting duplicate desktop target");
+		await symlink(path.join(extension, "artifacts/openamx-vscode-0.6.0.vsix"), path.join(extension, "unlisted-link"));
+		await expect(collectRelease(directory, [duplicate, extension])).rejects.toThrow("Symlinked bundle member");
+		const symlinkParent = path.join(bundleRoot, "parent-alias");
+		await symlink(bundleRoot, symlinkParent);
+		await expect(collectRelease(directory, [path.join(symlinkParent, "linux-x64-copy"), extension])).rejects.toThrow("symlinked directory");
+	});
+
+	test("rejects traversal and symlink entries hidden inside installer archives", async () => {
+		const { directory, sourceCommit, bundleRoot } = await committedReleaseFixture();
+		const extension = await writeBundle(path.join(bundleRoot, "extension"), "extension", sourceCommit);
+		const traversal = await writeBundle(path.join(bundleRoot, "traversal"), "desktop", sourceCommit, "linux-arm64", tarGzip([{ name: "../escape", data: "bad" }]));
+		await expect(collectRelease(directory, [traversal, extension])).rejects.toThrow("unsafe member path");
+		const symlinkArchive = await writeBundle(path.join(bundleRoot, "archive-symlink"), "desktop", sourceCommit, "linux-arm64", tarGzip([{ name: "escape", type: "2", linkName: "../../outside" }]));
+		await expect(collectRelease(directory, [symlinkArchive, extension])).rejects.toThrow("link or unsupported member type");
+	});
+});
+
+function requireBuffer(filePath: string): Buffer {
+	return readFileSync(filePath);
+}
+
+import { readFileSync } from "node:fs";
+import { symlink } from "node:fs/promises";
+
+describe("explicit GitHub release publication", () => {
+	type Release = { id: number; tag_name: string; target_commitish: string; draft: boolean; upload_url: string; assets_url: string };
+	type Asset = { name: string; size: number; url: string; bytes: Uint8Array };
+	async function publishFixture() {
+		const directory = await fixture();
+		await writeFile(path.join(directory, "LICENSE.md"), "Test fixture only; not license terms.");
+		await writeFile(path.join(directory, "NOTICE"), "Test fixture only; not third-party notices.");
+		const extensionPackagePath = path.join(directory, "vscode-extension/package.json");
+		const extensionPackage = JSON.parse(await readFile(extensionPackagePath, "utf8"));
+		extensionPackage.version = "0.6.0";
+		extensionPackage.publisher = "EngineersTools";
+		extensionPackage.main = "./dist/extension.js";
+		extensionPackage.license = "SEE LICENSE IN LICENSE.md";
+		await writeFile(extensionPackagePath, JSON.stringify(extensionPackage, null, 2));
+		await writeFile(path.join(directory, ".gitignore"), "/releases/\n");
+		execFileSync("git", ["init", "-q"], { cwd: directory });
+		execFileSync("git", ["config", "user.email", "release-test@example.invalid"], { cwd: directory });
+		execFileSync("git", ["config", "user.name", "Release Test"], { cwd: directory });
+		execFileSync("git", ["add", "-A"], { cwd: directory });
+		execFileSync("git", ["commit", "-qm", "fixture"], { cwd: directory });
+		const sourceCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: directory, encoding: "utf8" }).trim();
+		const releaseDirectory = path.join(directory, "releases/0.6.0/assembled");
+		const assets = [] as Array<{ file: string; sizeBytes: number; sha256: string; role: string }>;
+		for (const [file, role] of [
+			["targets/linux-x64/artifacts/OpenAMX-Desktop-0.6.0-linux-x64.tar.gz", "installer"],
+			["extension/artifacts/openamx-vscode-0.6.0.vsix", "vscode-extension"],
+		]) {
+			let bytes = Buffer.from(`asset bytes ${path.basename(file)}`);
+			if (role === "vscode-extension") {
+				const zip = new JSZip();
+				for (const item of ["[Content_Types].xml", "extension.vsixmanifest", "extension/amx.tmGrammar.json", "extension/language-configuration.json", "extension/readme.md", "extension/dist/extension.js", "extension/LICENSE.md", "extension/NOTICE"]) zip.file(item, "test fixture only");
+				zip.file("extension/package.json", JSON.stringify({ name: "openamx-vscode", version: "0.6.0", publisher: "EngineersTools", main: "./dist/extension.js", license: "SEE LICENSE IN LICENSE.md" }));
+				bytes = Buffer.from(await zip.generateAsync({ type: "uint8array" }));
+			}
+			await mkdir(path.dirname(path.join(releaseDirectory, file)), { recursive: true });
+			await writeFile(path.join(releaseDirectory, file), bytes);
+			assets.push({ file, sizeBytes: bytes.byteLength, sha256: bundleHashForTest(bytes), role });
+		}
+		const targets = ["linux-x64", "linux-arm64", "windows-x64", "windows-arm64", "macos-x64", "macos-arm64"].map((target) => ({
+			target,
+			status: target === "linux-x64" ? "available" : "missing",
+			supportStatus: target === "linux-x64" ? "available" : "unverified",
+		}));
+		const manifest = {
+			schemaVersion: 1, product: "OpenAMX", version: "0.6.0", sourceCommit,
+			application: { name: "OpenAMX Desktop", identifier: "dev.openamx.desktop" },
+			extension: { name: "openamx-vscode", publisher: "EngineersTools", platformNeutral: true, licenseReadiness: { status: "ready", blockers: [] } },
+			targets, verification: { buildPackage: "passed", extensionManualInstallLaunch: "not_performed" }, assets,
+		};
+		await writeFile(path.join(releaseDirectory, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+		const manifestHash = bundleHashForTest(await readFile(path.join(releaseDirectory, "manifest.json")));
+		await writeFile(path.join(releaseDirectory, "SHA256SUMS"), `${manifestHash}  manifest.json\n${assets.map((asset) => `${asset.sha256}  ${asset.file}`).join("\n")}\n`);
+		await writeFile(path.join(releaseDirectory, "COMPLETE"), `${sourceCommit}\n`);
+		return { directory, releaseDirectory, sourceCommit, assets };
+	}
+	async function mockedReadyVerification(state: { sourceCommit: string }): Promise<ReleaseVerification> {
+		const manifest = JSON.parse(await readFile(path.join(state.directory, "releases/0.6.0/assembled/manifest.json"), "utf8"));
+		return {
+			version: "0.6.0", sourceCommit: state.sourceCommit, integrity: "passed", licenseReadiness: "ready",
+			packageStatus: "passed", manualInstallLaunchStatus: "not_performed", desktopManualInstallLaunchStatus: "not_performed",
+			targets: manifest.targets.map((target: ReleaseVerification["targets"][number]) => ({ ...target, manualInstallLaunchStatus: "not_performed" })),
+			blockers: [],
+		};
+	}
+	function bundleHashForTest(bytes: Uint8Array): string {
+		return createHash("sha256").update(bytes).digest("hex");
+	}
+	function mockClient(sourceCommit: string, options: { tagCommit?: string | null; existingRelease?: Release | null; failUploadAt?: number; conflictingAsset?: string } = {}) {
+		let release = options.existingRelease ?? null;
+		let resolvedTag = options.tagCommit ?? null;
+		const remote = new Map<string, Asset>();
+		const calls: string[] = [];
+		let uploadCount = 0;
+		if (options.conflictingAsset) remote.set(options.conflictingAsset, { name: options.conflictingAsset, size: 5, url: `mock://${options.conflictingAsset}`, bytes: Buffer.from("other") });
+		const client: GitHubReleaseClient = {
+			getTagCommit: async (_repository, tag) => { calls.push(`tag:${tag}`); return resolvedTag; },
+			commitExists: async (_repository, commit) => commit === sourceCommit,
+			getReleaseByTag: async (_repository, tag) => { calls.push(`release:${tag}`); return release; },
+			createDraft: async (_repository, input) => {
+				calls.push("create-draft");
+				resolvedTag = input.targetCommit;
+				release = { id: 1, tag_name: input.tagName, target_commitish: input.targetCommit, draft: true, upload_url: "mock://upload", assets_url: "mock://assets" };
+				return release;
+			},
+			listAssets: async () => [...remote.values()],
+			downloadAsset: async (_repository, asset) => remote.get(asset.name)!.bytes,
+			uploadAsset: async (_repository, _release, name, bytes) => {
+				uploadCount++;
+				if (options.failUploadAt === uploadCount) throw new Error("interrupted upload");
+				if (remote.has(name)) throw new Error(`duplicate remote ${name}`);
+				remote.set(name, { name, size: bytes.byteLength, url: `mock://${name}`, bytes: Buffer.from(bytes) });
+			},
+		};
+		return { client, calls, remote };
+	}
+	const existingDraft = (sourceCommit: string): Release => ({ id: 1, tag_name: "v0.6.0", target_commitish: sourceCommit, draft: true, upload_url: "mock://upload", assets_url: "mock://assets" });
+
+	test("requires partial acknowledgement before remote mutation and creates a draft", async () => {
+		const state = await publishFixture();
+		const mock = mockClient(state.sourceCommit);
+		await expect(publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, client: mock.client, verify: () => mockedReadyVerification(state) })).rejects.toThrow("--allow-partial");
+		expect(mock.calls).toEqual([]);
+		const result = await publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: mock.client, verify: () => mockedReadyVerification(state) });
+		expect(result).toMatchObject({ repository: "NovaEnergyConsulting/openamx", tag: "v0.6.0", draft: true });
+		expect(result.uploaded).toHaveLength(2);
+		expect(result.partialTargets).toContain("windows-x64:missing");
+		expect(mock.calls).toContain("create-draft");
+	});
+
+	test("rejects mismatched tags, non-draft releases, and conflicting assets", async () => {
+		const state = await publishFixture();
+		const mismatch = mockClient(state.sourceCommit, { tagCommit: "a".repeat(40) });
+		await expect(publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: mismatch.client, verify: () => mockedReadyVerification(state) })).rejects.toThrow("tags are never moved");
+		const conflict = mockClient(state.sourceCommit, { tagCommit: state.sourceCommit, existingRelease: existingDraft(state.sourceCommit), conflictingAsset: "OpenAMX-Desktop-0.6.0-linux-x64.tar.gz" });
+		await expect(publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: conflict.client, verify: () => mockedReadyVerification(state) })).rejects.toThrow("Remote asset conflict");
+		const published = mockClient(state.sourceCommit, { tagCommit: state.sourceCommit, existingRelease: { ...existingDraft(state.sourceCommit), draft: false } });
+		await expect(publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: published.client, verify: () => mockedReadyVerification(state) })).rejects.toThrow("not an unpublished draft");
+	});
+
+	test("confirms identical retries and adds later same-revision assets without replacement", async () => {
+		const state = await publishFixture();
+		const first = mockClient(state.sourceCommit);
+		const published = await publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: first.client, verify: () => mockedReadyVerification(state) });
+		expect(published.uploaded).toHaveLength(2);
+		const retry = mockClient(state.sourceCommit, { tagCommit: state.sourceCommit, existingRelease: existingDraft(state.sourceCommit) });
+		for (const [name, asset] of first.remote) retry.remote.set(name, asset);
+		const retried = await publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: retry.client, verify: () => mockedReadyVerification(state) });
+		expect(retried.confirmed).toHaveLength(2);
+		const extraName = "OpenAMX-Desktop-0.6.0-windows-x64.zip";
+		const extraFile = `targets/windows-x64/artifacts/${extraName}`;
+		const extraBytes = Buffer.from("later same revision target");
+		await mkdir(path.dirname(path.join(state.releaseDirectory, extraFile)), { recursive: true });
+		await writeFile(path.join(state.releaseDirectory, extraFile), extraBytes);
+		const manifestPath = path.join(state.releaseDirectory, "manifest.json");
+		const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+		manifest.assets.push({ file: extraFile, sizeBytes: extraBytes.byteLength, sha256: bundleHashForTest(extraBytes), role: "installer", target: "windows-x64" });
+		manifest.targets.find((target: { target: string }) => target.target === "windows-x64").status = "available";
+		await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+		await writeFile(path.join(state.releaseDirectory, "SHA256SUMS"), `${bundleHashForTest(await readFile(manifestPath))}  manifest.json\n${manifest.assets.map((asset: { file: string; sha256: string }) => `${asset.sha256}  ${asset.file}`).join("\n")}\n`);
+		const addMock = mockClient(state.sourceCommit, { tagCommit: state.sourceCommit, existingRelease: existingDraft(state.sourceCommit) });
+		for (const [name, asset] of first.remote) addMock.remote.set(name, asset);
+		const added = await publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: addMock.client, verify: () => mockedReadyVerification(state) });
+		expect(added.confirmed).toHaveLength(2);
+		expect(added.uploaded).toContain(extraName);
+	});
+
+	test("keeps interrupted uploads retryable and redacts authentication failures", async () => {
+		const state = await publishFixture();
+		const interrupted = mockClient(state.sourceCommit, { failUploadAt: 2 });
+		await expect(publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: interrupted.client, verify: () => mockedReadyVerification(state) })).rejects.toThrow("interrupted upload");
+		expect(interrupted.calls).toContain("create-draft");
+		const secret = "never-print-this-token";
+		const authClient = await createGitHubReleaseClient({ token: secret, fetchImplementation: async () => new Response("secret-bearing body", { status: 401 }) });
+		await expect(authClient.getTagCommit("NovaEnergyConsulting/openamx", "v0.6.0")).rejects.toThrow("authentication or authorization failed");
+		await expect(authClient.getTagCommit("NovaEnergyConsulting/openamx", "v0.6.0")).rejects.not.toThrow(secret);
 	});
 });
