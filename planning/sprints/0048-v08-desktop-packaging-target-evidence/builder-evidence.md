@@ -1,6 +1,6 @@
 # Sprint 048 Builder Evidence
 
-Date: 2026-10-03
+Date: 2026-10-03; updated 2026-10-04
 
 ## Outcome
 
@@ -8,7 +8,7 @@ Date: 2026-10-03
 
 The disposition and sequencing authorization are recorded in `planning/state.md`, `planning/decisions.md`, `planning/questions.md`, and Sprint 047 Builder evidence. Sprint 048 requirements, blueprint, and acceptance criteria remain the implementation contract.
 
-Implemented `release:desktop`, clean-source rejection, isolated native packaging from a detached worktree, fresh target staging, actual installer/app/sidecar inspection, app-resource validation, SHA-256 target bundles, and separate package/manual-install statuses. The clean committed `0449fe4` build created `releases/0.6.0/linux-x64`, but native installation then failed: Electrobun's embedded installer rejects the PAX/GNU LongLink needed for a 108-character `glibconfig.h` path in the packaged libvips development headers. Sprint 048 is not complete. Commit `0c05a42` omits that unused header and rejects overlong app-payload paths before bundle promotion; a new version/target build and install test are still required.
+Implemented `release:desktop`, clean-source rejection, isolated native packaging from a detached worktree, fresh target staging, actual installer/app/sidecar inspection, app-resource validation, SHA-256 target bundles, and separate package/manual-install statuses. The 0.6.0 installer failed on a GNU LongLink path; commit `0c05a42` removes the unused GLib header and rejects overlong payload paths. A complete 0.8.0 Linux x64 bundle is retained with verified checksums. By explicit Lead Developer disposition below, Sprint 048 is **COMPLETE / APPROVED** based on the report that the latest correct installer launches and works. That manual result is Lead Developer-reported; remote targets remain unverified.
 
 ## Worktree and Scope Boundary
 
@@ -21,6 +21,8 @@ After the operator cleaned the earlier writing-file change, `bun run release:des
 The Lead Developer explicitly authorized `0.8.0` for the next desktop build. `bun run release:prepare 0.8.0` synchronized root, desktop, and extension manifests to `0.8.0`; `bun run release:check` passed with consistent versions/identity and Linux x64 host/packaging available. The five other target architectures remain unverified.
 
 Before the 0.8.0 authorization, a `release:desktop` retry reached the stale `.linux-x64.lock` left by an earlier interrupted attempt. The detached source worktree was verified clean at `0449fe4`, with no active build process or accepted target. That abandoned worktree and lock were removed, while its empty staging directory was retained. The retry built `releases/0.6.0/linux-x64` and verified all bundle checksums, but the native installer failed on a PAX LongLink. Afterward, the Lead Developer authorized `0.8.0`; the manifests were prepared, and `release:desktop` correctly refused because the 0.8.0 manifest changes remain uncommitted. The USTAR fix is committed as `0c05a42`. The retained 0.6.0 bundle will not be overwritten.
+
+The committed build `8f6aaa0e32f2b6e1031be7eb53ab19065a94302a` produced `releases/0.8.0/linux-x64`. Its installer is 45,705,573 bytes with SHA-256 `e1e1c418c1831a416ed91aa50d4fda01462dbdb2bb482a38360ec9c2dd23ef27`; update metadata and app payload hashes are in `manifest.json`. `sha256sum -c SHA256SUMS` passed for every bundle file. The bundle's build-time evidence remains unchanged and still records manual install as not performed by the Builder.
 
 ## Implementation and Verification
 
@@ -77,13 +79,8 @@ No transferable target bundle was emitted from the active tree. The above archiv
 - `ldd` on installed Linux components showed system WebKitGTK `libwebkit2gtk-4.1.so.0`, JavaScriptCoreGTK 4.1, GTK 3, GLib, GStreamer/media, GL/EGL/Wayland/X11 and related libraries. The installed host already supplied these; no minimum OS baseline is inferred.
 - Conservative `uninstall --quiet` removed the installed app and shortcut state while preserving `/tmp/openamx-sprint048-install.texg4C/Documents/user-data-sentinel.txt`. A WebKit cookie DB remained under the app's dev cache; no project document was placed in an app-managed directory. The standard path's full user-data preservation behavior remains an explicit follow-up check.
 - Exact uninstall command: `env PATH=/usr/bin:/bin HOME=<isolated-home> XDG_DATA_HOME=<isolated-home>/.local/share XDG_CACHE_HOME=<isolated-home>/.cache XDG_STATE_HOME=<isolated-home>/.local/state <isolated-home>/.local/share/dev.openamx.desktop/stable/uninstall --quiet`.
-- Linux x64 installer build feasibility is confirmed, but the emitted 0.6.0 installer failed installation and is not install-accepted. The USTAR-compatible source fix is uncommitted and a post-fix installer/install/launch/preview test remains pending. Linux arm64, Windows x64/arm64, and macOS x64/arm64 remain unverified. No target is classified unsupported.
+- The 0.6.0 installer failed installation and is retained as historical failed output. The 0.8.0 bundle has verified checksums. The Lead Developer reports the latest correct installer was installed and the application launches and works correctly; exact host/session, sample-preview steps, close/uninstall, and user-data results were not supplied. Linux arm64, Windows x64/arm64, and macOS x64/arm64 remain unverified. No target is classified unsupported.
 
-## Historical Blocker and Resume Gate
+## Lead Developer Disposition (2026-10-04)
 
-The gate was previously unresolved and is now resolved by the Lead Developer direction above. Before the corrected packaging can be accepted, still require:
-
-- Commit the USTAR-compatible source fix and use a new version (or obtain explicit approval before replacing the retained 0.6.0 target output).
-- Build a fresh bundle, verify its checksums and resources, then repeat isolated install/launch/sample-preview/close/uninstall testing.
-
-Do not treat the Sprint 047 disposition or 0.6.0 automated package checks as evidence for install acceptance, or as a waiver of Sprint 048 criteria.
+**Disposition: COMPLETE / APPROVED.** The Lead Developer reports using the latest correct installer and confirms the application launches and works correctly. This closes Sprint 048 by explicit direction. Exact OS/session, install procedure, sample-preview interactions, close/uninstall, and user-data observations were not provided; none are inferred. The bundle's `manualInstallLaunch: not_performed` field remains the accurate Builder-time record, and this later Lead Developer acceptance is recorded separately. Remote targets and runtime self-containment remain unverified.

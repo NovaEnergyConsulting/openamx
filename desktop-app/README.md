@@ -85,4 +85,4 @@ Project defaults live in `.openamx/project.json`; machine-local overrides live i
 
 ## Evidence and Limits
 
-Sprint 043 Builder evidence and final disposition are in [the sprint record](../planning/sprints/0043-v06-onboarding-ux-acceptance-release-record/builder-evidence.md). Sprint 048 Linux installer feasibility and current target evidence are in [the Sprint 048 record](../planning/sprints/0048-v08-desktop-packaging-target-evidence/builder-evidence.md). A package build does not certify native preview interaction; macOS, Windows, Linux arm64, and post-fix stable installation remain unverified on this host.
+Sprint 043 Builder evidence and final disposition are in [the sprint record](../planning/sprints/0043-v06-onboarding-ux-acceptance-release-record/builder-evidence.md). Sprint 048 Linux installer and target evidence are in [the Sprint 048 record](../planning/sprints/0048-v08-desktop-packaging-target-evidence/builder-evidence.md). The Lead Developer reports the latest correct Linux x64 installer launches and works; exact test details were not recorded. Linux arm64, Windows, and macOS remain unverified.
