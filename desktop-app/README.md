@@ -15,6 +15,12 @@ bunx vite build
 
 The root `package.json` is the release version authority. Native desktop release builds run only from a clean committed clone on the native target host; they never repair versions or build from an existing development output.
 
+### Windows Sharp Runtime Bugfix (Out of Sprint)
+
+The 2026-10-04 bugfix corrects native Sharp staging and release inspection on Windows. Sharp 0.35.5 ships its native binding and libvips DLLs together in `@img/sharp-win32-<architecture>`; it does not declare a separate Windows libvips runtime in its optional dependencies. Linux (including musl) and macOS still require their separate `@img/sharp-libvips-<target>` packages. Install dependencies on the native host rather than reusing Linux `node_modules` on Windows.
+
+From the repository root, `bun run run:app` builds and launches the development application. `bun run --cwd desktop-app build` builds a local stable installer for testing the working tree. For a retained Windows release bundle, review and commit the fix first, then follow `release:check` and `release:desktop` below. Automated package checks do not establish manual installation or launch acceptance.
+
 ## Native Release Build
 
 Install Bun, Node.js, Git, and Hutch on the build host. On Linux, GNU `tar` with zstd support is also used for archive inspection. The installed application does not require Bun, Node.js, Git, or Hutch, but it does use the host's native webview and system libraries.

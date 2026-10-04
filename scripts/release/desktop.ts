@@ -114,7 +114,8 @@ export async function verifyBuiltApp(buildDirectory: string, expected: { name: s
 	const sharpTarget = `${expected.nativeOs === "mac" ? "darwin" : expected.nativeOs === "win" ? "win32" : "linux"}-${expected.architecture}`;
 	const sharpResourcePaths = (paths: string[]) => {
 		const binding = paths.some((file) => file.includes(`/node_modules/@img/sharp-${sharpTarget}/`) && file.endsWith(".node"));
-		const libvips = paths.some((file) => file.includes(`/node_modules/@img/sharp-libvips-${sharpTarget}/lib/`) && /\.(?:so(?:\..+)?|dylib|dll)$/i.test(file));
+		const libvipsPackage = expected.nativeOs === "win" ? `sharp-${sharpTarget}` : `sharp-libvips-${sharpTarget}`;
+		const libvips = paths.some((file) => file.includes(`/node_modules/@img/${libvipsPackage}/lib/`) && /\/(?:lib)?vips[^/]*\.(?:so(?:\..+)?|dylib|dll)$/i.test(file));
 		return binding && libvips;
 	};
 	const versionPath = files.find((file) => file.endsWith("/Resources/version.json"));

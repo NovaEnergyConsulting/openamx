@@ -1,6 +1,7 @@
 import { cp, mkdir, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { sharpRuntimePackages } from "./sharp-runtime-packages";
 
 const desktopDirectory = path.resolve(import.meta.dir, "..");
 const rootNodeModules = path.resolve(desktopDirectory, "../node_modules");
@@ -15,12 +16,11 @@ const platform = process.platform === "darwin" ? "darwin" : process.platform ===
 const runtimeReport = process.report?.getReport() as { header?: { glibcVersionRuntime?: string } } | undefined;
 const libc = platform === "linux" && !runtimeReport?.header?.glibcVersionRuntime ? "musl" : "";
 const target = `${platform}${libc}-${architecture}`;
-const packages = [`@img/sharp-${target}`, `@img/sharp-libvips-${target}`];
+const packages = sharpRuntimePackages(target, packageManifest.optionalDependencies);
 const nativeRuntimeDirectory = path.join(desktopDirectory, "dist/native-sharp");
 
 await rm(nativeRuntimeDirectory, { recursive: true, force: true });
 for (const packageName of packages) {
-	if (!packageManifest.optionalDependencies?.[packageName]) throw new Error(`sharp does not declare native runtime ${packageName}.`);
 	const packageDirectory = path.join(rootNodeModules, packageName);
 	if (!existsSync(packageDirectory)) throw new Error(`The host-specific sharp runtime ${packageName} is not installed.`);
 	const destination = path.join(nativeRuntimeDirectory, packageName);

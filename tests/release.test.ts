@@ -255,8 +255,8 @@ describe("desktop release packaging", () => {
 		expect(binaryArchitecture(macho(0x0100000c))).toBe("arm64");
 	});
 
-	test("inspects package identity, version, runtime, worker, and web resources", async () => {
-		const directory = path.join(await fixture(), "stable-linux-x64");
+	test.each(["linux", "win"] as const)("inspects %s package identity, version, runtime, worker, and web resources", async (nativeOs) => {
+		const directory = path.join(await fixture(), `stable-${nativeOs}-x64`);
 		const resources = path.join(directory, "OpenAMXDesktop/Resources");
 		const application = path.join(resources, "app");
 		for (const relativePath of [
@@ -274,13 +274,21 @@ describe("desktop release packaging", () => {
 			["build.json", { mainProcess: "bun", electrobunVersion: "2.0.1", runtimeVersions: { bun: "1.4.0" } }],
 		] as const;
 		for (const [fileName, content] of metadata) await writeFile(path.join(resources, fileName), JSON.stringify(content));
-		await addSharpRuntime(resources);
+		if (nativeOs === "win") {
+			const sharpLibrary = path.join(application, "bun/node_modules/@img/sharp-win32-x64/lib");
+			await mkdir(sharpLibrary, { recursive: true });
+			await writeFile(path.join(sharpLibrary, "sharp-win32-x64-0.35.5.node"), "native binding");
+			await writeFile(path.join(sharpLibrary, "libvips-42.dll"), "libvips");
+			await writeFile(path.join(sharpLibrary, "libvips-cpp-8.18.7.dll"), "libvips C++");
+		} else {
+			await addSharpRuntime(resources);
+		}
 		const expected = {
 			name: "OpenAMX Desktop",
 			identifier: "dev.openamx.desktop",
 			version: "0.6.0",
 			architecture: "x64",
-			nativeOs: "linux" as const,
+			nativeOs,
 			electrobunVersion: "2.0.1",
 		};
 		await expect(verifyBuiltApp(directory, expected)).rejects.toThrow("Roboto-Regular.ttf");
@@ -289,12 +297,27 @@ describe("desktop release packaging", () => {
 		for (const font of ["Roboto-Regular.ttf", "Roboto-Medium.ttf", "Roboto-Italic.ttf", "Roboto-MediumItalic.ttf"]) {
 			await writeFile(path.join(pdfFontsDirectory, font), "pdf font fixture");
 		}
-		const runtime = path.join(directory, "OpenAMXDesktop/bin/bun");
+		const runtime = path.join(directory, `OpenAMXDesktop/bin/bun${nativeOs === "win" ? ".exe" : ""}`);
 		await mkdir(path.dirname(runtime), { recursive: true });
-		await writeFile(runtime, x64ElfRuntime());
-		for (const library of ["libNativeWrapper.so", "libElectrobunCore.so"]) await writeFile(path.join(directory, "OpenAMXDesktop/bin", library), "native library");
-		for (const binary of ["launcher", "libasar.so", "zig-zstd", "bspatch"]) await writeFile(path.join(directory, "OpenAMXDesktop/bin", binary), "runtime support");
+		const runtimeHeader = nativeOs === "win" ? Buffer.alloc(70) : x64ElfRuntime();
+		if (nativeOs === "win") {
+			runtimeHeader.set([0x4d, 0x5a], 0);
+			runtimeHeader[0x3c] = 64;
+			runtimeHeader.set([0x64, 0x86], 68);
+		}
+		await writeFile(runtime, runtimeHeader);
+		const supportFiles = nativeOs === "win"
+			? ["NativeWrapper.dll", "ElectrobunCore.dll", "asar.dll", "launcher.exe", "zig-zstd.exe", "bspatch.exe"]
+			: ["libNativeWrapper.so", "libElectrobunCore.so", "libasar.so", "launcher", "zig-zstd", "bspatch"];
+		for (const binary of supportFiles) await writeFile(path.join(directory, "OpenAMXDesktop/bin", binary), "runtime support");
 		await expect(verifyBuiltApp(directory, expected)).resolves.toEqual({ hash: "abc", runtimeVersions: { bun: "1.4.0" } });
+		if (nativeOs === "win") {
+			const sharpLibrary = path.join(application, "bun/node_modules/@img/sharp-win32-x64/lib");
+			await rm(path.join(sharpLibrary, "libvips-42.dll"));
+			await rm(path.join(sharpLibrary, "libvips-cpp-8.18.7.dll"));
+			await writeFile(path.join(sharpLibrary, "unrelated.dll"), "not libvips");
+			await expect(verifyBuiltApp(directory, expected)).rejects.toThrow("native sharp runtime for win32-x64");
+		}
 	});
 
 	test("rejects missing worker resources and mismatched embedded versions", async () => {
