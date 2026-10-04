@@ -8,13 +8,19 @@ Date: 2026-10-03
 
 The disposition and sequencing authorization are recorded in `planning/state.md`, `planning/decisions.md`, `planning/questions.md`, and Sprint 047 Builder evidence. Sprint 048 requirements, blueprint, and acceptance criteria remain the implementation contract.
 
-Implemented `release:desktop`, clean-source rejection, isolated native packaging from a detached worktree, fresh target staging, actual installer/app/sidecar inspection, app-resource validation, SHA-256 target bundles, and separate package/manual-install statuses. The clean committed `0449fe4` build created `releases/0.6.0/linux-x64`, but native installation then failed: Electrobun's embedded installer rejects the PAX/GNU LongLink needed for a 108-character `glibconfig.h` path in the packaged libvips development headers. Sprint 048 is not complete. The source now omits that unused header and rejects overlong app-payload paths before bundle promotion; this fix is uncommitted and still needs a new version/target build and install test.
+Implemented `release:desktop`, clean-source rejection, isolated native packaging from a detached worktree, fresh target staging, actual installer/app/sidecar inspection, app-resource validation, SHA-256 target bundles, and separate package/manual-install statuses. The clean committed `0449fe4` build created `releases/0.6.0/linux-x64`, but native installation then failed: Electrobun's embedded installer rejects the PAX/GNU LongLink needed for a 108-character `glibconfig.h` path in the packaged libvips development headers. Sprint 048 is not complete. Commit `0c05a42` omits that unused header and rejects overlong app-payload paths before bundle promotion; a new version/target build and install test are still required.
 
 ## Worktree and Scope Boundary
 
 At initial inspection, `git status --short --branch` reported branch `feat/create-v0.8` and pre-existing planning edits plus the untracked Sprint 048 preparation directory. The final status also includes pre-existing `planning/ideas/amx-language-features.md` changes and untracked `writing/2026-10-03_Computable_Documents.md`; neither was touched. This session changed only the release implementation, desktop build resources, tests, README and Sprint 047/048 planning/evidence files. No files were committed.
 
-After the operator cleaned the earlier writing-file change, `bun run release:desktop` passed its clean-source gate and created the 0.6.0 Linux x64 bundle. Its install test failed as recorded below. The latest USTAR-compatibility correction changes `scripts/copy-sharp-runtime.ts`, `scripts/release/desktop.ts`, and `tests/release.test.ts`, so the current tree is dirty and must not be used for a release build until those changes are committed.
+After the operator cleaned the earlier writing-file change, `bun run release:desktop` passed its clean-source gate and created the 0.6.0 Linux x64 bundle. Its install test failed as recorded below. Commit `0c05a42` contains the USTAR compatibility correction. The current dirty changes are the 0.8.0 manifests and related planning/test updates; release builds must wait until they are committed.
+
+## 0.8.0 Authorization and Build Gate (2026-10-04)
+
+The Lead Developer explicitly authorized `0.8.0` for the next desktop build. `bun run release:prepare 0.8.0` synchronized root, desktop, and extension manifests to `0.8.0`; `bun run release:check` passed with consistent versions/identity and Linux x64 host/packaging available. The five other target architectures remain unverified.
+
+Before the 0.8.0 authorization, a `release:desktop` retry reached the stale `.linux-x64.lock` left by an earlier interrupted attempt. The detached source worktree was verified clean at `0449fe4`, with no active build process or accepted target. That abandoned worktree and lock were removed, while its empty staging directory was retained. The retry built `releases/0.6.0/linux-x64` and verified all bundle checksums, but the native installer failed on a PAX LongLink. Afterward, the Lead Developer authorized `0.8.0`; the manifests were prepared, and `release:desktop` correctly refused because the 0.8.0 manifest changes remain uncommitted. The USTAR fix is committed as `0c05a42`. The retained 0.6.0 bundle will not be overwritten.
 
 ## Implementation and Verification
 

@@ -302,6 +302,7 @@ The canonical examples are:
 
 - [Hello OpenAMX](examples/hello-world.amx), with generated
   [HTML](examples/hello-world.html), introduces executable fences and score 15.
+- [Kitchen Sink](examples/kitchen-sink.amx), contains a comprehensive explanation of every construct in the AMX framework.
 - [Power Transformer Failure Mode Analysis](examples/transformer-strategy.amx)
   computes mode scores `[24, 18, 27]`, initial aggregate 69, then adjusted
   aggregate 60. Its [HTML](examples/transformer-strategy.html) shows the final

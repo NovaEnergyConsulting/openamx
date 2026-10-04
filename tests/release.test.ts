@@ -106,8 +106,9 @@ describe("release preflight", () => {
 		}
 	});
 
-	test("derives Electrobun app version from desktop package metadata", () => {
-		expect(appMetadata).toEqual({ name: "OpenAMX Desktop", identifier: "dev.openamx.desktop", version: "0.6.0" });
+	test("derives Electrobun app version from desktop package metadata", async () => {
+		const desktopManifest = JSON.parse(await readFile(path.resolve(import.meta.dir, "../desktop-app/package.json"), "utf8")) as { version: string };
+		expect(appMetadata).toEqual({ name: "OpenAMX Desktop", identifier: "dev.openamx.desktop", version: desktopManifest.version });
 	});
 
 	test("keeps unavailable host tools separate from unsupported host matrices", async () => {
