@@ -8,19 +8,19 @@ Date: 2026-10-03
 
 The disposition and sequencing authorization are recorded in `planning/state.md`, `planning/decisions.md`, `planning/questions.md`, and Sprint 047 Builder evidence. Sprint 048 requirements, blueprint, and acceptance criteria remain the implementation contract.
 
-Implemented `release:desktop`, clean-source rejection, isolated native packaging from a detached worktree, fresh target staging, actual installer/app/sidecar inspection, app-resource validation, SHA-256 target bundles, and separate package/manual-install statuses. Installer feasibility is confirmed for current-host Linux x64 using existing Hutch/Electrobun output. Sprint 048 is not complete: a post-`sharp`-fix stable package has not been built because the active worktree is dirty; native preview interaction remains unverified; the remote target matrix remains unverified.
+Implemented `release:desktop`, clean-source rejection, isolated native packaging from a detached worktree, fresh target staging, actual installer/app/sidecar inspection, app-resource validation, SHA-256 target bundles, and separate package/manual-install statuses. The clean committed `0449fe4` build created `releases/0.6.0/linux-x64`, but native installation then failed: Electrobun's embedded installer rejects the PAX/GNU LongLink needed for a 108-character `glibconfig.h` path in the packaged libvips development headers. Sprint 048 is not complete. The source now omits that unused header and rejects overlong app-payload paths before bundle promotion; this fix is uncommitted and still needs a new version/target build and install test.
 
 ## Worktree and Scope Boundary
 
 At initial inspection, `git status --short --branch` reported branch `feat/create-v0.8` and pre-existing planning edits plus the untracked Sprint 048 preparation directory. The final status also includes pre-existing `planning/ideas/amx-language-features.md` changes and untracked `writing/2026-10-03_Computable_Documents.md`; neither was touched. This session changed only the release implementation, desktop build resources, tests, README and Sprint 047/048 planning/evidence files. No files were committed.
 
-The active working tree is dirty. `bun run release:desktop` was run from the repository root and exited 1 with `Release builds require a clean committed source tree`; it created no target bundle. The clean committed feasibility build below predates the resource-correction changes and is not presented as a release bundle for current source.
+After the operator cleaned the earlier writing-file change, `bun run release:desktop` passed its clean-source gate and created the 0.6.0 Linux x64 bundle. Its install test failed as recorded below. The latest USTAR-compatibility correction changes `scripts/copy-sharp-runtime.ts`, `scripts/release/desktop.ts`, and `tests/release.test.ts`, so the current tree is dirty and must not be used for a release build until those changes are committed.
 
 ## Implementation and Verification
 
 | Command/experiment | Result |
 | --- | --- |
-| `bun run release:check` | Pass, read-only: versions consistent at `0.6.0`; identity valid (`OpenAMX Desktop`, `dev.openamx.desktop`); Linux x64 available; Bun `1.4.2`, Hutch `0.27.1`, Node `v24.14.1`, vsce `3.9.2` available; five other targets unverified. |
+| `bun run release:check` | Pass, read-only: versions consistent at `0.6.0`; identity valid (`OpenAMX Desktop`, `dev.openamx.desktop`); Linux x64 host/packaging available; Bun `1.4.2`, Hutch `0.27.1`, Node `v24.14.1`, vsce `3.9.2` available; five other targets unverified. |
 | Hutch/Electrobun docs: `https://framework.blackboard.sh/electrobun/guides/bundling-and-distribution/` and CLI/build configuration docs | Existing stable build emits Linux Setup `.tar.gz`, Windows Setup `.zip`, and macOS `.dmg`; Hutch builds host-native and does not cross-compile. Used only to bound format selection; actual build below confirms Linux. |
 | `git worktree add --detach /tmp/openamx-sprint048-probe-91682f1 91682f150a491aee7ff3c0c8320555b6c594d449` | Pass; isolated clean committed source at `91682f150a491aee7ff3c0c8320555b6c594d449`. |
 | In the detached worktree: `bun install --frozen-lockfile`; `cd desktop-app && bun install --frozen-lockfile && bun run build` | First build failed because Vite could not resolve root dependency `csv-parse/sync`. After installing the root frozen lockfile, the same desktop stable build passed. This evidence established that both lockfiles are required. |
@@ -37,8 +37,15 @@ The active working tree is dirty. `bun run release:desktop` was run from the rep
 | `cd desktop-app && hutch electrobun build --env=dev` | Pass; app bundle contains `Resources/app/bun/node_modules/@img/sharp-linux-x64` and `sharp-libvips-linux-x64`. Dev output is not release evidence. |
 | `bunx tsc --noEmit --target ES2022 --module ESNext --moduleResolution bundler --types bun --skipLibCheck ../scripts/release/desktop.ts` from `desktop-app/` | Pass after latest inspector changes. |
 | `bun run release:check` | Pass, read-only; consistent `0.6.0`, valid identity, Linux x64 host/packaging available, five other targets unverified. Packaging status does not certify installation/preview or bypass the clean-source gate. |
-| `bun run release:desktop` | Expected refusal, exit 1: active worktree is dirty. No `releases/` output or target lock was created. |
+| First `bun run release:desktop` after the operator cleaned the source worktree | Pass for automated packaging; emitted a complete checksummed `releases/0.6.0/linux-x64` bundle from commit `0449fe474e408b25a176e58f1b00ed2c5b432723`. Subsequent isolated installer test failed with `TarUnsupportedFileType` on the PAX LongLink documented below. |
+| Later `bun run release:desktop` with the USTAR source fix uncommitted | Expected refusal, exit 1: clean committed source guard. No second bundle was created and the existing 0.6.0 target was preserved. |
 | `git diff --check` | Pass across final tracked changes. |
+
+The successful `release:desktop` run emitted `releases/0.6.0/linux-x64` from commit `0449fe474e408b25a176e58f1b00ed2c5b432723`. `sha256sum -c releases/0.6.0/linux-x64/SHA256SUMS` passed for manifest, evidence, installer, update JSON, and app payload. The subsequent isolated native install failed during Electrobun's self-extractor with `TarUnsupportedFileType`. Raw tar inspection found one GNU LongLink (`././@LongLink`) for `OpenAMXDesktop/Resources/app/bun/node_modules/@img/sharp-libvips-linux-x64/lib/glib-2.0/include/glibconfig.h` (108 characters). Electrobun's bundled installer reports USTAR support; the GLib header is a build-time header and not needed at runtime. The source fix excludes `lib/glib-2.0` from the copied sharp runtime and package inspection now rejects any app-payload member path longer than 100 characters. Focused release tests pass after this change; it has not yet been packaged from a committed revision.
+
+### 0.6.0 Target Bundle
+
+The emitted bundle is retained and was not overwritten. `sha256sum -c releases/0.6.0/linux-x64/SHA256SUMS` passed for manifest, evidence, installer, update JSON, and app payload. The installer artifact is `OpenAMX-Desktop-0.6.0-linux-x64.tar.gz` (45,708,363 bytes; SHA-256 `8fa4ae5fc62c07c442661e7f8bfd004d8c7d36a949b596925fc99493c06f50fc`). Update metadata is 208 bytes (SHA-256 `0b423a4dc213da5599424e8786e93f172c4a1820715ad93c0e9f181e3d98fccc`); app payload is 44,156,466 bytes (SHA-256 `5f715e9da5e936ce84c97f180077febf6df040dbcc15766a8afcc7d240a93999`). The package/build manifest still truthfully records automated build checks as passed; the later native install failure is recorded separately here. Do not treat this 0.6.0 bundle as install-accepted.
 
 ### Clean Feasibility Artifacts
 
@@ -57,18 +64,20 @@ No transferable target bundle was emitted from the active tree. The above archiv
 - Host: Omarchy Linux `4.0.4`, x86_64, kernel `7.2.5-3-omarchy`; Bun `1.4.2`; Node `v24.14.1`; Hutch `0.27.1`; Electrobun `2.0.1`; packaged Bun runtime `1.4.0`.
 - Installed the clean probe `.tar.gz` under isolated HOME `/tmp/openamx-sprint048-install.texg4C` using `PATH=/usr/bin:/bin`; installer placed the app under `.local/share/dev.openamx.desktop/stable/app`, created a desktop entry, and installed a standalone uninstaller. No user home outside this temporary root was changed.
 - Exact installation sequence: `tar -xzf linux-x64-OpenAMXDesktop-Setup.tar.gz -C <isolated-home>/package`, then from that directory `env PATH=/usr/bin:/bin HOME=<isolated-home> XDG_DATA_HOME=<isolated-home>/.local/share XDG_CACHE_HOME=<isolated-home>/.cache XDG_STATE_HOME=<isolated-home>/.local/state ./installer`.
-- Initial installed stable app launch with Bun/Node/Hutch absent from PATH failed before window creation because `sharp` could not load `@img/sharp-linux-x64`. This revealed the omitted optional native packages and drove the copy/inspection correction.
+- The first stable package built before sharp-resource copying failed at launch because `sharp` could not load `@img/sharp-linux-x64`; that missing binding was added to the packaged resources.
+- The post-`sharp` 0.6.0 Setup installer then failed during installation, before launch, with `TarUnsupportedFileType` because the payload includes the GNU LongLink for the overlong `glibconfig.h` header. No launch/preview result is claimed for this 0.6.0 installer.
 - After the correction, the active-source dev package launched its embedded Bun `1.4.0` main process with restricted PATH and no sharp-loader error. Hyprland reported a mapped `OpenAMX` window on workspace 7. A screenshot captured workspace 1, and this Hyprland command wrapper rejected the workspace selection attempts; therefore no app screenshot, sample open, or preview interaction is claimed.
 - The app logged `Application menus are not supported on Linux` and `X11 Error: GLXBadWindow (code 170)`. It remained process-alive until stopped by the Builder. No self-containment claim is made.
 - `ldd` on installed Linux components showed system WebKitGTK `libwebkit2gtk-4.1.so.0`, JavaScriptCoreGTK 4.1, GTK 3, GLib, GStreamer/media, GL/EGL/Wayland/X11 and related libraries. The installed host already supplied these; no minimum OS baseline is inferred.
 - Conservative `uninstall --quiet` removed the installed app and shortcut state while preserving `/tmp/openamx-sprint048-install.texg4C/Documents/user-data-sentinel.txt`. A WebKit cookie DB remained under the app's dev cache; no project document was placed in an app-managed directory. The standard path's full user-data preservation behavior remains an explicit follow-up check.
 - Exact uninstall command: `env PATH=/usr/bin:/bin HOME=<isolated-home> XDG_DATA_HOME=<isolated-home>/.local/share XDG_CACHE_HOME=<isolated-home>/.cache XDG_STATE_HOME=<isolated-home>/.local/state <isolated-home>/.local/share/dev.openamx.desktop/stable/uninstall --quiet`.
-- Linux x64 installer feasibility is confirmed, but the post-fix stable install/launch/preview is unverified. Linux arm64, Windows x64/arm64, and macOS x64/arm64 remain unverified. No target is classified unsupported.
+- Linux x64 installer build feasibility is confirmed, but the emitted 0.6.0 installer failed installation and is not install-accepted. The USTAR-compatible source fix is uncommitted and a post-fix installer/install/launch/preview test remains pending. Linux arm64, Windows x64/arm64, and macOS x64/arm64 remain unverified. No target is classified unsupported.
 
 ## Historical Blocker and Resume Gate
 
-The gate was previously unresolved and is now resolved by the Lead Developer direction above. Before any publishable build, still require:
+The gate was previously unresolved and is now resolved by the Lead Developer direction above. Before the corrected packaging can be accepted, still require:
 
-- A clean committed source revision, as required by Sprint 048 acceptance.
+- Commit the USTAR-compatible source fix and use a new version (or obtain explicit approval before replacing the retained 0.6.0 target output).
+- Build a fresh bundle, verify its checksums and resources, then repeat isolated install/launch/sample-preview/close/uninstall testing.
 
-Do not treat the Sprint 047 disposition as evidence for any native packaging or platform residual, or as a waiver of Sprint 048 criteria. The native stable build must be rerun after these changes are committed, and a visible sample preview/native acceptance check remains open.
+Do not treat the Sprint 047 disposition or 0.6.0 automated package checks as evidence for install acceptance, or as a waiver of Sprint 048 criteria.

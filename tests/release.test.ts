@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:f
 import os from "node:os";
 import path from "node:path";
 import { inspectRelease, isStableVersion, manifestPaths, mapNativeTarget, prepareVersion } from "../scripts/release";
-import { binaryArchitecture, finalizeTargetBundle, findInstaller, installerFormat, runDesktopRelease, sanitizeBuildWarning, verifyBuiltApp, verifyUpdateMetadata } from "../scripts/release/desktop";
+import { binaryArchitecture, finalizeTargetBundle, findInstaller, installerFormat, runDesktopRelease, sanitizeBuildWarning, unsupportedInstallerArchiveMembers, verifyBuiltApp, verifyUpdateMetadata } from "../scripts/release/desktop";
 import { appMetadata } from "../desktop-app/app-metadata";
 import { localInstallInvocation } from "../vscode-extension/install-local.mjs";
 
@@ -212,6 +212,11 @@ describe("desktop release packaging", () => {
 	test("redacts Unix and Windows user paths from distributable build warnings", () => {
 		expect(sanitizeBuildWarning("warning in /home/alice/private/build.ts")).toBe("warning in <path>");
 		expect(sanitizeBuildWarning("warning in C:\\Users\\Alice Smith\\source.ts details")).toBe("warning in <path>");
+	});
+
+	test("rejects app payload member paths that require unsupported GNU long-name records", () => {
+		expect(unsupportedInstallerArchiveMembers(["OpenAMXDesktop/Resources/app/bun/jobWorker.js"])).toEqual([]);
+		expect(unsupportedInstallerArchiveMembers(["OpenAMXDesktop/Resources/app/bun/node_modules/@img/sharp-libvips-linux-x64/lib/glib-2.0/include/glibconfig.h"])).toHaveLength(1);
 	});
 
 	test("detects x64 and arm64 from ELF, PE, and Mach-O headers", () => {

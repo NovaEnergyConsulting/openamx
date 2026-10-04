@@ -26,6 +26,9 @@ for (const packageName of packages) {
 	const destination = path.join(nativeRuntimeDirectory, packageName);
 	await mkdir(path.dirname(destination), { recursive: true });
 	await cp(packageDirectory, destination, { recursive: true, errorOnExist: true, force: false });
+	if (packageName.startsWith("@img/sharp-libvips-")) {
+		await rm(path.join(destination, "lib/glib-2.0"), { recursive: true, force: true });
+	}
 }
 
 console.log(`Copied host-native sharp runtime for ${target}.`);

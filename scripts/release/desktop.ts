@@ -44,6 +44,10 @@ export function sanitizeBuildWarning(line: string): string {
 		.replace(/[A-Za-z]:\\[^\r\n]*/g, "<path>");
 }
 
+export function unsupportedInstallerArchiveMembers(paths: string[]): string[] {
+	return paths.filter((entry) => entry.length > 100);
+}
+
 async function listFiles(directory: string, relative = ""): Promise<string[]> {
 	const files: string[] = [];
 	for (const entry of await readdir(path.join(directory, relative), { withFileTypes: true })) {
@@ -138,6 +142,8 @@ export async function verifyBuiltApp(buildDirectory: string, expected: { name: s
 		const payload = path.join(buildDirectory, payloadPath);
 		const listing = spawnSync("tar", ["--zstd", "-tf", payload], { encoding: "utf8" });
 		if (listing.status !== 0) throw new Error("Unable to inspect the packaged zstd payload with tar --zstd.");
+		const longMembers = unsupportedInstallerArchiveMembers(listing.stdout.split(/\r?\n/).filter(Boolean));
+		if (longMembers.length) throw new Error(`Compressed app payload requires GNU/PAX long-name records unsupported by the native installer: ${longMembers[0]}`);
 		for (const resource of [...resources, "OpenAMXDesktop/bin/bun", "OpenAMXDesktop/bin/launcher", "OpenAMXDesktop/bin/libasar.so", "OpenAMXDesktop/bin/libNativeWrapper.so", "OpenAMXDesktop/bin/libElectrobunCore.so", "OpenAMXDesktop/bin/zig-zstd", "OpenAMXDesktop/bin/bspatch"]) {
 			if (!listing.stdout.includes(resource)) throw new Error(`Compressed app payload is missing ${resource}.`);
 		}
