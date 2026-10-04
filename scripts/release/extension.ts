@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import { spawnReleaseCommand } from "./process";
 import { access, cp, lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { existsSync, lstatSync, readFileSync } from "node:fs";
 import os from "node:os";
@@ -140,9 +141,16 @@ export async function inspectVsix(vsixBytes: Uint8Array, rootDirectory: string):
 }
 
 function run(command: string, args: string[], cwd: string): void {
-	const result = spawnSync(command, args, { cwd, stdio: "inherit", windowsHide: true, shell: process.platform === "win32" });
+	const result = spawnReleaseCommand(command, args, { cwd, encoding: "utf8", stdio: "inherit" });
 	if (result.error) throw result.error;
 	if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed with exit code ${result.status ?? "unknown"}.`);
+}
+
+function toolVersion(command: string, cwd: string): string {
+	const result = spawnReleaseCommand(command, ["--version"], { cwd, encoding: "utf8" });
+	if (result.error) throw result.error;
+	if (result.status !== 0) throw new Error(`${command} --version failed with exit code ${result.status ?? "unknown"}.`);
+	return result.stdout.trim();
 }
 
 export async function runExtensionRelease(rootDirectory = process.cwd()): Promise<VsixInspection> {
@@ -201,7 +209,7 @@ export async function runExtensionRelease(rootDirectory = process.cwd()): Promis
 			buildPackageStatus: "passed",
 			manualInstallLaunchStatus: "not_performed",
 			marketplacePublication: "manual_only",
-			vsceVersion: execFileSync(vsce, ["--version"], { cwd: extensionDirectory, encoding: "utf8" }).trim(),
+			vsceVersion: toolVersion(vsce, extensionDirectory),
 			package: inspection,
 			checks: { version: "passed", publisher: "passed", entrypoint: "passed", grammar: "passed", languageConfiguration: "passed", archiveContents: "passed" },
 		};

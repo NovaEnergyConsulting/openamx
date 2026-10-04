@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspectRelease, isStableVersion, mapNativeTarget } from "../release";
+import { spawnReleaseCommand } from "./process";
 
 const APPLICATION_NAME = "OpenAMX Desktop";
 const APPLICATION_IDENTIFIER = "dev.openamx.desktop";
@@ -22,7 +23,7 @@ export function installerFormat(nativeOs: NativeOs): { extension: string; format
 }
 
 function run(command: string, args: string[], cwd: string): string {
-	const result = spawnSync(command, args, { cwd, encoding: "utf8", windowsHide: true });
+	const result = spawnReleaseCommand(command, args, { cwd, encoding: "utf8" });
 	if (result.error) throw result.error;
 	if (result.status !== 0) {
 		const details = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();

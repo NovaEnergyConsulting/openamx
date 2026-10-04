@@ -1,8 +1,8 @@
 ---
 name: architect
 description: Start an Architect session for this 120x project. The Architect plans the next sprint and produces a Builder-ready handoff pack.
+disable-model-invocation: true
 ---
-
 # /architect — Start an Architect session
 
 Assume the **Architect** role for this 120x project.

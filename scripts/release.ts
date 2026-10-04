@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { appMetadata } from "../desktop-app/app-metadata";
+import { spawnReleaseCommand } from "./release/process";
 
 const PACKAGE_FILES = ["package.json", "desktop-app/package.json", "vscode-extension/package.json"];
 const EXPECTED_PACKAGE_NAMES = ["openamx", "openamx-desktop", "openamx-vscode"];
@@ -177,8 +177,8 @@ export async function inspectRelease(
 	const { manifests } = await loadManifests(rootDirectory);
 	const findExecutable = options.findExecutable ?? ((command) => Bun.which(command) ?? null);
 	const runProbe = options.probe ?? ((executable) => {
-		const result = spawnSync(executable, ["--version"], { encoding: "utf8", shell: process.platform === "win32" });
-		return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
+		const result = spawnReleaseCommand(executable, ["--version"]);
+		return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr || result.error?.message || "" };
 	});
 	const prerequisites: ToolProbe[] = [];
 	for (const name of ["bun", "hutch", "node", "vsce"]) {

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { inspectRelease, isStableVersion, manifestPaths, mapNativeTarget, prepareVersion } from "../scripts/release";
@@ -14,6 +14,7 @@ import { inspectVsix, inspectLicenseReadiness } from "../scripts/release/extensi
 import { collectRelease, verifyRelease } from "../scripts/release/assembly";
 import type { ReleaseVerification } from "../scripts/release/assembly";
 import { createGitHubReleaseClient, publishRelease, type GitHubReleaseClient } from "../scripts/release/publish";
+import { spawnReleaseCommand } from "../scripts/release/process";
 
 const temporaryDirectories: string[] = [];
 
@@ -100,6 +101,46 @@ describe("release version preparation", () => {
 });
 
 describe("release preflight", () => {
+	test("release commands preserve native arguments and exit codes", async () => {
+		const directory = await fixture();
+		const args = ["path with spaces", "path & (parentheses)", 'embedded "quotes"'];
+		const result = spawnReleaseCommand(process.execPath, ["-e", "console.log(JSON.stringify(process.argv.slice(1))); process.exit(7)", ...args], { cwd: directory, encoding: "utf8" });
+		expect(result.error).toBeUndefined();
+		expect(result.status).toBe(7);
+		expect(JSON.parse(result.stdout)).toEqual(args);
+	});
+
+	test.skipIf(process.platform !== "win32")("release commands preserve Windows shim arguments and exit codes", async () => {
+		const directory = await fixture("release command & (spaces) ");
+		const executable = path.join(directory, "tool.cmd");
+		await writeFile(executable, "@echo off\r\necho %1\r\necho %2\r\nexit /b 7\r\n");
+		const args = [path.join(directory, "output file.vsix"), ""];
+		const result = spawnReleaseCommand(executable, args, { cwd: directory, encoding: "utf8" });
+		expect(result.error).toBeUndefined();
+		expect(result.status).toBe(7);
+		expect(result.stdout.trim().split(/\r?\n/)).toEqual(args.map((argument) => `"${argument}"`));
+	});
+
+	test("runs native prerequisite executables from paths containing spaces", async () => {
+		const directory = await fixture("release executable path with spaces ");
+		const executable = path.join(directory, process.platform === "win32" ? "tool.exe" : "tool");
+		await cp(process.execPath, executable);
+		const result = await inspectRelease(directory, { findExecutable: () => executable });
+		expect(result.prerequisites.map((tool) => tool.status)).toEqual(["available", "available", "available", "available"]);
+		expect(result.prerequisites.every((tool) => tool.version === Bun.version)).toBe(true);
+	});
+
+	test.skipIf(process.platform !== "win32")("runs Windows prerequisite batch shims from paths containing spaces", async () => {
+		const directory = await fixture("release shim path with spaces ");
+		for (const extension of ["cmd", "bat"]) {
+			const executable = path.join(directory, `tool.${extension}`);
+			await writeFile(executable, "@echo off\r\nif not \"%~1\"==\"--version\" exit /b 2\r\necho test-version\r\n");
+			const result = await inspectRelease(directory, { findExecutable: () => executable });
+			expect(result.prerequisites.map((tool) => tool.status)).toEqual(["available", "available", "available", "available"]);
+			expect(result.prerequisites.every((tool) => tool.version === "test-version")).toBe(true);
+		}
+	});
+
 	test("maps all requested targets to native platform names", () => {
 		const expected = [
 			["linux", "x64", "linux"], ["linux", "arm64", "linux"],
