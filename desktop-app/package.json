@@ -7,7 +7,7 @@
 	"scripts": {
 		"dev": "bun run build:web && hutch electrobun dev --watch",
 		"typecheck": "hutch electrobun prepare && vue-tsc --noEmit",
-		"build:web": "hutch electrobun prepare && vite build && bun build src/bun/jobWorker.ts --target=bun --outfile=dist/jobWorker.js && bun run scripts/copy-sharp-runtime.ts",
+		"build:web": "hutch electrobun prepare && vite build && bun build src/bun/jobWorker.ts --target=bun --outfile=dist/jobWorker.js && bun run scripts/copy-sharp-runtime.ts && bun run scripts/copy-pdfmake-fonts.ts",
 		"build": "bun run build:web && hutch electrobun build --env=stable",
 		"test": "bun run tests/rpc-contract-check.ts",
 		"test:ui": "playwright test",

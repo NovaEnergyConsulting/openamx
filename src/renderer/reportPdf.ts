@@ -1,6 +1,8 @@
 import pdfmake from 'pdfmake';
+import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { ChartViewEmission, TableViewEmission, ViewDataValue, ViewEmission } from '../runtime/environment';
 import type { PreparedReport } from './reportPreparation';
 
@@ -8,7 +10,10 @@ export interface PreparedPdfReport {
   definition: Record<string, unknown>;
 }
 
-const fontRoot = resolve(dirname(createRequire(import.meta.url).resolve('pdfmake')), '../fonts/Roboto');
+const packagedFontRoot = fileURLToPath(new URL('./pdfmake-fonts/', import.meta.url));
+const fontRoot = existsSync(resolve(packagedFontRoot, 'Roboto-Regular.ttf'))
+  ? packagedFontRoot
+  : resolve(dirname(createRequire(import.meta.url).resolve('pdfmake')), '../fonts/Roboto');
 
 pdfmake.setUrlAccessPolicy(() => false);
 pdfmake.setLocalAccessPolicy((filePath: string) => filePath.startsWith(fontRoot));

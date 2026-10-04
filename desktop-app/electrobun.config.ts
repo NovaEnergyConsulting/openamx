@@ -15,6 +15,7 @@ export default {
 			"dist/assets": "views/mainview/assets",
 			"dist/jobWorker.js": "bun/jobWorker.js",
 			"dist/native-sharp": "bun/node_modules",
+			"dist/pdfmake-fonts": "bun/pdfmake-fonts",
 		},
 		// Ignore Vite output in watch mode — HMR handles view rebuilds separately
 		watchIgnore: ["dist/**"],

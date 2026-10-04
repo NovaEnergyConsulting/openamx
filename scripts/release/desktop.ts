@@ -8,6 +8,7 @@ import { inspectRelease, isStableVersion, mapNativeTarget } from "../release";
 
 const APPLICATION_NAME = "OpenAMX Desktop";
 const APPLICATION_IDENTIFIER = "dev.openamx.desktop";
+const PDF_FONT_FILES = ["Roboto-Regular.ttf", "Roboto-Medium.ttf", "Roboto-Italic.ttf", "Roboto-MediumItalic.ttf"];
 const ROOT_DIRECTORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 type NativeOs = "linux" | "win" | "mac";
@@ -105,7 +106,11 @@ export async function verifyBuiltApp(buildDirectory: string, expected: { name: s
 	if (!path.basename(buildDirectory).endsWith(`-${expected.architecture}`)) {
 		throw new Error(`Built app directory does not identify architecture ${expected.architecture}.`);
 	}
-	const resources = ["Resources/app/bun/jobWorker.js", "Resources/app/views/mainview/index.html"];
+	const resources = [
+		"Resources/app/bun/jobWorker.js",
+		"Resources/app/views/mainview/index.html",
+		...PDF_FONT_FILES.map((file) => `Resources/app/bun/pdfmake-fonts/${file}`),
+	];
 	const sharpTarget = `${expected.nativeOs === "mac" ? "darwin" : expected.nativeOs === "win" ? "win32" : "linux"}-${expected.architecture}`;
 	const sharpResourcePaths = (paths: string[]) => {
 		const binding = paths.some((file) => file.includes(`/node_modules/@img/sharp-${sharpTarget}/`) && file.endsWith(".node"));
@@ -144,7 +149,7 @@ export async function verifyBuiltApp(buildDirectory: string, expected: { name: s
 		if (listing.status !== 0) throw new Error("Unable to inspect the packaged zstd payload with tar --zstd.");
 		const longMembers = unsupportedInstallerArchiveMembers(listing.stdout.split(/\r?\n/).filter(Boolean));
 		if (longMembers.length) throw new Error(`Compressed app payload requires GNU/PAX long-name records unsupported by the native installer: ${longMembers[0]}`);
-		for (const resource of [...resources, "OpenAMXDesktop/bin/bun", "OpenAMXDesktop/bin/launcher", "OpenAMXDesktop/bin/libasar.so", "OpenAMXDesktop/bin/libNativeWrapper.so", "OpenAMXDesktop/bin/libElectrobunCore.so", "OpenAMXDesktop/bin/zig-zstd", "OpenAMXDesktop/bin/bspatch"]) {
+		for (const resource of [...resources.map((item) => `OpenAMXDesktop/${item}`), "OpenAMXDesktop/bin/bun", "OpenAMXDesktop/bin/launcher", "OpenAMXDesktop/bin/libasar.so", "OpenAMXDesktop/bin/libNativeWrapper.so", "OpenAMXDesktop/bin/libElectrobunCore.so", "OpenAMXDesktop/bin/zig-zstd", "OpenAMXDesktop/bin/bspatch"]) {
 			if (!listing.stdout.includes(resource)) throw new Error(`Compressed app payload is missing ${resource}.`);
 		}
 		if (!sharpResourcePaths(listing.stdout.split(/\r?\n/))) throw new Error(`Compressed app payload is missing the native sharp runtime for ${sharpTarget}.`);

@@ -275,19 +275,26 @@ describe("desktop release packaging", () => {
 		] as const;
 		for (const [fileName, content] of metadata) await writeFile(path.join(resources, fileName), JSON.stringify(content));
 		await addSharpRuntime(resources);
+		const expected = {
+			name: "OpenAMX Desktop",
+			identifier: "dev.openamx.desktop",
+			version: "0.6.0",
+			architecture: "x64",
+			nativeOs: "linux" as const,
+			electrobunVersion: "2.0.1",
+		};
+		await expect(verifyBuiltApp(directory, expected)).rejects.toThrow("Roboto-Regular.ttf");
+		const pdfFontsDirectory = path.join(application, "bun/pdfmake-fonts");
+		await mkdir(pdfFontsDirectory, { recursive: true });
+		for (const font of ["Roboto-Regular.ttf", "Roboto-Medium.ttf", "Roboto-Italic.ttf", "Roboto-MediumItalic.ttf"]) {
+			await writeFile(path.join(pdfFontsDirectory, font), "pdf font fixture");
+		}
 		const runtime = path.join(directory, "OpenAMXDesktop/bin/bun");
 		await mkdir(path.dirname(runtime), { recursive: true });
 		await writeFile(runtime, x64ElfRuntime());
 		for (const library of ["libNativeWrapper.so", "libElectrobunCore.so"]) await writeFile(path.join(directory, "OpenAMXDesktop/bin", library), "native library");
 		for (const binary of ["launcher", "libasar.so", "zig-zstd", "bspatch"]) await writeFile(path.join(directory, "OpenAMXDesktop/bin", binary), "runtime support");
-		await expect(verifyBuiltApp(directory, {
-			name: "OpenAMX Desktop",
-			identifier: "dev.openamx.desktop",
-			version: "0.6.0",
-			architecture: "x64",
-			nativeOs: "linux",
-			electrobunVersion: "2.0.1",
-		})).resolves.toEqual({ hash: "abc", runtimeVersions: { bun: "1.4.0" } });
+		await expect(verifyBuiltApp(directory, expected)).resolves.toEqual({ hash: "abc", runtimeVersions: { bun: "1.4.0" } });
 	});
 
 	test("rejects missing worker resources and mismatched embedded versions", async () => {
@@ -313,6 +320,11 @@ describe("desktop release packaging", () => {
 		await expect(verifyBuiltApp(directory, expected)).rejects.toThrow("jobWorker.js");
 		await mkdir(path.join(app, "bun"), { recursive: true });
 		await writeFile(path.join(app, "bun/jobWorker.js"), "worker");
+		const fontsDirectory = path.join(app, "bun/pdfmake-fonts");
+		await mkdir(fontsDirectory, { recursive: true });
+		for (const font of ["Roboto-Regular.ttf", "Roboto-Medium.ttf", "Roboto-Italic.ttf", "Roboto-MediumItalic.ttf"]) {
+			await writeFile(path.join(fontsDirectory, font), "font fixture");
+		}
 		await expect(verifyBuiltApp(directory, expected)).rejects.toThrow("unexpected version");
 	});
 
