@@ -1,5 +1,15 @@
 # Planning Decisions
 
+## V0.8 Sprint 049 Architect Preparation (2026-10-04)
+
+- Sprint 047 is COMPLETE WITH RECORDED RESIDUALS and Sprint 048 is COMPLETE / APPROVED by explicit Lead Developer direction. Sprint 049 may proceed; these dispositions do not certify remote native targets or make Builder-time/manual-install evidence interchangeable.
+- Preserve VS Code publisher `EngineersTools`. Build/package/inspect one VSIX through existing esbuild/vsce tooling; Marketplace upload remains manual. Claim platform neutrality only if actual VSIX metadata and contents support it.
+- Integrate only accurate supplied license metadata and actual required notices. The current `LICENSE.md` is an overview that references a separate full `LICENSE` file not present in the workspace; do not draft terms or declare production licensing ready. Fixture tests and development may proceed, while verify/publish must report unresolved license/notices readiness.
+- `release:collect` accepts only complete matching-version/full-source-commit bundles and VSIX; validates schema, completion, sizes, hashes, safe paths, and duplicates before staging. It preserves Electrobun sidecars, rejects corrupt/mixed/unsafe/conflicting inputs, promotes only to an absent destination, and never removes/overwrites prior releases.
+- `release:verify` is read-only and includes provenance, integrity, identity, target status, build/package versus manual install evidence, and licensing readiness. It must not equate a built artifact with an installed/launch-tested package.
+- `release:publish` is a separate explicit operation, defaults to `NovaEnergyConsulting/openamx`, permits an explicit repository override, and uses supported authentication without credential disclosure. Prefer draft creation; require acknowledgement for partial release; verify tag points to recorded revision; never move a tag or silently replace an asset. Retries may accept identical remote assets or add nonconflicting assets for the same version/revision only.
+- All automated remote-operation tests are mocked and must never create public releases. Marketplace publication, real GitHub publication, legal interpretation, and Sprint 050 integrated acceptance/runbook remain separate.
+
 ## V0.8 Sprint 048 Architect Preparation (2026-10-03)
 
 - Sprint 047 is **COMPLETE WITH RECORDED RESIDUALS** by explicit Lead Developer direction (2026-10-03); Sprint 048 is authorized to proceed with those residuals. The disposition accepts Builder completion for sprint closeout but does not upgrade native packaging, runtime self-containment, installation/launch behavior, or remote target status to verified.

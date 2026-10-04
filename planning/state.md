@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.8 Sprint 049 Architect Preparation (2026-10-04)
+
+- Prepared the four Sprint 049 artifacts in `planning/sprints/0049-v08-extension-packaging-release-assembly/` for VSIX build/inspection, license/notices readiness, safe collection and verification of transferred bundles, explicit GitHub Release publication, retry/conflict handling, and focused evidence.
+- **Status: ACTIVE; dependency dispositions satisfied.** Sprint 047 is COMPLETE WITH RECORDED RESIDUALS and Sprint 048 is COMPLETE / APPROVED by Lead Developer direction. Sprint 048's 0.8.0 Linux x64 bundle records source commit `1a9585a24b5ec3c69afbccab0501e46752cbd104`; collection must still verify matching version and full commit before accepting it.
+- The repository currently contains `LICENSE.md` and `COMMERCIAL-LICENSE.md`, but `LICENSE.md` points to a separate full `LICENSE` file that is absent from the workspace inventory. The extension package lacks a license field and its README contains stale 0.6.0/no-license statements despite current 0.8.0 package metadata. Sprint 049 may use fixtures and proceed with packaging/collector implementation, but must not claim production verification/publication readiness until actual license and notice requirements are resolved.
+- Extension packaging may proceed independently; collection/publication integration consumes only valid Sprint 048 bundles. Marketplace submission remains manual. Sprint 050 retains integrated repeat-release acceptance and the consolidated runbook.
+
 ## V0.8 Sprint 048 Architect Preparation (2026-10-03)
 
 - Prepared the four Sprint 048 artifacts in `planning/sprints/0048-v08-desktop-packaging-target-evidence/` for evidence-backed native installer selection, `release:desktop`, clean-build provenance, fresh staging, artifact/resource inspection, transfer-ready target bundles, and available-host installation evidence.

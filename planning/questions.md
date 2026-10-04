@@ -1,5 +1,14 @@
 # Planning Questions (Sprint 002)
 
+## V0.8 Sprint 049 Extension and Release Assembly Questions (2026-10-04)
+
+- What authoritative full license text and third-party notices are intended for distribution? `LICENSE.md` currently describes dual licensing but refers to a separate `LICENSE` file that is not present in the workspace; `COMMERCIAL-LICENSE.md` describes a commercial option. Owner: Lead Developer/project license owner. Do not draft terms. Sprint 049 may continue using fixtures, but production verification/publication must remain blocked until required files and exact package requirements are confirmed.
+- What exact `vsce` and Marketplace metadata/packaging requirements apply to the supplied dual-license arrangement, including custom license references, package inclusion, and dependency notices? Owner: Sprint 049 Builder; inspect tool output/docs and confirm with the license owner. Do not suppress a warning or infer acceptance.
+- Is the built VSIX platform-neutral based on its package contents and declared dependencies? Owner: Sprint 049 Builder. Claim a single cross-platform VSIX only after direct package inspection supports it.
+- Can the retained 0.8.0 Linux x64 target bundle be assembled with the 0.8.0 extension/package revision as one release? The desktop manifest records commit `1a9585a24b5ec3c69afbccab0501e46752cbd104`; verify the actual clean committed source and reject any mismatch. Do not rewrite the retained bundle to force a match.
+- Which supported GitHub authentication interface is available for the explicit publisher, and how can draft creation, remote asset verification, and safe retry be exercised without publishing automated fixtures? Owner: Sprint 049 Builder; use mocked remote calls for all automated tests and document any real publication as a separately selected operator action.
+- Which targets should a real release request, and which should be explicitly missing, unverified, or unsupported at publication time? Owner: release operator/Lead Developer. Require explicit partial-release acknowledgement and preserve truthful status; no configured or untested matrix entry implies support.
+
 ## V0.8 Sprint 048 Desktop Packaging Questions (2026-10-03)
 
 - **Resolved for installer feasibility:** Hutch `0.27.1` with exact Electrobun `2.0.1` and `hutch electrobun build --env=stable` produced a fresh Linux x64 `.tar.gz` Setup installer plus update metadata/archive. No extra installer tool or format substitution was required. Build evidence is from detached clean commit `91682f150a491aee7ff3c0c8320555b6c594d449`; it is feasibility evidence, not a publishable artifact for the active source changes.
