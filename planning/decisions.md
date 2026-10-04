@@ -3,7 +3,7 @@
 ## V0.8 Sprint 050 Architect Preparation (2026-10-04)
 
 - Sprint 050 owns integrated repeat-release acceptance, adversarial failure/recovery validation, available-host evidence, and one consolidated operator runbook. It does not expand into new packaging features, signing, CI, native certification, or automated Marketplace publication.
-- Sprint 048 is COMPLETE / APPROVED. Sprint 049 Builder implementation is complete with release-readiness blockers, but its Lead Developer disposition remains pending; obtain disposition or explicit authorization with named residuals before claiming Sprint 050 integrated acceptance complete.
+- Sprint 048 is COMPLETE / APPROVED. At Sprint 050 preparation, Sprint 049 Builder implementation was complete with release-readiness blockers and its Lead Developer disposition was pending; the closeout disposition below resolves that entry gate with named residuals.
 - Run two-version/same-version-repeat tests only in disposable fixtures. Real artifacts must share a clean committed full source revision and stable version; preserve the existing 0.8.0 Linux x64 bundle and reject its mismatch with Sprint 049's active source rather than rewriting either record.
 - A current available-host end-to-end build requires an explicitly authorized version and absent target destination. If the current target/version collides with retained output, stop and request an authorized version or rely on fixtures; never overwrite to satisfy acceptance.
 - Full AGPLv3 text is supplied and packaged, but the owner still must confirm dual-license Marketplace metadata and dependency-notice requirements. Fixture tests may cover these cases; `release:verify` and publication readiness remain blocked until confirmed.
@@ -15,7 +15,14 @@
 - Exercise multi-version and repeat/conflict behavior only in temporary Git fixtures; versions `0.6.1` and `0.6.2` were never written to production package manifests. An identical same-version collection rerun is refused rather than treated as an overwrite/idempotent promotion; tests prove the accepted assembly and source manifests remain byte-identical.
 - Do not build or collect a production release from the current dirty tree. Preserve the accepted 0.8.0 Linux x64 bundle and its distinct full source commit; no replacement version/destination is authorized. Do not interpret Sprint 048's historical authorization of 0.8.0 as authorization to overwrite its accepted target.
 - License readiness remains blocked pending owner confirmation of Marketplace representation for the dual-license offer and required third-party notices. Keep all automated GitHub operations mocked and Marketplace submission manual.
-- Builder evidence recommends Sprint 050 integrated acceptance remain pending until Sprint 049 receives the required Lead Developer disposition. Local assembly staging failure was not fault-injected; request Lead Developer direction on accepting that residual or requiring additional coverage.
+- The Builder's pending recommendation was the status at the evidence checkpoint. Local assembly staging failure was not fault-injected and is listed as an accepted Sprint 050 residual below.
+
+## V0.8 Sprint 049-050 Lead Developer Closeout (2026-10-04)
+
+- By explicit Lead Developer direction, disposition Sprint 049 **COMPLETE WITH RECORDED RESIDUALS** and close Sprint 050 **COMPLETE WITH RECORDED RESIDUALS**. The Lead Developer reports all features tested and satisfactory; exact unrecorded host/session details are not inferred.
+- Accept for sprint closure the absence of a fresh matching production release assembly/build, an unused explicitly authorized version/destination, a separate Sprint 050 native install matrix, and injected local post-staging failure coverage. These remain limitations in Builder evidence, not claimed passes.
+- Accept unresolved license-owner confirmation and lack of real GitHub/Marketplace publication as Sprint 049/050 residuals only. Production `release:verify`/publication remains blocked until license/notices readiness is confirmed; publication remains a separate operator action.
+- Preserve the retained 0.8.0 bundle and its provenance/checksums. Keep Linux arm64, Windows x64/arm64, and macOS x64/arm64 unverified. This closeout does not authorize a version change, stable-output overwrite, public release, or Marketplace upload.
 
 ## V0.8 Sprint 049 Builder Decisions (2026-10-04)
 

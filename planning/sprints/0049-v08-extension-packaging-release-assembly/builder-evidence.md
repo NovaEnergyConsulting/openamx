@@ -11,8 +11,7 @@ Sprint 049 is **IMPLEMENTATION COMPLETE WITH RELEASE-READINESS BLOCKERS**. The r
 ## Extension Package Inspection
 
 - Root, desktop, and extension package versions are `0.8.0`; publisher remains `EngineersTools`; package entrypoint is `./dist/extension.js`.
-- The user concurrently supplied a complete AGPLv3 text in root `LICENSE.md` (SHA-256 `a96fd9920a72e79720d41bcf32ccd58634194aa01ee82f246a72392015d626e9`). The Builder preserved that file. Installed `@vscode/vsce` 3.9.2 source confirms support for `SEE LICENSE IN <file>`; package metadata now uses `SEE LICENSE IN LICENSE.md`, and a local staging helper copies the root file unchanged beside the extension manifest.
-- Initial package inspection, before the license was supplied, visibly warned `LICENSE, LICENSE.md, or LICENSE.txt not found`; the warning was acknowledged to continue that earlier local inspection, not suppressed. After the user supplied the full text, `cd vscode-extension && bun run package` passed with no missing-license warning. `vsce` still reports the large 385.01 KB bundled extension advisory and, on the earlier output, that 4.0.0 is newer than installed 3.9.2.
+- The user supplied the complete AGPLv3 text in root `LICENSE.md` (SHA-256 `a96fd9920a72e79720d41bcf32ccd58634194aa01ee82f246a72392015d626e9`). The Builder preserved it. Installed `@vscode/vsce` 3.9.2 supports `SEE LICENSE IN <file>`; package metadata uses `SEE LICENSE IN LICENSE.md`, and staging copies the file unchanged next to the extension manifest.
 - Final generated artifact `vscode-extension/openamx-vscode-0.8.0.vsix` is 93.3 KB packaged / 449,570 uncompressed bytes, SHA-256 `8686c079b5afb47005aab5c828a9b8d6bfd41baa403db8cc94c90285cb6d34a0`.
 - Exact VSIX members: `[Content_Types].xml`, `extension.vsixmanifest`, `extension/package.json`, `extension/LICENSE.md`, `extension/amx.tmGrammar.json`, `extension/language-configuration.json`, `extension/readme.md`, and `extension/dist/extension.js`. No source, test output, secrets, native binary or installation helper was included. `.vscodeignore` excludes `install-local.mjs` and `package-local.mjs`.
 - Package contents are platform-neutral JavaScript/JSON with the VS Code API external; this supports one VSIX package for the listed VS Code hosts, not native desktop certification or Marketplace acceptance.
@@ -57,4 +56,10 @@ Remaining blockers/residuals:
 - Commit the release implementation before generating a provenance-valid extension bundle. Rebuild the VSIX from that committed source and record the accepted release bundle hashes.
 - Obtain matching desktop/extension full source commit outputs before collecting. The current real desktop bundle is intentionally rejected as mixed provenance.
 - No real GitHub authentication/publication was attempted. Marketplace submission remains manual. Native targets beyond Linux x64 remain unverified.
-- Sprint 050 integrated repeat-release acceptance and the consolidated operator runbook remain out of scope.
+- Sprint 050 integrated repeat-release acceptance and the consolidated operator runbook were in scope and are dispositioned separately below.
+
+## Lead Developer Disposition (2026-10-04)
+
+**Disposition: COMPLETE WITH RECORDED RESIDUALS.** By explicit Lead Developer direction on 2026-10-04, Sprint 049's Builder implementation and verification are accepted for sprint closeout. This disposition also satisfies Sprint 050's Sprint 049 entry gate.
+
+Accepted residuals remain visible and are not converted into passes: license-owner confirmation of Marketplace metadata for the AGPL/commercial offer and third-party notice requirements; no accepted extension bundle or assembled release from the prior dirty candidate; no matching desktop/extension production bundles collected; no real GitHub authentication/publication or Marketplace upload; and five requested desktop targets remain unverified. `release:verify`/publication readiness remains blocked by license/notices readiness. No legal conclusion or broader platform certification is made.

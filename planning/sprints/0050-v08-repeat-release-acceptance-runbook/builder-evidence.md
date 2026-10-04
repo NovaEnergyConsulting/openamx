@@ -71,4 +71,26 @@ The first checksum invocation was made from the repository root, where the bundl
 
 ## Builder Recommendation
 
-Record Builder implementation/evidence complete with residuals, but leave Sprint 050 integrated acceptance **PENDING**. The Lead Developer must first record Sprint 049's disposition or explicit authorization with named residuals. A production release exercise still needs a clean committed matching revision, an explicitly authorized unused stable version/destination, and license/notices owner confirmation before any readiness claim. The Lead Developer should separately decide whether the un-injected local staging-failure path is an accepted residual or requires fault-injection coverage.
+At the Builder evidence checkpoint, recommend implementation/evidence complete with residuals and integrated acceptance **PENDING**. The subsequent disposition below supersedes that pending recommendation.
+
+## Follow-up Verification: PDF Worker Resources (2026-10-04)
+
+The Lead Developer reported a packaged-app runtime error when the worker tried to resolve `pdfmake` by package name while configuring Roboto fonts. The worker bundle already contains pdfmake code, but the application did not carry the four font files and the font-root code relied on a package-resolution path absent from the packaged app.
+
+The follow-up copies `Roboto-Regular.ttf`, `Roboto-Medium.ttf`, `Roboto-Italic.ttf`, and `Roboto-MediumItalic.ttf` from the locked root pdfmake installation into `desktop-app/dist/pdfmake-fonts`, maps them to `Resources/app/bun/pdfmake-fonts`, resolves that adjacent directory in `reportPdf.ts`, and requires the files in stable package inspection. The source/development package font lookup remains a fallback.
+
+Verification on commit `366efcc560e65b36de0877e7e0e16742bd8d6c9e`:
+
+- `cd desktop-app && bun run build:web` passed; Vite retained its existing >500 kB chunk warning, and both Sharp and four-font resource-copy steps completed.
+- `cd desktop-app && hutch electrobun build --env=dev` passed. Direct inspection found the worker and all four fonts under `OpenAMXDesktop-dev/Resources/app/bun/`.
+- A real PDF job through `desktop-app/dist/jobWorker.js` completed and returned 13,945 bytes. A second job through `desktop-app/build/dev-linux-x64/OpenAMXDesktop-dev/Resources/app/bun/jobWorker.js` completed and returned 15,131 bytes.
+- `bun test ./tests/release.test.ts` passed 41 tests, 142 expectations; the release inspector rejects a package missing fonts and accepts the complete font set.
+- `bun test ./tests` passed 260 tests across 18 files, 1,103 expectations. Root `bun run build`, desktop contracts/typecheck, release adapter typecheck, and `git diff --check` passed.
+
+The stable release output was not rebuilt or replaced. A development build and direct worker smoke are not stable-installer/native-install evidence. A generic stable-package metadata inspection was not applicable to Hutch's development output, which has `version.json`/`build.json` but no stable `metadata.json`.
+
+## Lead Developer Disposition (2026-10-04)
+
+**Disposition: COMPLETE WITH RECORDED RESIDUALS.** The Lead Developer reports testing all features and being satisfied with the results, and directs that Sprint 050's remaining items be accepted for closeout. This supersedes the Builder's pending recommendation above and closes Sprint 050. Sprint 049 is separately dispositioned COMPLETE WITH RECORDED RESIDUALS in its Builder evidence.
+
+Accepted residuals: no fresh matching stable production assembly/build/collection; no new authorized version or destination; no independent Sprint 050 native install/launch/close/uninstall matrix; local post-staging filesystem interruption was not injected; license-owner Marketplace/notice confirmation remains unresolved; no public GitHub release or Marketplace upload occurred; and five requested desktop targets remain unverified. Production `release:verify`/publication readiness remains blocked by license/notices. The retained 0.8.0 bundle and its recorded provenance/checksums remain unchanged. These residuals are accepted for sprint closure, not asserted as passed checks or legal/platform certification.

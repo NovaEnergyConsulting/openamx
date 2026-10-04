@@ -3,7 +3,7 @@
 ## V0.8 Sprint 050 Architect Preparation (2026-10-04)
 
 - Prepared the four Sprint 050 artifacts in `planning/sprints/0050-v08-repeat-release-acceptance-runbook/` for integrated available-host release acceptance, two-version/same-version repeatability fixtures, adversarial failure/recovery cases, and the consolidated `docs/releasing.md` operator runbook.
-- **Status: ACTIVE; preparation complete. Sprint 049 disposition remains a gate** for final integrated acceptance: Builder evidence reports implementation complete with release-readiness blockers, but no Lead Developer disposition is recorded. Sprint 048 is COMPLETE / APPROVED and its remote-target/self-containment residuals remain visible.
+- At Sprint 050 preparation, Sprint 049's Lead Developer disposition was pending. That gate is resolved by the closeout disposition below; Sprint 048 remains COMPLETE / APPROVED with its remote-target/self-containment residuals visible.
 - The retained Sprint 048 0.8.0 Linux x64 bundle records commit `1a9585a24b5ec3c69afbccab0501e46752cbd104`; Sprint 049's dirty extension/source candidate is from different commit `b92f6021284a58213641287043989267ebf387a5`. The real bundle was deliberately not collected. Sprint 050 must preserve both records, use matching clean committed artifacts for real collection, and use disposable fixtures for multi-version tests.
 - Full AGPLv3 terms are now in root `LICENSE.md` and are present in the 8-file VSIX. License-owner confirmation of Marketplace metadata for the dual-license offer and required third-party notices remains unresolved; production verify/publication readiness stays blocked until resolved. No real GitHub release or Marketplace upload has occurred.
 
@@ -12,7 +12,14 @@
 - Added the single operator runbook at [docs/releasing.md](../docs/releasing.md) and disposable two-version/same-version repeatability, stale-version, incomplete-bundle, and no-credentials tests. Exact commands, outcomes, hashes, warnings, host details, and residuals are in [Sprint 050 Builder evidence](sprints/0050-v08-repeat-release-acceptance-runbook/builder-evidence.md).
 - Builder verification: release tests pass (41 tests, 141 expectations); root build passes; repository-owned root tests pass (260 tests across 18 files); desktop RPC/typecheck/web build/UI checks pass; extension Development Host passes 19 tests; release adapters type-check; retained 0.8.0 bundle checksums pass; all three package manifests match `HEAD` hashes.
 - No fresh production build/collection/native install was performed: the worktree is dirty, the retained `0.8.0/linux-x64` destination exists and records commit `1a9585a24b5ec3c69afbccab0501e46752cbd104`, no other stable version is authorized, and license/notices readiness remains blocked. No retained output was modified. Linux arm64, Windows x64/arm64, and macOS x64/arm64 remain unverified.
-- **Builder recommendation: Sprint 050 integrated acceptance PENDING.** Sprint 049's Lead Developer disposition or explicit authorization with named residuals remains the entry gate; no Sprint 049 acceptance is inferred. Request a separate Lead Developer disposition after final `git diff --check` and review.
+- The Builder's pending recommendation at the evidence checkpoint is superseded by the Lead Developer disposition below.
+
+## V0.8 Sprint 049-050 Lead Developer Closeout (2026-10-04)
+
+- By explicit Lead Developer direction, Sprint 049 is **COMPLETE WITH RECORDED RESIDUALS** and Sprint 050 is **COMPLETE WITH RECORDED RESIDUALS**. Sprint 050's Sprint 049 entry gate is satisfied; criterion-by-criterion closeout is recorded in the Sprint 050 acceptance file.
+- The Lead Developer reports all features were tested and results are satisfactory. This user-reported acceptance does not add missing host/session details or convert packaging/native/legal/publication checks not performed by the Builder into passes.
+- Accepted sprint-closeout residuals include no fresh matching production assembly or newly authorized version/destination, no independent Sprint 050 native install matrix, no injected local assembly-staging failure, unresolved license-owner Marketplace/notice confirmation, no public GitHub/Marketplace publication, and five unverified desktop targets. Production release verification/publication remains blocked by license/notices.
+- The follow-up PDF resource fix is committed at `366efcc560e65b36de0877e7e0e16742bd8d6c9e`; its build, resource-path inspection, PDF worker smoke tests, and updated test totals are recorded in Sprint 050 Builder evidence. The retained `releases/0.8.0/linux-x64` bundle remains unchanged.
 
 ## V0.8 Sprint 049 Builder Outcome (2026-10-04)
 
