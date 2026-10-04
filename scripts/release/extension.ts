@@ -201,7 +201,7 @@ export async function runExtensionRelease(rootDirectory = process.cwd()): Promis
 			buildPackageStatus: "passed",
 			manualInstallLaunchStatus: "not_performed",
 			marketplacePublication: "manual_only",
-			vsceVersion: execFileSync(vsce, ["--version"], { cwd: packageDirectory, encoding: "utf8" }).trim(),
+			vsceVersion: execFileSync(vsce, ["--version"], { cwd: extensionDirectory, encoding: "utf8" }).trim(),
 			package: inspection,
 			checks: { version: "passed", publisher: "passed", entrypoint: "passed", grammar: "passed", languageConfiguration: "passed", archiveContents: "passed" },
 		};
