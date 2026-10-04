@@ -1,5 +1,24 @@
 # Planning Questions (Sprint 002)
 
+## V0.8 Sprint 050 Builder Closeout (2026-10-04)
+
+- **Resolved by fixture evidence:** disposable versions `0.6.1` and `0.6.2` collect independently at distinct full fixture commits. Identical and conflicting same-version collection attempts are refused; accepted assembly bytes and source manifests remain unchanged. Stale-version, mixed-commit, incomplete transfer, unsafe/corrupt/duplicate inputs, mocked publication retries, and the no-credentials path are covered by `tests/release.test.ts`.
+- **Still a closeout gate / owner: Lead Developer:** record Sprint 049's disposition or explicit authorization with named residuals. Until then Sprint 050 integrated acceptance remains pending; Builder completion is not acceptance.
+- **Still blocked / owner: Lead Developer or license owner:** confirm Marketplace representation of the AGPL/commercial offer and required third-party notices or confirm none are required. Production verify/publication readiness remains blocked.
+- **Still blocked / owner: Lead Developer/release operator:** select a clean committed source revision and explicitly authorize an unused stable version/destination for a fresh release exercise. The existing 0.8.0 Linux x64 output is immutable and records a different commit; no new version was authorized during this Builder work.
+- **Evidence residual / owner: Lead Developer:** decide whether the lack of an injected mid-assembly staging failure test is an accepted residual or requires a fault-injection seam/test. Incomplete transferred bundles are rejected before output mutation; interrupted remote upload/retry is mock-tested.
+- **Native evidence boundary:** no fresh authorized installer was available for Sprint 050 install/launch/sample-preview/close/uninstall checks. Sprint 048's successful latest-installer report remains separately attributed with exact host/steps unavailable; other five requested targets remain unverified.
+
+## V0.8 Sprint 050 Integrated Acceptance Questions (2026-10-04)
+
+- What is Sprint 049's Lead Developer disposition, and which residuals are accepted for Sprint 050 closeout? Owner: Lead Developer. Builder completion with release-readiness blockers is not acceptance; record explicit authorization if proceeding with exceptions.
+- Which clean committed source revision and stable version are explicitly authorized for the available-host end-to-end release exercise? The retained 0.8.0 Linux x64 bundle targets commit `1a9585a24b5ec3c69afbccab0501e46752cbd104`, while Sprint 049 evidence records active dirty source at `b92f6021284a58213641287043989267ebf387a5`. Owner: Lead Developer/release operator. Do not overwrite existing target outputs or combine these revisions.
+- Can a fresh current-host target be built at the authorized version without colliding with an accepted output directory? If not, should the release exercise wait for a new explicitly prepared version/commit or be limited to fixture-driven collection tests? Owner: release operator/Lead Developer.
+- Will the license owner confirm that `SEE LICENSE IN LICENSE.md` accurately represents the dual AGPL/commercial offer for Marketplace metadata and confirm required third-party notices or that none are required? Owner: Lead Developer/project license owner. Until resolved, report production verify/publish readiness as blocked; do not infer legal acceptance.
+- Has a real GitHub release been separately selected and authorized? Sprint 050 automated tests must remain mocked and cannot publish. Owner: Lead Developer/release operator; default disposition is no public release.
+- Which native install/launch/close/uninstall steps and exact OS/session details can be independently recorded for a fresh current-host build? Sprint 048 has a separate Lead Developer-reported launch/use disposition, but exact host and steps were not supplied. Owner: Sprint 050 Builder/native host availability.
+- Which additional target hosts, if any, became available for direct build/install evidence? Linux arm64, Windows x64/arm64, and macOS x64/arm64 remain unverified until concrete native evidence is recorded; no configured target or mock changes that status.
+
 ## V0.8 Sprint 049 Builder Findings (2026-10-04)
 
 - **Resolved by user-supplied file and actual vsce package inspection:** root `LICENSE.md` now contains complete AGPLv3 terms, SHA-256 `a96fd9920a72e79720d41bcf32ccd58634194aa01ee82f246a72392015d626e9`. Installed `@vscode/vsce` 3.9.2 supports `SEE LICENSE IN <file>`; package metadata declares `SEE LICENSE IN LICENSE.md`, and the final 0.8.0 VSIX includes `extension/LICENSE.md` without a missing-license warning. The final package contains 8 files (449,570 uncompressed bytes), SHA-256 `8686c079b5afb47005aab5c828a9b8d6bfd41baa403db8cc94c90285cb6d34a0`. This is package-content evidence, not Marketplace acceptance.

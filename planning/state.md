@@ -1,5 +1,19 @@
 # Planning State
 
+## V0.8 Sprint 050 Architect Preparation (2026-10-04)
+
+- Prepared the four Sprint 050 artifacts in `planning/sprints/0050-v08-repeat-release-acceptance-runbook/` for integrated available-host release acceptance, two-version/same-version repeatability fixtures, adversarial failure/recovery cases, and the consolidated `docs/releasing.md` operator runbook.
+- **Status: ACTIVE; preparation complete. Sprint 049 disposition remains a gate** for final integrated acceptance: Builder evidence reports implementation complete with release-readiness blockers, but no Lead Developer disposition is recorded. Sprint 048 is COMPLETE / APPROVED and its remote-target/self-containment residuals remain visible.
+- The retained Sprint 048 0.8.0 Linux x64 bundle records commit `1a9585a24b5ec3c69afbccab0501e46752cbd104`; Sprint 049's dirty extension/source candidate is from different commit `b92f6021284a58213641287043989267ebf387a5`. The real bundle was deliberately not collected. Sprint 050 must preserve both records, use matching clean committed artifacts for real collection, and use disposable fixtures for multi-version tests.
+- Full AGPLv3 terms are now in root `LICENSE.md` and are present in the 8-file VSIX. License-owner confirmation of Marketplace metadata for the dual-license offer and required third-party notices remains unresolved; production verify/publication readiness stays blocked until resolved. No real GitHub release or Marketplace upload has occurred.
+
+## V0.8 Sprint 050 Builder Evidence (2026-10-04)
+
+- Added the single operator runbook at [docs/releasing.md](../docs/releasing.md) and disposable two-version/same-version repeatability, stale-version, incomplete-bundle, and no-credentials tests. Exact commands, outcomes, hashes, warnings, host details, and residuals are in [Sprint 050 Builder evidence](sprints/0050-v08-repeat-release-acceptance-runbook/builder-evidence.md).
+- Builder verification: release tests pass (41 tests, 141 expectations); root build passes; repository-owned root tests pass (260 tests across 18 files); desktop RPC/typecheck/web build/UI checks pass; extension Development Host passes 19 tests; release adapters type-check; retained 0.8.0 bundle checksums pass; all three package manifests match `HEAD` hashes.
+- No fresh production build/collection/native install was performed: the worktree is dirty, the retained `0.8.0/linux-x64` destination exists and records commit `1a9585a24b5ec3c69afbccab0501e46752cbd104`, no other stable version is authorized, and license/notices readiness remains blocked. No retained output was modified. Linux arm64, Windows x64/arm64, and macOS x64/arm64 remain unverified.
+- **Builder recommendation: Sprint 050 integrated acceptance PENDING.** Sprint 049's Lead Developer disposition or explicit authorization with named residuals remains the entry gate; no Sprint 049 acceptance is inferred. Request a separate Lead Developer disposition after final `git diff --check` and review.
+
 ## V0.8 Sprint 049 Builder Outcome (2026-10-04)
 
 - Implemented `release:extension`, `release:collect`, `release:verify`, and explicit draft-only `release:publish`, with safe package/bundle inspection, full source provenance, checksums, immutable staging/promotion, and mocked GitHub retry/conflict coverage. Detailed evidence and exact results are in [Sprint 049 Builder evidence](sprints/0049-v08-extension-packaging-release-assembly/builder-evidence.md).

@@ -458,7 +458,7 @@ describe("release collection and verification", () => {
 		records.push(Buffer.alloc(1024));
 		return gzipSync(Buffer.concat(records));
 	}
-	async function committedReleaseFixture() {
+	async function committedReleaseFixture(version = "0.6.0") {
 		const directory = await fixture();
 		await writeFile(path.join(directory, "LICENSE.md"), "Fixture license text; not production terms.");
 		const extensionManifestPath = path.join(directory, "vscode-extension/package.json");
@@ -467,7 +467,7 @@ describe("release collection and verification", () => {
 		extensionManifest.main = "./dist/extension.js";
 		extensionManifest.license = "SEE LICENSE IN LICENSE.md";
 		await writeFile(extensionManifestPath, JSON.stringify(extensionManifest, null, 2));
-		await prepareVersion(directory, "0.6.0");
+		await prepareVersion(directory, version);
 		await writeFile(path.join(directory, ".gitignore"), "/releases/\n");
 		execFileSync("git", ["init", "-q"], { cwd: directory });
 		execFileSync("git", ["config", "user.email", "release-test@example.invalid"], { cwd: directory });
@@ -479,25 +479,25 @@ describe("release collection and verification", () => {
 		temporaryDirectories.push(bundleRoot);
 		return { directory, sourceCommit, bundleRoot };
 	}
-	async function writeBundle(directory: string, kind: "desktop" | "extension", sourceCommit: string, target = "linux-x64", installerArchive = tarGzip([{ name: "installer", data: "desktop payload" }])) {
+	async function writeBundle(directory: string, kind: "desktop" | "extension", sourceCommit: string, target = "linux-x64", installerArchive = tarGzip([{ name: "installer", data: "desktop payload" }]), version = "0.6.0") {
 		const artifactsDirectory = path.join(directory, "artifacts");
 		await mkdir(artifactsDirectory, { recursive: true });
-		const artifactFile = kind === "desktop" ? `artifacts/OpenAMX-${target}.tar.gz` : "artifacts/openamx-vscode-0.6.0.vsix";
+		const artifactFile = kind === "desktop" ? `artifacts/OpenAMX-${target}.tar.gz` : `artifacts/openamx-vscode-${version}.vsix`;
 		let artifactBytes = installerArchive;
 		if (kind === "extension") {
 			const zip = new JSZip();
 			for (const file of ["[Content_Types].xml", "extension.vsixmanifest", "extension/LICENSE.md", "extension/amx.tmGrammar.json", "extension/language-configuration.json", "extension/readme.md", "extension/dist/extension.js"]) zip.file(file, "fixture");
-			zip.file("extension/package.json", JSON.stringify({ name: "openamx-vscode", version: "0.6.0", publisher: "EngineersTools", main: "./dist/extension.js", license: "SEE LICENSE IN LICENSE.md" }));
+			zip.file("extension/package.json", JSON.stringify({ name: "openamx-vscode", version, publisher: "EngineersTools", main: "./dist/extension.js", license: "SEE LICENSE IN LICENSE.md" }));
 			artifactBytes = Buffer.from(await zip.generateAsync({ type: "uint8array" }));
 		}
 		await writeFile(path.join(directory, artifactFile), artifactBytes);
 		const artifact = { file: artifactFile, sizeBytes: artifactBytes.byteLength, sha256: bundleHash(artifactBytes), role: kind === "desktop" ? "installer" : undefined };
 		const manifest = kind === "desktop" ? {
-			schemaVersion: 1, product: "OpenAMX Desktop", version: "0.6.0", sourceCommit,
+			schemaVersion: 1, product: "OpenAMX Desktop", version, sourceCommit,
 			target: { os: target.split("-")[0], architecture: target.split("-")[1], status: "available" },
 			application: { name: "OpenAMX Desktop", identifier: "dev.openamx.desktop" }, installerFormat: "tar.gz", artifacts: [artifact],
 		} : {
-			schemaVersion: 1, kind: "vscode-extension", version: "0.6.0", sourceCommit,
+			schemaVersion: 1, kind: "vscode-extension", version, sourceCommit,
 			name: "openamx-vscode", publisher: "EngineersTools", main: "./dist/extension.js", platformNeutral: true,
 			licenseReadiness: { status: "blocked", blockers: ["fixture license blocker"] }, artifact,
 		};
@@ -526,6 +526,49 @@ describe("release collection and verification", () => {
 		await expect(collectRelease(directory, [desktop, extension])).rejects.toThrow("Refusing to overwrite accepted");
 	});
 
+	test("isolates two fixture versions and refuses identical or conflicting same-version reruns without mutation", async () => {
+		async function snapshot(directory: string, relative = ""): Promise<Array<[string, string]>> {
+			const entries = await readdir(path.join(directory, relative), { withFileTypes: true });
+			const files: Array<[string, string]> = [];
+			for (const entry of entries) {
+				const child = relative ? `${relative}/${entry.name}` : entry.name;
+				if (entry.isDirectory()) files.push(...await snapshot(directory, child));
+				else files.push([child, bundleHash(await readFile(path.join(directory, child)))]);
+			}
+			return files.sort(([left], [right]) => left.localeCompare(right));
+		}
+
+		const versionResults: Array<{ version: string; commit: string }> = [];
+		for (const version of ["0.6.1", "0.6.2"]) {
+			const { directory, sourceCommit, bundleRoot } = await committedReleaseFixture(version);
+			const sourceManifestPaths = manifestPaths(directory);
+			const sourceBefore = await Promise.all(sourceManifestPaths.map((filePath) => readFile(filePath)));
+			const desktop = await writeBundle(path.join(bundleRoot, "linux-x64"), "desktop", sourceCommit, "linux-x64", undefined, version);
+			const extension = await writeBundle(path.join(bundleRoot, "extension"), "extension", sourceCommit, "linux-x64", undefined, version);
+			const accepted = await collectRelease(directory, [desktop, extension]);
+			const acceptedBefore = await snapshot(accepted);
+
+			await expect(collectRelease(directory, [desktop, extension])).rejects.toThrow("Refusing to overwrite accepted");
+
+			const conflict = await writeBundle(
+				path.join(bundleRoot, "conflicting-linux-x64"),
+				"desktop",
+				sourceCommit,
+				"linux-x64",
+				tarGzip([{ name: "installer", data: `conflicting ${version} bytes` }]),
+				version,
+			);
+			await expect(collectRelease(directory, [conflict, extension])).rejects.toThrow("Refusing to overwrite accepted");
+			expect(await snapshot(accepted)).toEqual(acceptedBefore);
+			expect(await Promise.all(sourceManifestPaths.map((filePath) => readFile(filePath)))).toEqual(sourceBefore);
+			expect(JSON.parse(await readFile(path.join(accepted, "manifest.json"), "utf8")).version).toBe(version);
+			versionResults.push({ version, commit: sourceCommit });
+		}
+
+		expect(versionResults.map(({ version }) => version)).toEqual(["0.6.1", "0.6.2"]);
+		expect(versionResults[0]?.commit).not.toBe(versionResults[1]?.commit);
+	});
+
 	test("rejects mixed source commits and preserves an existing assembly", async () => {
 		const { directory, sourceCommit, bundleRoot } = await committedReleaseFixture();
 		const desktop = await writeBundle(path.join(bundleRoot, "linux-x64"), "desktop", sourceCommit);
@@ -536,6 +579,18 @@ describe("release collection and verification", () => {
 		await writeFile(path.join(accepted, "preserve.txt"), "accepted bytes");
 		await expect(collectRelease(directory, [desktop, extension])).rejects.toThrow("does not match the clean current release source");
 		expect(await readFile(path.join(accepted, "preserve.txt"), "utf8")).toBe("accepted bytes");
+	});
+
+	test("rejects stale-version and incomplete transferred bundles before creating an assembly", async () => {
+		const { directory, sourceCommit, bundleRoot } = await committedReleaseFixture();
+		const staleVersion = await writeBundle(path.join(bundleRoot, "stale-version"), "desktop", sourceCommit, "linux-x64", undefined, "0.6.1");
+		const extension = await writeBundle(path.join(bundleRoot, "extension"), "extension", sourceCommit);
+		await expect(collectRelease(directory, [staleVersion, extension])).rejects.toThrow("does not match the clean current release source");
+
+		const incomplete = await writeBundle(path.join(bundleRoot, "incomplete"), "desktop", sourceCommit);
+		await rm(path.join(incomplete, "evidence.json"));
+		await expect(collectRelease(directory, [incomplete, extension])).rejects.toThrow("ENOENT");
+		expect(await readdir(path.join(directory, "releases")).catch(() => [])).toEqual([]);
 	});
 
 	test("collects same-revision additions without changing the base assembly", async () => {
@@ -743,5 +798,17 @@ describe("explicit GitHub release publication", () => {
 		const authClient = await createGitHubReleaseClient({ token: secret, fetchImplementation: async () => new Response("secret-bearing body", { status: 401 }) });
 		await expect(authClient.getTagCommit("NovaEnergyConsulting/openamx", "v0.6.0")).rejects.toThrow("authentication or authorization failed");
 		await expect(authClient.getTagCommit("NovaEnergyConsulting/openamx", "v0.6.0")).rejects.not.toThrow(secret);
+	});
+
+	test("fails before network setup when GitHub credentials are absent", async () => {
+		const directory = await fixture("release no-credentials fixture ");
+		const publishModule = new URL("../scripts/release/publish.ts", import.meta.url).href;
+		const script = `import { createGitHubReleaseClient } from ${JSON.stringify(publishModule)}; await createGitHubReleaseClient();`;
+		const result = spawnSync(process.execPath, ["-e", script], {
+			encoding: "utf8",
+			env: { ...process.env, PATH: directory, GH_TOKEN: "", GITHUB_TOKEN: "" },
+		});
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain("GitHub authentication is unavailable");
 	});
 });
