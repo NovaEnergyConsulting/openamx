@@ -1,0 +1,48 @@
+﻿<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#241E55" /> <stop offset="50%" stop-color="#4C3B98" />
+      <stop offset="100%" stop-color="#A78BFA" /> </linearGradient>
+
+    <linearGradient id="gridGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.9" /> <stop offset="40%" stop-color="#67E8F9" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.2" /> </linearGradient>
+
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <clipPath id="iconShape">
+      <rect width="512" height="512" rx="110" ry="110" />
+    </clipPath>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bgGradient)" clip-path="url(#iconShape)" />
+
+  <g clip-path="url(#iconShape)" fill="none" stroke="url(#gridGradient)" stroke-width="4" stroke-linecap="round" filter="url(#glow)">
+    
+    <path d="M60,550 L60,350 C60,200 200,120 550,80" />
+    <path d="M100,550 L100,360 C100,220 230,150 550,120" />
+    <path d="M140,550 L140,370 C140,240 260,180 550,160" />
+    <path d="M180,550 L180,380 C180,260 290,210 550,200" />
+    <path d="M220,550 L220,390 C220,280 320,240 550,240" />
+    
+    <path d="M-40,460 L200,460 C350,460 420,350 480,-40" />
+    <path d="M-40,420 L180,420 C320,420 390,320 440,-40" />
+    <path d="M-40,380 L160,380 C290,380 360,290 400,-40" />
+    <path d="M-40,340 L140,340 C260,340 330,260 360,-40" />
+    <path d="M-40,300 L120,300 C230,300 300,230 320,-40" />
+
+    <path d="M260,550 C260,450 400,350 550,280" stroke-opacity="0.5" stroke-width="2" />
+    <path d="M-40,260 C100,260 200,180 280,-40" stroke-opacity="0.5" stroke-width="2" />
+
+  </g>
+  
+  <linearGradient id="overlayHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.15" />
+      <stop offset="40%" stop-color="#FFFFFF" stop-opacity="0" />
+  </linearGradient>
+  <rect width="512" height="512" fill="url(#overlayHighlight)" clip-path="url(#iconShape)" pointer-events="none"/>
+  
+</svg>
