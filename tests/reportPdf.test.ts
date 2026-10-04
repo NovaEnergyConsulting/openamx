@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import { afterEach } from 'bun:test';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { parseDocumentText } from '../src/parser/parseDocument';
 import { Environment } from '../src/runtime/environment';
@@ -44,10 +46,9 @@ describe('report PDF adapter', () => {
   });
 
   it('serializes production table rows and chart data from captured emissions', async () => {
-    const directory = `/tmp/openamx-report-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const directory = await mkdtemp(join(tmpdir(), 'openamx-report-'));
     temporaryDirectories.push(directory);
-    await mkdir(directory, { recursive: true });
-    const input = `${directory}/report.amx`;
+    const input = join(directory, 'report.amx');
     const rowValues = Array.from({ length: 55 }, (_value, index) => `Row { name: "Pump ${index + 1}", score: ${index + 1} }`).join(', ');
     await Bun.write(input, `# Emissions\n\n\`\`\`amx\ntype Row {\n  name: String\n  score: Number\n}\nlet rows: Row[] = [${rowValues}]\nlet scores: Number[] = [4, 7]\ntable register = table(rows) {\n  title: "Risk Register"\n  column name as "Asset"\n  column score as "Score"\n}\nchart exposure = bar(scores) {\n  title: "Exposure"\n  description: "Static scores"\n  series "Score"\n}\nshow register\nshow exposure\n\`\`\``);
     const loaded = await loadEntryModule(input);

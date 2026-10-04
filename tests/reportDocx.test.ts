@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'bun:test';
+import { afterEach, describe, expect, it } from 'bun:test';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import JSZip from 'jszip';
 import { loadEntryModule } from '../src/runtime/moduleLoader';
 import { prepareDocxReport, serializeDocxReport } from '../src/renderer/reportDocx';
@@ -13,9 +16,17 @@ async function packageParts(bytes: Uint8Array): Promise<Map<string, string>> {
   return parts;
 }
 
+const temporaryDirectories: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(temporaryDirectories.splice(0).map(directory => rm(directory, { recursive: true, force: true })));
+});
+
 describe('report DOCX adapter', () => {
   it('preserves semantic order and editable report content', async () => {
-    const input = `/tmp/openamx-docx-${Date.now()}.amx`;
+    const directory = await mkdtemp(join(tmpdir(), 'openamx-docx-'));
+    temporaryDirectories.push(directory);
+    const input = join(directory, 'report.amx');
     const rowValues = Array.from({ length: 3 }, (_value, index) => `Row { name: "Pump ${index + 1}", score: ${index + 1} }`).join(', ');
     const source = [
       '# Report', '', 'Narrative before', '', '- First item', '- Second item', '', '```amx',

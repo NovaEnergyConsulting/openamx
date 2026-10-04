@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const directories: string[] = [];
 
 function runCli(...arguments_: string[]) {
-  const result = Bun.spawnSync(['bun', 'run', 'src/cli.ts', ...arguments_], { cwd: '/home/cgamez/Programming/openamx' });
+  const result = Bun.spawnSync([process.execPath, 'run', 'src/cli.ts', ...arguments_]);
   return { exitCode: result.exitCode, stderr: new TextDecoder().decode(result.stderr) };
 }
 
@@ -15,7 +16,7 @@ afterEach(async () => {
 
 describe('report identity CLI safety', () => {
   it('applies project defaults and frontmatter overrides through the production HTML path', async () => {
-    const root = `/tmp/openamx-report-identity-cli-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const root = await mkdtemp(join(tmpdir(), 'openamx-report-identity-cli-'));
     directories.push(root);
     await mkdir(join(root, '.openamx'), { recursive: true });
     await writeFile(join(root, 'logo.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'));
@@ -60,7 +61,7 @@ describe('report identity CLI safety', () => {
   });
 
   it('preserves existing PDF and DOCX outputs when project identity is invalid', async () => {
-    const root = `/tmp/openamx-report-identity-cli-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const root = await mkdtemp(join(tmpdir(), 'openamx-report-identity-cli-'));
     directories.push(root);
     await mkdir(join(root, '.openamx'), { recursive: true });
     await writeFile(join(root, '.openamx', 'project.json'), JSON.stringify({ version: 1, inputs: {}, report: { logo: 'data:image/png;base64,AAAA', logoAlt: 'Invalid logo' } }));
@@ -80,7 +81,7 @@ describe('report identity CLI safety', () => {
   });
 
   it('redacts external data paths from input diagnostics', async () => {
-    const root = `/tmp/openamx-report-identity-cli-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const root = await mkdtemp(join(tmpdir(), 'openamx-report-identity-cli-'));
     directories.push(root);
     const input = join(root, 'report.amx');
     const privateData = join(root, 'private', 'invalid.json');

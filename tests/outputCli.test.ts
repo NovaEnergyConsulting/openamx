@@ -1,25 +1,25 @@
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdir, rm } from 'fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, mkdtemp, rm } from 'fs/promises';
+import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { loadEntryModule } from '../src/runtime/moduleLoader';
 
 const directories: string[] = [];
 
 async function createDirectory(): Promise<string> {
-  const directory = `./openamx-output-cli-test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  await mkdir(directory, { recursive: true });
+  const directory = await mkdtemp(join(tmpdir(), 'openamx-output-cli-test-'));
   directories.push(directory);
   return directory;
 }
 
 async function write(directory: string, name: string, contents: string): Promise<string> {
-  const filePath = `${directory}/${name}`;
+  const filePath = join(directory, name);
   await Bun.write(filePath, contents);
   return filePath;
 }
 
 async function runCli(...arguments_: string[]) {
-  const command = Bun.spawnSync(['bun', 'run', 'src/cli.ts', ...arguments_]);
+  const command = Bun.spawnSync([process.execPath, 'run', 'src/cli.ts', ...arguments_]);
   return {
     exitCode: command.exitCode,
     stdout: new TextDecoder().decode(command.stdout),

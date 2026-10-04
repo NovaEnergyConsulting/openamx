@@ -4,7 +4,9 @@
  */
 
 import { describe, it, expect, afterEach } from "bun:test";
-import { rm, mkdir, realpath } from "fs/promises";
+import { mkdtemp, rm, realpath } from "fs/promises";
+import { basename, join } from "node:path";
+import { tmpdir } from "node:os";
 import { loadEntryModule } from "../src/runtime/moduleLoader";
 import { AmxError } from "../src/diagnostics/errors";
 
@@ -12,20 +14,19 @@ const tmpDirs: string[] = [];
 const tmpRootFiles: string[] = [];
 
 async function makeDir(): Promise<string> {
-  const dir = `./openamx-test-modules-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  await mkdir(dir, { recursive: true });
+  const dir = await mkdtemp(join(tmpdir(), "openamx-test-modules-"));
   tmpDirs.push(dir);
   return dir;
 }
 
 async function write(dir: string, name: string, content: string): Promise<string> {
-  const p = `${dir}/${name}`;
+  const p = join(dir, name);
   await Bun.write(p, content);
   return p;
 }
 
-async function writeRootFile(content: string): Promise<string> {
-  const name = `./openamx-test-root-${Date.now()}-${Math.random().toString(36).slice(2)}.amx`;
+async function writeRootFile(content: string, directory = process.cwd()): Promise<string> {
+  const name = join(directory, `openamx-test-root-${Date.now()}-${Math.random().toString(36).slice(2)}.amx`);
   await Bun.write(name, content);
   tmpRootFiles.push(name);
   return name;
@@ -350,13 +351,13 @@ describe("Sprint 016 entry inputs and CLI mappings", () => {
   it("enforces entry-root containment for imports from current-buffer text", async () => {
     const dir = await makeDir();
     const entryPath = await write(dir, "entry.amx", "saved source");
-    const outside = await writeRootFile("```amx\nexport let secret: Number = 1\n```\n");
-    const outsideName = outside.slice(outside.lastIndexOf("/") + 1);
+    const outside = await writeRootFile("```amx\nexport let secret: Number = 1\n```\n", tmpdir());
+    const outsideName = basename(outside);
     const entryText = `\`\`\`amx\nimport { secret } from "../${outsideName}"\n\`\`\`\n`;
 
     const error = await expectAmxError(loadEntryModule(entryPath, { entryText }), "AMX5001");
     expect(error.message).toContain("outside the entry directory tree");
-    expect(error.file?.endsWith("/entry.amx")).toBe(true);
+    expect(error.file && basename(error.file)).toBe("entry.amx");
     expect(await Bun.file(outside).exists()).toBe(true);
   });
 
@@ -429,7 +430,7 @@ describe("Sprint 016 entry inputs and CLI mappings", () => {
     await write(dir, "second.json", '7');
     const entry = await write(dir, "entry.amx", "```amx\ninput first: Number\ninput second: Number\nlet total: Number = first + second\n```\n");
     const command = Bun.spawnSync([
-      'bun', 'run', 'src/cli.ts', 'run', entry,
+      process.execPath, 'run', 'src/cli.ts', 'run', entry,
       '--input', `first=${dir}/first=one.json`, '--input', `second=${dir}/second.json`, '--validation', 'fail-fast'
     ]);
     expect(command.exitCode).toBe(0);
@@ -443,14 +444,14 @@ describe("Sprint 016 entry inputs and CLI mappings", () => {
     const typedEntry = await write(dir, "render.amx", "Total: {{ amount }}\n\n```amx\ninput amount: Number\n```\n");
     const htmlPath = `${dir}/rendered.html`;
     const render = Bun.spawnSync([
-      'bun', 'run', 'src/cli.ts', 'render', typedEntry, '--out', htmlPath,
+      process.execPath, 'run', 'src/cli.ts', 'render', typedEntry, '--out', htmlPath,
       '--input', `amount=${dir}/amount.json`, '--validation', 'aggregate'
     ]);
     expect(render.exitCode).toBe(0);
     expect(await Bun.file(htmlPath).text()).toContain('Total: 9');
 
     const legacyEntry = await write(dir, "legacy.amx", "```amx\nlet value = 3\n```\n");
-    const run = Bun.spawnSync(['bun', 'run', 'src/cli.ts', 'run', legacyEntry]);
+    const run = Bun.spawnSync([process.execPath, 'run', 'src/cli.ts', 'run', legacyEntry]);
     expect(run.exitCode).toBe(0);
     expect(new TextDecoder().decode(run.stdout)).toContain('"value": 3');
   });
@@ -461,7 +462,7 @@ describe("Sprint 016 entry inputs and CLI mappings", () => {
     const entry = await write(dir, "entry.amx", "```amx\ninput amount: Number\n```\n");
     const htmlPath = `${dir}/must-not-exist.html`;
     const command = Bun.spawnSync([
-      'bun', 'run', 'src/cli.ts', 'render', entry, '--out', htmlPath,
+      process.execPath, 'run', 'src/cli.ts', 'render', entry, '--out', htmlPath,
       '--input', `amount=${dir}/invalid.json`
     ]);
     expect(command.exitCode).not.toBe(0);

@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const directories: string[] = [];
 
 async function fixtureDirectory(): Promise<string> {
-  const directory = `/tmp/openamx-pdf-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  await mkdir(directory, { recursive: true });
+  const directory = await mkdtemp(join(tmpdir(), 'openamx-pdf-'));
   directories.push(directory);
   return directory;
 }
 
 async function runCli(...arguments_: string[]) {
-  const command = Bun.spawnSync(['bun', 'run', 'src/cli.ts', ...arguments_], { cwd: '/home/cgamez/Programming/openamx' });
+  const command = Bun.spawnSync([process.execPath, 'run', 'src/cli.ts', ...arguments_]);
   return {
     exitCode: command.exitCode,
     stdout: new TextDecoder().decode(command.stdout),

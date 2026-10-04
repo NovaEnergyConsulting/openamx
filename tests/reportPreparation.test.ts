@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { parseDocumentText } from '../src/parser/parseDocument';
 import { Environment } from '../src/runtime/environment';
 import { prepareReport } from '../src/renderer/reportPreparation';
@@ -9,7 +10,7 @@ const directories: string[] = [];
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
 
 async function fixtureRoot(): Promise<string> {
-  const root = `/tmp/openamx-report-preparation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const root = await mkdtemp(join(tmpdir(), 'openamx-report-preparation-'));
   directories.push(root);
   await mkdir(join(root, '.openamx'), { recursive: true });
   return root;

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import JSZip from 'jszip';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { loadEntryModule } from '../src/runtime/moduleLoader';
@@ -24,7 +25,7 @@ afterEach(async () => {
 
 describe('prepared PDF and DOCX presentation', () => {
   it('uses the same safe identity and ordered source decision in both formats', async () => {
-    const root = `/tmp/openamx-report-presentation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const root = await mkdtemp(join(tmpdir(), 'openamx-report-presentation-'));
     directories.push(root);
     await mkdir(join(root, '.openamx'), { recursive: true });
     await writeFile(join(root, 'logo.png'), png);

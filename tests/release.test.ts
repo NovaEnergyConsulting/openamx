@@ -72,7 +72,7 @@ describe("release version preparation", () => {
 	test("public prepare command synchronizes manifests from a fixture path with spaces", async () => {
 		const directory = await fixture("release command fixture with spaces ");
 		const scriptPath = path.resolve(import.meta.dir, "../scripts/release.ts");
-		const result = spawnSync("bun", ["run", scriptPath, "prepare", "1.2.3"], { cwd: directory, encoding: "utf8" });
+		const result = spawnSync(process.execPath, ["run", scriptPath, "prepare", "1.2.3"], { cwd: directory, encoding: "utf8" });
 		expect(result.status).toBe(0);
 		expect(result.stdout).toContain("Prepared version 1.2.3");
 		expect((await Promise.all(manifestPaths(directory).map((filePath) => readFile(filePath, "utf8")))).map((text) => JSON.parse(text).version)).toEqual(["1.2.3", "1.2.3", "1.2.3"]);
@@ -679,7 +679,7 @@ describe("release collection and verification", () => {
 		const addition = await collectRelease(directory, [windowsBundle, extension], { addition: true });
 		const additionManifest = JSON.parse(await readFile(path.join(addition, "manifest.json"), "utf8"));
 		const verifiedAddition = await verifyRelease(directory, addition);
-		expect(addition).toContain("/additions/");
+		expect(addition.split(path.sep)).toContain("additions");
 		expect(additionManifest.sourceCommit).toBe(sourceCommit);
 		expect(verifiedAddition.targets.find(({ target }) => target === "linux-x64")?.status).toBe("available");
 		expect(verifiedAddition.targets.find(({ target }) => target === "windows-x64")?.status).toBe("available");

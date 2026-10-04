@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { resolve } from "node:path";
 import { parseDocumentText } from "../src/parser/parseDocument";
 import { editorCompletionFacts, prepareEditorCompletion } from "../src/editor/completion";
 import { editorHighlightFacts } from "../src/editor/highlighting";
@@ -40,11 +41,12 @@ test("shared module analysis uses supplied unsaved imports without evaluation", 
 		requestedPath = targetPath;
 		return { file: targetPath, text: "```amx\nexport let rate: Number = 12\n```\n" };
 	});
+	const modulePath = resolve("/project/model.amx");
 
-	expect(requestedPath).toBe("/project/model.amx");
+	expect(requestedPath).toBe(modulePath);
 	expect(analysis.importedBindings.has("rate")).toBe(true);
 	expect(analysis.modules.size).toBe(2);
-	expect(analysis.modules.get("/project/model.amx")?.checkResult.exportedBindings.has("rate")).toBe(true);
+	expect(analysis.modules.get(modulePath)?.checkResult.exportedBindings.has("rate")).toBe(true);
 });
 
 test("shared module analysis withholds graphs beyond its bounded traversal", () => {

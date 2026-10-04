@@ -7,12 +7,16 @@ import { evaluateDocument } from "../src/runtime/evaluateDocument";
 import { renderHtml } from "../src/renderer/renderHtml";
 
 async function runCli(...arguments_: string[]) {
-  const command = Bun.spawnSync(["bun", "run", "src/cli.ts", ...arguments_]);
+  const command = Bun.spawnSync([process.execPath, "run", "src/cli.ts", ...arguments_]);
   return {
     exitCode: command.exitCode,
     stdout: new TextDecoder().decode(command.stdout),
     stderr: new TextDecoder().decode(command.stderr)
   };
+}
+
+function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n/g, "\n");
 }
 
 describe("V0.2 canonical examples", () => {
@@ -28,7 +32,7 @@ describe("V0.2 canonical examples", () => {
     expect(html).toContain("The calculated risk score is 15.");
     expect(html).toContain('class="language-amx"');
     expect(html).toContain("let ignored = 999");
-    expect(await Bun.file("examples/hello-world.html").text()).toBe(html);
+    expect(normalizeLineEndings(await Bun.file("examples/hello-world.html").text())).toBe(html);
   });
 
   it("evaluates transformer failure modes and renders the final adjusted score", async () => {
@@ -54,7 +58,7 @@ describe("V0.2 canonical examples", () => {
     expect(html).toContain("let assetName = &quot;TX-001 &lt;north&gt;&quot;");
     expect(html).toContain("  case 69 =&gt; ");
     expect(html).not.toContain('<north>');
-    expect(await Bun.file("examples/transformer-strategy.html").text()).toBe(html);
+    expect(normalizeLineEndings(await Bun.file("examples/transformer-strategy.html").text())).toBe(html);
   });
 
   it("evaluates fleet risk and leaves ordinary code and bare declarations inert", async () => {
@@ -77,7 +81,7 @@ describe("V0.2 canonical examples", () => {
     expect(html).toContain("let ignored = 1000");
     expect(html).toContain("let narrativeOnly = 999");
     expect(html).not.toContain("1000 exposure levels");
-    expect(await Bun.file("examples/asset-fleet-risk-analysis.html").text()).toBe(html);
+    expect(normalizeLineEndings(await Bun.file("examples/asset-fleet-risk-analysis.html").text())).toBe(html);
   });
 
   it("accepts the typed asset analysis through production CLI paths", async () => {
@@ -132,7 +136,7 @@ describe("V0.2 canonical examples", () => {
       );
       expect(render.exitCode).toBe(0);
       const html = await Bun.file(htmlPath).text();
-      expect(html).toBe(await Bun.file("examples/typed-asset-analysis.html").text());
+      expect(html).toBe(normalizeLineEndings(await Bun.file("examples/typed-asset-analysis.html").text()));
       expect(html).toContain("Asset <strong>North Pump 01</strong>");
       expect(html).toContain("The illustrative screening total is 38.");
       expect(html).toContain("&quot;./libraries/asset-management.amx&quot;");
