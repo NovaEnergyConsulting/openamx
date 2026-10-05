@@ -41,6 +41,8 @@ code --list-extensions --show-versions
 Run `bun run package` from this directory to create a local VSIX for installation.
 The package helper stages the root `LICENSE.md` unchanged because vsce expects the
 referenced license file beside the extension package metadata.
+It runs the installed vsce JavaScript entry point directly with Node, without a
+shell or package-manager-specific executable shims (such as `vsce.cmd` on Windows).
 From the repository root, `bun run release:extension` instead requires a clean
 committed source tree and writes the versioned bundle under
 `releases/<version>/extension/`. Neither workflow publishes the extension.
