@@ -69,7 +69,7 @@ Preferences store theme, drawer placement, and autosave settings locally on this
 
 ### Asset-matched appearance hotfix
 
-The desktop chrome uses the indigo/purple, lavender, and cyan palette from `assets/images/logo.svg`, the application icon, and splash artwork. Light mode uses pale lavender surfaces and purple actions; Dark mode uses indigo surfaces, lavender actions, and cyan links. Follow system uses the corresponding palette and responds to system appearance changes. Existing defaults and saved preferences are retained. Report preview/export colours and semantic success, warning, and error colours are unchanged.
+The desktop chrome uses the indigo/purple, lavender, and cyan palette from `assets/images/logo.svg`, the application icon, and splash artwork. Light mode uses pale lavender surfaces and purple actions; Dark mode uses near-black and charcoal surfaces, lavender actions, and cyan links. Follow system uses the corresponding palette and responds to system appearance changes. Existing defaults and saved preferences are retained. Report preview/export colours and semantic success, warning, and error colours are unchanged.
 
 Run `bun run test:theme` to build the webview and check the production stylesheet in Chromium independently of the workflow harness. The checks cover explicit modes under both system appearances, system appearance changes, code/data-editor tokens, unchanged status colours, normal text contrast of at least 4.5:1, and representative control/focus contrast of at least 3:1. Screenshots are written to Playwright test results. Install the test browser with `bunx playwright install chromium` if it is missing.
 

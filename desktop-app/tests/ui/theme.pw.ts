@@ -88,6 +88,9 @@ async function checkThemeContrast(page: Page, appearance: string) {
 			focus: contrast(style(".explorer input").outlineColor, style(".explorer").backgroundColor),
 			palette: {
 				background: style("main").backgroundColor,
+				surface: style(".cm-editor").backgroundColor,
+				raised: style(".runtime-drawer").backgroundColor,
+				selection: style(".file.selected").backgroundColor,
 				accent: style(".welcome-actions button").backgroundColor,
 				link: style(".diagnostic-link").color,
 				jsonKey: style(".json-key-probe").color,
@@ -114,14 +117,17 @@ for (const theme of ["light", "dark", "system"] as const) {
 			const palette = await checkThemeContrast(page, `${theme}/${system}`);
 			const dark = theme === "dark" || (theme === "system" && system === "dark");
 			expect(palette).toEqual({
-				background: dark ? "rgb(25, 21, 54)" : "rgb(243, 240, 252)",
+				background: dark ? "rgb(15, 16, 20)" : "rgb(243, 240, 252)",
+				surface: dark ? "rgb(25, 26, 32)" : "rgb(253, 252, 255)",
+				raised: dark ? "rgb(35, 36, 45)" : "rgb(233, 227, 248)",
+				selection: dark ? "rgb(48, 49, 63)" : "rgb(226, 217, 248)",
 				accent: dark ? "rgb(167, 139, 250)" : "rgb(76, 59, 152)",
 				link: dark ? "rgb(103, 232, 249)" : "rgb(9, 101, 121)",
 				jsonKey: dark ? "rgb(103, 232, 249)" : "rgb(9, 101, 121)",
 				success: dark ? "rgb(168, 223, 189)" : "rgb(23, 92, 56)",
 				warning: dark ? "rgb(243, 201, 105)" : "rgb(120, 81, 16)",
 				danger: dark ? "rgb(255, 180, 169)" : "rgb(152, 47, 42)",
-				body: dark ? "rgb(25, 21, 54)" : "rgb(243, 240, 252)",
+				body: dark ? "rgb(15, 16, 20)" : "rgb(243, 240, 252)",
 				editorTheme: dark ? "dark" : "light"
 			});
 			await page.screenshot({ path: testInfo.outputPath(`theme-${theme}-${system}.png`), fullPage: true });
@@ -129,6 +135,7 @@ for (const theme of ["light", "dark", "system"] as const) {
 				await page.emulateMedia({ colorScheme: system === "dark" ? "light" : "dark" });
 				const updated = await checkThemeContrast(page, "system changed");
 				expect(updated.accent).toBe(dark ? "rgb(76, 59, 152)" : "rgb(167, 139, 250)");
+				expect(updated.background).toBe(dark ? "rgb(243, 240, 252)" : "rgb(15, 16, 20)");
 			}
 		});
 	}
