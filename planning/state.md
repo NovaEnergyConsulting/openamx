@@ -1,5 +1,11 @@
 # Planning State
 
+## Windows Build and Deployment Test (2026-10-05)
+
+- The project owner reports having tested building and deploying OpenAMX on a Windows machine.
+- The Windows version, architecture, toolchain, source revision, artifact, exact deployment steps, and observed outcome were not provided. Record these details before using this report as target-specific release evidence.
+- This report does not by itself establish a Windows x64/arm64 release bundle, installer inspection, or completion of the documented native install/launch acceptance checks. The release target matrix and other release-readiness gates remain unchanged.
+
 ## V0.8 Sprint 050 Architect Preparation (2026-10-04)
 
 - Prepared the four Sprint 050 artifacts in `planning/sprints/0050-v08-repeat-release-acceptance-runbook/` for integrated available-host release acceptance, two-version/same-version repeatability fixtures, adversarial failure/recovery cases, and the consolidated `docs/releasing.md` operator runbook.

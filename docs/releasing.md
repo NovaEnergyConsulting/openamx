@@ -13,9 +13,9 @@ cd vscode-extension && bun install --frozen-lockfile && cd ..
 bun run release:check
 ```
 
-The desktop build is host-native; it does not cross-compile. Current packaging evidence exists only for Linux x64. The configured formats are Electrobun Linux Setup `.tar.gz`, Windows Setup `.zip`, and macOS `.dmg`; only the Linux x64 route has been built and inspected here. Linux arm64, Windows x64/arm64, and macOS x64/arm64 remain unverified, not confirmed unsupported. `release:check` availability is a preflight result, not target certification.
+The desktop build is host-native; it does not cross-compile. Recorded release-bundle build and inspection evidence exists only for Linux x64. The project owner reports having tested building and deploying OpenAMX on a Windows machine, but has not recorded the Windows version, architecture, toolchain, source revision, artifact, or exact deployment outcome. That report does not establish a Windows x64/arm64 release bundle or complete the documented native install/launch acceptance checks. The configured formats are Electrobun Linux Setup `.tar.gz`, Windows Setup `.zip`, and macOS `.dmg`. Linux arm64, Windows x64/arm64, and macOS x64/arm64 remain unverified in the release target matrix, not confirmed unsupported. `release:check` availability is a preflight result, not target certification.
 
-The tested Linux host was Omarchy 4.0.4, x86_64, kernel `7.2.5-3-omarchy`, with Bun 1.4.2, Node v24.14.1, Hutch 0.27.1, and Electrobun 2.0.1. The installed app uses the host WebKitGTK 4.1, GTK/GLib, and related graphics/media libraries. This does not establish a minimum Linux distribution or self-contained runtime. Windows/macOS prerequisites and unsigned-warning behavior have not been verified. Do not bypass operating-system warnings without the organization's release policy.
+The tested Linux host was Omarchy 4.0.4, x86_64, kernel `7.2.5-3-omarchy`, with Bun 1.4.2, Node v24.14.1, Hutch 0.27.1, and Electrobun 2.0.1. The installed app uses the host WebKitGTK 4.1, GTK/GLib, and related graphics/media libraries. This does not establish a minimum Linux distribution or self-contained runtime. Windows build/deployment testing is owner-reported, but its environment and unsigned-warning observations are not recorded; macOS prerequisites and unsigned-warning behavior have not been verified. Do not bypass operating-system warnings without the organization's release policy.
 
 ## Prepare and Commit
 
@@ -78,7 +78,7 @@ tar -xzf releases/X.Y.Z/linux-x64/artifacts/OpenAMX-Desktop-X.Y.Z-linux-x64.tar.
 )
 ```
 
-Launch the installed app from the test desktop session, open a bundled AMX sample, verify preview, then close it and record the observations. Afterward invoke the installed `uninstall --quiet` under the same isolated `HOME`/`XDG_*` values; the prior procedure located it at `$test_home/.local/share/dev.openamx.desktop/stable/uninstall`. Do not pass `--delete-data` unless data deletion is separately authorized. Verify the disposable home and an external sentinel document after uninstall. Windows and macOS install procedures/warning behavior remain unverified and must be recorded on their native hosts.
+Launch the installed app from the test desktop session, open a bundled AMX sample, verify preview, then close it and record the observations. Afterward invoke the installed `uninstall --quiet` under the same isolated `HOME`/`XDG_*` values; the prior procedure located it at `$test_home/.local/share/dev.openamx.desktop/stable/uninstall`. Do not pass `--delete-data` unless data deletion is separately authorized. Verify the disposable home and an external sentinel document after uninstall. The project owner reports a Windows build/deployment test, but its procedure and observations are not recorded here; record them on the native host before counting them toward these installation/launch checks. Windows-specific warning behavior and macOS installation/warning behavior also remain to be documented.
 
 ## Transfer and Collect
 
