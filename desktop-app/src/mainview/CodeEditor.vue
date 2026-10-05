@@ -4,6 +4,8 @@ import { basicSetup, EditorView } from "codemirror";
 import { indentWithTab } from "@codemirror/commands";
 import { autocompletion, startCompletion, type CompletionContext } from "@codemirror/autocomplete";
 import { markdown } from "@codemirror/lang-markdown";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { tags } from "@lezer/highlight";
 import { Compartment, EditorSelection, EditorState, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, EditorView as CodeMirrorView, hoverTooltip, keymap } from "@codemirror/view";
 import { openSearchPanel } from "@codemirror/search";
@@ -132,7 +134,16 @@ async function confirmRename() {
 
 const extensions = [keymap.of([indentWithTab, { key: "F12", run: definitionAt }, { key: "Shift-F12", run: referencesAt }, { key: "F2", run: beginRename },
 	{ key: "Ctrl-Space", run: startCompletion }, { key: "Cmd-Space", run: startCompletion }]),
-	basicSetup, markdown(), wrapping.of(props.wrapLines === false ? [] : EditorView.lineWrapping), highlightField, autocompletion({ override: [completionSource] }),
+	basicSetup, markdown(), syntaxHighlighting(HighlightStyle.define([
+		{ tag: tags.heading, color: "var(--shell-accent)", fontWeight: "bold" },
+		{ tag: tags.link, color: "var(--shell-link)", textDecoration: "underline" },
+		{ tag: tags.emphasis, fontStyle: "italic" },
+		{ tag: tags.strong, fontWeight: "bold" },
+		{ tag: tags.keyword, color: "var(--amx-token-keyword)" },
+		{ tag: [tags.string, tags.number, tags.atom], color: "var(--amx-token-literal)" },
+		{ tag: tags.comment, color: "var(--shell-muted)", fontStyle: "italic" },
+		{ tag: tags.invalid, color: "var(--shell-danger)" }
+	])), wrapping.of(props.wrapLines === false ? [] : EditorView.lineWrapping), highlightField, autocompletion({ override: [completionSource] }),
 	hoverTooltip((_view, position) => {
 		const symbol = symbolAt(position);
 		if (!symbol) return null;
@@ -270,18 +281,18 @@ onUnmounted(() => { editor?.destroy(); editor = undefined; });
 </template>
 
 <style scoped>
-.code-editor :deep(.amx-token-keyword) { color: var(--amx-token-keyword, #8b3f52); font-weight: 600; }
-.code-editor :deep(.amx-token-declaration) { color: var(--amx-token-declaration, #176b55); font-weight: 600; }
-.code-editor :deep(.amx-token-reference) { color: var(--amx-token-reference, #315b9a); }
-.code-editor :deep(.amx-token-field) { color: var(--amx-token-field, #a45b18); }
-.code-editor :deep(.amx-token-type) { color: var(--amx-token-type, #315c75); }
-.code-editor :deep(.amx-token-literal) { color: var(--amx-token-literal, #087768); }
+.code-editor :deep(.amx-token-keyword) { color: var(--amx-token-keyword); font-weight: 600; }
+.code-editor :deep(.amx-token-declaration) { color: var(--amx-token-declaration); font-weight: 600; }
+.code-editor :deep(.amx-token-reference) { color: var(--amx-token-reference); }
+.code-editor :deep(.amx-token-field) { color: var(--amx-token-field); }
+.code-editor :deep(.amx-token-type) { color: var(--amx-token-type); }
+.code-editor :deep(.amx-token-literal) { color: var(--amx-token-literal); }
 .code-editor :deep(.amx-diagnostic) { text-decoration: underline wavy #c33f49; text-underline-offset: 3px; }
-.editor-code-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 8px; border-top: 1px solid #c5cdcf; background: #f5f7f7; }
-.editor-code-actions button { min-height: 28px; padding: 4px 8px; border: 1px solid #8c9b9f; border-radius: 3px; background: #fff; color: #18282d; font: 11px "DM Sans", sans-serif; }
-.editor-code-actions button:hover, .editor-code-actions button:focus-visible { outline: 2px solid #075a82; outline-offset: 1px; }
-.editor-rename { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 7px 8px; border-top: 1px solid #c5cdcf; background: #f5f7f7; color: #18282d; font: 11px "DM Sans", sans-serif; }
+.editor-code-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 8px; border-top: 1px solid var(--shell-line); background: var(--shell-bg); }
+.editor-code-actions button { min-height: 28px; padding: 4px 8px; border: 1px solid var(--shell-line); border-radius: 3px; background: var(--shell-surface); color: var(--shell-ink); font: 11px "DM Sans", sans-serif; }
+.editor-code-actions button:hover, .editor-code-actions button:focus-visible { outline: 2px solid var(--shell-focus); outline-offset: 1px; }
+.editor-rename { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 7px 8px; border-top: 1px solid var(--shell-line); background: var(--shell-bg); color: var(--shell-ink); font: 11px "DM Sans", sans-serif; }
 .editor-rename label { display: flex; flex: 1; min-width: 180px; align-items: center; gap: 7px; }
-.editor-rename input { min-width: 0; flex: 1; min-height: 28px; padding: 4px 6px; border: 1px solid #8c9b9f; border-radius: 3px; background: #fff; color: #18282d; font: 12px "DM Mono", monospace; }
-.editor-rename button { min-height: 28px; padding: 4px 8px; border: 1px solid #8c9b9f; border-radius: 3px; background: #fff; color: #18282d; font: 11px "DM Sans", sans-serif; }
+.editor-rename input { min-width: 0; flex: 1; min-height: 28px; padding: 4px 6px; border: 1px solid var(--shell-line); border-radius: 3px; background: var(--shell-surface); color: var(--shell-ink); font: 12px "DM Mono", monospace; }
+.editor-rename button { min-height: 28px; padding: 4px 8px; border: 1px solid var(--shell-line); border-radius: 3px; background: var(--shell-surface); color: var(--shell-ink); font: 11px "DM Sans", sans-serif; }
 </style>

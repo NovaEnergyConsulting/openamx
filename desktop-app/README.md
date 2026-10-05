@@ -67,6 +67,14 @@ Help is bundled and searchable offline. It includes first-project guidance, bund
 
 Preferences store theme, drawer placement, and autosave settings locally on this device. Diagnostic export downloads a capped JSON summary containing coarse tab counts, timestamps, and validated diagnostic codes only. It excludes paths, messages, source text, input values, recovery content, and credentials; it is not a raw process log.
 
+### Asset-matched appearance hotfix
+
+The desktop chrome uses the indigo/purple, lavender, and cyan palette from `assets/images/logo.svg`, the application icon, and splash artwork. Light mode uses pale lavender surfaces and purple actions; Dark mode uses indigo surfaces, lavender actions, and cyan links. Follow system uses the corresponding palette and responds to system appearance changes. Existing defaults and saved preferences are retained. Report preview/export colours and semantic success, warning, and error colours are unchanged.
+
+Run `bun run test:theme` to build the webview and check the production stylesheet in Chromium independently of the workflow harness. The checks cover explicit modes under both system appearances, system appearance changes, code/data-editor tokens, unchanged status colours, normal text contrast of at least 4.5:1, and representative control/focus contrast of at least 3:1. Screenshots are written to Playwright test results. Install the test browser with `bunx playwright install chromium` if it is missing.
+
+These are stylesheet-surface checks, not full application or native installation acceptance. The existing `test:ui` runner requires the `spikes/sprint042-workflow-harness` fixture, which is absent from this checkout, and its web-server command also needs a Windows-compatible invocation. Before release, verify saved preferences, authoring/preview/export behaviour, and the appearance in the native desktop webview using the existing release process.
+
 ## Keyboard Shortcuts
 
 Ctrl on Linux/Windows or Cmd on macOS:

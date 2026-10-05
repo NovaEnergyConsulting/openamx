@@ -505,14 +505,95 @@ watch(() => props.schema, () => { if (props.kind === "json" && Array.isArray(jso
 .data-editor-unavailable { display: flex; min-height: 220px; flex: 1; flex-direction: column; align-items: start; justify-content: center; gap: 8px; padding: 24px; color: var(--shell-muted); font-size: 12px; }
 .data-editor-unavailable strong { color: var(--shell-ink); font: 600 12px "DM Mono", monospace; }
 .data-editor-unavailable p { max-width: 56ch; margin: 0; line-height: 1.5; }
-.data-grid-shell { position: relative; display: flex; min-height: 260px; flex: 1; flex-direction: column; padding: 6px; }
+.data-grid-shell {
+	position: relative; display: flex; min-height: 260px; flex: 1; flex-direction: column; padding: 6px;
+	--vxe-ui-font-color: var(--shell-ink);
+	--vxe-ui-font-primary-color: var(--shell-accent);
+	--vxe-ui-font-secondary-color: var(--shell-muted);
+	--vxe-ui-font-placeholder-color: var(--shell-muted);
+	--vxe-ui-layout-background-color: var(--shell-surface);
+	--vxe-ui-table-header-background-color: var(--shell-raised);
+	--vxe-ui-table-border-color: var(--shell-line);
+	--vxe-ui-table-row-hover-background-color: var(--shell-raised);
+	--vxe-ui-table-row-striped-background-color: var(--shell-bg);
+	--vxe-ui-table-row-hover-striped-background-color: var(--shell-raised);
+	--vxe-ui-table-row-current-background-color: var(--shell-selection);
+	--vxe-ui-table-row-hover-current-background-color: var(--shell-selection);
+	--vxe-ui-table-column-icon-border-color: var(--shell-muted);
+	--vxe-ui-table-column-icon-border-hover-color: var(--shell-link);
+	--vxe-ui-table-cell-placeholder-color: var(--shell-muted);
+	--vxe-ui-table-cell-area-background-color: var(--shell-selection);
+}
 .data-grid-shell .vxe-table { min-height: 0; flex: 1; }
 .data-grid-meta { flex: none; margin: 0; padding: 3px 2px 7px; }
 .schema-type { display: block; color: var(--shell-muted); font: 9px "DM Mono", monospace; }
 .data-grid-header { display: flex; min-width: 0; flex-direction: column; align-items: start; }
 .data-grid-sort { display: flex; min-width: 0; align-items: center; gap: 5px; border: 0; padding: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
-.json-tree-shell { min-height: 260px; flex: 1; overflow: auto; --jse-background-color: var(--shell-surface); --jse-text-color: var(--shell-ink); --jse-main-border: 1px solid var(--shell-line); --jse-panel-background: var(--shell-raised); --jse-panel-color: var(--shell-ink); --jse-panel-border: 1px solid var(--shell-line); --jse-key-color: #276a8a; --jse-value-color: var(--shell-ink); --jse-table-header-background: var(--shell-raised); --jse-table-row-odd-background: color-mix(in srgb, var(--shell-raised) 55%, transparent); }
-.theme-dark .json-tree-shell { --jse-theme: dark; --jse-background-color: var(--shell-surface); --jse-text-color: var(--shell-ink); --jse-panel-background: var(--shell-raised); --jse-key-color: #9cdcfe; --jse-value-color: var(--shell-ink); }
+.json-tree-shell.jse-theme-dark {
+	min-height: 260px; flex: 1; overflow: auto;
+	--jse-theme: var(--shell-editor-theme);
+	--jse-theme-color: var(--shell-accent);
+	--jse-theme-color-highlight: var(--shell-accent);
+	--jse-menu-color: var(--shell-accent-ink);
+	--jse-background-color: var(--shell-surface);
+	--jse-text-color: var(--shell-ink);
+	--jse-text-color-inverse: var(--shell-accent-ink);
+	--jse-main-border: 1px solid var(--shell-line);
+	--jse-panel-background: var(--shell-raised);
+	--jse-panel-color: var(--shell-ink);
+	--jse-panel-color-readonly: var(--shell-muted);
+	--jse-panel-border: 1px solid var(--shell-line);
+	--jse-panel-background-border: var(--jse-panel-border);
+	--jse-panel-button-color-highlight: var(--shell-ink);
+	--jse-panel-button-background-highlight: var(--shell-selection);
+	--jse-key-color: var(--shell-link);
+	--jse-value-color: var(--shell-ink);
+	--jse-value-color-number: var(--amx-token-literal);
+	--jse-value-color-boolean: var(--amx-token-reference);
+	--jse-value-color-null: var(--amx-token-reference);
+	--jse-value-color-string: var(--amx-token-field);
+	--jse-value-color-url: var(--shell-link);
+	--jse-delimiter-color: var(--shell-muted);
+	--jse-edit-outline: 2px solid var(--shell-focus);
+	--jse-table-header-background: var(--shell-raised);
+	--jse-table-header-background-highlight: var(--shell-selection);
+	--jse-table-row-odd-background: var(--shell-bg);
+	--jse-selection-background-color: var(--shell-selection);
+	--jse-selection-background-inactive-color: var(--shell-raised);
+	--jse-hover-background-color: var(--shell-raised);
+	--jse-active-line-background-color: var(--shell-raised);
+	--jse-input-background: var(--shell-surface);
+	--jse-input-border: var(--jse-main-border);
+	--jse-button-background: var(--shell-accent);
+	--jse-button-background-highlight: var(--shell-accent);
+	--jse-button-color: var(--shell-accent-ink);
+	--jse-button-secondary-background: var(--shell-raised);
+	--jse-button-secondary-background-highlight: var(--shell-selection);
+	--jse-button-secondary-color: var(--shell-ink);
+	--jse-a-color: var(--shell-link);
+	--jse-a-color-highlight: var(--shell-link);
+	--jse-context-menu-background: var(--shell-surface);
+	--jse-context-menu-background-highlight: var(--shell-raised);
+	--jse-context-menu-color: var(--shell-ink);
+	--jse-context-menu-separator-color: var(--shell-line);
+	--jse-context-menu-pointer-background: var(--shell-raised);
+	--jse-context-menu-pointer-background-highlight: var(--shell-selection);
+	--jse-context-menu-pointer-color: var(--shell-ink);
+	--jse-tooltip-background: var(--shell-raised);
+	--jse-tooltip-border: var(--jse-main-border);
+	--jse-tooltip-action-button-background: var(--shell-selection);
+	--jse-modal-background: var(--shell-surface);
+	--jse-modal-overlay-background: var(--shell-overlay);
+	--jse-modal-code-background: var(--shell-raised);
+	--jse-navigation-bar-background: var(--shell-raised);
+	--jse-navigation-bar-background-highlight: var(--shell-selection);
+	--jse-collapsed-items-background-color: var(--shell-raised);
+	--jse-collapsed-items-selected-background-color: var(--shell-selection);
+	--jse-collapsed-items-link-color: var(--shell-link);
+	--jse-collapsed-items-link-color-highlight: var(--shell-link);
+	--jse-tag-background: var(--shell-raised);
+	--jse-tag-color: var(--shell-muted);
+}
 @media (max-width: 800px) { .data-editor-toolbar { align-items: start; flex-direction: column; } .data-editor-actions { justify-content: start; } }
 </style>
 *** End Patch

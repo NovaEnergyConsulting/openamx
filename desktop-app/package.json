@@ -11,6 +11,7 @@
 		"build": "bun run build:web && hutch electrobun build --env=stable",
 		"test": "bun run tests/rpc-contract-check.ts",
 		"test:ui": "playwright test",
+		"test:theme": "bun run build:web && playwright test --config playwright.theme.config.ts",
 		"run": "bun run build:web && hutch electrobun build --env=dev && hutch electrobun run --env=dev"
 	},
 	"dependencies": {
