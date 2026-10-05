@@ -15,8 +15,39 @@ import { collectRelease, verifyRelease } from "../scripts/release/assembly";
 import type { ReleaseVerification } from "../scripts/release/assembly";
 import { createGitHubReleaseClient, publishRelease, type GitHubReleaseClient } from "../scripts/release/publish";
 import { spawnReleaseCommand } from "../scripts/release/process";
+import { inspectTarZstdMembers } from "../scripts/release/archive";
 
 const temporaryDirectories: string[] = [];
+
+function tarArchive(members: Array<{ name: string; type?: string; data?: string | Uint8Array; linkName?: string }>): Buffer {
+	const records: Buffer[] = [];
+	for (const member of members) {
+		const body = typeof member.data === "string" ? Buffer.from(member.data) : Buffer.from(member.data ?? []);
+		const header = Buffer.alloc(512);
+		header.write(member.name, 0, 100, "utf8");
+		header.write("0000644\0", 100, 8, "ascii");
+		header.write("0000000\0", 108, 8, "ascii");
+		header.write("0000000\0", 116, 8, "ascii");
+		header.write(`${body.byteLength.toString(8).padStart(11, "0")}\0`, 124, 12, "ascii");
+		header.write("00000000000\0", 136, 12, "ascii");
+		header.fill(0x20, 148, 156);
+		header[156] = (member.type ?? "0").charCodeAt(0);
+		if (member.linkName) header.write(member.linkName, 157, 100, "utf8");
+		header.write("ustar\0", 257, 6, "ascii");
+		header.write("00", 263, 2, "ascii");
+		let checksum = 0;
+		for (const byte of header) checksum += byte;
+		header.write(`${checksum.toString(8).padStart(6, "0")}\0 `, 148, 8, "ascii");
+		records.push(header);
+		if (body.length) {
+			records.push(body);
+			const padding = (512 - body.length % 512) % 512;
+			if (padding) records.push(Buffer.alloc(padding));
+		}
+	}
+	records.push(Buffer.alloc(1024));
+	return Buffer.concat(records);
+}
 
 async function fixture(rootName = "openamx release fixture ") {
 	const directory = await mkdtemp(path.join(os.tmpdir(), rootName));
@@ -361,6 +392,75 @@ describe("desktop release packaging", () => {
 		}
 	});
 
+	test.each(["linux", "win", "mac"] as const)("inspects compressed %s resources without external tar or zstd", async (nativeOs) => {
+		const directory = path.join(await fixture("compressed app with spaces "), `stable-${nativeOs}-x64`);
+		const appRoot = nativeOs === "mac" ? "OpenAMX.app/Contents" : "OpenAMXDesktop";
+		const wrapperResources = path.join(directory, appRoot, "Resources");
+		await mkdir(wrapperResources, { recursive: true });
+		await writeFile(path.join(wrapperResources, "metadata.json"), JSON.stringify({ name: "OpenAMX Desktop", identifier: "dev.openamx.desktop", hash: "abc" }));
+		const executableSuffix = nativeOs === "win" ? ".exe" : "";
+		const librarySuffix = nativeOs === "win" ? ".dll" : nativeOs === "mac" ? ".dylib" : ".so";
+		const runtime = nativeOs === "linux" ? x64ElfRuntime() : Buffer.alloc(nativeOs === "win" ? 70 : 8);
+		if (nativeOs === "win") {
+			runtime.set([0x4d, 0x5a], 0);
+			runtime[0x3c] = 64;
+			runtime.set([0x64, 0x86], 68);
+		} else if (nativeOs === "mac") {
+			runtime.set([0xcf, 0xfa, 0xed, 0xfe, 7, 0, 0, 1]);
+		}
+		const sharpTarget = `${nativeOs === "win" ? "win32" : nativeOs === "mac" ? "darwin" : "linux"}-x64`;
+		const libvipsPackage = nativeOs === "win" ? `sharp-${sharpTarget}` : `sharp-libvips-${sharpTarget}`;
+		const libvipsName = nativeOs === "win" ? "libvips-42.dll" : nativeOs === "mac" ? "vips.dylib" : "libvips-cpp.so.8";
+		const members = [
+			{ name: `${appRoot}/Resources/version.json`, data: JSON.stringify({ version: "0.6.0", hash: "abc", displayName: "OpenAMX Desktop" }) },
+			{ name: `${appRoot}/Resources/build.json`, data: JSON.stringify({ mainProcess: "bun", electrobunVersion: "2.0.1", runtimeVersions: { bun: "1.4.0" } }) },
+			{ name: `${appRoot}/bin/bun${executableSuffix}`, data: runtime },
+			...["launcher", "zig-zstd", "bspatch"].map((name) => ({ name: `${appRoot}/bin/${name}${executableSuffix}`, data: "support" })),
+			...["asar", "NativeWrapper", "ElectrobunCore"].map((name) => ({ name: `${appRoot}/bin/${nativeOs === "win" && name === "ElectrobunCore" ? "" : "lib"}${name}${librarySuffix}`, data: "support" })),
+			...["bun/jobWorker.js", "views/mainview/index.html", "views/mainview/assets/index.js",
+				...["Roboto-Regular.ttf", "Roboto-Medium.ttf", "Roboto-Italic.ttf", "Roboto-MediumItalic.ttf"].map((font) => `bun/pdfmake-fonts/${font}`),
+				`bun/node_modules/@img/sharp-${sharpTarget}/lib/sharp.node`,
+				`bun/node_modules/@img/${libvipsPackage}/lib/${libvipsName}`,
+			].map((name) => ({ name: `${appRoot}/Resources/app/${name}`, data: "resource" })),
+		];
+		const payload = path.join(wrapperResources, "app.tar.zst");
+		const savePayload = async () => writeFile(payload, Bun.zstdCompressSync(tarArchive(members)));
+		await savePayload();
+		const expected = { name: "OpenAMX Desktop", identifier: "dev.openamx.desktop", version: "0.6.0", architecture: "x64", nativeOs, electrobunVersion: "2.0.1" };
+		await expect(verifyBuiltApp(directory, expected)).resolves.toEqual({ hash: "abc", runtimeVersions: { bun: "1.4.0" } });
+		await expect(verifyBuiltApp(directory, { ...expected, version: "9.9.9" })).rejects.toThrow("unexpected version");
+		await expect(verifyBuiltApp(directory, { ...expected, electrobunVersion: "9.9.9" })).rejects.toThrow("pinned Electrobun version");
+		await writeFile(path.join(wrapperResources, "metadata.json"), JSON.stringify({ name: expected.name, identifier: expected.identifier, hash: "wrong" }));
+		await expect(verifyBuiltApp(directory, expected)).rejects.toThrow("hashes do not match");
+		await writeFile(path.join(wrapperResources, "metadata.json"), JSON.stringify({ name: expected.name, identifier: expected.identifier, hash: "abc" }));
+		runtime.fill(0);
+		await savePayload();
+		await expect(verifyBuiltApp(directory, expected)).rejects.toThrow("runtime does not match requested architecture");
+		members.pop();
+		await savePayload();
+		await expect(verifyBuiltApp(directory, expected)).rejects.toThrow(`native sharp runtime for ${sharpTarget}`);
+		members[3]!.name += ".unexpected";
+		await savePayload();
+		await expect(verifyBuiltApp(directory, expected)).rejects.toThrow("launcher");
+	});
+
+	test("validates compressed archive paths, types, duplicates, checksums, and truncation", () => {
+		const compress = (tar: Buffer) => Bun.zstdCompressSync(tar);
+		const file = { name: "app/file", data: "contents" };
+		expect(inspectTarZstdMembers(compress(tarArchive([file]))).get(file.name)?.toString()).toBe("contents");
+		expect(() => inspectTarZstdMembers(Buffer.from("not zstd"))).toThrow("malformed");
+		for (const name of ["../escape", "/absolute", "C:/absolute", "app\\escape"]) {
+			expect(() => inspectTarZstdMembers(compress(tarArchive([{ name }])))).toThrow("unsafe member path");
+		}
+		expect(() => inspectTarZstdMembers(compress(tarArchive([{ name: "link", type: "2", linkName: "../escape" }])))).toThrow("link or unsupported member type");
+		expect(() => inspectTarZstdMembers(compress(tarArchive([file, file])))).toThrow("duplicate member path");
+		const corrupt = tarArchive([file]);
+		corrupt[0] = 0;
+		expect(() => inspectTarZstdMembers(compress(corrupt))).toThrow("checksum");
+		expect(() => inspectTarZstdMembers(compress(tarArchive([file]).subarray(0, 513)))).toThrow("truncated");
+		expect(() => inspectTarZstdMembers(compress(tarArchive([file]).subarray(0, 1024)))).toThrow("end-of-archive");
+	});
+
 	test("rejects missing worker resources and mismatched embedded versions", async () => {
 		const directory = path.join(await fixture(), "stable-linux-x64");
 		const resources = path.join(directory, "OpenAMXDesktop/Resources");
@@ -506,33 +606,7 @@ describe("VS Code extension release packaging", () => {
 describe("release collection and verification", () => {
 	const bundleHash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 	function tarGzip(members: Array<{ name: string; type?: string; data?: string; linkName?: string }>): Buffer {
-		const records: Buffer[] = [];
-		for (const member of members) {
-			const body = Buffer.from(member.data ?? "");
-			const header = Buffer.alloc(512);
-			header.write(member.name, 0, 100, "utf8");
-			header.write("0000644\0", 100, 8, "ascii");
-			header.write("0000000\0", 108, 8, "ascii");
-			header.write("0000000\0", 116, 8, "ascii");
-			header.write(`${body.byteLength.toString(8).padStart(11, "0")}\0`, 124, 12, "ascii");
-			header.write("00000000000\0", 136, 12, "ascii");
-			header.fill(0x20, 148, 156);
-			header[156] = (member.type ?? "0").charCodeAt(0);
-			if (member.linkName) header.write(member.linkName, 157, 100, "utf8");
-			header.write("ustar\0", 257, 6, "ascii");
-			header.write("00", 263, 2, "ascii");
-			let checksum = 0;
-			for (const byte of header) checksum += byte;
-			header.write(`${checksum.toString(8).padStart(6, "0")}\0 `, 148, 8, "ascii");
-			records.push(header);
-			if (body.length) {
-				records.push(body);
-				const padding = (512 - body.length % 512) % 512;
-				if (padding) records.push(Buffer.alloc(padding));
-			}
-		}
-		records.push(Buffer.alloc(1024));
-		return gzipSync(Buffer.concat(records));
+		return gzipSync(tarArchive(members));
 	}
 	async function committedReleaseFixture(version = "0.6.0") {
 		const directory = await fixture();
@@ -709,6 +783,40 @@ describe("release collection and verification", () => {
 		await expect(collectRelease(directory, [traversal, extension])).rejects.toThrow("unsafe member path");
 		const symlinkArchive = await writeBundle(path.join(bundleRoot, "archive-symlink"), "desktop", sourceCommit, "linux-arm64", tarGzip([{ name: "escape", type: "2", linkName: "../../outside" }]));
 		await expect(collectRelease(directory, [symlinkArchive, extension])).rejects.toThrow("link or unsupported member type");
+	});
+
+	test.each(["safe", "traversal", "symlink", "duplicate", "corrupt"] as const)("validates %s compressed update sidecars during collection", async (kind) => {
+		const { directory, sourceCommit, bundleRoot } = await committedReleaseFixture();
+		const desktop = await writeBundle(path.join(bundleRoot, "windows-x64"), "desktop", sourceCommit, "windows-x64");
+		const extension = await writeBundle(path.join(bundleRoot, "extension"), "extension", sourceCommit);
+		const file = { name: "OpenAMXDesktop/Resources/version.json", data: "{}" };
+		const members = kind === "traversal" ? [{ name: "../escape" }]
+			: kind === "symlink" ? [{ name: "link", type: "2", linkName: "../escape" }]
+			: kind === "duplicate" ? [file, file] : [file];
+		const bytes = kind === "corrupt" ? Buffer.from("not zstd") : Bun.zstdCompressSync(tarArchive(members));
+		const sidecar = "artifacts/stable-win-x64-app.tar.zst";
+		await writeFile(path.join(desktop, sidecar), bytes);
+		const manifestPath = path.join(desktop, "manifest.json");
+		const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+		const zip = new JSZip();
+		zip.file("installer.exe", "fixture installer");
+		const installerBytes = await zip.generateAsync({ type: "nodebuffer" });
+		await rm(path.join(desktop, manifest.artifacts[0].file));
+		const installerFile = "artifacts/OpenAMX-windows-x64.zip";
+		await writeFile(path.join(desktop, installerFile), installerBytes);
+		manifest.installerFormat = "zip";
+		manifest.artifacts[0] = { file: installerFile, sizeBytes: installerBytes.byteLength, sha256: bundleHash(installerBytes), role: "installer" };
+		manifest.artifacts.push({ file: sidecar, sizeBytes: bytes.byteLength, sha256: bundleHash(bytes), role: "update-sidecar" });
+		await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+		const files = ["manifest.json", "evidence.json", ...manifest.artifacts.map((artifact: { file: string }) => artifact.file)];
+		await writeFile(path.join(desktop, "SHA256SUMS"), `${files.map((file) => `${bundleHash(requireBuffer(path.join(desktop, file)))}  ${file}`).join("\n")}\n`);
+		if (kind === "safe") {
+			const collected = await collectRelease(directory, [desktop, extension]);
+			expect((await verifyRelease(directory, collected)).integrity).toBe("passed");
+		} else {
+			const message = kind === "traversal" ? "unsafe member path" : kind === "symlink" ? "link or unsupported member type" : kind === "duplicate" ? "duplicate member path" : "malformed";
+			await expect(collectRelease(directory, [desktop, extension])).rejects.toThrow(message);
+		}
 	});
 });
 

@@ -23,7 +23,7 @@ From the repository root, `bun run run:app` builds and launches the development 
 
 ## Native Release Build
 
-Install Bun, Node.js, Git, and Hutch on the build host. On Linux, GNU `tar` with zstd support is also used for archive inspection. The installed application does not require Bun, Node.js, Git, or Hutch, but it does use the host's native webview and system libraries.
+Install a current Bun release, Node.js, Git, and Hutch on the build host. Compressed application resources and update sidecars use Bun's `node:zlib` Zstandard support for in-memory inspection on all native hosts (tested with Bun 1.4.2); no external zstd executable or GNU `tar --zstd` is needed. Linux Setup installer inspection still uses `tar`. The installed application does not require Bun, Node.js, Git, or Hutch, but it does use the host's native webview and system libraries.
 
 From a clean clone at the reviewed commit, run at the repository root:
 

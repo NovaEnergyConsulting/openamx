@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspectRelease, isStableVersion, mapNativeTarget } from "../release";
 import { spawnReleaseCommand } from "./process";
+import { inspectTarZstdMembers } from "./archive";
 
 const APPLICATION_NAME = "OpenAMX Desktop";
 const APPLICATION_IDENTIFIER = "dev.openamx.desktop";
@@ -98,8 +99,8 @@ async function readHeader(filePath: string): Promise<Uint8Array> {
 export async function verifyBuiltApp(buildDirectory: string, expected: { name: string; identifier: string; version: string; architecture: string; nativeOs: NativeOs; electrobunVersion: string }): Promise<{ hash: string; runtimeVersions: Record<string, string> }> {
 	const files = await listFiles(buildDirectory);
 	const metadataPath = files.find((file) => file.endsWith("/Resources/metadata.json"));
-	const payloadPath = files.find((file) => file.endsWith(".tar.zst"));
 	if (!metadataPath) throw new Error("Packaged app is missing Electrobun metadata.");
+	const payloadPath = files.find((file) => path.posix.dirname(file) === path.posix.dirname(metadataPath) && file.endsWith(".tar.zst"));
 	const metadata = JSON.parse(await readFile(path.join(buildDirectory, metadataPath), "utf8")) as Record<string, unknown>;
 	if (metadata.name !== expected.name || metadata.identifier !== expected.identifier) {
 		throw new Error("Packaged app metadata does not match the expected product identity and version.");
@@ -145,32 +146,41 @@ export async function verifyBuiltApp(buildDirectory: string, expected: { name: s
 		version = JSON.parse(await readFile(path.join(buildDirectory, versionPath), "utf8")) as Record<string, unknown>;
 		build = JSON.parse(await readFile(path.join(buildDirectory, buildPath), "utf8")) as Record<string, unknown>;
 	} else if (payloadPath) {
-		if (process.platform !== "linux") throw new Error("Compressed Electrobun resource inspection is currently verified only on Linux; do not mark this target available without native validation.");
-		const payload = path.join(buildDirectory, payloadPath);
-		const listing = spawnSync("tar", ["--zstd", "-tf", payload], { encoding: "utf8" });
-		if (listing.status !== 0) throw new Error("Unable to inspect the packaged zstd payload with tar --zstd.");
-		const longMembers = unsupportedInstallerArchiveMembers(listing.stdout.split(/\r?\n/).filter(Boolean));
+		const members = inspectTarZstdMembers(await readFile(path.join(buildDirectory, payloadPath)));
+		const memberPaths = [...members.keys()];
+		const appRoot = memberPaths.find((file) => file.endsWith("/Resources/version.json"))?.slice(0, -"/Resources/version.json".length);
+		if (!appRoot) throw new Error("Compressed app payload is missing Resources/version.json.");
+		const longMembers = unsupportedInstallerArchiveMembers(memberPaths);
 		if (longMembers.length) throw new Error(`Compressed app payload requires GNU/PAX long-name records unsupported by the native installer: ${longMembers[0]}`);
-		for (const resource of [...resources.map((item) => `OpenAMXDesktop/${item}`), "OpenAMXDesktop/bin/bun", "OpenAMXDesktop/bin/launcher", "OpenAMXDesktop/bin/libasar.so", "OpenAMXDesktop/bin/libNativeWrapper.so", "OpenAMXDesktop/bin/libElectrobunCore.so", "OpenAMXDesktop/bin/zig-zstd", "OpenAMXDesktop/bin/bspatch"]) {
-			if (!listing.stdout.includes(resource)) throw new Error(`Compressed app payload is missing ${resource}.`);
+		const executableSuffix = expected.nativeOs === "win" ? ".exe" : "";
+		const librarySuffix = expected.nativeOs === "win" ? ".dll" : expected.nativeOs === "mac" ? ".dylib" : ".so";
+		const runtimePath = `${appRoot}/bin/bun${executableSuffix}`;
+		for (const resource of [
+			...resources.map((item) => `${appRoot}/${item}`),
+			runtimePath,
+			...["launcher", "zig-zstd", "bspatch"].map((name) => `${appRoot}/bin/${name}${executableSuffix}`),
+		]) {
+			if (!members.has(resource)) throw new Error(`Compressed app payload is missing ${resource}.`);
 		}
-		if (!sharpResourcePaths(listing.stdout.split(/\r?\n/))) throw new Error(`Compressed app payload is missing the native sharp runtime for ${sharpTarget}.`);
-		if (!listing.stdout.includes("Resources/app/views/mainview/assets/")) throw new Error("Compressed app payload is missing built web assets.");
-		const runtimeInspectionDirectory = await mkdtemp(path.join(os.tmpdir(), "openamx-runtime-inspection-"));
-		try {
-			run("tar", ["--zstd", "-xf", payload, "-C", runtimeInspectionDirectory, "OpenAMXDesktop/bin/bun"], buildDirectory);
-			const architecture = binaryArchitecture(await readHeader(path.join(runtimeInspectionDirectory, "OpenAMXDesktop/bin/bun")));
-			if (architecture !== expected.architecture) throw new Error(`Packaged Bun runtime does not match requested architecture ${expected.architecture}.`);
-		} finally {
-			await rm(runtimeInspectionDirectory, { recursive: true, force: true });
+		for (const name of ["asar", "NativeWrapper", "ElectrobunCore"]) {
+			if (!members.has(`${appRoot}/bin/${name}${librarySuffix}`) && !members.has(`${appRoot}/bin/lib${name}${librarySuffix}`)) {
+				throw new Error(`Compressed app payload is missing ${name}${librarySuffix}.`);
+			}
+		}
+		const appPaths = memberPaths.filter((file) => file.startsWith(`${appRoot}/`));
+		if (!sharpResourcePaths(appPaths)) throw new Error(`Compressed app payload is missing the native sharp runtime for ${sharpTarget}.`);
+		if (!appPaths.some((file) => file.startsWith(`${appRoot}/Resources/app/views/mainview/assets/`))) throw new Error("Compressed app payload is missing built web assets.");
+		const runtime = members.get(runtimePath);
+		if (!runtime || binaryArchitecture(runtime.subarray(0, 4096)) !== expected.architecture) {
+			throw new Error(`Packaged Bun runtime does not match requested architecture ${expected.architecture}.`);
 		}
 		const readArchiveJson = (entry: string) => {
-			const result = spawnSync("tar", ["--zstd", "-xOf", payload, entry], { encoding: "utf8" });
-			if (result.status !== 0) throw new Error(`Unable to read ${entry} from the compressed application payload.`);
-			return JSON.parse(result.stdout) as Record<string, unknown>;
+			const contents = members.get(entry);
+			if (!contents) throw new Error(`Unable to read ${entry} from the compressed application payload.`);
+			return JSON.parse(contents.toString("utf8")) as Record<string, unknown>;
 		};
-		version = readArchiveJson("OpenAMXDesktop/Resources/version.json");
-		build = readArchiveJson("OpenAMXDesktop/Resources/build.json");
+		version = readArchiveJson(`${appRoot}/Resources/version.json`);
+		build = readArchiveJson(`${appRoot}/Resources/build.json`);
 	} else {
 		throw new Error("Packaged app is missing version/build metadata and a compressed payload.");
 	}

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { access, cp, lstat, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
@@ -7,10 +7,10 @@ import path from "node:path";
 import JSZip from "jszip";
 import { isStableVersion } from "../release";
 import { inspectVsix } from "./extension";
+import { inspectTarMembers, inspectTarZstdMembers, MAX_UNCOMPRESSED_ARCHIVE_BYTES, validateArchiveMemberPath } from "./archive";
 
 const TARGETS = ["linux-x64", "linux-arm64", "windows-x64", "windows-arm64", "macos-x64", "macos-arm64"];
 const FULL_COMMIT = /^[a-f0-9]{40}$/;
-const MAX_UNCOMPRESSED_ARCHIVE_BYTES = 512 * 1024 * 1024;
 
 type ArtifactRecord = { file: string; sizeBytes: number; sha256: string; role?: string };
 type AnyRecord = Record<string, unknown>;
@@ -139,25 +139,6 @@ async function validateArtifactRecords(directory: string, value: unknown): Promi
 	return records;
 }
 
-function validateArchiveMemberPath(member: string): void {
-	const normalized = member.replace(/^(?:\.\/)+/, "");
-	if (!normalized || normalized === ".") return;
-	const segments = normalized.replace(/\/$/, "").split("/");
-	if (normalized.startsWith("/") || normalized.startsWith("\\") || /^[A-Za-z]:/.test(normalized)
-		|| normalized.includes("\\") || segments.some((part) => part === ".." || part === "." || part === "")) {
-		throw new Error(`Installer archive contains an unsafe member path: ${member}`);
-	}
-}
-
-function octalField(header: Buffer, start: number, length: number): number {
-	const text = header.subarray(start, start + length).toString("ascii").replace(/\0.*$/, "").trim();
-	if (!text) return 0;
-	if (!/^[0-7]+$/.test(text)) throw new Error("Installer TAR contains an invalid size field.");
-	const size = Number.parseInt(text, 8);
-	if (!Number.isSafeInteger(size) || size < 0) throw new Error("Installer TAR contains an invalid member size.");
-	return size;
-}
-
 function inspectTarGzipMembers(archiveBytes: Uint8Array): void {
 	let tar: Buffer;
 	try {
@@ -165,40 +146,10 @@ function inspectTarGzipMembers(archiveBytes: Uint8Array): void {
 	} catch {
 		throw new Error("Installer TAR.GZ is malformed or exceeds the archive inspection size limit.");
 	}
-	const names = new Set<string>();
-	let offset = 0;
-	let ended = false;
-	let memberCount = 0;
-	while (offset + 512 <= tar.byteLength) {
-		const header = tar.subarray(offset, offset + 512);
-		if (header.every((byte) => byte === 0)) {
-			ended = true;
-			break;
-		}
-		memberCount++;
-		if (memberCount > 100_000) throw new Error("Installer TAR has too many members.");
-		const declaredChecksum = octalField(header, 148, 8);
-		let actualChecksum = 0;
-		for (let index = 0; index < header.length; index++) actualChecksum += index >= 148 && index < 156 ? 0x20 : header[index]!;
-		if (declaredChecksum !== actualChecksum) throw new Error("Installer TAR header checksum is invalid.");
-		const rawName = header.subarray(0, 100).toString("utf8").replace(/\0.*$/, "");
-		const prefix = header.subarray(345, 500).toString("utf8").replace(/\0.*$/, "");
-		const member = prefix ? `${prefix}/${rawName}` : rawName;
-		validateArchiveMemberPath(member);
-		const type = String.fromCharCode(header[156] ?? 0);
-		if (!["\0", "0", "5"].includes(type)) throw new Error(`Installer TAR contains a link or unsupported member type at ${member || "<root>"}.`);
-		const normalizedName = member.replace(/^\.\//, "").replace(/\/$/, "");
-		if (normalizedName && names.has(normalizedName)) throw new Error(`Installer TAR contains a duplicate member path: ${normalizedName}`);
-		if (normalizedName) names.add(normalizedName);
-		const size = octalField(header, 124, 12);
-		const bodyStart = offset + 512;
-		if (bodyStart + size > tar.byteLength) throw new Error(`Installer TAR member is truncated: ${member}`);
-		offset = bodyStart + Math.ceil(size / 512) * 512;
-	}
-	if (!ended) throw new Error("Installer TAR has no valid end-of-archive marker.");
+	inspectTarMembers(tar);
 }
 
-async function inspectInstallerArchive(file: string, archiveBytes: Uint8Array, bundleDirectory: string): Promise<void> {
+async function inspectInstallerArchive(file: string, archiveBytes: Uint8Array): Promise<void> {
 	if (file.toLowerCase().endsWith(".tar.gz")) {
 		inspectTarGzipMembers(archiveBytes);
 		return;
@@ -218,25 +169,14 @@ async function inspectInstallerArchive(file: string, archiveBytes: Uint8Array, b
 		return;
 	}
 	if (file.toLowerCase().endsWith(".tar.zst")) {
-		const result = spawnSync("tar", ["--zstd", "-tvf", path.join(bundleDirectory, file)], { cwd: bundleDirectory, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, windowsHide: true });
-		if (result.error || result.status !== 0) throw new Error("Unable to inspect Electrobun TAR.ZST sidecar; install tar and zstd support before collection.");
-		const lines = result.stdout.split(/\r?\n/).filter(Boolean);
-		if (lines.length > 100_000) throw new Error("Electrobun TAR.ZST sidecar has too many members.");
-		for (const line of lines) {
-			const match = /^([bcdlps-][rwxStTs-]{9})\s+\S+\/\S+\s+\d+\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(?::\d{2})?\s+(.+)$/.exec(line);
-			if (!match) throw new Error("Unable to parse an Electrobun TAR.ZST member listing safely.");
-			const type = match[1]![0];
-			const member = match[2]!;
-			validateArchiveMemberPath(member);
-			if (type !== "-" && type !== "d") throw new Error(`Electrobun TAR.ZST contains a link or unsupported member type at ${member}.`);
-		}
+		inspectTarZstdMembers(archiveBytes);
 	}
 }
 
 async function validateDesktopArchiveMembers(directory: string, artifacts: ArtifactRecord[]): Promise<void> {
 	for (const artifact of artifacts) {
 		if (artifact.role === "installer" || /\.(?:tar\.gz|tar\.zst|zip)$/i.test(artifact.file)) {
-			await inspectInstallerArchive(artifact.file, await readFile(path.join(directory, artifact.file)), directory);
+			await inspectInstallerArchive(artifact.file, await readFile(path.join(directory, artifact.file)));
 		}
 	}
 }
