@@ -24,9 +24,11 @@ export default {
 		},
 		linux: {
 			bundleCEF: false,
+			icon: "assets/icon.png",
 		},
 		win: {
 			bundleCEF: false,
+			icon: "assets/images/icon.ico"
 		},
 	},
 };
