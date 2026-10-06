@@ -11,7 +11,7 @@
 - No new semantic question remained after implementation; the approved finite escapes, double-quote-only interpolation, scalar conversion, diagnostics, and narrative isolation rules were applied as written.
 - Measurement-to-string output remains deferred to Sprint 056; Sprint 053 did not invent measurement runtime semantics.
 - The extension host rerun is still not green on Windows (13 pass, 6 fail: five `EBUSY` cleanup failures and one path-case assertion). Sprint 052's accepted five-failure residual remains intact; the current result is reported separately in [Sprint 053 Builder evidence](sprints/0053-v09-string-escapes-expression-interpolation/builder-evidence.md).
-- Lead Developer disposition for Sprint 053 is pending. No unresolved behavior decision blocks that review.
+- **Resolved by Lead Developer disposition (2026-10-06): Sprint 053 ACCEPTED and approved for closure.** The Windows VS Code Development Host result remains an unpassed residual; measurement-to-string verification remains with Sprint 056. No unresolved behavior question remains for Sprint 053.
 
 ## V0.9 Sprint 052 Lead Developer Disposition (2026-10-06)
 
