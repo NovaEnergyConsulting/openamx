@@ -1,5 +1,11 @@
 # Planning Questions (Sprint 002)
 
+## V0.9 Sprint 056 Preparation (2026-10-06)
+
+- **Resolved by Sprint 055 disposition:** Sprint 056 may proceed using its approved metadata registry. Sprint 055 is COMPLETE / APPROVED; its Windows Extension Development Host result (15 pass/5 fail) remains unpassed.
+- **Resolved by Sprint 053 disposition:** Sprint 053 measurement-to-string behavior was deferred to Sprint 056. The approved text form is displayed numeric value followed by the selected unit text; existing scalar conversion and narrative interpolation remain unchanged.
+- No new business-rule decision is open for Sprint 056 preparation. Follow the approved Sprint 051 measurement precedence, arithmetic, scale/canonicalization, aggregate, domain, and diagnostic rules. If implementation uncovers a conflict, record a minimal case and request Lead Developer direction before changing behavior.
+
 ## V0.9 Sprint 055 Builder Closeout (2026-10-06)
 
 - **Resolved by Sprint 052 disposition:** Sprint 055 may proceed. Sprint 052 is ACCEPTED WITH RECORDED RESIDUALS. Sprint 053 is accepted and Sprint 054 is COMPLETE / APPROVED; neither is a dependency. Existing Windows extension/desktop test failures remain unpassed.

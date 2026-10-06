@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.9 Sprint 056 Architect Preparation (2026-10-06)
+
+- Sprint 056 consumes Sprint 055's approved dimension/unit identities, vectors, scales, explicit visibility, SI library, and registry; do not fork declaration metadata.
+- Implement measurements with both physical arithmetic meaning and chosen display-unit identity. Preserve display behavior per operation: left unit for addition/subtraction, selected element for min/max, first element for sum/mean, current unit for abs/round, and requested target unit for conversion.
+- Complete the measurement interpolation integration deferred by Sprint 053, using displayed value plus unit text; retain existing scalar and narrative behavior and continue rejecting implicit list/record stringification.
+- Keep external measurement serialization/schema, tables/charts/reports in Sprint 057 and broad editor parity/docs in Sprint 058.
+
 ## V0.9 Sprint 055 Decisions and Builder Closeout (2026-10-06)
 
 - Sprint 055 depends on Sprint 052 only. Sprint 052's ACCEPTED WITH RECORDED RESIDUALS disposition satisfies the dependency; Sprints 053/054 are not dependencies, and their Windows host residuals remain unpassed context.
