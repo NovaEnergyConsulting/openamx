@@ -7,6 +7,16 @@
 - Complete the measurement interpolation integration deferred by Sprint 053, using displayed value plus unit text; retain existing scalar and narrative behavior and continue rejecting implicit list/record stringification.
 - Keep external measurement serialization/schema, tables/charts/reports in Sprint 057 and broad editor parity/docs in Sprint 058.
 
+## V0.9 Sprint 056 Builder Decisions (2026-10-06)
+
+- Measurement runtime values are immutable snapshots containing the displayed numeric value and an immutable unit descriptor with positive finite scale, Sprint 055 dimension vector, original declared/compound unit factors, and deterministic unit text. Physical value is derived as `value * unit.scale`; conversion changes displayed value and declared display unit, not physical meaning.
+- The checker represents measurement types as normalized sparse vectors keyed by Sprint 055 base identity, rather than declared dimension names. This preserves equivalence of structurally matching derived dimensions and incompatibility of independently declared bases. Unit targets are resolved only from the current module's checked visible registry.
+- Binary operators retain explicit operator source locations. Measurement addition/subtraction use the left display unit; multiplication/division compose scales and vectors and return Number on vector cancellation; comparison normalizes physical values. Powers require signed integer-literal exponents for measurement values, and runtime measurement domain errors use `AMX1009`.
+- Aggregate display policies follow Sprint 051: sum/mean use the first measurement unit, min/max return the selected item unchanged, and abs/round retain the current unit. Typed empty measurement sum uses Sprint 055's base-unit registry; empty min/max/mean preserve `AMX2004`.
+- Sprint 053 interpolation now accepts measurement values and formats displayed value plus unit text. Existing scalar interpolation and narrative interpolation were left unchanged. External data/output serialization and visualization support remain out of scope.
+- Full-worktree `git diff --check` is blocked by an extra blank line at EOF in an unrelated `writing/2026-10-03_Computable_Documents.md` change that appeared during validation. The Builder left that change untouched and checked owned paths separately.
+- Validation evidence and the unpassed Windows host residual are recorded in the Sprint 056 evidence file. **Lead Developer disposition (2026-10-06): COMPLETE / APPROVED.** The Lead Developer accepted Sprint 056. The recorded host and unrelated full-worktree diff-check residuals remain unpassed.
+
 ## V0.9 Sprint 055 Decisions and Builder Closeout (2026-10-06)
 
 - Sprint 055 depends on Sprint 052 only. Sprint 052's ACCEPTED WITH RECORDED RESIDUALS disposition satisfies the dependency; Sprints 053/054 are not dependencies, and their Windows host residuals remain unpassed context.

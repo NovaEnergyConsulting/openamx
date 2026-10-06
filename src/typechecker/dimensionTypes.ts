@@ -22,4 +22,5 @@ export interface UnitMetadata {
 export interface DimensionUnitRegistry {
   dimensions: ReadonlyMap<string, DimensionMetadata>;
   units: ReadonlyMap<string, UnitMetadata>;
+  baseUnits: ReadonlyMap<string, UnitMetadata>;
 }

@@ -24,6 +24,7 @@ export interface OutputSchema {
 
 function typeName(type: CheckedType): string {
   if (type.kind === 'named') return type.name;
+  if (type.kind === 'measurement') return 'measurement';
   if (type.kind === 'null') return 'null';
   return type.kind === 'list' ? `${typeName(type.element)}[]` : `${typeName(type.element)}?`;
 }

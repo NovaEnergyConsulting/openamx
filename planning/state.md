@@ -5,7 +5,16 @@
 - Prepared the four Sprint 056 artifacts in `planning/sprints/0056-v09-measurement-expressions-arithmetic-conversion/` for measurement attachment, typing, arithmetic/comparison, dimensional powers/roots, conversion, unit-aware functions, metadata preservation, and Sprint 053 interpolation integration.
 - Sprint 055 is COMPLETE / APPROVED. Its dimension/unit metadata, exact SI library, identity rules, and metadata-only registry are the authoritative dependency input for Sprint 056.
 - Sprints 053 and 054 are not direct dependencies. Sprint 053's measurement-to-string verification was deferred to Sprint 056; its Windows VS Code host suite remains unpassed (13 pass/6 fail). Sprint 054 is COMPLETE / APPROVED with Windows desktop RPC and VS Code host residuals still unpassed.
-- Sprint 056 has not been implemented or tested by this preparation. External data/report integration remains Sprint 057; broad editor parity and integrated acceptance remain Sprint 058.
+- Sprint 056 implementation and Builder evidence are recorded below. External data/report integration remains Sprint 057; broad editor parity and integrated acceptance remain Sprint 058.
+
+## V0.9 Sprint 056 Builder Implementation (2026-10-06)
+
+- Added measurement attachment/conversion parsing with approved precedence and original operator/unit source locations; static measurement vectors resolve through Sprint 055's visible dimension/unit metadata and runtime values retain physical scale plus display-unit factors/text.
+- Implemented measurement-aware assignments, annotations, function/record/list/nullable preservation, comparisons, addition/subtraction, scaled multiplication/division and cancellation, signed literal powers, dimensional roots, aggregates/math functions, typed-empty measurement sum, and Sprint 053 interpolation text.
+- Focused measurement/parser/evaluator/dimension/module/editor tests pass: 188 tests, 892 expectations across 6 files (the measurement file itself has 9 passing tests). Root build passes. Full root tests pass: 364 tests, 1,752 expectations. Desktop tests pass: 27 tests, 143 expectations; desktop typecheck passes.
+- Extension compilation and test compilation pass. The Windows Extension Development Host reports 15 pass / 5 fail (four `EBUSY` cleanup failures and one drive-letter casing assertion); it remains unpassed. This matches the Sprint 055 residual and is not described as green.
+- Full-worktree `git diff --check` reports an extra blank line at EOF in unrelated, concurrently modified `writing/2026-10-03_Computable_Documents.md`; that file was not changed by this Builder. `git diff --check` on Sprint 056-owned paths passes. No unrelated edits were reverted.
+- Exact implementation details, commands, residuals, and unimplemented Sprint 057/058 scope are in [Sprint 056 Builder evidence](sprints/0056-v09-measurement-expressions-arithmetic-conversion/builder-evidence.md). **Lead Developer disposition (2026-10-06): COMPLETE / APPROVED.** The Lead Developer accepted Sprint 056 as complete. The Windows Extension Development Host and unrelated full-worktree diff-check residuals remain recorded and unpassed; no Sprint 057/058 or integrated V0.9 completion is claimed.
 
 ## V0.9 Sprint 055 Builder Implementation (2026-10-06)
 

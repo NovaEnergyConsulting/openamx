@@ -274,7 +274,8 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
   const entryRecord = resolved.get(realEntry)!;
   const registry: DimensionUnitRegistry = {
     dimensions: entryRecord.checkResult.dimensions,
-    units: entryRecord.checkResult.units
+    units: entryRecord.checkResult.units,
+    baseUnits: entryRecord.checkResult.baseUnits
   };
   const entryStatements = flattenStatements(entryRecord.doc);
   const inputDeclarations = entryStatements.filter(statement => statement.type === 'inputDeclaration');
@@ -337,7 +338,11 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
   const evaluatedEnvironments = new Map<string, Environment>();
   for (const canonicalPath of evaluationOrder) {
     const record = resolved.get(canonicalPath)!;
-    const env = new Environment();
+    const env = new Environment(new Map(), new Map(), {
+      dimensions: record.checkResult.dimensions,
+      units: record.checkResult.units,
+      baseUnits: record.checkResult.baseUnits
+    });
     env.validationMode = options.validation ?? 'aggregate';
     for (const [name, typeDeclaration] of record.importedTypes) env.recordTypes.set(name, typeDeclaration);
     for (const [name, functionDeclaration] of record.importedFunctions) env.functions.set(name, functionDeclaration);

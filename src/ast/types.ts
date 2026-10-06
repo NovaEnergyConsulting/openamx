@@ -221,6 +221,23 @@ export interface BinaryExpressionNode {
   operator: '+' | '-' | '*' | '/' | '%' | '^' | '==' | '!=' | '>' | '>=' | '<' | '<=' | 'and' | 'or';
   left: V02ExpressionNode;
   right: V02ExpressionNode;
+  operatorSource?: SourceLocation;
+  source?: SourceLocation;
+}
+
+export interface MeasurementAttachmentNode {
+  type: 'measurementAttachment';
+  value: V02ExpressionNode;
+  unit: string;
+  unitSource?: SourceLocation;
+  source?: SourceLocation;
+}
+
+export interface MeasurementConversionNode {
+  type: 'measurementConversion';
+  value: V02ExpressionNode;
+  unit: string;
+  unitSource?: SourceLocation;
   source?: SourceLocation;
 }
 
@@ -281,6 +298,8 @@ export type ExpressionNode =
   | BooleanLiteralNode
   | IdentifierNode
   | BinaryExpressionNode
+  | MeasurementAttachmentNode
+  | MeasurementConversionNode
   | UnaryExpressionNode
   | ConditionalExpressionNode
   | FunctionCallNode

@@ -210,6 +210,8 @@ function visibleSymbols(text: string, parsed: OpenAmxDocument, cursorOffset: num
 			case "forExpression": collectLoop(expression); break;
 			case "stringInterpolation": expression.parts.forEach(part => { if (typeof part !== "string") collectExpression(part); }); break;
 			case "binaryExpression": collectExpression(expression.left); collectExpression(expression.right); break;
+			case "measurementAttachment":
+			case "measurementConversion": collectExpression(expression.value); break;
 			case "unaryExpression": collectExpression(expression.argument); break;
 			case "conditionalExpression": collectExpression(expression.test); collectExpression(expression.consequent); collectExpression(expression.alternate); break;
 			case "matchExpression": collectMatch(expression); break;

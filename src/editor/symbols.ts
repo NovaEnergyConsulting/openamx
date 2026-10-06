@@ -25,6 +25,7 @@ function statementsOf(document: OpenAmxDocument): StatementNode[] {
 
 function typeText(type: CheckedType): string {
 	if (type.kind === "named") return type.name;
+	if (type.kind === "measurement") return "measurement";
 	if (type.kind === "null") return "null";
 	return `${typeText(type.element)}${type.kind === "list" ? "[]" : "?"}`;
 }
@@ -82,6 +83,8 @@ export function editorSymbolFacts(
 				case "functionCall": add(node.source, node.callee, visible.get(node.callee)); node.arguments.forEach(expression); break;
 				case "recordConstructor": add(node.source, node.name, visible.get(node.name)); node.fields.forEach(field => expression(field.expression)); break;
 				case "binaryExpression": expression(node.left); expression(node.right); break;
+				case "measurementAttachment":
+				case "measurementConversion": add(node.unitSource, node.unit, visible.get(node.unit)); expression(node.value); break;
 				case "unaryExpression": expression(node.argument); break;
 				case "conditionalExpression": expression(node.test); expression(node.consequent); expression(node.alternate); break;
 				case "listLiteral": node.elements.forEach(expression); break;

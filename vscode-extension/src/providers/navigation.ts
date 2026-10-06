@@ -23,6 +23,7 @@ function statements(document: OpenAmxDocument): StatementNode[] {
 
 function typeText(type: CheckedType): string {
   if (type.kind === 'named') return type.name;
+  if (type.kind === 'measurement') return 'measurement';
   if (type.kind === 'null') return 'null';
   return `${typeText(type.element)}${type.kind === 'list' ? '[]' : '?'}`;
 }

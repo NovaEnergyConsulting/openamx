@@ -6,6 +6,11 @@
 - **Resolved by Sprint 053 disposition:** Sprint 053 measurement-to-string behavior was deferred to Sprint 056. The approved text form is displayed numeric value followed by the selected unit text; existing scalar conversion and narrative interpolation remain unchanged.
 - No new business-rule decision is open for Sprint 056 preparation. Follow the approved Sprint 051 measurement precedence, arithmetic, scale/canonicalization, aggregate, domain, and diagnostic rules. If implementation uncovers a conflict, record a minimal case and request Lead Developer direction before changing behavior.
 
+## V0.9 Sprint 056 Builder Closeout (2026-10-06)
+
+- Builder implementation followed the approved Sprint 051 semantics and Sprint 055 registry without identifying a contract conflict requiring changed behavior. No new semantic question is being proposed.
+- **Resolved by Lead Developer disposition (2026-10-06): COMPLETE / APPROVED.** The Lead Developer accepted Sprint 056 as complete. The Windows extension-host result remains unpassed (isolated run 15 pass/5 fail), and the unrelated full-worktree diff-check residual remains documented in [Sprint 056 Builder evidence](sprints/0056-v09-measurement-expressions-arithmetic-conversion/builder-evidence.md).
+
 ## V0.9 Sprint 055 Builder Closeout (2026-10-06)
 
 - **Resolved by Sprint 052 disposition:** Sprint 055 may proceed. Sprint 052 is ACCEPTED WITH RECORDED RESIDUALS. Sprint 053 is accepted and Sprint 054 is COMPLETE / APPROVED; neither is a dependency. Existing Windows extension/desktop test failures remain unpassed.

@@ -4,6 +4,7 @@ import type { DimensionMetadata, UnitMetadata } from './dimensionTypes';
 
 export type CheckedType =
   | { kind: 'named'; name: string }
+  | { kind: 'measurement'; vector: ReadonlyMap<string, number> }
   | { kind: 'list' | 'nullable'; element: CheckedType }
   | { kind: 'null' };
 
@@ -29,6 +30,7 @@ export interface ModuleCheckResult {
   exportedUnits: Map<string, UnitMetadata>;
   dimensions: Map<string, DimensionMetadata>;
   units: Map<string, UnitMetadata>;
+  baseUnits: Map<string, UnitMetadata>;
 }
 
 const named = (name: string): CheckedType => ({ kind: 'named', name });
@@ -36,16 +38,20 @@ const list = (element: CheckedType): CheckedType => ({ kind: 'list', element });
 const nullable = (element: CheckedType): CheckedType => ({ kind: 'nullable', element });
 const primitives = new Set(['Number', 'String', 'Boolean', 'DateTime']);
 const signatures: Record<string, { args: string[]; min: number }> = {
-  sum: { args: ['Number[]'], min: 1 }, min: { args: ['Number[]'], min: 1 },
-  max: { args: ['Number[]'], min: 1 }, mean: { args: ['Number[]'], min: 1 },
-  round: { args: ['Number', 'Number'], min: 1 }, abs: { args: ['Number'], min: 1 },
-  sqrt: { args: ['Number'], min: 1 }, pow: { args: ['Number', 'Number'], min: 2 }
+  sum: { args: ['list'], min: 1 }, min: { args: ['list'], min: 1 },
+  max: { args: ['list'], min: 1 }, mean: { args: ['list'], min: 1 },
+  round: { args: ['numeric', 'Number'], min: 1 }, abs: { args: ['numeric'], min: 1 },
+  sqrt: { args: ['numeric'], min: 1 }, pow: { args: ['numeric', 'Number'], min: 2 }
 };
 
 function equal(left: CheckedType, right: CheckedType): boolean {
-  return left.kind === right.kind && (left.kind === 'named'
-    ? right.kind === 'named' && left.name === right.name
-    : left.kind === 'null' || (right.kind !== 'named' && right.kind !== 'null' && equal(left.element, right.element)));
+  if (left.kind !== right.kind) return false;
+  if (left.kind === 'named') return right.kind === 'named' && left.name === right.name;
+  if (left.kind === 'measurement') return right.kind === 'measurement' && sameVector(left.vector, right.vector);
+  if (left.kind === 'null') return true;
+  return (left.kind === 'list' || left.kind === 'nullable')
+    && (right.kind === 'list' || right.kind === 'nullable')
+    && equal(left.element, right.element);
 }
 
 function assignable(actual: CheckedType, expected: CheckedType): boolean {
@@ -62,8 +68,18 @@ function common(left: CheckedType, right: CheckedType): CheckedType | undefined 
 
 function format(type: CheckedType): string {
   if (type.kind === 'named') return type.name;
+  if (type.kind === 'measurement') return `Measurement<${[...type.vector].map(([key, value]) => `${key}^${value}`).join(',') || '1'}>`;
   if (type.kind === 'null') return 'null';
   return type.kind === 'list' ? `${format(type.element)}[]` : `${format(type.element)}?`;
+}
+
+function sameVector(left: ReadonlyMap<string, number>, right: ReadonlyMap<string, number>): boolean {
+  return left.size === right.size && [...left].every(([identity, exponent]) => right.get(identity) === exponent);
+}
+
+function containsMeasurement(type: CheckedType): boolean {
+  return type.kind === 'measurement'
+    || (type.kind === 'list' || type.kind === 'nullable') && containsMeasurement(type.element);
 }
 
 export function checkingActivated(_doc: OpenAmxDocument): boolean {
@@ -163,7 +179,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   const views = new Map<string, TableDeclarationNode | ChartDeclarationNode>();
   let loopDepth = 0;
   let allowListMutation = true;
-  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009', message: string, source?: SourceLocation): never => staticError(code, message, source, file);
+  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010', message: string, source?: SourceLocation): never => staticError(code, message, source, file);
   const failDeclaration = (message: string, source?: SourceLocation, declarationSource?: SourceLocation): never =>
     staticError('AMX3008', message, source, file, declarationSource);
 
@@ -181,6 +197,17 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     for (const [identity, exponent] of right) {
       const combined = (result.get(identity) ?? 0) + exponent * multiplier;
       if (!Number.isSafeInteger(combined)) failDeclaration('Dimension exponent is outside the supported integer range', source);
+      if (combined === 0) result.delete(identity);
+      else result.set(identity, combined);
+    }
+    return normalizedVector(result);
+  }
+
+  function combineMeasurementVectors(left: ReadonlyMap<string, number>, right: ReadonlyMap<string, number>, multiplier: number, source?: SourceLocation): ReadonlyMap<string, number> {
+    const result = new Map(left);
+    for (const [identity, exponent] of right) {
+      const combined = (result.get(identity) ?? 0) + exponent * multiplier;
+      if (!Number.isSafeInteger(combined)) fail('AMX3007', 'Measurement dimension exponent is outside the supported integer range', source);
       if (combined === 0) result.delete(identity);
       else result.set(identity, combined);
     }
@@ -354,6 +381,8 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
 
   function resolve(ref: TypeReferenceNode): CheckedType {
     if (ref.type === 'namedType') {
+      const dimension = ref.name ? dimensions.get(ref.name) : undefined;
+      if (dimension) return { kind: 'measurement', vector: dimension.vector };
       if (!ref.name || (!primitives.has(ref.name) && !types.has(ref.name))) fail('AMX3001', `Unknown type '${ref.name}'`, ref.source);
       return named(ref.name!);
     }
@@ -361,11 +390,52 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   }
 
   function requireType(actual: CheckedType, expected: CheckedType, source?: SourceLocation): void {
-    if (!assignable(actual, expected)) fail('AMX3002', `Expected ${format(expected)}, got ${format(actual)}`, source);
+    if (!assignable(actual, expected)) {
+      const measurementMismatch = containsMeasurement(actual) || containsMeasurement(expected);
+      fail(measurementMismatch ? 'AMX3007' : 'AMX3002', `Expected ${format(expected)}, got ${format(actual)}`, source);
+    }
   }
 
   function requireOperatorType(actual: CheckedType, expected: CheckedType, source?: SourceLocation): void {
     if (!assignable(actual, expected)) fail('AMX3007', `Expected ${format(expected)}, got ${format(actual)}`, source);
+  }
+
+  function literalMeasurementValue(expression: V02ExpressionNode): number | undefined {
+    if (expression.type === 'measurementAttachment') {
+      const value = constantValue(expression.value);
+      const unit = units.get(expression.unit);
+      return typeof value === 'number' && unit ? value * unit.scale : undefined;
+    }
+    if (expression.type === 'measurementConversion') return literalMeasurementValue(expression.value);
+    if (expression.type === 'unaryExpression' && expression.operator === '-') {
+      const value = literalMeasurementValue(expression.argument) ?? constantValue(expression.argument);
+      return typeof value === 'number' ? -value : undefined;
+    }
+    if (expression.type === 'binaryExpression') {
+      const left = literalMeasurementValue(expression.left) ?? constantValue(expression.left);
+      const right = literalMeasurementValue(expression.right) ?? constantValue(expression.right);
+      if (typeof left !== 'number' || typeof right !== 'number') return undefined;
+      let result: number;
+      switch (expression.operator) {
+        case '+': result = left + right; break;
+        case '-': result = left - right; break;
+        case '*': result = left * right; break;
+        case '/': if (right === 0) return undefined; result = left / right; break;
+        case '^': result = Math.pow(left, right); break;
+        default: return undefined;
+      }
+      return Number.isFinite(result) ? result : undefined;
+    }
+    if (expression.type === 'functionCall' && expression.callee === 'pow'
+      && expression.arguments.length === 2) {
+      const left = literalMeasurementValue(expression.arguments[0]) ?? constantValue(expression.arguments[0]);
+      const right = constantValue(expression.arguments[1]);
+      if (typeof left === 'number' && typeof right === 'number') {
+        const result = Math.pow(left, right);
+        return Number.isFinite(result) ? result : undefined;
+      }
+    }
+    return undefined;
   }
 
   function checkDateTime(value: string): boolean {
@@ -397,6 +467,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
           if (typeof part === 'string') continue;
           const type = infer(part);
           const stringifiable = (value: CheckedType): boolean => value.kind === 'null'
+            || value.kind === 'measurement'
             || (value.kind === 'named' && ['String', 'Number', 'Boolean'].includes(value.name))
             || (value.kind === 'nullable' && stringifiable(value.element));
           if (!stringifiable(type)) {
@@ -409,6 +480,31 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         const value = bindings.get(expression.name);
         if (!value) fail('AMX3001', `Unknown identifier '${expression.name}'`, expression.source);
         return value!;
+      }
+      case 'measurementAttachment': {
+        const actual = infer(expression.value);
+        if (actual.kind !== 'named' || actual.name !== 'Number') {
+          fail('AMX3007', 'Unit attachment requires a Number expression', expression.value.source ?? expression.source);
+        }
+        const unit = units.get(expression.unit);
+        if (!unit) failDeclaration(`Unknown or invisible unit '${expression.unit}'`, expression.unitSource ?? expression.source);
+        if (expression.value.type === 'numberLiteral' && !Number.isFinite(expression.value.value)) {
+          fail('AMX3010', 'Measurement value must be finite', expression.source);
+        }
+        const value = constantValue(expression.value);
+        if (typeof value === 'number' && !Number.isFinite(value * unit!.scale)) {
+          fail('AMX3010', 'Measurement physical value must be finite', expression.source);
+        }
+        return { kind: 'measurement', vector: unit!.vector };
+      }
+      case 'measurementConversion': {
+        const actual = infer(expression.value);
+        const unit = units.get(expression.unit);
+        if (!unit) failDeclaration(`Unknown or invisible unit '${expression.unit}'`, expression.unitSource ?? expression.source);
+        if (actual.kind !== 'measurement' || !sameVector(actual.vector, unit!.vector)) {
+          fail('AMX3007', `Cannot convert ${format(actual)} to unit '${expression.unit}'`, expression.source);
+        }
+        return actual;
       }
       case 'listLiteral': {
         const context = expected?.kind === 'nullable' ? expected.element : expected;
@@ -426,7 +522,8 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         for (const item of expression.elements.slice(1)) {
           const next = infer(item, elementType);
           const merged = common(element, next);
-          if (!merged) fail('AMX3002', 'List elements have incompatible types', item.source);
+          if (!merged) fail(element.kind === 'measurement' || next.kind === 'measurement'
+            ? 'AMX3007' : 'AMX3002', 'List elements have incompatible types', item.source);
           element = merged!;
         }
         if (elementType) requireType(element, elementType, expression.source);
@@ -478,17 +575,102 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
           requireOperatorType(left, named('Boolean'), expression.left.source);
           requireOperatorType(right, named('Boolean'), expression.right.source);
         } else if (['==', '!='].includes(expression.operator)) {
-          const scalar = (type: CheckedType) => type.kind === 'named' && primitives.has(type.name);
-          if (!((scalar(left) && equal(left, right)) || (left.kind === 'null' && right.kind === 'nullable') || (right.kind === 'null' && left.kind === 'nullable'))) fail('AMX3003', 'Equality requires compatible scalar operands', expression.source);
+          const scalar = (type: CheckedType): boolean => type.kind === 'measurement'
+            || type.kind === 'named' && primitives.has(type.name)
+            || type.kind === 'nullable' && scalar(type.element);
+          const hasMeasurement = (type: CheckedType): boolean => type.kind === 'measurement'
+            || (type.kind === 'list' || type.kind === 'nullable') && hasMeasurement(type.element);
+          if (!((scalar(left) && equal(left, right))
+            || (left.kind === 'null' && right.kind === 'nullable')
+            || (right.kind === 'null' && left.kind === 'nullable'))) {
+            fail(hasMeasurement(left) || hasMeasurement(right) ? 'AMX3007' : 'AMX3003',
+              'Equality requires compatible scalar or measurement operands', expression.operatorSource ?? expression.source);
+          }
+        } else if (['>', '>=', '<', '<='].includes(expression.operator)) {
+          if (left.kind === 'measurement' || right.kind === 'measurement') {
+            if (left.kind !== 'measurement' || right.kind !== 'measurement' || !sameVector(left.vector, right.vector)) {
+              fail('AMX3007', 'Measurement comparison requires compatible dimensions', expression.operatorSource ?? expression.source);
+            }
+          } else {
+            requireOperatorType(left, named('Number'), expression.left.source);
+            requireOperatorType(right, named('Number'), expression.right.source);
+          }
+        } else if (expression.operator === '+' || expression.operator === '-') {
+          if (left.kind === 'measurement' || right.kind === 'measurement') {
+            if (left.kind !== 'measurement' || right.kind !== 'measurement' || !sameVector(left.vector, right.vector)) {
+              fail('AMX3007', 'Addition and subtraction require compatible measurements', expression.operatorSource ?? expression.source);
+            }
+            const leftValue = literalMeasurementValue(expression.left);
+            const rightValue = literalMeasurementValue(expression.right);
+            if (typeof leftValue === 'number' && typeof rightValue === 'number'
+              && !Number.isFinite(expression.operator === '+' ? leftValue + rightValue : leftValue - rightValue)) {
+              fail('AMX3010', 'Measurement arithmetic result must be finite', expression.operatorSource ?? expression.source);
+            }
+            return left;
+          }
+          requireOperatorType(left, named('Number'), expression.left.source);
+          requireOperatorType(right, named('Number'), expression.right.source);
+        } else if (expression.operator === '*' || expression.operator === '/') {
+          if (left.kind === 'measurement' || right.kind === 'measurement') {
+            const leftVector = left.kind === 'measurement' ? left.vector : new Map<string, number>();
+            const rightVector = right.kind === 'measurement' ? right.vector : new Map<string, number>();
+            if (left.kind !== 'measurement' && (left.kind !== 'named' || left.name !== 'Number')
+              || right.kind !== 'measurement' && (right.kind !== 'named' || right.name !== 'Number')) {
+              fail('AMX3007', 'Measurement multiplication and division accept only Number operands', expression.operatorSource ?? expression.source);
+            }
+            if (expression.operator === '/' && right.kind === 'named' && constantValue(expression.right) === 0) {
+              fail('AMX3010', 'Measurement division by zero', expression.operatorSource ?? expression.source);
+            }
+            const denominator = literalMeasurementValue(expression.right) ?? constantValue(expression.right);
+            if (expression.operator === '/' && denominator === 0) fail('AMX3010', 'Measurement division by zero', expression.operatorSource ?? expression.source);
+            const leftValue = literalMeasurementValue(expression.left) ?? constantValue(expression.left);
+            if (typeof leftValue === 'number' && typeof denominator === 'number') {
+              const result = expression.operator === '*' ? leftValue * denominator : leftValue / denominator;
+              if (!Number.isFinite(result)) fail('AMX3010', 'Measurement arithmetic result must be finite', expression.operatorSource ?? expression.source);
+            }
+            const vector = combineMeasurementVectors(leftVector, rightVector, expression.operator === '*' ? 1 : -1,
+              expression.operatorSource ?? expression.source);
+            return vector.size ? { kind: 'measurement', vector } : named('Number');
+          }
+          requireOperatorType(left, named('Number'), expression.left.source);
+          requireOperatorType(right, named('Number'), expression.right.source);
+        } else if (expression.operator === '^') {
+          if (left.kind === 'measurement') {
+            if (right.kind !== 'named' || right.name !== 'Number') {
+              fail('AMX3007', 'A measurement power requires a Number integer-literal exponent', expression.source);
+            }
+            const exponent = integerExponent(expression.right);
+            if (exponent === undefined) fail('AMX3007', 'A dimensional power exponent must be a signed integer literal', expression.right.source);
+            const vector = new Map<string, number>();
+            for (const [identity, power] of left.vector) {
+              const scaled = power * exponent!;
+              if (!Number.isSafeInteger(scaled)) fail('AMX3007', 'Measurement dimension exponent is outside the supported range', expression.operatorSource ?? expression.source);
+              if (scaled) vector.set(identity, scaled);
+            }
+            const value = literalMeasurementValue(expression.left);
+            if (value === 0 && exponent! < 0) fail('AMX3010', 'Zero measurement cannot be raised to a negative power', expression.operatorSource ?? expression.source);
+            if (typeof value === 'number' && !Number.isFinite(Math.pow(value, exponent!))) {
+              fail('AMX3010', 'Measurement power result must be finite', expression.operatorSource ?? expression.source);
+            }
+            return vector.size ? { kind: 'measurement', vector } : named('Number');
+          }
+          requireOperatorType(left, named('Number'), expression.left.source);
+          requireOperatorType(right, named('Number'), expression.right.source);
         } else {
+          if (left.kind === 'measurement' || right.kind === 'measurement') {
+            fail('AMX3007', 'Remainder is not defined for measurements', expression.operatorSource ?? expression.source);
+          }
           requireOperatorType(left, named('Number'), expression.left.source);
           requireOperatorType(right, named('Number'), expression.right.source);
         }
         return ['and', 'or', '==', '!=', '>', '>=', '<', '<='].includes(expression.operator) ? named('Boolean') : named('Number');
       }
-      case 'unaryExpression':
-        requireOperatorType(infer(expression.argument), named(expression.operator === 'not' ? 'Boolean' : 'Number'), expression.argument.source);
+      case 'unaryExpression': {
+        const actual = infer(expression.argument);
+        if (expression.operator === '-' && actual.kind === 'measurement') return actual;
+        requireOperatorType(actual, named(expression.operator === 'not' ? 'Boolean' : 'Number'), expression.argument.source);
         return named(expression.operator === 'not' ? 'Boolean' : 'Number');
+      }
       case 'conditionalExpression': {
         requireType(infer(expression.test), named('Boolean'), expression.test.source);
         const test = expression.test;
@@ -506,7 +688,8 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         const consequent = branch(expression.consequent, nonNullInConsequent);
         const alternate = branch(expression.alternate, !nonNullInConsequent);
         const result = common(consequent, alternate);
-        if (!result) fail('AMX3002', 'Conditional branches have incompatible types', expression.source);
+        if (!result) fail(consequent.kind === 'measurement' || alternate.kind === 'measurement'
+          ? 'AMX3007' : 'AMX3002', 'Conditional branches have incompatible types', expression.source);
         return result!;
       }
       case 'rangeExpression':
@@ -526,11 +709,58 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         const signature = signatures[expression.callee];
         if (!signature) fail('AMX3004', `Unknown function '${expression.callee}'`, expression.source);
         if (expression.arguments.length < signature.min || expression.arguments.length > signature.args.length) fail('AMX3004', `Invalid arity for '${expression.callee}'`, expression.source);
-        expression.arguments.forEach((argument, index) => {
-          const target = signature.args[index] === 'Number[]' ? list(named('Number')) : named('Number');
-          requireType(infer(argument, target), target, argument.source);
-        });
-        return named('Number');
+        if (['sum', 'mean', 'min', 'max'].includes(expression.callee)) {
+          const values = infer(expression.arguments[0]);
+          if (values.kind !== 'list') return fail('AMX3002', `${expression.callee} requires a Number[] or measurement list`, expression.arguments[0].source);
+          if (!(values.element.kind === 'measurement' || values.element.kind === 'named' && values.element.name === 'Number')) {
+            fail('AMX3002', `${expression.callee} requires a homogeneous Number or measurement list`, expression.arguments[0].source);
+          }
+          return values.element;
+        }
+        const first = infer(expression.arguments[0]);
+        const numeric = (type: CheckedType): boolean =>
+          type.kind === 'named' && type.name === 'Number' || type.kind === 'measurement';
+        if (!numeric(first)) fail(containsMeasurement(first) ? 'AMX3007' : 'AMX3002',
+          `${expression.callee} requires a Number or measurement`, expression.arguments[0].source);
+        if (expression.callee === 'round' && expression.arguments.length > 1) {
+          requireType(infer(expression.arguments[1]), named('Number'), expression.arguments[1].source);
+        }
+        if (expression.callee === 'sqrt' && first.kind === 'measurement') {
+          const vector = new Map<string, number>();
+          for (const [identity, exponent] of first.vector) {
+            if (exponent % 2 !== 0) fail('AMX3007', 'sqrt requires even measurement dimension exponents', expression.source);
+            vector.set(identity, exponent / 2);
+          }
+          const literal = literalMeasurementValue(expression.arguments[0]);
+          if (typeof literal === 'number' && literal < 0) {
+            fail('AMX3010', 'sqrt of a negative measurement value', expression.source);
+          }
+          return vector.size ? { kind: 'measurement', vector } : named('Number');
+        }
+        if (expression.callee === 'pow' && expression.arguments.length > 1) {
+          const exponentType = infer(expression.arguments[1]);
+          if (first.kind === 'measurement') requireOperatorType(exponentType, named('Number'), expression.arguments[1].source);
+          else requireType(exponentType, named('Number'), expression.arguments[1].source);
+          if (first.kind === 'measurement') {
+            const exponent = integerExponent(expression.arguments[1]);
+            if (exponent === undefined) fail('AMX3007', 'A dimensional pow exponent must be a signed integer literal', expression.arguments[1].source);
+            const vector = new Map<string, number>();
+            for (const [identity, power] of first.vector) {
+              const scaled = power * exponent!;
+              if (!Number.isSafeInteger(scaled)) fail('AMX3007', 'Measurement dimension exponent is outside the supported range', expression.source);
+              if (scaled) vector.set(identity, scaled);
+            }
+            if (exponent! < 0 && literalMeasurementValue(expression.arguments[0]) === 0) {
+              fail('AMX3010', 'Zero measurement cannot be raised to a negative power', expression.source);
+            }
+            const physicalBase = literalMeasurementValue(expression.arguments[0]);
+            if (typeof physicalBase === 'number' && !Number.isFinite(Math.pow(physicalBase, exponent!))) {
+              fail('AMX3010', 'Measurement power result must be finite', expression.source);
+            }
+            return vector.size ? { kind: 'measurement', vector } : named('Number');
+          }
+        }
+        return first;
       }
       case 'matchExpression': {
         const scrutinee = infer(expression.expression);
@@ -554,7 +784,8 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
 
   function checkLoop(variable: string, iterable: V02ExpressionNode, body: StatementNode[], source?: SourceLocation, expected?: CheckedType, statementForm = true): CheckedType {
     const target = infer(iterable);
-    if (target.kind !== 'list') fail('AMX3003', 'For loop needs a list or range', iterable.source ?? source);
+    if (target.kind !== 'list') fail(target.kind === 'measurement' ? 'AMX3007' : 'AMX3003',
+      'For loop needs a list or range', iterable.source ?? source);
     const prior = bindings.get(variable);
     const existing = new Set(bindings.keys());
     bindings.set(variable, (target as { kind: 'list'; element: CheckedType }).element);
@@ -586,8 +817,11 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         const declared = declaration?.fields.find(item => item.name === field.name);
         if (declared) checkDefault(field.expression, resolve(declared.annotation));
       }
-    } else if (!(expression.type === 'unaryExpression' && expression.operator === '-' && expression.argument.type === 'numberLiteral')
-      && !['numberLiteral', 'stringLiteral', 'booleanLiteral', 'nullLiteral'].includes(expression.type)) {
+    } else if (!(expression.type === 'unaryExpression' && expression.operator === '-'
+      && (expression.argument.type === 'numberLiteral'
+        || expression.argument.type === 'measurementAttachment' && expression.argument.value.type === 'numberLiteral'))
+      && !['numberLiteral', 'stringLiteral', 'booleanLiteral', 'nullLiteral'].includes(expression.type)
+      && !(expression.type === 'measurementAttachment' && expression.value.type === 'numberLiteral')) {
       fail('AMX3005', 'Record default must be a literal', expression.source);
     }
     requireType(infer(expression, target), target, expression.source);
@@ -897,6 +1131,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     exportedDimensions,
     exportedUnits,
     dimensions,
-    units
+    units,
+    baseUnits: new Map(baseUnits)
   };
 }

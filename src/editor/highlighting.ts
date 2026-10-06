@@ -52,6 +52,11 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 			case "booleanLiteral": add(node.source, String(node.value), "keyword"); break;
 			case "nullLiteral": add(node.source, "null", "keyword"); break;
 			case "identifier": add(node.source, node.name, "reference"); break;
+			case "measurementAttachment":
+			case "measurementConversion":
+				expression(node.value);
+				add(node.unitSource, node.unit, "reference");
+				break;
 			case "functionCall": add(node.source, node.callee, "reference"); node.arguments.forEach(expression); break;
 			case "recordConstructor": add(node.source, node.name, "reference"); node.fields.forEach(field => expression(field.expression)); break;
 			case "fieldAccess": {

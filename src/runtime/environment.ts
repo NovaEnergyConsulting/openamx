@@ -1,6 +1,7 @@
 import { throwUndefinedIdentifier } from '../diagnostics/errors';
 import { ChartDeclarationNode, FunctionDeclarationNode, SourceLocation, TableDeclarationNode, TypeDeclarationNode } from '../ast/types';
 import type { CheckedType } from '../typechecker/checkDocument';
+import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
 
 export type ViewDataValue = string | number | boolean | null | readonly ViewDataValue[]
   | { readonly [field: string]: ViewDataValue };
@@ -36,6 +37,7 @@ export class Environment {
   readonly recordTypes: Map<string, TypeDeclarationNode>;
   readonly functions: Map<string, FunctionDeclarationNode>;
   readonly bindingTypes = new Map<string, CheckedType>();
+  dimensionRegistry?: DimensionUnitRegistry;
   readonly viewDefinitions = new Map<string, TableDeclarationNode | ChartDeclarationNode>();
   readonly viewEmissions: ViewEmission[] = [];
   private immutableValues = new WeakSet<object>();
@@ -43,9 +45,10 @@ export class Environment {
   currentStatementIndex = -1;
   validationMode: 'aggregate' | 'fail-fast' = 'aggregate';
 
-  constructor(recordTypes: Map<string, TypeDeclarationNode> = new Map(), functions: Map<string, FunctionDeclarationNode> = new Map()) {
+  constructor(recordTypes: Map<string, TypeDeclarationNode> = new Map(), functions: Map<string, FunctionDeclarationNode> = new Map(), dimensionRegistry?: DimensionUnitRegistry) {
     this.recordTypes = recordTypes;
     this.functions = functions;
+    this.dimensionRegistry = dimensionRegistry;
   }
 
   /**
@@ -54,7 +57,7 @@ export class Environment {
    * function bodies without exposing document/module state.
    */
   createCallFrame(parameters: Record<string, unknown>): Environment {
-    const frame = new Environment(this.recordTypes, this.functions);
+    const frame = new Environment(this.recordTypes, this.functions, this.dimensionRegistry);
     frame.validationMode = this.validationMode;
     for (const [name, type] of this.bindingTypes) frame.bindingTypes.set(name, type);
     for (const [name, value] of Object.entries(parameters)) {

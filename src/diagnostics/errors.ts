@@ -60,8 +60,12 @@ export function throwInputErrors(diagnostics: AmxDiagnostic[]): never {
   throw new AmxError(first, diagnostics);
 }
 
-export function staticError(code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009', message: string, source?: SourceLocation, file?: string, declarationSource?: SourceLocation): never {
+export function staticError(code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010', message: string, source?: SourceLocation, file?: string, declarationSource?: SourceLocation): never {
   throw new AmxError({ code, message, file, line: source?.line, column: source?.column, declarationSource });
+}
+
+export function throwMeasurementDomainError(message: string, source?: SourceLocation, file?: string): never {
+  throw new AmxError({ code: 'AMX1009', message, file, line: source?.line, column: source?.column });
 }
 
 export function syntaxError(message: string, source?: SourceLocation, file?: string): never {

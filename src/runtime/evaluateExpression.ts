@@ -16,10 +16,11 @@ import {
   AddStatementNode,
   RemoveStatementNode
 } from '../ast/types';
-import { inputError, staticError, throwInputErrors, throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext, throwListOperationError } from '../diagnostics/errors';
+import { inputError, staticError, throwInputErrors, throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext, throwListOperationError, throwMeasurementDomainError } from '../diagnostics/errors';
 import { Environment, ViewDataValue, ViewEmission } from './environment';
 import { evaluateStandardLibraryCall } from './standardLibrary';
 import type { CheckedType } from '../typechecker/checkDocument';
+import { canonicalUnit, composeUnits, isMeasurement, measurement, powerUnit, sqrtMeasurement, unitFromMetadata, type MeasurementUnit, type MeasurementValue } from './measurement';
 
 function validateRuntimeValue(
   value: unknown,
@@ -60,6 +61,21 @@ function validateRuntimeValue(
       actual.forEach((item, index) => visit(item, target.element, `${dataPath}[${index}]`, fieldSource));
       return;
     }
+    if (target.kind === 'measurement') {
+      if (!isMeasurement(actual)) {
+        report('Expected a measurement value', target, actual, dataPath, fieldSource);
+        return;
+      }
+      const vector = actual.unit.vector;
+      if (Object.keys(vector).length !== target.vector.size
+        || [...target.vector].some(([identity, exponent]) => vector[identity] !== exponent)) {
+        report('Measurement dimension does not match the declared dimension', target, actual, dataPath, fieldSource);
+      }
+      if (!Number.isFinite(actual.value) || !Number.isFinite(actual.value * actual.unit.scale)) {
+        report('Measurement value must be finite', target, actual, dataPath, fieldSource);
+      }
+      return;
+    }
     if (target.kind !== 'named') return;
     if (target.name === 'Number') {
       if (typeof actual !== 'number' || !Number.isFinite(actual)) report('Expected a finite Number value', target, actual, dataPath, fieldSource);
@@ -83,9 +99,9 @@ function validateRuntimeValue(
     const fieldNames = new Set(declaration.fields.map(field => field.name));
     for (const field of declaration.fields) {
       if (!Object.prototype.hasOwnProperty.call(record, field.name)) {
-        report(`Missing computed field '${field.name}'`, checkedType(field.annotation), 'missing', `${dataPath}.${field.name}`, field.source);
+        report(`Missing computed field '${field.name}'`, checkedType(field.annotation, env), 'missing', `${dataPath}.${field.name}`, field.source);
       } else {
-        visit(record[field.name], checkedType(field.annotation), `${dataPath}.${field.name}`, field.source);
+        visit(record[field.name], checkedType(field.annotation, env), `${dataPath}.${field.name}`, field.source);
       }
     }
     for (const name of Object.keys(record).filter(name => !fieldNames.has(name)).sort()) {
@@ -96,14 +112,18 @@ function validateRuntimeValue(
   if (diagnostics.length) throwInputErrors(diagnostics);
 }
 
-function checkedType(reference: TypeReferenceNode): CheckedType {
-  if (reference.type === 'namedType') return { kind: 'named', name: reference.name! };
-  const element = checkedType(reference.element!);
+function checkedType(reference: TypeReferenceNode, env?: Environment): CheckedType {
+  if (reference.type === 'namedType') {
+    const dimension = env?.dimensionRegistry?.dimensions.get(reference.name!);
+    return dimension ? { kind: 'measurement', vector: dimension.vector } : { kind: 'named', name: reference.name! };
+  }
+  const element = checkedType(reference.element!, env);
   return reference.type === 'listType' ? { kind: 'list', element } : { kind: 'nullable', element };
 }
 
 function formatCheckedType(type: CheckedType): string {
   if (type.kind === 'named') return type.name;
+  if (type.kind === 'measurement') return 'measurement';
   if (type.kind === 'null') return 'null';
   return type.kind === 'list' ? `${formatCheckedType(type.element)}[]` : `${formatCheckedType(type.element)}?`;
 }
@@ -113,6 +133,11 @@ function runtimeDescription(value: unknown): string {
   let description: string;
   try { description = JSON.stringify(value) ?? String(value); } catch { description = String(value); }
   return description.replace(/[\x00-\x1f\x7f]/g, character => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`).slice(0, 160);
+}
+
+function sameMeasurementVector(value: MeasurementValue, vector: ReadonlyMap<string, number>): boolean {
+  return Object.keys(value.unit.vector).length === vector.size
+    && [...vector].every(([identity, exponent]) => value.unit.vector[identity] === exponent);
 }
 
 function validDateTime(value: string): boolean {
@@ -168,7 +193,8 @@ export function evaluateExpression(
         if (value === null) return 'null';
         if (typeof value === 'string' || typeof value === 'number') return String(value);
         if (typeof value === 'boolean') return value ? 'true' : 'false';
-        return staticError('AMX3007', 'Only String, Number, Boolean, and null values can be interpolated', part.source, file);
+        if (isMeasurement(value)) return `${String(value.value)} ${value.unit.text}`;
+        return staticError('AMX3007', 'Only String, Number, Boolean, measurement, and null values can be interpolated', part.source, file);
       }).join('');
 
     case 'booleanLiteral':
@@ -177,6 +203,30 @@ export function evaluateExpression(
     case 'identifier':
       // Pass source location for better diagnostics
       return env.get(node.name, node.source, file);
+
+    case 'measurementAttachment': {
+      const value = evaluateExpression(node.value, env, file);
+      const unit = env.dimensionRegistry?.units.get(node.unit);
+      if (!unit) return staticError('AMX3008', `Unknown or invisible unit '${node.unit}'`, node.unitSource ?? node.source, file);
+      if (typeof value !== 'number') return staticError('AMX3007', 'Unit attachment requires a Number expression', node.source, file);
+      const result = measurement(value, unitFromMetadata(unit));
+      if (!Number.isFinite(result.value * result.unit.scale)) {
+        throwMeasurementDomainError('Measurement physical value must be finite', node.source, file);
+      }
+      return result;
+    }
+
+    case 'measurementConversion': {
+      const value = evaluateExpression(node.value, env, file);
+      const unit = env.dimensionRegistry?.units.get(node.unit);
+      if (!unit) return staticError('AMX3008', `Unknown or invisible unit '${node.unit}'`, node.unitSource ?? node.source, file);
+      if (!isMeasurement(value) || !sameMeasurementVector(value, unit.vector)) {
+        return staticError('AMX3007', `Cannot convert value to unit '${node.unit}'`, node.source, file);
+      }
+      const converted = value.value * value.unit.scale / unit.scale;
+      if (!Number.isFinite(converted)) throwMeasurementDomainError('Converted measurement value must be finite', node.source, file);
+      return measurement(converted, unitFromMetadata(unit));
+    }
 
     case 'binaryExpression':
       return evalBinary(node as BinaryExpressionNode, env, file);
@@ -225,38 +275,112 @@ function evalBinary(
 ): unknown {
   const left = evaluateExpression(node.left, env, file);
   const right = evaluateExpression(node.right, env, file);
+  const operatorSource = node.operatorSource ?? node.source;
 
   switch (node.operator) {
     // Arithmetic (numeric)
     case '+':
-    case '-':
-    case '*':
-    case '/':
-    case '%':
-    case '^': {
+    case '-': {
+      if (isMeasurement(left) || isMeasurement(right)) {
+        if (!isMeasurement(left) || !isMeasurement(right) || !sameMeasurementVector(left, new Map(Object.entries(right.unit.vector)))) {
+          return staticError('AMX3007', 'Addition and subtraction require compatible measurements', operatorSource, file);
+        }
+        const physicalLeft = left.value * left.unit.scale;
+        const physicalRight = right.value * right.unit.scale;
+        const physical = node.operator === '+' ? physicalLeft + physicalRight : physicalLeft - physicalRight;
+        const value = physical / left.unit.scale;
+        if (!Number.isFinite(value) || !Number.isFinite(physical)) {
+          throwMeasurementDomainError('Measurement arithmetic result must be finite', operatorSource, file);
+        }
+        return measurement(value, left.unit);
+      }
       const lNum = toNumber(left, node.left);
       const rNum = toNumber(right, node.right);
-      if (node.operator === '+') return lNum + rNum;
-      if (node.operator === '-') return lNum - rNum;
-      if (node.operator === '*') return lNum * rNum;
-      if (node.operator === '/') return lNum / rNum;
-      if (node.operator === '%') return lNum % rNum;
-      if (node.operator === '^') return Math.pow(lNum, rNum);
-      break;
+      return node.operator === '+' ? lNum + rNum : lNum - rNum;
+    }
+    case '*':
+    case '/': {
+      if (isMeasurement(left) || isMeasurement(right)) {
+        const numberUnit: MeasurementUnit = { scale: 1, vector: {}, factors: [], text: '1' };
+        const leftMeasurement = isMeasurement(left) ? left : undefined;
+        const rightMeasurement = isMeasurement(right) ? right : undefined;
+        const leftValue = leftMeasurement ? leftMeasurement.value : toNumber(left, node.left);
+        const rightValue = rightMeasurement ? rightMeasurement.value : toNumber(right, node.right);
+        const leftUnit = leftMeasurement?.unit ?? numberUnit;
+        const rightUnit = rightMeasurement?.unit ?? numberUnit;
+        const rightPhysical = rightValue * rightUnit.scale;
+        if (node.operator === '/' && rightPhysical === 0) {
+          throwMeasurementDomainError('Measurement division by zero', operatorSource, file);
+        }
+        const unit = composeUnits(leftUnit, rightUnit, node.operator === '/');
+        const physical = node.operator === '/'
+          ? leftValue * leftUnit.scale / rightPhysical
+          : leftValue * leftUnit.scale * rightValue * rightUnit.scale;
+        if (unit.vector && Object.keys(unit.vector).length === 0) {
+          if (!Number.isFinite(physical)) throwMeasurementDomainError('Measurement arithmetic result must be finite', operatorSource, file);
+          return physical;
+        }
+        const value = node.operator === '/' ? leftValue / rightValue : leftValue * rightValue;
+        if (!Number.isFinite(unit.scale) || unit.scale <= 0 || !Number.isFinite(value) || !Number.isFinite(physical)) {
+          throwMeasurementDomainError('Measurement arithmetic result must be finite', operatorSource, file);
+        }
+        return measurement(value, unit);
+      }
+      const lNum = toNumber(left, node.left);
+      const rNum = toNumber(right, node.right);
+      return node.operator === '*' ? lNum * rNum : lNum / rNum;
+    }
+    case '%': {
+      const lNum = toNumber(left, node.left);
+      const rNum = toNumber(right, node.right);
+      return lNum % rNum;
+    }
+    case '^': {
+      if (isMeasurement(left)) {
+        const exponent = toNumber(right, node.right);
+        if (!Number.isSafeInteger(exponent)) {
+          return staticError('AMX3007', 'A dimensional power exponent must be an integer literal', node.right.source, file);
+        }
+        if (left.value === 0 && exponent < 0) {
+          throwMeasurementDomainError('Zero measurement cannot be raised to a negative power', operatorSource, file);
+        }
+        const unit = powerUnit(left.unit, exponent);
+        const value = Math.pow(left.value, exponent);
+        if (!Number.isFinite(value) || !Number.isFinite(unit.scale)) {
+          throwMeasurementDomainError('Measurement power result must be finite', operatorSource, file);
+        }
+        if (Object.keys(unit.vector).length === 0) return value * unit.scale;
+        return measurement(value, unit);
+      }
+      const lNum = toNumber(left, node.left);
+      const rNum = toNumber(right, node.right);
+      return Math.pow(lNum, rNum);
     }
 
     // Comparisons (produce boolean)
     case '==':
+      if (isMeasurement(left) && isMeasurement(right)) {
+        return sameMeasurementVector(left, new Map(Object.entries(right.unit.vector)))
+          && left.value * left.unit.scale === right.value * right.unit.scale;
+      }
       return left === right;
     case '!=':
+      if (isMeasurement(left) && isMeasurement(right)) {
+        return !sameMeasurementVector(left, new Map(Object.entries(right.unit.vector)))
+          || left.value * left.unit.scale !== right.value * right.unit.scale;
+      }
       return left !== right;
     case '>':
+      if (isMeasurement(left) && isMeasurement(right)) return left.value * left.unit.scale > right.value * right.unit.scale;
       return toNumber(left, node.left) > toNumber(right, node.right);
     case '>=':
+      if (isMeasurement(left) && isMeasurement(right)) return left.value * left.unit.scale >= right.value * right.unit.scale;
       return toNumber(left, node.left) >= toNumber(right, node.right);
     case '<':
+      if (isMeasurement(left) && isMeasurement(right)) return left.value * left.unit.scale < right.value * right.unit.scale;
       return toNumber(left, node.left) < toNumber(right, node.right);
     case '<=':
+      if (isMeasurement(left) && isMeasurement(right)) return left.value * left.unit.scale <= right.value * right.unit.scale;
       return toNumber(left, node.left) <= toNumber(right, node.right);
 
     // Logical (short-circuit not required for simple impl; evaluate both then apply)
@@ -278,6 +402,7 @@ function evalUnary(
   const arg = evaluateExpression(node.argument, env, file);
 
   if (node.operator === '-') {
+    if (isMeasurement(arg)) return measurement(-arg.value, arg.unit);
     return -toNumber(arg, node.argument);
   }
   if (node.operator === 'not') {
@@ -331,13 +456,93 @@ function evalFunctionCall(
   if (userFunction) {
     const parameters: Record<string, unknown> = {};
     userFunction.parameters.forEach((parameter, index) => {
-      validateRuntimeValue(args[index], checkedType(parameter.annotation), env, node.arguments[index]?.source ?? node.source, file, `function ${node.callee}.${parameter.name}`);
+      validateRuntimeValue(args[index], checkedType(parameter.annotation, env), env, node.arguments[index]?.source ?? node.source, file, `function ${node.callee}.${parameter.name}`);
       parameters[parameter.name] = args[index];
     });
     const frame = env.createCallFrame(parameters);
+    userFunction.parameters.forEach(parameter => {
+      frame.bindingTypes.set(parameter.name, checkedType(parameter.annotation, env));
+    });
     const result = evaluateExpression(userFunction.body, frame, file);
-    validateRuntimeValue(result, checkedType(userFunction.returnType), env, node.source, file, `function ${node.callee} return`);
+    validateRuntimeValue(result, checkedType(userFunction.returnType, env), env, node.source, file, `function ${node.callee} return`);
     return result;
+  }
+  const values = args[0];
+  if (['sum', 'mean', 'min', 'max'].includes(node.callee) && Array.isArray(values)
+    && (values.length > 0 && isMeasurement(values[0]))) {
+    const measurements = values as MeasurementValue[];
+    const first = measurements[0];
+    for (const current of measurements) {
+      if (!sameMeasurementVector(first, new Map(Object.entries(current.unit.vector)))) {
+        return staticError('AMX3007', `${node.callee} requires compatible measurement dimensions`, node.source, file);
+      }
+      if (Array.isArray(values) && values.length > 0 && typeof values[0] === 'number'
+        && ['sum', 'mean', 'min', 'max'].includes(node.callee)) {
+        return evaluateStandardLibraryCall(node.callee, args, node.source, file);
+      }
+    }
+    if (node.callee === 'min' || node.callee === 'max') {
+      if (!measurements.length) return evaluateStandardLibraryCall(node.callee, args, node.source, file);
+      return measurements.reduce((best, current) => {
+        const better = node.callee === 'min'
+          ? current.value * current.unit.scale < best.value * best.unit.scale
+          : current.value * current.unit.scale > best.value * best.unit.scale;
+        return better ? current : best;
+      });
+    }
+    const physicalSum = measurements.reduce((sum, current) => sum + current.value * current.unit.scale, 0);
+    const value = (node.callee === 'mean' ? physicalSum / measurements.length : physicalSum) / first.unit.scale;
+    if (!Number.isFinite(value)) throwMeasurementDomainError(`${node.callee} result must be finite`, node.source, file);
+    return measurement(value, first.unit);
+  }
+  if (node.callee === 'sum' && Array.isArray(values) && values.length === 0
+    && node.arguments[0]?.type === 'identifier') {
+    const type = env.bindingTypes.get(node.arguments[0].name);
+    if (type?.kind === 'list' && type.element.kind === 'measurement' && env.dimensionRegistry) {
+      return measurement(0, canonicalUnit(type.element.vector, env.dimensionRegistry));
+    }
+  }
+  if (isMeasurement(args[0])) {
+    const value = args[0];
+    switch (node.callee) {
+      case 'abs':
+        return measurement(Math.abs(value.value), value.unit);
+      case 'round': {
+        const digits = args.length > 1 ? toNumber(args[1], node.arguments[1]) : 0;
+        const factor = Math.pow(10, Math.trunc(digits));
+        const rounded = Math.round(value.value * factor) / factor;
+        if (!Number.isFinite(rounded)) throwMeasurementDomainError('round result must be finite', node.source, file);
+        return measurement(rounded, value.unit);
+      }
+      case 'sqrt': {
+        const physical = value.value * value.unit.scale;
+        if (physical < 0) throwMeasurementDomainError('sqrt of a negative measurement value', node.source, file);
+        if (!env.dimensionRegistry) throw new Error('Measurement registry is unavailable during sqrt evaluation');
+        try {
+          const result = sqrtMeasurement(value, env.dimensionRegistry);
+          if (!Number.isFinite(result.value) || !Number.isFinite(result.unit.scale)) {
+            throwMeasurementDomainError('sqrt result must be finite', node.source, file);
+          }
+          if (Object.keys(result.unit.vector).length === 0) return result.value * result.unit.scale;
+          return result;
+        } catch (error) {
+          if (error instanceof Error && error.message.startsWith('sqrt requires')) {
+            return staticError('AMX3007', error.message, node.source, file);
+          }
+          throw error;
+        }
+      }
+      case 'pow': {
+        const exponent = toNumber(args[1], node.arguments[1]);
+        if (!Number.isSafeInteger(exponent)) return staticError('AMX3007', 'A dimensional pow exponent must be an integer literal', node.arguments[1]?.source, file);
+        if (value.value === 0 && exponent < 0) throwMeasurementDomainError('Zero measurement cannot be raised to a negative power', node.source, file);
+        const unit = powerUnit(value.unit, exponent);
+        const result = Math.pow(value.value, exponent);
+        if (!Number.isFinite(result) || !Number.isFinite(unit.scale)) throwMeasurementDomainError('pow result must be finite', node.source, file);
+        if (!Object.keys(unit.vector).length) return result * unit.scale;
+        return measurement(result, unit);
+      }
+    }
   }
   return evaluateStandardLibraryCall(node.callee, args, node.source, file);
 }

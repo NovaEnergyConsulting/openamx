@@ -10,7 +10,9 @@ import {
   FunctionCallNode,
   RangeExpressionNode,
   MatchExpressionNode,
-  MatchCaseNode
+  MatchCaseNode,
+  MeasurementAttachmentNode,
+  MeasurementConversionNode
 } from '../ast/types';
 import { parseForExpression } from './parseFor';
 import { AmxError, syntaxError } from '../diagnostics/errors';
@@ -24,7 +26,7 @@ type Token =
   | { type: 'null'; text: string; offset: number }
   | { type: 'forExpression'; value: string; text: string; offset: number }
   | { type: 'matchExpression'; value: string; text: string; offset: number }
-  | { type: 'operator'; op: string; text: string }
+  | { type: 'operator'; op: string; text: string; offset: number }
   | { type: 'keyword'; word: 'and' | 'or' | 'not' | 'if' | 'then' | 'else'; text: string }
   | { type: 'lparen' | 'rparen' | 'lbracket' | 'rbracket' | 'lbrace' | 'rbrace' | 'colon' | 'equals' | 'dot' | 'comma' | 'eof'; text?: string; offset?: number };
 
@@ -106,7 +108,7 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
     if (ch === '=' || ch === '!' || ch === '>' || ch === '<') {
       const two = text.slice(i, i + 2);
       if (two === '==' || two === '!=' || two === '>=' || two === '<=') {
-        tokens.push({ type: 'operator', op: two, text: two });
+        tokens.push({ type: 'operator', op: two, text: two, offset: i });
         i += 2;
         continue;
       }
@@ -114,7 +116,7 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
 
     // Single-character comparison operators (bare > < after two-char check)
     if (ch === '>' || ch === '<') {
-      tokens.push({ type: 'operator', op: ch, text: ch });
+      tokens.push({ type: 'operator', op: ch, text: ch, offset: i });
       i++;
       continue;
     }
@@ -134,7 +136,7 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
       } else if (ch === '{' || ch === '}' || ch === ':' || ch === '=' || ch === '.') {
         tokens.push({ type: ({ '{': 'lbrace', '}': 'rbrace', ':': 'colon', '=': 'equals', '.': 'dot' } as const)[ch as '{' | '}' | ':' | '=' | '.'], text: ch, offset: i });
       } else {
-        tokens.push({ type: 'operator', op: ch, text: ch });
+        tokens.push({ type: 'operator', op: ch, text: ch, offset: i });
       }
       i++;
       continue;
@@ -450,6 +452,8 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
     '>=': 2,
     '<': 2,
     '<=': 2,
+    // Measurement conversion binds below arithmetic and above comparisons.
+    'in': 2.5,
     // arithmetic
     '^': 5,
     '*': 4,
@@ -468,6 +472,18 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
 
   function parsePrimary(): V02ExpressionNode {
     const t = current();
+    const attach = (value: V02ExpressionNode): V02ExpressionNode => {
+      const unit = current();
+      if (unit.type !== 'identifier' || unit.name === 'in' || unit.name === 'to') return value;
+      advance();
+      return {
+        type: 'measurementAttachment',
+        value,
+        unit: unit.name,
+        unitSource: locationAt(text, unit.offset, source),
+        source: value.source
+      } as MeasurementAttachmentNode;
+    };
 
     if (t.type === 'matchExpression') {
       advance();
@@ -481,7 +497,7 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
 
     if (t.type === 'number') {
       advance();
-      return { type: 'numberLiteral', value: t.value, source: locationAt(text, t.offset, source) };
+      return attach({ type: 'numberLiteral', value: t.value, source: locationAt(text, t.offset, source) });
     }
     if (t.type === 'string') {
       advance();
@@ -556,13 +572,13 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
         } as FunctionCallNode;
       }
 
-      return { type: 'identifier', name, source: locationAt(text, t.offset, source) };
+      return attach({ type: 'identifier', name, source: locationAt(text, t.offset, source) });
     }
     if (t.type === 'lparen') {
       advance();
       const expr = parseExpr(0);
       consumeRParen();
-      return expr;
+      return attach(expr);
     }
     if (t.type === 'lbracket') {
       advance();
@@ -653,6 +669,25 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
     while (true) {
       const t = current();
 
+      if (t.type === 'identifier' && t.name === 'in') {
+        const prec = PREC.in;
+        if (prec < minPrec) break;
+        advance();
+        const unit = current();
+        if (unit.type !== 'identifier' || unit.name === 'to' || unit.name === 'in') {
+          syntaxError("Conversion requires a visible unit name after 'in'", locationAt(text, tokenOffset(unit, text.length), source));
+        }
+        advance();
+        left = {
+          type: 'measurementConversion',
+          value: left,
+          unit: unit.name,
+          unitSource: locationAt(text, unit.offset, source),
+          source: locationAt(text, t.offset ?? 0, source)
+        } as MeasurementConversionNode;
+        continue;
+      }
+
       if (t.type === 'dot') {
         advance();
         const field = current();
@@ -709,7 +744,9 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
 
         advance(); // consume operator
 
-        const nextMinPrec = isRightAssociative(op) ? prec : prec + 1;
+        const nextMinPrec = isRightAssociative(op) ? prec
+          : ['==', '!=', '>', '>=', '<', '<='].includes(op) ? 2.5
+            : prec + 1;
         const right = parseExpr(nextMinPrec);
 
         left = {
@@ -717,6 +754,7 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
           operator: op as BinaryExpressionNode['operator'],
           left,
           right,
+          operatorSource: locationAt(text, t.offset, source),
           source
         } as BinaryExpressionNode;
         continue;
@@ -737,6 +775,7 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
           operator: op as BinaryExpressionNode['operator'],
           left,
           right,
+          operatorSource: locationAt(text, tokenOffset(t, 0), source),
           source
         } as BinaryExpressionNode;
         continue;
