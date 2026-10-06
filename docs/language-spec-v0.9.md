@@ -142,7 +142,16 @@ Base dimensions have stable identity tied to their definition, preserved across 
 
 Permit one independent base unit per base dimension. Other units of that dimension require an explicit relationship. Unit scales must be positive finite Numbers. Derived definitions support valid scaling, multiplication, division, parentheses, and integer literal powers.
 
-Dimensions/units can be explicitly exported/imported through the existing module system. No implicit aliases or global standard names are created. The [ideas file](../planning/ideas/amx-language-features.md)'s `m` reference must be replaced by `meter` or backed by an explicit alias.
+Dimensions/units can be explicitly exported/imported through the existing module system. A module can re-export explicitly imported dimensions or units with `export { Length, meter }`; re-exporting preserves the original declaration identity. No implicit imports or aliases are created. The [ideas file](../planning/ideas/amx-language-features.md)'s `m` reference must be replaced by `meter` or backed by an explicit alias.
+
+```amx
+export dimension Length
+export unit meter: Length
+import { Length, meter } from "./base-units.amx"
+export { Length, meter }
+```
+
+The optional SI library is explicitly imported. Its `min` minute alias coexists with the `min(values)` standard-library call; their use is distinguished by unit-attachment versus function-call syntax.
 
 ### Optional SI Library
 

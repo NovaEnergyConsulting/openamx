@@ -7,6 +7,8 @@ export interface EditorRange {
 
 const declarationKeywords: Partial<Record<StatementNode["type"], string>> = {
 	typeDeclaration: "type",
+	dimensionDeclaration: "dimension",
+	unitDeclaration: "unit",
 	functionDeclaration: "fn",
 	inputDeclaration: "input",
 	variableDeclaration: "let",

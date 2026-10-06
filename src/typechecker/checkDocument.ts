@@ -1,5 +1,6 @@
-import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, FunctionDeclarationNode, InputDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TableDeclarationNode, TypeDeclarationNode, TypeReferenceNode, V02ExpressionNode, VisualizationOptionNode } from '../ast/types';
+import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, DimensionDeclarationNode, ExportNamesDeclarationNode, FunctionDeclarationNode, InputDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TableDeclarationNode, TypeDeclarationNode, TypeReferenceNode, UnitDeclarationNode, V02ExpressionNode, VisualizationOptionNode } from '../ast/types';
 import { moduleError, staticError } from '../diagnostics/errors';
+import type { DimensionMetadata, UnitMetadata } from './dimensionTypes';
 
 export type CheckedType =
   | { kind: 'named'; name: string }
@@ -11,6 +12,10 @@ export interface ModuleCheckContext {
   types?: Map<string, TypeDeclarationNode>;
   functions?: Map<string, FunctionDeclarationNode>;
   bindings?: Map<string, CheckedType>;
+  dimensions?: Map<string, DimensionMetadata>;
+  units?: Map<string, UnitMetadata>;
+  baseUnits?: Map<string, UnitMetadata>;
+  moduleIdentity?: string;
   isEntryModule?: boolean;
 }
 
@@ -20,6 +25,10 @@ export interface ModuleCheckResult {
   exportedFunctions: Map<string, FunctionDeclarationNode>;
   exportedBindings: Map<string, CheckedType>;
   bindingTypes: Map<string, CheckedType>;
+  exportedDimensions: Map<string, DimensionMetadata>;
+  exportedUnits: Map<string, UnitMetadata>;
+  dimensions: Map<string, DimensionMetadata>;
+  units: Map<string, UnitMetadata>;
 }
 
 const named = (name: string): CheckedType => ({ kind: 'named', name });
@@ -139,15 +148,209 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   const types = new Map<string, TypeDeclarationNode>(context?.types ?? []);
   let bindings = new Map<string, CheckedType>(context?.bindings ?? []);
   const functions = new Map<string, FunctionDeclarationNode>(context?.functions ?? []);
-  const immutableNames = new Set<string>([...(context?.bindings?.keys() ?? []), ...(context?.functions?.keys() ?? []), ...(context?.types?.keys() ?? [])]);
+  const dimensions = new Map<string, DimensionMetadata>(context?.dimensions ?? []);
+  const units = new Map<string, UnitMetadata>(context?.units ?? []);
+  const baseUnits = context?.baseUnits ?? new Map<string, UnitMetadata>();
+  const moduleIdentity = context?.moduleIdentity ?? file ?? '<memory>';
+  const immutableNames = new Set<string>([...(context?.bindings?.keys() ?? []), ...(context?.functions?.keys() ?? []), ...(context?.types?.keys() ?? []), ...(context?.dimensions?.keys() ?? []), ...(context?.units?.keys() ?? [])]);
   const inputNames = new Set<string>();
   const exportedTypes = new Map<string, TypeDeclarationNode>();
   const exportedFunctions = new Map<string, FunctionDeclarationNode>();
   const exportedBindings = new Map<string, CheckedType>();
+  const exportedDimensions = new Map<string, DimensionMetadata>();
+  const exportedUnits = new Map<string, UnitMetadata>();
+  const exportedNames = new Set<string>();
   const views = new Map<string, TableDeclarationNode | ChartDeclarationNode>();
   let loopDepth = 0;
   let allowListMutation = true;
-  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3009', message: string, source?: SourceLocation): never => staticError(code, message, source, file);
+  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009', message: string, source?: SourceLocation): never => staticError(code, message, source, file);
+  const failDeclaration = (message: string, source?: SourceLocation, declarationSource?: SourceLocation): never =>
+    staticError('AMX3008', message, source, file, declarationSource);
+
+  function hasName(name: string): boolean {
+    return primitives.has(name) || stdlibNames.has(name) || types.has(name) || functions.has(name)
+      || bindings.has(name) || views.has(name) || dimensions.has(name) || units.has(name);
+  }
+
+  function normalizedVector(vector: Map<string, number>): ReadonlyMap<string, number> {
+    return new Map([...vector.entries()].filter(([, exponent]) => exponent !== 0).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0));
+  }
+
+  function combineVectors(left: ReadonlyMap<string, number>, right: ReadonlyMap<string, number>, multiplier: number, source?: SourceLocation): ReadonlyMap<string, number> {
+    const result = new Map(left);
+    for (const [identity, exponent] of right) {
+      const combined = (result.get(identity) ?? 0) + exponent * multiplier;
+      if (!Number.isSafeInteger(combined)) failDeclaration('Dimension exponent is outside the supported integer range', source);
+      if (combined === 0) result.delete(identity);
+      else result.set(identity, combined);
+    }
+    return normalizedVector(result);
+  }
+
+  function integerExponent(expression: V02ExpressionNode): number | undefined {
+    if (expression.type === 'numberLiteral' && Number.isSafeInteger(expression.value)) return expression.value;
+    if (expression.type === 'unaryExpression' && expression.operator === '-' && expression.argument.type === 'numberLiteral'
+      && Number.isSafeInteger(-expression.argument.value)) return -expression.argument.value;
+    return undefined;
+  }
+
+  function resolveDimensionExpression(expression: V02ExpressionNode): ReadonlyMap<string, number> {
+    if (expression.type === 'identifier') {
+      const dimension = dimensions.get(expression.name);
+      if (!dimension) return failDeclaration(`Unknown or not-yet-declared dimension '${expression.name}'`, expression.source);
+      return dimension.vector;
+    }
+    if (expression.type === 'binaryExpression' && (expression.operator === '*' || expression.operator === '/')) {
+      return combineVectors(
+        resolveDimensionExpression(expression.left),
+        resolveDimensionExpression(expression.right),
+        expression.operator === '*' ? 1 : -1,
+        expression.source
+      );
+    }
+    if (expression.type === 'binaryExpression' && expression.operator === '^') {
+      const exponent = integerExponent(expression.right);
+      if (exponent === undefined) return failDeclaration('Dimension powers must be signed integer literals', expression.right.source ?? expression.source);
+      const base = resolveDimensionExpression(expression.left);
+      const result = new Map<string, number>();
+      for (const [identity, value] of base) {
+        const powered = value * exponent;
+        if (!Number.isSafeInteger(powered)) failDeclaration('Dimension exponent is outside the supported integer range', expression.source);
+        if (powered !== 0) result.set(identity, powered);
+      }
+      return normalizedVector(result);
+    }
+    return failDeclaration('Dimension expressions may use only visible dimensions, *, /, and integer powers', expression.source);
+  }
+
+  interface UnitExpressionValue {
+    vector: ReadonlyMap<string, number>;
+    scale: number;
+    hasUnit: boolean;
+  }
+
+  function validateUnitScale(scale: number, source?: SourceLocation): number {
+    if (!Number.isFinite(scale) || scale <= 0) failDeclaration('Unit scale must be finite and greater than zero', source);
+    return scale;
+  }
+
+  function resolveUnitExpression(expression: V02ExpressionNode): UnitExpressionValue {
+    if (expression.type === 'numberLiteral') {
+      return { vector: new Map(), scale: validateUnitScale(expression.value, expression.source), hasUnit: false };
+    }
+    if (expression.type === 'identifier') {
+      const unit = units.get(expression.name);
+      if (!unit) return failDeclaration(`Unknown or not-yet-declared unit '${expression.name}'`, expression.source);
+      return { vector: unit.vector, scale: unit.scale, hasUnit: true };
+    }
+    if (expression.type === 'binaryExpression' && (expression.operator === '*' || expression.operator === '/')) {
+      const left = resolveUnitExpression(expression.left);
+      const right = resolveUnitExpression(expression.right);
+      const divide = expression.operator === '/';
+      return {
+        vector: combineVectors(left.vector, right.vector, divide ? -1 : 1, expression.source),
+        scale: validateUnitScale(divide ? left.scale / right.scale : left.scale * right.scale, expression.source),
+        hasUnit: left.hasUnit || right.hasUnit
+      };
+    }
+    if (expression.type === 'binaryExpression' && expression.operator === '^') {
+      const exponent = integerExponent(expression.right);
+      if (exponent === undefined) return failDeclaration('Unit powers must be signed integer literals', expression.right.source ?? expression.source);
+      const base = resolveUnitExpression(expression.left);
+      const vector = new Map<string, number>();
+      for (const [identity, value] of base.vector) {
+        const powered = value * exponent;
+        if (!Number.isSafeInteger(powered)) failDeclaration('Dimension exponent is outside the supported integer range', expression.source);
+        if (powered !== 0) vector.set(identity, powered);
+      }
+      return {
+        vector: normalizedVector(vector),
+        scale: validateUnitScale(Math.pow(base.scale, exponent), expression.source),
+        hasUnit: base.hasUnit
+      };
+    }
+    return failDeclaration('Unit expressions may use only positive finite numbers, visible units, *, /, and integer powers', expression.source);
+  }
+
+  function checkDimension(statement: DimensionDeclarationNode): void {
+    if (loopDepth > 0) failDeclaration('Dimension declarations may only occur at module scope', statement.source);
+    if (hasName(statement.name)) failDeclaration(`Dimension '${statement.name}' conflicts with another declaration`, statement.nameSource ?? statement.source);
+    const baseIdentity = statement.expression ? undefined : JSON.stringify([moduleIdentity, statement.name]);
+    const vector = statement.expression
+      ? resolveDimensionExpression(statement.expression)
+      : new Map([[baseIdentity!, 1]]);
+    const metadata: DimensionMetadata = {
+      name: statement.name,
+      moduleIdentity,
+      declarationName: statement.name,
+      ...(baseIdentity ? { baseIdentity } : {}),
+      vector: normalizedVector(new Map(vector)),
+      source: statement.nameSource ?? statement.source
+    };
+    dimensions.set(statement.name, metadata);
+    if (statement.exported) {
+      if (exportedNames.has(statement.name)) failDeclaration(`Duplicate export '${statement.name}'`, statement.nameSource ?? statement.source);
+      exportedNames.add(statement.name);
+      exportedDimensions.set(statement.name, metadata);
+    }
+  }
+
+  function checkUnit(statement: UnitDeclarationNode): void {
+    if (loopDepth > 0) failDeclaration('Unit declarations may only occur at module scope', statement.source);
+    if (primitives.has(statement.name) || types.has(statement.name) || functions.has(statement.name)
+      || bindings.has(statement.name) || views.has(statement.name) || dimensions.has(statement.name) || units.has(statement.name)) {
+      failDeclaration(`Unit '${statement.name}' conflicts with another declaration`, statement.nameSource ?? statement.source);
+    }
+    let vector: ReadonlyMap<string, number>;
+    let scale: number;
+    if (statement.dimension) {
+      const dimension = dimensions.get(statement.dimension);
+      if (!dimension) failDeclaration(`Unknown or not-yet-declared dimension '${statement.dimension}'`, statement.dimensionSource ?? statement.source);
+      if (!dimension!.baseIdentity || dimension!.vector.size !== 1 || dimension!.vector.get(dimension!.baseIdentity) !== 1) {
+        failDeclaration(`Independent unit '${statement.name}' must refer to a base dimension`, statement.dimensionSource ?? statement.source, dimension!.source);
+      }
+      const existing = baseUnits.get(dimension!.baseIdentity!);
+      if (existing) failDeclaration(`Base dimension '${statement.dimension}' already has independent unit '${existing.name}'`, statement.dimensionSource ?? statement.source, existing.source);
+      vector = dimension!.vector;
+      scale = 1;
+    } else if (statement.expression) {
+      const resolved = resolveUnitExpression(statement.expression);
+      if (!resolved.hasUnit) failDeclaration('A derived unit must reference at least one visible unit', statement.expression.source);
+      vector = resolved.vector;
+      scale = validateUnitScale(resolved.scale, statement.expression.source);
+    } else {
+      return failDeclaration('Unit declaration requires a base dimension or a unit expression', statement.source);
+    }
+    const metadata: UnitMetadata = {
+      name: statement.name,
+      moduleIdentity,
+      declarationName: statement.name,
+      identity: JSON.stringify([moduleIdentity, statement.name]),
+      vector: normalizedVector(new Map(vector)),
+      scale,
+      source: statement.nameSource ?? statement.source
+    };
+    units.set(statement.name, metadata);
+    if (statement.dimension) baseUnits.set([...vector.keys()][0], metadata);
+    if (statement.exported) {
+      if (exportedNames.has(statement.name)) failDeclaration(`Duplicate export '${statement.name}'`, statement.nameSource ?? statement.source);
+      exportedNames.add(statement.name);
+      exportedUnits.set(statement.name, metadata);
+    }
+  }
+
+  function reExport(statement: ExportNamesDeclarationNode): void {
+    if (loopDepth > 0) failDeclaration('Re-export declarations may only occur at module scope', statement.source);
+    for (const item of statement.names) {
+      if (exportedNames.has(item.name)) failDeclaration(`Duplicate export '${item.name}'`, item.source);
+      const dimension = context?.dimensions?.get(item.name);
+      const unit = context?.units?.get(item.name);
+      if (dimension) exportedDimensions.set(item.name, dimension);
+      else if (unit) exportedUnits.set(item.name, unit);
+      else failDeclaration(`'${item.name}' is not an explicitly imported dimension or unit`, item.source);
+      exportedNames.add(item.name);
+    }
+  }
 
   function resolve(ref: TypeReferenceNode): CheckedType {
     if (ref.type === 'namedType') {
@@ -545,8 +748,17 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     switch (statement.type) {
       case 'importDeclaration':
         return;
+      case 'exportNamesDeclaration':
+        reExport(statement);
+        return;
+      case 'dimensionDeclaration':
+        checkDimension(statement);
+        return;
+      case 'unitDeclaration':
+        checkUnit(statement);
+        return;
       case 'inputDeclaration': {
-        if (types.has(statement.name) || functions.has(statement.name) || bindings.has(statement.name) || views.has(statement.name)) {
+        if (hasName(statement.name)) {
           fail('AMX3005', `Input '${statement.name}' collides with another declaration`, statement.source);
         }
         bindings.set(statement.name, resolve(statement.annotation));
@@ -555,7 +767,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         return;
       }
       case 'typeDeclaration': {
-        if (primitives.has(statement.name) || types.has(statement.name) || bindings.has(statement.name) || functions.has(statement.name) || views.has(statement.name)) fail('AMX3005', `Duplicate type '${statement.name}'`, statement.source);
+        if (hasName(statement.name)) fail('AMX3005', `Duplicate type '${statement.name}'`, statement.source);
         const fields = new Set<string>();
         for (const field of statement.fields) {
           if (fields.has(field.name)) fail('AMX3005', `Duplicate field '${field.name}'`, field.source);
@@ -569,7 +781,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         return;
       }
       case 'functionDeclaration': {
-        if (types.has(statement.name) || bindings.has(statement.name) || functions.has(statement.name) || views.has(statement.name)) fail('AMX3005', `Duplicate declaration '${statement.name}'`, statement.source);
+        if (hasName(statement.name)) fail('AMX3005', `Duplicate declaration '${statement.name}'`, statement.source);
         if (stdlibNames.has(statement.name)) fail('AMX3005', `Function '${statement.name}' cannot shadow a standard-library function`, statement.source);
         const paramNames = new Set<string>();
         const paramScope = new Map<string, CheckedType>();
@@ -593,7 +805,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         return;
       }
       case 'variableDeclaration': {
-        if (types.has(statement.name) || functions.has(statement.name) || views.has(statement.name)) fail('AMX3005', `Binding '${statement.name}' conflicts with another declaration`, statement.source);
+        if (types.has(statement.name) || functions.has(statement.name) || views.has(statement.name) || dimensions.has(statement.name) || units.has(statement.name)) fail('AMX3005', `Binding '${statement.name}' conflicts with another declaration`, statement.source);
         if (inputNames.has(statement.name)) fail('AMX3005', `Binding '${statement.name}' conflicts with an input`, statement.source);
         if (immutableNames.has(statement.name)) moduleError('AMX5002', `Cannot redeclare imported binding '${statement.name}'`, statement.source, file);
         const target = statement.annotation ? resolve(statement.annotation) : bindings.get(statement.name);
@@ -677,5 +889,14 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     }
   }
 
-  return { exportedTypes, exportedFunctions, exportedBindings, bindingTypes: new Map(bindings) };
+  return {
+    exportedTypes,
+    exportedFunctions,
+    exportedBindings,
+    bindingTypes: new Map(bindings),
+    exportedDimensions,
+    exportedUnits,
+    dimensions,
+    units
+  };
 }

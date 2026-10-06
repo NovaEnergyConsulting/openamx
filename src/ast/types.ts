@@ -87,6 +87,32 @@ export interface ImportDeclarationNode {
   source?: SourceLocation;
 }
 
+export interface ExportNamesDeclarationNode {
+  type: 'exportNamesDeclaration';
+  names: ImportedNameNode[];
+  source?: SourceLocation;
+}
+
+export interface DimensionDeclarationNode {
+  type: 'dimensionDeclaration';
+  name: string;
+  nameSource?: SourceLocation;
+  expression?: V02ExpressionNode;
+  exported?: boolean;
+  source?: SourceLocation;
+}
+
+export interface UnitDeclarationNode {
+  type: 'unitDeclaration';
+  name: string;
+  nameSource?: SourceLocation;
+  dimension?: string;
+  dimensionSource?: SourceLocation;
+  expression?: V02ExpressionNode;
+  exported?: boolean;
+  source?: SourceLocation;
+}
+
 export interface InputDeclarationNode {
   type: 'inputDeclaration';
   name: string;
@@ -338,6 +364,9 @@ export type StatementNode =
   | TypeDeclarationNode
   | FunctionDeclarationNode
   | ImportDeclarationNode
+  | ExportNamesDeclarationNode
+  | DimensionDeclarationNode
+  | UnitDeclarationNode
   | InputDeclarationNode
   | TableDeclarationNode
   | ChartDeclarationNode

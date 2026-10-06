@@ -432,9 +432,11 @@ function snapshotView(name: string, env: Environment, file?: string, source?: So
 
 function evaluateStatement(statement: StatementNode, env: Environment, file?: string): void {
   switch (statement.type) {
-    case 'importDeclaration':
+    case 'importDeclaration': case 'exportNamesDeclaration':
       // Import materialization is the module loader's responsibility; imported
       // names are already present in the environment before statements run.
+      return;
+    case 'dimensionDeclaration': case 'unitDeclaration':
       return;
     case 'inputDeclaration':
       // Input values are validated and seeded by the module loader before evaluation.

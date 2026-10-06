@@ -98,19 +98,39 @@ export function editorSymbolFacts(
 			if (statement.type === "importDeclaration") {
 				for (const imported of statement.names) {
 					const targetFile = module?.importTargets.get(imported.name);
-					const targetModule = targetFile && moduleRecord(analysis, targetFile);
-					const targetStatement = targetModule && statementsOf(targetModule.document).find(candidate =>
+					const targetModule = targetFile ? moduleRecord(analysis, targetFile) : undefined;
+					let targetStatement = targetModule && statementsOf(targetModule.document).find(candidate =>
 						"name" in candidate && candidate.name === imported.name && "exported" in candidate && candidate.exported
 					);
-					const targetText = targetFile === entryFile ? text : targetFile ? moduleSources.get(targetFile) : undefined;
-					const importedTarget = targetStatement && targetText !== undefined ? declaration(targetText, targetFile!, targetStatement) : undefined;
+					let declarationFile = targetFile;
+					const targetMetadata = targetModule?.checkResult.exportedDimensions.get(imported.name)
+						?? targetModule?.checkResult.exportedUnits.get(imported.name);
+					if (!targetStatement && targetMetadata) {
+						const originFile = targetMetadata.moduleIdentity;
+						declarationFile = originFile;
+						const originModule = moduleRecord(analysis, originFile);
+						targetStatement = originModule && statementsOf(originModule.document).find(candidate =>
+							(candidate.type === "dimensionDeclaration" || candidate.type === "unitDeclaration")
+							&& candidate.name === targetMetadata.declarationName
+						);
+					}
+					const targetText = declarationFile === entryFile ? text : declarationFile ? moduleSources.get(declarationFile) : undefined;
+					const importedTarget = targetStatement && targetText !== undefined ? declaration(targetText, declarationFile!, targetStatement) : undefined;
 					if (importedTarget) {
-						const importedOccurrence = { ...importedTarget, origin: targetFile };
+						const importedOccurrence = { ...importedTarget, origin: declarationFile };
 						visible.set(imported.name, importedOccurrence);
 						add(imported.source, imported.name, importedOccurrence);
 					}
 				}
 			} else {
+				if (statement.type === "exportNamesDeclaration") {
+					for (const item of statement.names) add(item.source, item.name, visible.get(item.name));
+				}
+				if (statement.type === "dimensionDeclaration" && statement.expression) expression(statement.expression);
+				if (statement.type === "unitDeclaration") {
+					if (statement.dimension) add(statement.dimensionSource, statement.dimension, visible.get(statement.dimension));
+					if (statement.expression) expression(statement.expression);
+				}
 				if (statement.type === "variableDeclaration") expression(statement.expression);
 				if (statement.type === "variableDeclaration" || statement.type === "inputDeclaration") {
 					const annotation = statement.annotation;

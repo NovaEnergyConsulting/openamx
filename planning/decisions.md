@@ -1,11 +1,14 @@
 # Planning Decisions
 
-## V0.9 Sprint 055 Architect Preparation (2026-10-06)
+## V0.9 Sprint 055 Decisions and Builder Closeout (2026-10-06)
 
 - Sprint 055 depends on Sprint 052 only. Sprint 052's ACCEPTED WITH RECORDED RESIDUALS disposition satisfies the dependency; Sprints 053/054 are not dependencies, and their Windows host residuals remain unpassed context.
 - Implement dimensions/units according to Sprint 051: base identity is canonical module identity plus declaration name; derived dimensions are normalized vectors over those identities; exactly one independent base unit per base identity; all scales are finite and positive.
 - Implement the exact approved finite SI inventory in project-local `libraries/si.amx` with explicit imports/exports and no implicit global names or abbreviations.
 - Registry construction must provide declaration metadata before later schema inspection without executing document statements or evaluating modules more than once. Sprint 055 does not implement measurements or external data/reporting.
+- Re-export syntax is `export { Name, ... }` for explicitly imported dimensions/units; the re-export carries the original declaration metadata and base identity. This syntax was selected by the Lead Developer for Sprint 055 because the approved contract required re-exports but did not otherwise specify their spelling.
+- Builder implementation constructs the registry from the same parsed/checker module graph used by normal loading. Base-unit uniqueness is tracked by canonical base identity across that graph; inspection returns the checked entry-visible metadata without running source statements.
+- Sprint 055 verification results and Windows host residual are recorded in `planning/sprints/0055-v09-dimension-unit-declarations-module-identity/builder-evidence.md`. **Lead Developer disposition (2026-10-06): COMPLETE / APPROVED.** The Lead Developer verified the evidence and approved Sprint 055; the Windows host failures remain unpassed residuals and are not represented as passing checks.
 
 ## V0.9 Sprint 054 Architect Preparation (2026-10-06)
 

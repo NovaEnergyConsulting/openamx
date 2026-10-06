@@ -1,8 +1,10 @@
 import path from "node:path";
+import fs from "node:fs";
 import type { FunctionDeclarationNode, ImportDeclarationNode, OpenAmxDocument, StatementNode, TypeDeclarationNode } from "../ast/types";
 import { AmxError } from "../diagnostics/errors";
 import { parseDocumentText } from "../parser/parseDocument";
 import { type CheckedType, checkDocument, type ModuleCheckResult } from "../typechecker/checkDocument";
+import type { DimensionMetadata, UnitMetadata } from "../typechecker/dimensionTypes";
 
 const MAX_EDITOR_MODULES = 101;
 
@@ -21,6 +23,8 @@ export interface EditorModuleRecord {
 	importedTypes: Map<string, TypeDeclarationNode>;
 	importedFunctions: Map<string, FunctionDeclarationNode>;
 	importedBindings: Map<string, CheckedType>;
+	importedDimensions: Map<string, DimensionMetadata>;
+	importedUnits: Map<string, UnitMetadata>;
 	importTargets: Map<string, string>;
 }
 
@@ -29,6 +33,8 @@ export interface EditorModuleAnalysis {
 	importedTypes: Map<string, TypeDeclarationNode>;
 	importedFunctions: Map<string, FunctionDeclarationNode>;
 	importedBindings: Map<string, CheckedType>;
+	importedDimensions: Map<string, DimensionMetadata>;
+	importedUnits: Map<string, UnitMetadata>;
 	bindingTypes?: Map<string, CheckedType>;
 	modules?: Map<string, EditorModuleRecord>;
 }
@@ -46,6 +52,12 @@ export type EditorModuleResolver = (
 
 function statementsOf(document: OpenAmxDocument): StatementNode[] {
 	return document.nodes.flatMap(node => node.type === "executableCodeBlock" ? node.statements : []);
+}
+
+function canonicalFile(file: string): string {
+	const absolute = path.resolve(file);
+	try { return fs.realpathSync(absolute); }
+	catch { return path.isAbsolute(file) ? file : absolute; }
 }
 
 function moduleIssue(code: string, message: string, file: string, source?: { line: number; column: number }): never {
@@ -86,8 +98,17 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 		(statement): statement is ImportDeclarationNode => statement.type === "importDeclaration"
 	);
 	if (!entryImports.length) {
-		const checkResult = checkDocument(entryDocument, entryFile);
-		return { document: entryDocument, importedTypes: new Map(), importedFunctions: new Map(), importedBindings: new Map(), ...checkResult };
+		const file = entryFile ? canonicalFile(entryFile) : undefined;
+		const checkResult = checkDocument(entryDocument, file, { moduleIdentity: file });
+		return {
+			document: entryDocument,
+			importedTypes: new Map(),
+			importedFunctions: new Map(),
+			importedBindings: new Map(),
+			importedDimensions: new Map(),
+			importedUnits: new Map(),
+			...checkResult
+		};
 	}
 	if (entryImports.length && (!entryFile || !path.isAbsolute(entryFile))) {
 		moduleIssue("AMX5001", "Local imports require a saved file in the workspace", entryFile ?? "", entryImports[0].pathSource);
@@ -96,12 +117,14 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 		moduleIssue("AMX5001", "Local imports are unavailable to this editor analysis", entryFile!, entryImports[0].pathSource);
 	}
 
-	const entryPath = entryFile ? path.resolve(entryFile) : "";
+	const entryPath = entryFile ? canonicalFile(entryFile) : "";
 	const entryRoot = entryPath ? path.dirname(entryPath) : "";
 	const records = new Map<string, EditorModuleRecord>();
 	const visiting: string[] = [];
 
+	const baseUnits = new Map<string, UnitMetadata>();
 	const visit = (file: string, document: OpenAmxDocument, viaImport?: { file: string; source?: ImportDeclarationNode["pathSource"] }): EditorModuleRecord => {
+		file = canonicalFile(file);
 		const existing = records.get(file);
 		if (existing) return existing;
 		const cycleIndex = visiting.indexOf(file);
@@ -123,12 +146,19 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 		const localNames = new Set(statements.flatMap(statement =>
 			statement.type === "typeDeclaration" || statement.type === "functionDeclaration"
 				|| statement.type === "variableDeclaration" || statement.type === "inputDeclaration"
-				|| statement.type === "tableDeclaration" || statement.type === "chartDeclaration" ? [statement.name] : []
+				|| statement.type === "tableDeclaration" || statement.type === "chartDeclaration"
+				|| statement.type === "dimensionDeclaration" || statement.type === "unitDeclaration" ? [statement.name] : []
+		));
+		const localDimensionUnitNames = new Set(statements.flatMap(statement =>
+			statement.type === "dimensionDeclaration" || statement.type === "unitDeclaration" ? [statement.name] : []
 		));
 		const importedTypes = new Map<string, TypeDeclarationNode>();
 		const importedFunctions = new Map<string, FunctionDeclarationNode>();
 		const importedBindings = new Map<string, CheckedType>();
+		const importedDimensions = new Map<string, DimensionMetadata>();
+		const importedUnits = new Map<string, UnitMetadata>();
 		const importedNames = new Set<string>();
+		const importedDimensionUnitNames = new Set<string>();
 		const importTargets = new Map<string, string>();
 
 		for (const importNode of imports) {
@@ -153,24 +183,50 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 				}
 				moduleIssue("AMX5001", `Failed to parse module '${importNode.path}': ${nested.message}`, file, importNode.pathSource);
 			}
-			const dependency = visit(resolved!.file, dependencyDocument!, { file, source: importNode.pathSource });
+			const dependencyPath = canonicalFile(resolved!.file);
+			const dependency = visit(dependencyPath, dependencyDocument!, { file, source: importNode.pathSource });
 			for (const importedName of importNode.names) {
-				if (importedNames.has(importedName.name)) moduleIssue("AMX5002", `Duplicate import of '${importedName.name}'`, file, importedName.source);
+				const isDimensionOrUnit = dependency.checkResult.exportedDimensions.has(importedName.name)
+					|| dependency.checkResult.exportedUnits.has(importedName.name);
+				if (importedNames.has(importedName.name)) {
+					if (isDimensionOrUnit || importedDimensionUnitNames.has(importedName.name)) moduleIssue("AMX3008", `Duplicate import of dimension/unit '${importedName.name}'`, file, importedName.source);
+					moduleIssue("AMX5002", `Duplicate import of '${importedName.name}'`, file, importedName.source);
+				}
 				importedNames.add(importedName.name);
-				if (localNames.has(importedName.name)) moduleIssue("AMX5002", `Imported name '${importedName.name}' collides with a local declaration`, file, importedName.source);
+				if (localNames.has(importedName.name)) {
+					if (isDimensionOrUnit || localDimensionUnitNames.has(importedName.name)) moduleIssue("AMX3008", `Imported dimension/unit '${importedName.name}' collides with a local declaration`, file, importedName.source);
+					moduleIssue("AMX5002", `Imported name '${importedName.name}' collides with a local declaration`, file, importedName.source);
+				}
 				if (dependency.checkResult.exportedTypes.has(importedName.name)) importedTypes.set(importedName.name, dependency.checkResult.exportedTypes.get(importedName.name)!);
 				else if (dependency.checkResult.exportedFunctions.has(importedName.name)) importedFunctions.set(importedName.name, dependency.checkResult.exportedFunctions.get(importedName.name)!);
 				else if (dependency.checkResult.exportedBindings.has(importedName.name)) importedBindings.set(importedName.name, dependency.checkResult.exportedBindings.get(importedName.name)!);
+				else if (dependency.checkResult.exportedDimensions.has(importedName.name)) {
+					importedDimensions.set(importedName.name, dependency.checkResult.exportedDimensions.get(importedName.name)!);
+					importedDimensionUnitNames.add(importedName.name);
+				} else if (dependency.checkResult.exportedUnits.has(importedName.name)) {
+					importedUnits.set(importedName.name, dependency.checkResult.exportedUnits.get(importedName.name)!);
+					importedDimensionUnitNames.add(importedName.name);
+				}
 				else moduleIssue("AMX5002", `Module '${importNode.path}' does not export '${importedName.name}'`, file, importedName.source);
-				importTargets.set(importedName.name, resolved!.file);
+				importTargets.set(importedName.name, dependencyPath);
 			}
 		}
 
 		let checkResult: ModuleCheckResult;
-		try { checkResult = checkDocument(document, file, { types: importedTypes, functions: importedFunctions, bindings: importedBindings }); }
+		try {
+			checkResult = checkDocument(document, file, {
+				types: importedTypes,
+				functions: importedFunctions,
+				bindings: importedBindings,
+				dimensions: importedDimensions,
+				units: importedUnits,
+				baseUnits,
+				moduleIdentity: file
+			});
+		}
 		catch (error) { visiting.pop(); throw locatedError(error, file); }
 		visiting.pop();
-		const record = { file, document, checkResult, importedTypes, importedFunctions, importedBindings, importTargets };
+		const record = { file, document, checkResult, importedTypes, importedFunctions, importedBindings, importedDimensions, importedUnits, importTargets };
 		records.set(file, record);
 		return record;
 	};
@@ -181,6 +237,8 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 		importedTypes: result.importedTypes,
 		importedFunctions: result.importedFunctions,
 		importedBindings: result.importedBindings,
+		importedDimensions: result.importedDimensions,
+		importedUnits: result.importedUnits,
 		bindingTypes: result.checkResult.bindingTypes,
 		modules: records
 	};

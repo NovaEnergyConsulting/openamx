@@ -1,7 +1,7 @@
 import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, InputDeclarationNode, SourceLocation, StatementNode, TableDeclarationNode, TypeReferenceNode, VariableDeclarationNode, VisualizationOptionNode } from '../ast/types';
 import { parseExpression } from './parseExpression';
 import { parseForStatement } from './parseFor';
-import { AmxError, syntaxError } from '../diagnostics/errors';
+import { AmxError, staticError, syntaxError } from '../diagnostics/errors';
 import { findStringLiteralEnd, withoutStringLiterals } from './stringScanner';
 
 interface ParseContext {
@@ -30,10 +30,27 @@ export function parseStatements(
       continue;
     }
 
+    const reExportMatch = rawLine.match(/^(\s*)export\s*\{\s*([^}]*)\s*\}\s*$/);
+    if (reExportMatch) {
+      const names: ImportedNameNode[] = [];
+      let cursor = rawLine.indexOf('{') + 1;
+      for (const rawName of reExportMatch[2].split(',')) {
+        const name = rawName.trim();
+        if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(name)) syntaxError(`Invalid re-exported name '${name}'`, { line: lineNumber, column: Math.max(1, cursor + 1) });
+        const nameStart = rawLine.indexOf(name, cursor);
+        names.push({ name, source: { line: lineNumber, column: nameStart + 1 } });
+        cursor = nameStart + name.length;
+      }
+      if (!names.length) syntaxError('Re-export requires at least one name', { line: lineNumber, column: reExportMatch[1].length + 1 });
+      statements.push({ type: 'exportNamesDeclaration', names, source: { line: lineNumber, column: reExportMatch[1].length + 1 } });
+      continue;
+    }
+
     let exported = false;
-    const exportMatch = rawLine.match(/^(\s*)export(\s+)(type|fn|let|table|chart)\b/);
+    const exportMatch = rawLine.match(/^(\s*)export(\s+)(type|fn|let|table|chart|dimension|unit)\b/);
     if (exportMatch) {
-      if (context.allowFor === false && exportMatch[3] !== 'table' && exportMatch[3] !== 'chart') throw new Error(`Export declarations cannot occur in loops at ${lineNumber}:${exportMatch[1].length + 1}`);
+      if (context.allowFor === false && exportMatch[3] !== 'table' && exportMatch[3] !== 'chart'
+        && exportMatch[3] !== 'dimension' && exportMatch[3] !== 'unit') throw new Error(`Export declarations cannot occur in loops at ${lineNumber}:${exportMatch[1].length + 1}`);
       exported = true;
       const blankLength = exportMatch[0].length - exportMatch[3].length;
       rawLine = ' '.repeat(blankLength) + rawLine.slice(blankLength);
@@ -52,6 +69,41 @@ export function parseStatements(
       continue;
     }
 
+    const dimensionMatch = rawLine.match(/^\s*dimension\s+([A-Za-z][A-Za-z0-9_]*)(?:\s*=\s*(.+))?\s*$/);
+    if (/^\s*dimension\b/.test(rawLine)) {
+      if (!dimensionMatch) syntaxError('Invalid dimension declaration', source);
+      const expressionText = dimensionMatch[2];
+      statements.push({
+        type: 'dimensionDeclaration',
+        name: dimensionMatch[1],
+        nameSource: { line: source.line, column: rawLine.indexOf(dimensionMatch[1]) + 1 },
+        ...(expressionText ? { expression: parseDeclarationExpression(rawLine, expressionText, source) } : {}),
+        ...(exported ? { exported: true } : {}),
+        source
+      });
+      continue;
+    }
+
+    const unitMatch = rawLine.match(/^\s*unit\s+([A-Za-z][A-Za-z0-9_]*)(?:\s*:\s*([A-Za-z][A-Za-z0-9_]*)|\s*=\s*(.+))\s*$/);
+    if (/^\s*unit\b/.test(rawLine)) {
+      if (!unitMatch) syntaxError('Invalid unit declaration', source);
+      const dimensionName = unitMatch[2];
+      const expressionText = unitMatch[3];
+      const dimensionSource = dimensionName
+        ? { line: source.line, column: rawLine.lastIndexOf(dimensionName) + 1 }
+        : undefined;
+      statements.push({
+        type: 'unitDeclaration',
+        name: unitMatch[1],
+        nameSource: { line: source.line, column: rawLine.indexOf(unitMatch[1]) + 1 },
+        ...(dimensionName ? { dimension: dimensionName, dimensionSource } : {}),
+        ...(expressionText ? { expression: parseDeclarationExpression(rawLine, expressionText, source) } : {}),
+        ...(exported ? { exported: true } : {}),
+        source
+      });
+      continue;
+    }
+
     if (/^\s*input\b/.test(rawLine)) {
       if (context.allowFor === false) throw new Error(`Input declarations cannot occur in loops at ${source.line}:${source.column}`);
       const match = rawLine.match(/^\s*input\s+([A-Za-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*)\s*$/);
@@ -64,6 +116,19 @@ export function parseStatements(
       };
       statements.push(input);
       continue;
+    }
+
+    function parseDeclarationExpression(rawLine: string, expressionText: string, source: SourceLocation): ReturnType<typeof parseExpression> {
+      const offset = rawLine.indexOf(expressionText);
+      try {
+        return parseExpression(expressionText, { line: source.line, column: offset + 1 });
+      } catch (error) {
+        if (error instanceof AmxError && error.code === 'AMX3006') throw error;
+        syntaxError(`Invalid dimension/unit expression: ${error instanceof Error ? error.message : String(error)}`, {
+          line: source.line,
+          column: offset + 1
+        });
+      }
     }
 
     if (/^\s*(table|chart)\b/.test(rawLine)) {
@@ -474,6 +539,16 @@ function parseFunctionDeclaration(text: string, source: SourceLocation, exported
   const match = text.match(/^\s*fn\s+([A-Za-z][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*)\s*=\s*([\s\S]*)$/);
   if (!match) throw new Error(`Invalid function declaration at ${source.line}:${source.column}`);
   const [, name, paramsText, returnTypeText, bodyText] = match;
+  const bodyOffset = text.indexOf(bodyText, text.indexOf('='));
+  const nestedDeclaration = /^(?:\s*)(?:(?:export\s+)?(?:dimension|unit)\s+[A-Za-z][A-Za-z0-9_]*|export\s*\{)/m.exec(bodyText);
+  if (nestedDeclaration) {
+    const declarationOffset = bodyOffset + nestedDeclaration.index + nestedDeclaration[0].search(/\S/);
+    const before = text.slice(0, declarationOffset).split(/\r?\n/);
+    staticError('AMX3008', 'Dimension/unit declarations and re-exports may only occur at module scope', {
+      line: source.line + before.length - 1,
+      column: before[before.length - 1].length + 1
+    });
+  }
   const paramsRaw = paramsText.trim();
   const parameters: FunctionParameterNode[] = [];
   if (paramsRaw) {

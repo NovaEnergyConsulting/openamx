@@ -1,10 +1,12 @@
 # Planning State
 
-## V0.9 Sprint 055 Architect Preparation (2026-10-06)
+## V0.9 Sprint 055 Builder Implementation (2026-10-06)
 
-- Prepared the four Sprint 055 artifacts in `planning/sprints/0055-v09-dimension-unit-declarations-module-identity/` for dimension/unit declaration parsing and checking, module identity, explicit imports/exports, the exact approved SI library, and early metadata registry construction.
-- Sprint 055 depends on Sprint 052, accepted with recorded residuals. Sprint 053 is accepted and Sprint 054 is complete/approved; neither is a dependency. Sprint 053's Windows VS Code host run (13 pass/6 fail) and Sprint 054's Windows desktop RPC path-separator failure and VS Code host run (15 pass/5 fail) remain unpassed residuals.
-- The Sprint 051 approved identity, vector, scale, SI inventory, diagnostic, and registry contracts remain authoritative. Sprint 055 has not been implemented or tested by this preparation; Builder evidence and Lead Developer disposition remain pending.
+- Implemented ordered dimension/unit parsing and checking, canonical base identity, normalized sparse vectors, finite positive unit scales, explicit imports/exports and `export { Name }` re-exports, and metadata-only registry construction in the existing module graph.
+- Added the exact approved project-local `libraries/si.amx` inventory. Its test reads the authoritative Sprint 051 inventory table and checks declaration lines, exported counts, resolved scales/vectors, aliases, and exclusions.
+- Root build passes; focused declaration/parser/module/editor tests pass (105 tests, 504 expectations across 4 files); full root tests pass (355 tests, 1,650 expectations); desktop tests pass (27 tests, 143 expectations) and desktop typecheck passes.
+- Extension compile and test compilation pass. The Windows Extension Development Host result is 15 pass / 5 fail (four `EBUSY` cleanup failures and one drive-letter casing assertion); it remains explicitly unpassed. The known Sprint 053/054 Windows residuals remain separate and unchanged.
+- Builder evidence is in `planning/sprints/0055-v09-dimension-unit-declarations-module-identity/builder-evidence.md`. **Lead Developer disposition (2026-10-06): COMPLETE / APPROVED.** The Lead Developer verified the evidence and approved Sprint 055. The Windows Extension Development Host failures remain documented as unpassed residuals; no Sprint 056/057 behavior or V0.9 completion is claimed.
 
 ## V0.9 Sprint 054 Architect Preparation (2026-10-06)
 

@@ -89,6 +89,7 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 	const statement = (node: StatementNode): void => {
 		const keyword: Partial<Record<StatementNode["type"], string>> = {
 			variableDeclaration: "let", typeDeclaration: "type", functionDeclaration: "fn",
+			dimensionDeclaration: "dimension", unitDeclaration: "unit",
 			inputDeclaration: "input", importDeclaration: "import", tableDeclaration: "table",
 			chartDeclaration: "chart", showStatement: "show", forStatement: "for",
 			assignmentStatement: "", compoundAssignmentStatement: "",
@@ -121,7 +122,7 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 		else if (node.type === "addStatement") { add(node.targetSource, node.name, "reference"); expression(node.value); if (node.index) expression(node.index); }
 		else if (node.type === "removeStatement") { add(node.targetSource, node.name, "reference"); expression(node.count); if (node.index) expression(node.index); }
 		else if (node.type === "forStatement") { expression(node.iterable); node.body.forEach(statement); }
-		else if ("expression" in node) expression(node.expression);
+		else if ("expression" in node && node.expression) expression(node.expression);
 	};
 	for (const node of document.nodes) if (node.type === "executableCodeBlock") node.statements.forEach(statement);
 	const unique = new Map<string, EditorHighlightFact>();

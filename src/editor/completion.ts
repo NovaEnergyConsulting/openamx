@@ -194,7 +194,7 @@ function visibleSymbols(text: string, parsed: OpenAmxDocument, cursorOffset: num
 				}
 			} else if (statement.type === "forStatement") collectLoop(statement);
 			else if (statement.type === "assignmentStatement" || statement.type === "compoundAssignmentStatement") collectExpression(statement.expression);
-			else if ("expression" in statement) collectExpression(statement.expression);
+			else if ("expression" in statement && statement.expression) collectExpression(statement.expression);
 		}
 	};
 

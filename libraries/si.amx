@@ -1,0 +1,70 @@
+```amx
+export dimension Length
+export dimension Mass
+export dimension Time
+export dimension ElectricCurrent
+export dimension ThermodynamicTemperature
+export dimension AmountOfSubstance
+export dimension LuminousIntensity
+
+export unit meter: Length
+export unit kilogram: Mass
+export unit second: Time
+export unit ampere: ElectricCurrent
+export unit kelvin: ThermodynamicTemperature
+export unit mole: AmountOfSubstance
+export unit candela: LuminousIntensity
+
+export unit millimeter = 0.001 * meter
+export unit centimeter = 0.01 * meter
+export unit kilometer = 1000 * meter
+export unit gram = 0.001 * kilogram
+export unit tonne = 1000 * kilogram
+export unit millisecond = 0.001 * second
+export unit minute = 60 * second
+export unit hour = 3600 * second
+export unit milliampere = 0.001 * ampere
+
+export unit m = meter
+export unit mm = millimeter
+export unit cm = centimeter
+export unit km = kilometer
+export unit kg = kilogram
+export unit g = gram
+export unit t = tonne
+export unit s = second
+export unit ms = millisecond
+export unit min = minute
+export unit h = hour
+export unit A = ampere
+export unit mA = milliampere
+export unit K = kelvin
+export unit mol = mole
+export unit cd = candela
+
+export dimension Area = Length ^ 2
+export dimension Volume = Length ^ 3
+export dimension Speed = Length / Time
+export dimension Acceleration = Length / Time ^ 2
+export dimension Frequency = Time ^ -1
+export dimension Force = Mass * Length / Time ^ 2
+export dimension Pressure = Force / Length ^ 2
+export dimension Energy = Force * Length
+export dimension Power = Energy / Time
+
+export unit square_meter = meter ^ 2
+export unit cubic_meter = meter ^ 3
+export unit meter_per_second = meter / second
+export unit kilometer_per_hour = kilometer / hour
+export unit hertz = second ^ -1
+export unit newton = kilogram * meter / second ^ 2
+export unit pascal = newton / meter ^ 2
+export unit joule = newton * meter
+export unit watt = joule / second
+
+export unit Hz = hertz
+export unit N = newton
+export unit Pa = pascal
+export unit J = joule
+export unit W = watt
+```

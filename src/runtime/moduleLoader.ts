@@ -15,6 +15,7 @@ import { AmxError, moduleError, staticError, throwInputErrors, type AmxDiagnosti
 import { describeInputSchema, loadInputValues, validateInputText, type InputSchema, type InputTextFormat, ValidationMode } from './inputData';
 import { describeOutputSchemas, prepareOutputs, type OutputSchema, PreparedOutput } from './outputData';
 import type { ViewEmission } from './environment';
+import type { DimensionMetadata, DimensionUnitRegistry, UnitMetadata } from '../typechecker/dimensionTypes';
 
 /**
  * Local `.amx` module loader (Sprint 015).
@@ -34,6 +35,8 @@ interface ModuleRecord {
   importedFunctions: Map<string, FunctionDeclarationNode>;
   importedBindings: Map<string, CheckedType>;
   importedBindingSources: Map<string, string>;
+  importedDimensions: Map<string, DimensionMetadata>;
+  importedUnits: Map<string, UnitMetadata>;
 }
 
 export interface LoadedEntryModule {
@@ -43,6 +46,7 @@ export interface LoadedEntryModule {
   viewEmissions: readonly ViewEmission[];
   inputInspection?: EntryInputInspection;
   outputSchemas?: OutputSchema[];
+  registry: DimensionUnitRegistry;
 }
 
 export interface EntryInputInspection {
@@ -123,6 +127,7 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
   const resolved = new Map<string, ModuleRecord>();
   const visiting: string[] = [];
   const evaluationOrder: string[] = [];
+  const baseUnits = new Map<string, UnitMetadata>();
 
   async function visit(canonicalPath: string, viaImportSource: { pathSource?: ImportDeclarationNode['pathSource']; file: string } | undefined): Promise<ModuleRecord> {
     const existing = resolved.get(canonicalPath);
@@ -145,7 +150,7 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
           ? parseDocumentText(overlayText)
           : await parseDocument(canonicalPath);
     } catch (error) {
-      if (error instanceof AmxError && error.code === 'AMX3006') {
+      if (error instanceof AmxError && (error.code === 'AMX3006' || error.code === 'AMX3008')) {
         error.file ??= canonicalPath;
         throw error;
       }
@@ -158,7 +163,8 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     const localNames = new Set<string>();
     for (const statement of statements) {
       if (statement.type === 'typeDeclaration' || statement.type === 'functionDeclaration' || statement.type === 'variableDeclaration' || statement.type === 'inputDeclaration'
-        || statement.type === 'tableDeclaration' || statement.type === 'chartDeclaration') {
+        || statement.type === 'tableDeclaration' || statement.type === 'chartDeclaration'
+        || statement.type === 'dimensionDeclaration' || statement.type === 'unitDeclaration') {
         localNames.add(statement.name);
       }
     }
@@ -180,11 +186,17 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     }
 
     const imports = statements.filter((s): s is ImportDeclarationNode => s.type === 'importDeclaration');
+    const localDimensionUnitNames = new Set(statements.flatMap(statement =>
+      statement.type === 'dimensionDeclaration' || statement.type === 'unitDeclaration' ? [statement.name] : []
+    ));
     const importedTypes = new Map<string, TypeDeclarationNode>();
     const importedFunctions = new Map<string, FunctionDeclarationNode>();
     const importedBindings = new Map<string, CheckedType>();
     const importedBindingSources = new Map<string, string>();
+    const importedDimensions = new Map<string, DimensionMetadata>();
+    const importedUnits = new Map<string, UnitMetadata>();
     const importedNamesSeen = new Set<string>();
+    const importedDimensionUnitNames = new Set<string>();
 
     for (const importNode of imports) {
       validateImportPathSyntax(importNode, canonicalPath);
@@ -204,11 +216,19 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
       const dependency = await visit(targetReal, { pathSource: importNode.pathSource, file: canonicalPath });
 
       for (const importedName of importNode.names) {
+        const isDimensionOrUnit = dependency.checkResult.exportedDimensions.has(importedName.name)
+          || dependency.checkResult.exportedUnits.has(importedName.name);
         if (importedNamesSeen.has(importedName.name)) {
+          if (isDimensionOrUnit || importedDimensionUnitNames.has(importedName.name)) {
+            staticError('AMX3008', `Duplicate import of dimension/unit '${importedName.name}'`, importedName.source, canonicalPath);
+          }
           moduleError('AMX5002', `Duplicate import of '${importedName.name}'`, importedName.source, canonicalPath);
         }
         importedNamesSeen.add(importedName.name);
         if (localNames.has(importedName.name)) {
+          if (isDimensionOrUnit || localDimensionUnitNames.has(importedName.name)) {
+            staticError('AMX3008', `Imported dimension/unit '${importedName.name}' collides with a local declaration`, importedName.source, canonicalPath);
+          }
           moduleError('AMX5002', `Imported name '${importedName.name}' collides with a local declaration`, importedName.source, canonicalPath);
         }
 
@@ -219,6 +239,12 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
         } else if (dependency.checkResult.exportedBindings.has(importedName.name)) {
           importedBindings.set(importedName.name, dependency.checkResult.exportedBindings.get(importedName.name)!);
           importedBindingSources.set(importedName.name, dependency.canonicalPath);
+        } else if (dependency.checkResult.exportedDimensions.has(importedName.name)) {
+          importedDimensions.set(importedName.name, dependency.checkResult.exportedDimensions.get(importedName.name)!);
+          importedDimensionUnitNames.add(importedName.name);
+        } else if (dependency.checkResult.exportedUnits.has(importedName.name)) {
+          importedUnits.set(importedName.name, dependency.checkResult.exportedUnits.get(importedName.name)!);
+          importedDimensionUnitNames.add(importedName.name);
         } else {
           moduleError('AMX5002', `Module '${importNode.path}' does not export '${importedName.name}'`, importedName.source, canonicalPath);
         }
@@ -229,11 +255,15 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
       types: importedTypes,
       functions: importedFunctions,
       bindings: importedBindings,
+      dimensions: importedDimensions,
+      units: importedUnits,
+      baseUnits,
+      moduleIdentity: canonicalPath,
       isEntryModule: canonicalPath === realEntry
     });
 
     visiting.pop();
-    const record: ModuleRecord = { canonicalPath, doc, checkResult, importedTypes, importedFunctions, importedBindings, importedBindingSources };
+    const record: ModuleRecord = { canonicalPath, doc, checkResult, importedTypes, importedFunctions, importedBindings, importedBindingSources, importedDimensions, importedUnits };
     resolved.set(canonicalPath, record);
     evaluationOrder.push(canonicalPath);
     return record;
@@ -242,6 +272,10 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
   await visit(realEntry, undefined);
 
   const entryRecord = resolved.get(realEntry)!;
+  const registry: DimensionUnitRegistry = {
+    dimensions: entryRecord.checkResult.dimensions,
+    units: entryRecord.checkResult.units
+  };
   const entryStatements = flattenStatements(entryRecord.doc);
   const inputDeclarations = entryStatements.filter(statement => statement.type === 'inputDeclaration');
   const entryTypes = new Map(entryRecord.importedTypes);
@@ -280,6 +314,7 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
       env: new Environment(entryTypes),
       outputs,
       viewEmissions: [],
+      registry,
       inputInspection: {
         schema: describeInputSchema(declaration, entryTypes),
         valid: validation.diagnostics.length === 0,
@@ -289,7 +324,7 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     };
   }
   if (options.outputInspection) {
-    return { doc: entryRecord.doc, env: new Environment(entryTypes), outputs, viewEmissions: [], outputSchemas: outputSchemas ?? [] };
+    return { doc: entryRecord.doc, env: new Environment(entryTypes), outputs, viewEmissions: [], outputSchemas: outputSchemas ?? [], registry };
   }
   const inputValues = await loadInputValues(
     inputDeclarations,
@@ -327,5 +362,5 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
   }
 
   const entryEnv = evaluatedEnvironments.get(realEntry)!;
-  return { doc: resolved.get(realEntry)!.doc, env: entryEnv, outputs, viewEmissions: entryEnv.viewEmissions };
+  return { doc: resolved.get(realEntry)!.doc, env: entryEnv, outputs, viewEmissions: entryEnv.viewEmissions, registry };
 }
