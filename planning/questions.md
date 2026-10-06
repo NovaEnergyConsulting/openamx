@@ -1,5 +1,17 @@
 # Planning Questions (Sprint 002)
 
+## V0.9 Sprint 051 Technical Contract Gate (2026-10-06)
+
+- **Resolved by explicit Lead Developer approval (2026-10-06): precedence.** The exact grouping, precedence/associativity table, attachment/conversion/indexing examples, malformed cases, and loop `in` distinction in the Sprint 051 blueprint are approved.
+- **Resolved by explicit Lead Developer approval (2026-10-06): dimension identity and canonicalization.** Qualified module/declaration identity, structural vectors, scale/conversion/cancellation behavior, canonical compound serialization, and external-unit round trips in the blueprint are approved.
+- **Resolved by explicit Lead Developer approval (2026-10-06): SI library.** The complete enumerated inventory, exact names/definitions/aliases, project-local `./libraries/si.amx` placement and imports, export syntax, and stated exclusions in the blueprint are approved.
+- **Resolved by explicit Lead Developer approval (2026-10-06): aggregates and views.** The aggregate/math examples, display-unit rules, typed empty sum, empty `min`/`max`/`mean` errors, chart labels, and existing HTML/PDF/DOCX empty/all-null behavior documented in the blueprint are approved.
+- **Resolved by explicit Lead Developer approval (2026-10-06): static/runtime boundary.** The syntax-directed safe constant subset and runtime ownership of dynamic values/lengths, with no arbitrary execution during analysis, are approved.
+- **Resolved by explicit Lead Developer approval (2026-10-06): diagnostics.** The proposed `AMX3006`–`AMX3010`, `AMX1008`–`AMX1009`, and `AMX4004`–`AMX4005` allocations, messages/categories and location payload expectations in the blueprint are approved; existing code meanings remain unchanged.
+- **Resolved by explicit Lead Developer approval (2026-10-06): compatibility and handoff.** The conformance/migration cases, cross-surface ownership/test seams, and Sprint 052–058 dependency sequence in the blueprint are approved. Existing requirements in the V0.9 contract/master plan remain authoritative.
+- **Disposition:** The Lead Developer approved the Builder Contract Proposal in the Sprint 051 `blueprint.md` on 2026-10-06. The Sprint 051 technical contract gate is closed. This approval authorizes the approved design as the implementation contract, not implementation completion; subsequent sprints remain subject to their documented dependencies and scope.
+- No unresolved Sprint 051 technical gate question remains. Any later request that would change the approved V0.9 scope must be raised as a new Lead Developer decision before implementation.
+
 ## V0.8 Sprint 050 Builder Closeout (2026-10-04)
 
 - **Resolved by fixture evidence:** disposable versions `0.6.1` and `0.6.2` collect independently at distinct full fixture commits. Identical and conflicting same-version collection attempts are refused; accepted assembly bytes and source manifests remain unchanged. Stale-version, mixed-commit, incomplete transfer, unsafe/corrupt/duplicate inputs, mocked publication retries, and the no-credentials path are covered by `tests/release.test.ts`.

@@ -1,5 +1,26 @@
 # Planning State
 
+## V0.9 Sprint 051 Architect Preparation (2026-10-06)
+
+- Prepared the Sprint 051 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0051-v09-language-contract-cross-surface-design/`.
+- Sprint 051 is a documentation/design gate with no sprint dependency. It is responsible for converting the approved V0.9 contract into exact grammar/precedence, unit identity and canonicalization, finite SI inventory, aggregate/view edge cases, static-check boundaries, diagnostics, migration cases, and cross-surface ownership.
+- At preparation time, the V0.9 scope and compatibility choices were approved in `docs/language-spec-v0.9.md`, while implementation-level contract details remained to be completed and reviewed. This entry is historical; the later Lead Developer approval is recorded below.
+
+## V0.9 Sprint 051 Builder Contract Draft (2026-10-06)
+
+- Added the reviewable contract proposal, exact conformance/migration cases, diagnostic proposal, empty/null presentation analysis, cross-surface audit, and Sprint 052–058 dependency handoff to the Sprint 051 `blueprint.md` appendix.
+- Updated Sprint 051 requirements, acceptance, and handoff records to identify that appendix as the contract artifact; updated planning decisions/questions to distinguish Builder proposals from approved rules and retain named Lead Developer review gates.
+- This entry records the Builder draft submitted before Lead Developer review; the approval below supersedes its pending-review and blocked-gate status.
+- No production source, examples, tests, language documentation, or bundled help were edited. No V0.9 feature was implemented or prototyped, and no tests/builds were run or claimed.
+
+## V0.9 Sprint 051 Lead Developer Approval (2026-10-06)
+
+- The Lead Developer explicitly approved the Builder Contract Proposal in `planning/sprints/0051-v09-language-contract-cross-surface-design/blueprint.md`, including precedence, identity/canonicalization, SI inventory, aggregate/view rules, static/runtime boundary, diagnostic allocations, conformance/migration cases, and cross-surface/sprint handoff.
+- The Sprint 051 technical contract gate is **CLOSED / APPROVED**. The approved blueprint appendix is the implementation design subordinate to the V0.9 language spec and master sprint plan; it does not change their approved scope.
+- Sprint 051 completed its documentation/design deliverables only. No feature implementation, prototype, fixture migration, tests, or builds were performed or are claimed.
+- Sprint 052–058 may proceed only according to their dependencies and approved scopes in the master plan. Sprint 051 approval does not assert that implementation has started or that V0.9 behavior exists.
+- `planning/questions.md` records the resolved gate topics; any future scope change requires a new Lead Developer decision.
+
 ## Windows Build and Deployment Test (2026-10-05)
 
 - The project owner reports having tested building and deploying OpenAMX on a Windows machine.

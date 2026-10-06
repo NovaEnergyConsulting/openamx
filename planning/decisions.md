@@ -1,5 +1,25 @@
 # Planning Decisions
 
+## V0.9 Sprint 051 Architect Preparation (2026-10-06)
+
+- Sprint 051 owns the V0.9 technical contract and cross-surface design gate only; it has no sprint dependency and must not implement features or migrate production fixtures.
+- `docs/language-spec-v0.9.md` and `planning/plan-openamxV09MasterSprintPlan.md` are authoritative for settled business scope and compatibility. Sprint 051 may specify implementation-facing contracts but may not silently weaken or reopen those requirements.
+- Require explicit review before implementation begins for precedence/conformance examples, dimension identity/canonicalization, the exact finite SI inventory, aggregate and empty/null presentation, safe static-check boundaries, diagnostic codes/locations, and migration cases. Pending review remains a blocker, not an assumed approval.
+- Keep planning proposals, approved decisions, and unresolved owner questions explicitly distinguished. Planning completion is not evidence of implementation or verification.
+
+## V0.9 Sprint 051 Builder Contract Proposal (2026-10-06)
+
+- The **Builder Contract Proposal** appendix in `planning/sprints/0051-v09-language-contract-cross-surface-design/blueprint.md` records the requested exact tables/examples, cross-surface audit, and Sprint 052–058 handoff.
+- At preparation time, the precedence additions, canonical identity/serialization details, finite SI inventory and alias spellings, surface-specific empty/all-null view presentation, safe constant subset, and diagnostic allocations were Builder proposals. The later explicit Lead Developer disposition is recorded below.
+
+## V0.9 Sprint 051 Lead Developer Approval (2026-10-06)
+
+- The Lead Developer explicitly approved the Builder Contract Proposal in the Sprint 051 `blueprint.md`. Approval includes the exact precedence/grouping examples; qualified dimension identity and canonicalization; complete finite SI inventory, export names and exclusions; aggregates, math functions and empty/null view policy; static/runtime boundary; diagnostic codes and locations; conformance/migration matrix; cross-surface ownership; and Sprint 052–058 dependency handoff.
+- These are approved Sprint 051 implementation-design decisions subordinate to `docs/language-spec-v0.9.md` and `planning/plan-openamxV09MasterSprintPlan.md`; they do not amend or expand the approved V0.9 scope.
+- Sprint 051's technical contract gate is **CLOSED / APPROVED**. Subsequent implementation may proceed only in the master plan's dependency order and assigned sprint scope.
+- Approval is not evidence of implementation, tests, builds, or runtime behavior. None is claimed by the Sprint 051 design work.
+- The Lead Developer may reopen or revise a design decision explicitly; any scope-changing revision must be recorded before implementation relies on it.
+
 ## V0.8 Sprint 050 Architect Preparation (2026-10-04)
 
 - Sprint 050 owns integrated repeat-release acceptance, adversarial failure/recovery validation, available-host evidence, and one consolidated operator runbook. It does not expand into new packaging features, signing, CI, native certification, or automated Marketplace publication.
