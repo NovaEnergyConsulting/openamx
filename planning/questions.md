@@ -1,5 +1,11 @@
 # Planning Questions (Sprint 002)
 
+## V0.9 Sprint 057 Preparation (2026-10-06)
+
+- **Resolved by Sprint 056 disposition:** Sprint 057 may proceed using the approved measurement runtime values and Sprint 055 registry. Sprint 056 is COMPLETE / APPROVED; its Windows Extension Development Host run (15 pass/5 fail) and unrelated full-worktree whitespace finding remain unpassed residuals.
+- The approved Sprint 051 contract resolves JSON/CSV shapes, restricted external unit syntax, diagnostics/locations, schema inspection, chart normalization/labels, and renderer-specific empty/null behavior. No new business-rule decision is open for Sprint 057 preparation.
+- If implementation exposes an actual conflict in the approved data/report contract, record a minimal reproducible case here and request Lead Developer direction before changing behavior. The Builder must separately record actual results and request disposition.
+
 ## V0.9 Sprint 056 Preparation (2026-10-06)
 
 - **Resolved by Sprint 055 disposition:** Sprint 056 may proceed using its approved metadata registry. Sprint 055 is COMPLETE / APPROVED; its Windows Extension Development Host result (15 pass/5 fail) remains unpassed.

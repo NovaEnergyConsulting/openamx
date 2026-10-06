@@ -1,5 +1,13 @@
 # Planning Decisions
 
+## V0.9 Sprint 057 Architect Preparation (2026-10-06)
+
+- Sprint 057 consumes Sprint 056's immutable measurement values and Sprint 055's checked, entry-visible unit registry. External unit strings use only visible units with multiplication/division, parentheses, and signed integer powers; never execute AMX text from data.
+- JSON measurement objects retain exactly `{ "value": finiteNumber, "unit": "visible-unit-or-restricted-expression" }`; CSV cells use equivalent measurement text. Bare numbers do not gain units implicitly. Compound output preserves declared factors where lossless and otherwise follows the approved canonical base-unit representation.
+- Tables preserve each cell's chosen unit. Charts normalize per relevant axis/series to the first non-null display unit, label it, reject incompatible dimensions, preserve data order, and do not invent units for empty/all-null values.
+- Preserve the Sprint 051 HTML/PDF/DOCX-specific empty/null behavior, report identity/source ordering, show-time snapshots, and export atomicity. Extend desktop non-file-backed schema/data-editor inspection as well as file-backed input paths.
+- Keep Sprint 058 documentation/help/broad editor parity and the existing unpassed platform/whitespace residuals outside Sprint 057 implementation scope.
+
 ## V0.9 Sprint 056 Architect Preparation (2026-10-06)
 
 - Sprint 056 consumes Sprint 055's approved dimension/unit identities, vectors, scales, explicit visibility, SI library, and registry; do not fork declaration metadata.
