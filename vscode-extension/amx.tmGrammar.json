@@ -286,7 +286,36 @@
                         "0": {
                             "name": "punctuation.definition.string.end.amx"
                         }
-                    }
+                    },
+                    "patterns": [
+                        {
+                            "begin": "(?<!\\\\)(?:\\\\\\\\)*(\\$\\{)",
+                            "end": "\\}",
+                            "name": "meta.interpolation.string.amx",
+                            "beginCaptures": {
+                                "1": {
+                                    "name": "punctuation.section.interpolation.begin.amx"
+                                }
+                            },
+                            "endCaptures": {
+                                "0": {
+                                    "name": "punctuation.section.interpolation.end.amx"
+                                }
+                            },
+                            "patterns": [
+                                {
+                                    "include": "#amx-expression-braces"
+                                },
+                                {
+                                    "include": "#amx"
+                                }
+                            ]
+                        },
+                        {
+                            "match": "\\\\(?:[\"'\\\\nrt]|\\$\\{)",
+                            "name": "constant.character.escape.amx"
+                        }
+                    ]
                 },
                 {
                     "begin": "'",
@@ -301,7 +330,26 @@
                         "0": {
                             "name": "punctuation.definition.string.end.amx"
                         }
-                    }
+                    },
+                    "patterns": [
+                        {
+                            "match": "\\\\(?:[\"'\\\\nrt]|\\$\\{)",
+                            "name": "constant.character.escape.amx"
+                        }
+                    ]
+                }
+            ]
+        },
+        "amx-expression-braces": {
+            "begin": "\\{",
+            "end": "\\}",
+            "name": "meta.brace.expression.amx",
+            "patterns": [
+                {
+                    "include": "#amx-expression-braces"
+                },
+                {
+                    "include": "#amx"
                 }
             ]
         },

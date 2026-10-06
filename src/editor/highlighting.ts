@@ -1,5 +1,6 @@
 import type { OpenAmxDocument, StatementNode, TypeReferenceNode, V02ExpressionNode } from "../ast/types";
 import { declarationNameRange, sourceOffset, sourceTokenRange, type EditorRange } from "./sourceRanges";
+import { findStringLiteralEnd } from "../parser/stringScanner";
 
 export interface EditorHighlightFact extends EditorRange {
 	kind: "keyword" | "declaration" | "reference" | "field" | "type" | "literal";
@@ -30,13 +31,22 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 					const quote = text[from];
 					if (quote === '"' || quote === "'") {
 						let escaped = false;
-					for (let end = from + 1; end < text.length; end++) {
-						if (escaped) escaped = false;
-						else if (text[end] === "\\") escaped = true;
-						else if (text[end] === quote) { facts.push({ from, to: end + 1, kind: "literal" }); break; }
+						for (let end = from + 1; end < text.length; end++) {
+							if (escaped) escaped = false;
+							else if (text[end] === "\\") escaped = true;
+							else if (text[end] === quote) { facts.push({ from, to: end + 1, kind: "literal" }); break; }
+						}
 					}
 				}
+				break;
+			}
+			case "stringInterpolation": {
+				const from = sourceOffset(text, node.source);
+				if (from !== undefined) {
+					const end = findStringLiteralEnd(text, from);
+					if (end !== undefined) facts.push({ from, to: end + 1, kind: "literal" });
 				}
+				node.parts.forEach(part => { if (typeof part !== "string") expression(part); });
 				break;
 			}
 			case "booleanLiteral": add(node.source, String(node.value), "keyword"); break;

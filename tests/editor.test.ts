@@ -124,6 +124,50 @@ test("shared highlighting uses only exact executable-block AST ranges", () => {
 	expect(slices).not.toContain("alsoInert");
 });
 
+test("shared editor analysis highlights and resolves references inside interpolations only in AMX blocks", () => {
+	const text = [
+		"Narrative ${missing}",
+		"```js",
+		'let inert = "\\q"',
+		"```",
+		"```amx",
+		'let name: String = "Pump"',
+		'let label: String = "Hello ${name}"',
+		"```",
+		""
+	].join("\r\n");
+	const document = parseDocumentText(text);
+	expect(() => analyzeEditorModules(text, "/project/report.amx")).not.toThrow();
+
+	const symbols = editorSymbolFacts(text, "/project/report.amx", document);
+	const embeddedReference = symbols.find(fact => !fact.declaration && text.slice(fact.from, fact.to) === "name");
+	expect(embeddedReference).toBeDefined();
+	const highlights = editorHighlightFacts(text, document);
+	expect(highlights.some(fact => text.slice(fact.from, fact.to) === '"Hello ${name}"')).toBe(true);
+	expect(highlights.some(fact => fact.kind === "reference" && text.slice(fact.from, fact.to) === "name")).toBe(true);
+	expect(highlights.some(fact => text.slice(fact.from, fact.to) === "missing" || text.slice(fact.from, fact.to) === "\\q")).toBe(false);
+});
+
+test("shared editor analysis maps interpolation diagnostics to original LF and CRLF ranges", () => {
+	for (const newline of ["\n", "\r\n"]) {
+		const text = ["```amx", 'let value = "start ${1 + true}"', "```", ""].join(newline);
+		try {
+			analyzeEditorModules(text, "/project/invalid-string.amx");
+			throw new Error("Expected invalid interpolation");
+		} catch (error) {
+			expect(error).toMatchObject({ code: "AMX3007", file: "/project/invalid-string.amx", line: 2 });
+			const diagnosticColumn = (error as { column: number }).column;
+			expect(text.split(/\r?\n/)[1]?.slice(diagnosticColumn - 1, diagnosticColumn + 3)).toBe("true");
+		}
+	}
+});
+
+test("shared editor analysis reports incomplete strings as AMX3006 in drafts", () => {
+	const text = "```amx\r\nlet value = \"unfinished\r\n```\r\n";
+	expect(() => analyzeEditorModules(text, "/project/draft.amx"))
+		.toThrow(expect.objectContaining({ code: "AMX3006", file: "/project/draft.amx", line: 2 }));
+});
+
 test("shared symbol facts assign exact declaration identity and withhold duplicate targets", () => {
 	const text = "```amx\nlet value: Number = 1\nlet result: Number = value\n```\n";
 	const parsed = parseDocumentText(text);

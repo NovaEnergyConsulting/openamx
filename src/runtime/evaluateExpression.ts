@@ -155,6 +155,16 @@ export function evaluateExpression(
     case 'stringLiteral':
       return node.value;
 
+    case 'stringInterpolation':
+      return node.parts.map(part => {
+        if (typeof part === 'string') return part;
+        const value = evaluateExpression(part, env, file);
+        if (value === null) return 'null';
+        if (typeof value === 'string' || typeof value === 'number') return String(value);
+        if (typeof value === 'boolean') return value ? 'true' : 'false';
+        return staticError('AMX3007', 'Only String, Number, Boolean, and null values can be interpolated', part.source, file);
+      }).join('');
+
     case 'booleanLiteral':
       return node.value;
 

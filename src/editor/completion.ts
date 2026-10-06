@@ -14,6 +14,7 @@ import { parseFrontMatter } from "../parser/parseFrontMatter";
 import type { EditorModuleAnalysis } from "./moduleAnalysis";
 import { isExecutableBlockOffset } from "./highlighting";
 import { sourceOffset } from "./sourceRanges";
+import { findStringLiteralEnd } from "../parser/stringScanner";
 
 export type EditorCompletionKind = "keyword" | "function" | "class" | "variable" | "reference" | "field";
 export interface EditorCompletionFact { label: string; kind: EditorCompletionKind; }
@@ -103,18 +104,15 @@ function statementEndOffset(text: string, statement: StatementNode): number {
 	const start = sourceOffset(text, statement.source);
 	if (start === undefined) return Number.MAX_SAFE_INTEGER;
 	let depth = 0;
-	let quote: string | undefined;
-	let escaped = false;
 	for (let offset = start; offset < text.length; offset++) {
 		const character = text[offset];
-		if (quote) {
-			if (escaped) escaped = false;
-			else if (character === "\\") escaped = true;
-			else if (character === quote) quote = undefined;
+		if (character === '"' || character === "'") {
+			const end = findStringLiteralEnd(text, offset);
+			if (end === undefined) break;
+			offset = end;
 			continue;
 		}
-		if (character === '"' || character === "'") quote = character;
-		else if (character === "{") depth++;
+		if (character === "{") depth++;
 		else if (character === "}") depth--;
 		else if (character === "\n" && depth <= 0) return offset;
 	}
@@ -131,18 +129,15 @@ function loopBounds(text: string, loop: ForStatementNode | ForExpressionNode): {
 	if (opening < 0 || line.slice(opening).trim() !== "{") return undefined;
 	const open = lineStart + opening;
 	let depth = 0;
-	let quote: string | undefined;
-	let escaped = false;
 	for (let offset = open; offset < text.length; offset++) {
 		const character = text[offset];
-		if (quote) {
-			if (escaped) escaped = false;
-			else if (character === "\\") escaped = true;
-			else if (character === quote) quote = undefined;
+		if (character === '"' || character === "'") {
+			const end = findStringLiteralEnd(text, offset);
+			if (end === undefined) return undefined;
+			offset = end;
 			continue;
 		}
-		if (character === '"' || character === "'") quote = character;
-		else if (character === "{") depth++;
+		if (character === "{") depth++;
 		else if (character === "}" && --depth === 0) return { open, close: offset };
 	}
 	return undefined;
@@ -212,6 +207,7 @@ function visibleSymbols(text: string, parsed: OpenAmxDocument, cursorOffset: num
 	const collectExpression = (expression: V02ExpressionNode) => {
 		switch (expression.type) {
 			case "forExpression": collectLoop(expression); break;
+			case "stringInterpolation": expression.parts.forEach(part => { if (typeof part !== "string") collectExpression(part); }); break;
 			case "binaryExpression": collectExpression(expression.left); collectExpression(expression.right); break;
 			case "unaryExpression": collectExpression(expression.argument); break;
 			case "conditionalExpression": collectExpression(expression.test); collectExpression(expression.consequent); collectExpression(expression.alternate); break;

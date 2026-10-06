@@ -45,6 +45,22 @@ describe('formatAmx', () => {
     expect(() => parseStatements(formatted)).not.toThrow();
   });
 
+  it('preserves interpolation meaning and remains idempotent', () => {
+    const source = [
+      'type Box {',
+      'name: String',
+      'value: Number',
+      '}',
+      'let total: Number = 1 + 2',
+      'let label: String = "total=${total}; nested=${Box { name = "brace }", value = total }.name}"'
+    ].join('\n');
+    const formatted = formatAmx(source);
+    const evaluate = (text: string) => evaluateDocument(parseDocumentText(`\`\`\`amx\n${text}\n\`\`\``));
+
+    expect(formatAmx(formatted)).toBe(formatted);
+    expect(evaluate(formatted)).toEqual(evaluate(source));
+  });
+
   it('formats parser-valid V0.3 declarations and braced expressions idempotently', () => {
     const source = [
       'import { Asset } from "./model.amx"',

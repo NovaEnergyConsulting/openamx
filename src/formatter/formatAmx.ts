@@ -1,4 +1,5 @@
 import { parseStatements } from '../parser/parseStatements';
+import { findStringLiteralEnd } from '../parser/stringScanner';
 
 /** Format executable AMX block content without changing expression text. */
 export function formatAmx(source: string): string {
@@ -32,20 +33,13 @@ function scanBraces(line: string): { opens: number; closes: number; leadingClosu
   let closes = 0;
   let leadingClosures = 0;
   let leading = true;
-  let quote: string | undefined;
-  let escaped = false;
 
-  for (const character of line) {
-    if (quote) {
-      if (escaped) escaped = false;
-      else if (character === '\\') escaped = true;
-      else if (character === quote) quote = undefined;
-      continue;
-    }
-
+  for (let index = 0; index < line.length; index++) {
+    const character = line[index];
     if (character === '"' || character === "'") {
       leading = false;
-      quote = character;
+      const end = findStringLiteralEnd(line, index);
+      if (end !== undefined) index = end;
     } else if (character === '{') {
       leading = false;
       opens++;

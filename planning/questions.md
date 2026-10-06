@@ -6,6 +6,13 @@
 - No new business-rule decision is required for Sprint 053 preparation. The approved string contract and Sprint 051 precedence/diagnostic decisions govern escapes, interpolation, conversion, and source mapping.
 - Coordinate measurement-to-string verification with Sprint 056, when measurement values exist. If interpolation integration reveals a scope ambiguity or requires a semantic change, add the precise case here and request Lead Developer direction before proceeding with that change.
 
+## V0.9 Sprint 053 Builder Closeout (2026-10-06)
+
+- No new semantic question remained after implementation; the approved finite escapes, double-quote-only interpolation, scalar conversion, diagnostics, and narrative isolation rules were applied as written.
+- Measurement-to-string output remains deferred to Sprint 056; Sprint 053 did not invent measurement runtime semantics.
+- The extension host rerun is still not green on Windows (13 pass, 6 fail: five `EBUSY` cleanup failures and one path-case assertion). Sprint 052's accepted five-failure residual remains intact; the current result is reported separately in [Sprint 053 Builder evidence](sprints/0053-v09-string-escapes-expression-interpolation/builder-evidence.md).
+- Lead Developer disposition for Sprint 053 is pending. No unresolved behavior decision blocks that review.
+
 ## V0.9 Sprint 052 Lead Developer Disposition (2026-10-06)
 
 - **Resolved by explicit Lead Developer disposition (2026-10-06): ACCEPTED WITH RECORDED RESIDUALS.** Accept Sprint 052 with the Builder evidence and the Windows VS Code Development Host residual below. This disposition does not claim the host suite passed or accept downstream V0.9 work.

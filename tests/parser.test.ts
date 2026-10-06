@@ -18,6 +18,7 @@ import { parseStatements } from "../src/parser/parseStatements";
 import { parseExpression } from "../src/parser/parseExpression";
 import { parseDocument, parseDocumentText } from "../src/parser/parseDocument";
 import { ExecutableCodeBlockNode, MatchExpressionNode, NarrativeNode, VariableDeclarationNode } from "../src/ast/types";
+import { checkDocument } from "../src/typechecker/checkDocument";
 
 const tmpFiles: string[] = [];
 
@@ -241,6 +242,79 @@ describe("parseStatements", () => {
     expect(() => parseStatements("for item in [1] {\nfor nested in [2] {\n}\n}"))
       .toThrow(/Nested loops/);
     expect(() => parseStatements("break")).toThrow(/Unsupported loop control/);
+  });
+});
+
+describe("V0.9 string parsing", () => {
+  const slash = String.fromCharCode(92);
+
+  it("decodes the approved escapes in either quote style", () => {
+    const cases: [string, string][] = [
+      ['"double ' + slash + '" quote"', 'double " quote'],
+      ["'single " + slash + "' quote'", "single ' quote"],
+      ['"single ' + slash + "'" + ' quote"', "single ' quote"],
+      ["'double " + slash + '" quote\'', 'double " quote'],
+      ['"slash ' + slash + slash + ' path"', 'slash ' + slash + ' path'],
+      ['"A' + slash + 'nB' + slash + 'rC' + slash + 'tD"', 'A\nB\rC\tD'],
+      ["'A" + slash + 'nB' + slash + 'rC' + slash + "tD'", 'A\nB\rC\tD'],
+      ['"' + slash + '${missing}"', '${missing}'],
+      ["'${missing}'", '${missing}']
+    ];
+    for (const [source, expected] of cases) {
+      expect(parseExpression(source)).toMatchObject({ type: 'stringLiteral', value: expected });
+    }
+  });
+
+  it("parses full AMX expressions with nested delimiters and embedded quotes", () => {
+    const source = '"prefix ${Item { label = "a } b", value = sum([1, 2]) }.label} suffix"';
+    const parsed = parseExpression(source, { line: 4, column: 7 });
+    expect(parsed.type).toBe('stringInterpolation');
+    expect(parsed).toMatchObject({
+      source: { line: 4, column: 7 },
+      parts: ['prefix ', { type: 'fieldAccess', field: 'label', receiver: { type: 'recordConstructor', name: 'Item' } }, ' suffix']
+    });
+    const embedded = (parsed as Extract<typeof parsed, { type: 'stringInterpolation' }>).parts[1];
+    expect(typeof embedded === 'string' || embedded.type !== 'fieldAccess' ? undefined : embedded.receiver.source)
+      .toEqual({ line: 4, column: 17 });
+  });
+
+  it("decodes string escapes in literal match cases", () => {
+    const source = 'match "A' + slash + 'nB" {\ncase "A' + slash + 'nB" => 1\ndefault => 0\n}';
+    expect(parseExpression(source)).toMatchObject({ type: 'matchExpression', cases: [{ value: { value: 'A\nB' } }] });
+    expect(() => parseExpression('match "a" {\ncase "' + slash + 'q" => 1\ndefault => 0\n}'))
+      .toThrow(expect.objectContaining({ code: 'AMX3006' }));
+  });
+
+  it("uses AMX3006 for unknown, incomplete, multiline, and malformed string syntax", () => {
+    const invalid = [
+      '"' + slash + 'q"',
+      '"trailing' + slash,
+      '"missing close',
+      '"${1 + 2"',
+      '"${1 + }"',
+      '"raw\nnewline"'
+    ];
+    for (const source of invalid) {
+      expect(() => parseExpression(source, { line: 3, column: 5 }))
+        .toThrow(expect.objectContaining({ code: 'AMX3006' }));
+    }
+  });
+
+  it("maps interpolation parse diagnostics to original LF and CRLF source positions", () => {
+    const locations = ['\n', '\r\n'].map(newline => {
+      const source = `\`\`\`amx${newline}let value = "before \${1 + true}"${newline}\`\`\`${newline}`;
+      const document = parseDocumentText(source);
+      try {
+        checkDocument(document, 'string.amx');
+      } catch (error) {
+        return { code: (error as { code: string }).code, line: (error as { line: number }).line, column: (error as { column: number }).column };
+      }
+      throw new Error('Expected interpolation type failure');
+    });
+    expect(locations).toEqual([
+      { code: 'AMX3007', line: 2, column: 27 },
+      { code: 'AMX3007', line: 2, column: 27 }
+    ]);
   });
 });
 

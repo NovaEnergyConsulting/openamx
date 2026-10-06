@@ -1,7 +1,8 @@
 import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, InputDeclarationNode, SourceLocation, StatementNode, TableDeclarationNode, TypeReferenceNode, VariableDeclarationNode, VisualizationOptionNode } from '../ast/types';
 import { parseExpression } from './parseExpression';
 import { parseForStatement } from './parseFor';
-import { AmxError } from '../diagnostics/errors';
+import { AmxError, syntaxError } from '../diagnostics/errors';
+import { findStringLiteralEnd, withoutStringLiterals } from './stringScanner';
 
 interface ParseContext {
   allowReturn?: boolean;
@@ -404,20 +405,22 @@ function findLoopEnd(lines: string[], startIndex: number, source: SourceLocation
   const text = lines.slice(startIndex).join('\n');
   let open = -1;
   let depth = 0;
-  let quote: string | undefined;
-  let escaped = false;
 
   for (let offset = 0; offset < text.length; offset++) {
     const character = text[offset];
-    if (quote) {
-      if (escaped) escaped = false;
-      else if (character === '\\') escaped = true;
-      else if (character === quote) quote = undefined;
+    if (character === '"' || character === "'") {
+      const end = findStringLiteralEnd(text, offset);
+      if (end === undefined) {
+        const before = text.slice(0, offset).split('\n');
+        syntaxError('Invalid or incomplete string in for loop', {
+          line: source.line + before.length - 1,
+          column: before[before.length - 1].length + 1
+        });
+      }
+      offset = end;
       continue;
     }
-    if (character === '"' || character === "'") {
-      quote = character;
-    } else if (character === '{') {
+    if (character === '{') {
       if (open === -1) open = offset;
       depth++;
     } else if (character === '}' && open !== -1) {
@@ -467,17 +470,15 @@ function collectDelimitedExpression(
   const parts = [lines[lineIndex].slice(expressionOffset)];
   const delimiters: string[] = [];
   const scan = (text: string) => {
-    let quote: string | undefined;
-    let escaped = false;
-    for (const character of text) {
-      if (quote) {
-        if (escaped) escaped = false;
-        else if (character === '\\') escaped = true;
-        else if (character === quote) quote = undefined;
+    for (let index = 0; index < text.length; index++) {
+      const character = text[index];
+      if (character === '"' || character === "'") {
+        const end = findStringLiteralEnd(text, index);
+        if (end === undefined) break;
+        index = end;
         continue;
       }
-      if (character === '"' || character === "'") quote = character;
-      else if (character === '(' || character === '[' || character === '{') delimiters.push(character);
+      if (character === '(' || character === '[' || character === '{') delimiters.push(character);
       else if (character === ')' || character === ']' || character === '}') {
         const expected = character === ')' ? '(' : character === ']' ? '[' : '{';
         if (delimiters[delimiters.length - 1] === expected) delimiters.pop();
@@ -504,11 +505,9 @@ function collectDelimitedExpression(
 }
 
 function containsForExpression(text: string): boolean {
-  const withoutStrings = text.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, '');
-  return /\bfor\s+[A-Za-z][A-Za-z0-9_]*\s+in\b/.test(withoutStrings);
+  return /\bfor\s+[A-Za-z][A-Za-z0-9_]*\s+in\b/.test(withoutStringLiterals(text));
 }
 
 function containsMatchExpression(text: string): boolean {
-  const withoutStrings = text.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, '');
-  return /\bmatch\s+/.test(withoutStrings);
+  return /\bmatch\s+/.test(withoutStringLiterals(text));
 }

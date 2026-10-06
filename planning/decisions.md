@@ -7,6 +7,14 @@
 - Keep narrative interpolation separate and unchanged. Coordinate measurement-to-string display assertions with Sprint 056; do not implement measurement values in Sprint 053.
 - Limit integration to directly affected parser/checker/evaluator/formatter/editor behavior. Sprint 058 owns broad editor parity and user-facing docs/help.
 
+## V0.9 Sprint 053 Builder Decisions (2026-10-06)
+
+- Represent interpolated strings as ordered decoded text and AMX expression parts, preserving the existing string-literal node for strings without interpolation. Parse embedded expressions with the existing AMX parser and pass their original source locations into normal static checking and evaluation.
+- Share string-boundary scanning across parser structural collection, formatter indentation, and editor source traversal so nested expression quotes/braces do not alter enclosing syntax boundaries.
+- Use locale-independent `String(number)` conversion and explicit lowercase Boolean/null conversion. Allow nullable scalar types because their runtime values are either an approved scalar or null; reject records, lists, DateTime, and other values statically with `AMX3007`.
+- Migrate only the positive kitchen-sink path literal from `"C:\demo"` to `"C:\\demo"` so it continues to evaluate as `C:\demo`. Measurement conversion remains unimplemented until Sprint 056.
+- Builder evidence requests a separate Lead Developer disposition. Sprint 053 is not self-accepted.
+
 ## V0.9 Sprint 052 Builder Decisions (2026-10-06)
 
 - Enforce checking at the shared document/module boundaries rather than introducing a new CLI/UI mode. Keep `checkingActivated` only as an always-true compatibility helper; the sole remaining gated caller is the non-product Sprint 035 feasibility spike.

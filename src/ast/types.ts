@@ -18,6 +18,12 @@ export interface StringLiteralNode {
   source?: SourceLocation;
 }
 
+export interface StringInterpolationNode {
+  type: 'stringInterpolation';
+  parts: Array<string | V02ExpressionNode>;
+  source?: SourceLocation;
+}
+
 export interface BooleanLiteralNode {
   type: 'booleanLiteral';
   value: boolean;
@@ -238,6 +244,7 @@ export interface ListLiteralNode {
 export type ExpressionNode =
   | NumberLiteralNode
   | StringLiteralNode
+  | StringInterpolationNode
   | BooleanLiteralNode
   | IdentifierNode
   | BinaryExpressionNode
@@ -329,4 +336,3 @@ export interface OpenAmxDocument {
   metadata: Record<string, unknown>;
   nodes: DocumentNode[];
 }
-

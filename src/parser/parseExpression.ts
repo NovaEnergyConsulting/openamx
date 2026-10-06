@@ -1,6 +1,8 @@
 import {
   SourceLocation,
   V02ExpressionNode,
+  StringLiteralNode,
+  StringInterpolationNode,
   BinaryExpressionNode,
   UnaryExpressionNode,
   ConditionalExpressionNode,
@@ -12,6 +14,7 @@ import {
 } from '../ast/types';
 import { parseForExpression } from './parseFor';
 import { AmxError, syntaxError } from '../diagnostics/errors';
+import { findInterpolationEnd as findInterpolationClose, findStringLiteralEnd } from './stringScanner';
 
 type Token =
   | { type: 'number'; value: number; text: string; offset: number }
@@ -41,7 +44,7 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
     const ch = text[i];
 
     if (text.startsWith('for', i) && !/[A-Za-z0-9_]/.test(text[i + 3] ?? '')) {
-      const end = findForExpressionEnd(text, i);
+      const end = findForExpressionEnd(text, i, source);
       const loopText = text.slice(i, end + 1);
       tokens.push({ type: 'forExpression', value: loopText, text: loopText, offset: i });
       i = end + 1;
@@ -72,18 +75,10 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
 
     // String literal "..." or '...'
     if (ch === '"' || ch === "'") {
-      const quote = ch;
-      let j = i + 1;
-      let str = '';
-      while (j < len && text[j] !== quote) {
-        str += text[j];
-        j++;
-      }
-      if (j >= len) {
-        throw new Error('Unterminated string literal');
-      }
-      tokens.push({ type: 'string', value: str, text: text.slice(i, j + 1), offset: i });
-      i = j + 1;
+      const end = findStringEnd(text, i, source);
+      const literal = text.slice(i, end + 1);
+      tokens.push({ type: 'string', value: literal.slice(1, -1), text: literal, offset: i });
+      i = end + 1;
       continue;
     }
 
@@ -152,23 +147,111 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
   return tokens;
 }
 
-function findForExpressionEnd(text: string, start: number): number {
+function findStringEnd(text: string, start: number, source?: SourceLocation): number {
+  const quote = text[start];
+  for (let index = start + 1; index < text.length; index++) {
+    const character = text[index];
+    if (character === '\r' || character === '\n') {
+      syntaxError('Raw strings must remain on one line', locationAt(text, index, source));
+    }
+    if (character === '\\') {
+      const escaped = text[index + 1];
+      if (escaped === undefined) {
+        syntaxError('Incomplete string escape', locationAt(text, index, source));
+      }
+      if (escaped === '\r' || escaped === '\n') {
+        syntaxError('Raw strings must remain on one line', locationAt(text, index + 1, source));
+      }
+      index++;
+      continue;
+    }
+    if (character === quote) return index;
+    if (quote === '"' && text.startsWith('${', index)) {
+      const close = findInterpolationClose(text, index + 2);
+      if (close === undefined) syntaxError('Unclosed string interpolation', locationAt(text, index, source));
+      index = close;
+    }
+  }
+  syntaxError('Unterminated string literal', locationAt(text, start, source));
+}
+
+function parseStringToken(raw: string, source?: SourceLocation): StringLiteralNode | StringInterpolationNode {
+  const quote = raw[0];
+  const end = raw.length - 1;
+  const parts: Array<string | V02ExpressionNode> = [];
+  let literal = '';
+  let hasInterpolation = false;
+  const flushLiteral = () => {
+    if (literal) parts.push(literal);
+    literal = '';
+  };
+
+  for (let index = 1; index < end;) {
+    const character = raw[index];
+    if (character === '\\') {
+      const escape = raw[index + 1];
+      const decoded: Record<string, string> = {
+        '"': '"',
+        "'": "'",
+        '\\': '\\',
+        n: '\n',
+        r: '\r',
+        t: '\t'
+      };
+      if (escape === '$' && raw[index + 2] === '{') {
+        literal += '${';
+        index += 3;
+        continue;
+      }
+      if (escape === undefined || decoded[escape] === undefined) {
+        syntaxError(`Unknown or incomplete string escape '\\${escape ?? ''}'`, locationAt(raw, index, source));
+      }
+      literal += decoded[escape];
+      index += 2;
+      continue;
+    }
+    if (quote === '"' && raw.startsWith('${', index)) {
+      const close = findInterpolationClose(raw, index + 2);
+      if (close === undefined) syntaxError('Unclosed string interpolation', locationAt(raw, index, source));
+      const expressionText = raw.slice(index + 2, close);
+      const leading = expressionText.length - expressionText.trimStart().length;
+      const trimmed = expressionText.trim();
+      if (!trimmed) syntaxError('String interpolation requires an expression', locationAt(raw, index, source));
+      flushLiteral();
+      try {
+        parts.push(parseExpression(trimmed, locationAt(raw, index + 2 + leading, source)));
+      } catch (error) {
+        if (error instanceof AmxError) throw error;
+        syntaxError(`Invalid string interpolation expression: ${error instanceof Error ? error.message : String(error)}`,
+          locationAt(raw, index, source));
+      }
+      hasInterpolation = true;
+      index = close + 1;
+      continue;
+    }
+    literal += character;
+    index++;
+  }
+  flushLiteral();
+  if (!hasInterpolation) {
+    return { type: 'stringLiteral', value: parts.join(''), source };
+  }
+  return { type: 'stringInterpolation', parts, source };
+}
+
+function findForExpressionEnd(text: string, start: number, source?: SourceLocation): number {
   let open = -1;
   let depth = 0;
-  let quote: string | undefined;
-  let escaped = false;
 
   for (let index = start; index < text.length; index++) {
     const character = text[index];
-    if (quote) {
-      if (escaped) escaped = false;
-      else if (character === '\\') escaped = true;
-      else if (character === quote) quote = undefined;
+    if (character === '"' || character === "'") {
+      const end = findStringLiteralEnd(text, index);
+      if (end === undefined) syntaxError('Invalid or incomplete string in for expression', locationAt(text, index, source));
+      index = end;
       continue;
     }
-    if (character === '"' || character === "'") {
-      quote = character;
-    } else if (character === '{') {
+    if (character === '{') {
       if (open === -1) open = index;
       depth++;
     } else if (character === '}' && open !== -1) {
@@ -180,20 +263,19 @@ function findForExpressionEnd(text: string, start: number): number {
 }
 
 function findMatchExpressionEnd(text: string, start: number, source?: SourceLocation): number {
-  let quote: string | undefined;
   const braces: boolean[] = [];
   let parentheses = 0;
   let pendingMatches = 0;
   let pendingFor = false;
   for (let index = start; index < text.length; index++) {
     const character = text[index];
-    if (quote) {
-      if (character === quote && text[index - 1] !== '\\') quote = undefined;
+    if (character === '"' || character === "'") {
+      const end = findStringLiteralEnd(text, index);
+      if (end === undefined) syntaxError('Invalid or incomplete string in match expression', locationAt(text, index, source));
+      index = end;
       continue;
     }
-    if (character === '"' || character === "'") {
-      quote = character;
-    } else if (character === '(') parentheses++;
+    if (character === '(') parentheses++;
     else if (character === ')') parentheses--;
     else if (text.startsWith('match', index)
       && !/[A-Za-z0-9_]/.test(text[index - 1] ?? '')
@@ -233,14 +315,15 @@ function tokenOffset(token: Token, fallback: number): number {
 function parseMatchExpression(text: string, source?: SourceLocation): MatchExpressionNode {
   let open = -1;
   let depth = 0;
-  let quote: string | undefined;
   for (let index = 0; index < text.length; index++) {
     const character = text[index];
-    if (quote) {
-      if (character === quote && text[index - 1] !== '\\') quote = undefined;
-    } else if (character === '"' || character === "'") {
-      quote = character;
-    } else if (character === '{') {
+    if (character === '"' || character === "'") {
+      const end = findStringLiteralEnd(text, index);
+      if (end === undefined) syntaxError('Invalid or incomplete string in match expression', locationAt(text, index, source));
+      index = end;
+      continue;
+    }
+    if (character === '{') {
       if (depth === 0) open = index;
       depth++;
     } else if (character === '}') {
@@ -262,14 +345,15 @@ function parseMatchExpression(text: string, source?: SourceLocation): MatchExpre
   const arms: { text: string; offset: number }[] = [];
   let armStart = open + 1;
   depth = 0;
-  quote = undefined;
   for (let index = armStart; index < text.length - 1; index++) {
     const character = text[index];
-    if (quote) {
-      if (character === quote && text[index - 1] !== '\\') quote = undefined;
-    } else if (character === '"' || character === "'") {
-      quote = character;
-    } else if (character === '{') depth++;
+    if (character === '"' || character === "'") {
+      const end = findStringLiteralEnd(text, index);
+      if (end === undefined) syntaxError('Invalid or incomplete string in match expression', locationAt(text, index, source));
+      index = end;
+      continue;
+    }
+    if (character === '{') depth++;
     else if (character === '}') depth--;
     else if (character === '\n' && depth === 0) {
       if (text.slice(armStart, index).trim()) arms.push({ text: text.slice(armStart, index), offset: armStart });
@@ -305,15 +389,22 @@ function parseMatchExpression(text: string, source?: SourceLocation): MatchExpre
       defaultSource = armSource;
       defaultExpression = parseBranch(branch, branchOffset);
     } else {
-      const literal = pattern.match(/^case\s+(-?(?:\d+(?:\.\d*)?)|"[^"\n]*"|'[^'\n]*'|true|false)$/);
+      const literal = pattern.match(/^case\s+(-?(?:\d+(?:\.\d*)?)|"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|true|false)$/);
       if (!literal) return fail('Match case requires a number, string, or boolean literal', armOffset);
       const valueOffset = armOffset + armText.indexOf(literal[1]);
       const valueSource = locationAt(text, valueOffset, source);
-      const value: MatchCaseNode['value'] = /^-?\d/.test(literal[1])
-        ? { type: 'numberLiteral', value: Number(literal[1]), source: valueSource }
-        : literal[1] === 'true' || literal[1] === 'false'
-          ? { type: 'booleanLiteral', value: literal[1] === 'true', source: valueSource }
-          : { type: 'stringLiteral', value: literal[1].slice(1, -1), source: valueSource };
+      let value: MatchCaseNode['value'];
+      if (/^-?\d/.test(literal[1])) {
+        value = { type: 'numberLiteral', value: Number(literal[1]), source: valueSource };
+      } else if (literal[1] === 'true' || literal[1] === 'false') {
+        value = { type: 'booleanLiteral', value: literal[1] === 'true', source: valueSource };
+      } else {
+        const parsedString = parseStringToken(literal[1], valueSource);
+        if (parsedString.type !== 'stringLiteral') {
+          syntaxError('Match case requires a literal string without interpolation', valueSource);
+        }
+        value = parsedString;
+      }
       cases.push({ value, expression: parseBranch(branch, branchOffset), source: armSource });
     }
   }
@@ -394,7 +485,7 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
     }
     if (t.type === 'string') {
       advance();
-      return { type: 'stringLiteral', value: t.value, source: locationAt(text, t.offset, source) };
+      return parseStringToken(t.text, locationAt(text, t.offset, source));
     }
     if (t.type === 'boolean') {
       advance();

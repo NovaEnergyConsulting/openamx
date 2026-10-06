@@ -122,6 +122,44 @@ describe("Sprint 014 activated checking and records", () => {
       code: 'AMX3007', file: 'untyped.amx'
     }));
   });
+
+  it("evaluates checked double-quoted AMX expressions and keeps single quotes literal", () => {
+    const values = run([
+      'let name: String = "Pump"',
+      'let count: Number = 1 + 2',
+      'let ratio: Number = 2.5',
+      'let active: Boolean = false',
+      'let missing: String? = null',
+      'let message: String = "Answer: ${count}; ${ratio}; ${name}; ${active}; ${missing}; ${null}"',
+      'let nested: String = "${"${1 + 2}"}"',
+      "let literal: String = '${missing}'",
+      'let matchLabel: String = match 1 {',
+      '  case 1 => "value=${if true then "brace }" else "other"}"',
+      '  default => "none"',
+      '}',
+      'let loopLabels: String[] = for item in [1] {',
+      '  return "value=${if item == 1 then "brace }" else "other"}"',
+      '}',
+      'fn label(value: Number): String = "N=${value}"',
+      'let fromFunction: String = label(4)'
+    ].join('\n'));
+
+    expect(values.message).toBe('Answer: 3; 2.5; Pump; false; null; null');
+    expect(values.nested).toBe('3');
+    expect(values.literal).toBe('${missing}');
+    expect(values.matchLabel).toBe('value=brace }');
+    expect(values.loopLabels).toEqual(['value=brace }']);
+    expect(values.fromFunction).toBe('N=4');
+  });
+
+  it("rejects unknown or invalid interpolation expressions before evaluation", () => {
+    expect(() => run('let text = "${unknown}"')).toThrow(expect.objectContaining({ code: 'AMX3001' }));
+    expect(() => run('let text = "${1 + true}"')).toThrow(expect.objectContaining({ code: 'AMX3007' }));
+    expect(() => run('let values: Number[] = [1]\nlet text = "${values}"'))
+      .toThrow(expect.objectContaining({ code: 'AMX3007', file: 'case.amx' }));
+    expect(() => run('type Item {\n  value: Number\n}\nlet item = Item { value = 1 }\nlet text = "${item}"'))
+      .toThrow(expect.objectContaining({ code: 'AMX3007' }));
+  });
 });
 
 describe("Sprint 016 logical input checking", () => {

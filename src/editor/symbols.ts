@@ -77,6 +77,7 @@ export function editorSymbolFacts(
 		const expression = (node: V02ExpressionNode): void => {
 			if (!analysis && statements.some(statement => statement.type === "importDeclaration")) return;
 			switch (node.type) {
+				case "stringInterpolation": node.parts.forEach(part => { if (typeof part !== "string") expression(part); }); break;
 				case "identifier": add(node.source, node.name, visible.get(node.name)); break;
 				case "functionCall": add(node.source, node.callee, visible.get(node.callee)); node.arguments.forEach(expression); break;
 				case "recordConstructor": add(node.source, node.name, visible.get(node.name)); node.fields.forEach(field => expression(field.expression)); break;

@@ -67,6 +67,7 @@ function bodyContainsForExpression(expression: V02ExpressionNode): boolean {
   switch (expression.type) {
     case 'forExpression': return true;
     case 'binaryExpression': return bodyContainsForExpression(expression.left) || bodyContainsForExpression(expression.right);
+    case 'stringInterpolation': return expression.parts.some(part => typeof part !== 'string' && bodyContainsForExpression(part));
     case 'unaryExpression': return bodyContainsForExpression(expression.argument);
     case 'conditionalExpression': return [expression.test, expression.consequent, expression.alternate].some(bodyContainsForExpression);
     case 'listLiteral': return expression.elements.some(bodyContainsForExpression);
@@ -130,6 +131,18 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         if (expected?.kind === 'nullable' && expected.element.kind === 'named' && expected.element.name === 'DateTime') {
           if (!checkDateTime(expression.value)) fail('AMX3002', 'Invalid DateTime literal', expression.source);
           return expected.element;
+        }
+        return named('String');
+      case 'stringInterpolation':
+        for (const part of expression.parts) {
+          if (typeof part === 'string') continue;
+          const type = infer(part);
+          const stringifiable = (value: CheckedType): boolean => value.kind === 'null'
+            || (value.kind === 'named' && ['String', 'Number', 'Boolean'].includes(value.name))
+            || (value.kind === 'nullable' && stringifiable(value.element));
+          if (!stringifiable(type)) {
+            fail('AMX3007', `Cannot interpolate a ${format(type)} value into a string`, part.source ?? expression.source);
+          }
         }
         return named('String');
       case 'nullLiteral': return { kind: 'null' };

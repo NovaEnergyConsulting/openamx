@@ -5,7 +5,14 @@
 - Prepared the four Sprint 053 artifacts in `planning/sprints/0053-v09-string-escapes-expression-interpolation/` for approved string escape decoding and double-quoted AMX expression interpolation.
 - Sprint 052 is ACCEPTED WITH RECORDED RESIDUALS. Its unconditional-checking/record implementation is the dependency baseline; five Windows VS Code Development Host failures remain explicitly unpassed and do not block Sprint 053.
 - Sprint 053 owns string syntax, evaluation, diagnostics/source mapping, formatter/direct editor integration, and focused migration/tests. Measurement-to-string coverage is coordinated with Sprint 056; list and unit work remain out of scope.
-- Sprint 053 has not been implemented or tested by this preparation. Builder evidence and a separate Lead Developer disposition remain pending.
+- At preparation time Sprint 053 had not been implemented or tested. The Builder implementation evidence and separate Lead Developer disposition are recorded below.
+
+## V0.9 Sprint 053 Builder Evidence (2026-10-06)
+
+- Implemented approved string escapes and double-quoted AMX expression interpolation through the shared AST, parser, static checker, evaluator, formatter, editor analysis, and VS Code grammar. Single-quoted strings remain non-interpolating; invalid escapes/syntax use `AMX3006`, and invalid interpolation types use `AMX3007`.
+- Added focused regression coverage for both-quote escape decoding, nested expression delimiters and strings, source mapping, static checks, scalar formatting, collection rejection, formatter stability, editor references/highlighting, and narrative/inert-fence isolation. Migrated only the positive `examples/kitchen-sink.amx` path literal to preserve its intended backslash.
+- Root build passes; focused tests pass (140 tests/517 expectations); full root tests pass (333/1,388); desktop tests pass (24/126) and desktop typecheck passes. The extension compiles and its tests compile, but the Windows Development Host suite reports 13 passes and 6 failures (five `EBUSY` cleanup errors and one drive-letter case assertion). Do not describe the host suite as green; retain Sprint 052's original five-failure accepted residual separately.
+- Exact commands, changed files, migration rationale, residuals, and the acceptance request are recorded in [Sprint 053 Builder evidence](sprints/0053-v09-string-escapes-expression-interpolation/builder-evidence.md). A separate Lead Developer disposition remains pending; no self-acceptance or downstream V0.9 completion is claimed.
 
 ## V0.9 Sprint 052 Builder Evidence (2026-10-06)
 
