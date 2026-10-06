@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.9 Sprint 055 Architect Preparation (2026-10-06)
+
+- Sprint 055 depends on Sprint 052 only. Sprint 052's ACCEPTED WITH RECORDED RESIDUALS disposition satisfies the dependency; Sprints 053/054 are not dependencies, and their Windows host residuals remain unpassed context.
+- Implement dimensions/units according to Sprint 051: base identity is canonical module identity plus declaration name; derived dimensions are normalized vectors over those identities; exactly one independent base unit per base identity; all scales are finite and positive.
+- Implement the exact approved finite SI inventory in project-local `libraries/si.amx` with explicit imports/exports and no implicit global names or abbreviations.
+- Registry construction must provide declaration metadata before later schema inspection without executing document statements or evaluating modules more than once. Sprint 055 does not implement measurements or external data/reporting.
+
 ## V0.9 Sprint 054 Architect Preparation (2026-10-06)
 
 - Sprint 054 depends on Sprint 052 only; it does not require Sprint 053. Sprint 052's ACCEPTED WITH RECORDED RESIDUALS disposition satisfies the dependency; Sprint 053 is ACCEPTED with an unpassed Windows host-suite residual and is documented for context only.
