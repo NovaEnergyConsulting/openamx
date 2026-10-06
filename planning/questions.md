@@ -1,5 +1,11 @@
 # Planning Questions (Sprint 002)
 
+## V0.9 Sprint 052 Preparation (2026-10-06)
+
+- **Resolved by Sprint 051 approval:** Sprint 052 may begin; the contract gate is CLOSED / APPROVED. Strict checking, valid unannotated inference, constructor `=`/colon rejection, multiline nesting, diagnostics, and compatibility boundaries are specified by the approved language contract and Sprint 051 blueprint.
+- No new business-rule decision is required for Sprint 052 preparation. If implementation reveals an ambiguity or a behavior change beyond the approved contract, record the concrete case here and request Lead Developer direction before changing the contract.
+- Builder to report any supported checking entry point that cannot be made unconditional within this sprint's scope as a blocker; do not silently leave a bypass or defer it without disposition.
+
 ## V0.9 Sprint 051 Technical Contract Gate (2026-10-06)
 
 - **Resolved by explicit Lead Developer approval (2026-10-06): precedence.** The exact grouping, precedence/associativity table, attachment/conversion/indexing examples, malformed cases, and loop `in` distinction in the Sprint 051 blueprint are approved.

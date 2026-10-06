@@ -20,6 +20,13 @@
 - Approval is not evidence of implementation, tests, builds, or runtime behavior. None is claimed by the Sprint 051 design work.
 - The Lead Developer may reopen or revise a design decision explicitly; any scope-changing revision must be recorded before implementation relies on it.
 
+## V0.9 Sprint 052 Architect Preparation (2026-10-06)
+
+- Sprint 052 implements unconditional checking before document/module execution and analysis, canonical multiline record constructors with `=`, and focused migration of affected positive examples/tests.
+- Preserve inference for valid unannotated programs. Keep intentionally invalid cases as rejection tests and do not weaken checking to produce a green suite.
+- Reject constructor `field: value` as syntax (`AMX3006`) without deprecation or formatter repair. Type declaration fields and variable/parameter/return annotations retain `:`.
+- Sprint 052 does not implement strings, list indexing/mutation, dimensions/units, or the integrated editor/documentation work assigned to later sprints.
+
 ## V0.8 Sprint 050 Architect Preparation (2026-10-04)
 
 - Sprint 050 owns integrated repeat-release acceptance, adversarial failure/recovery validation, available-host evidence, and one consolidated operator runbook. It does not expand into new packaging features, signing, CI, native certification, or automated Marketplace publication.

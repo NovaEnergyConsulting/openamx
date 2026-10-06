@@ -21,6 +21,12 @@
 - Sprint 052–058 may proceed only according to their dependencies and approved scopes in the master plan. Sprint 051 approval does not assert that implementation has started or that V0.9 behavior exists.
 - `planning/questions.md` records the resolved gate topics; any future scope change requires a new Lead Developer decision.
 
+## V0.9 Sprint 052 Architect Preparation (2026-10-06)
+
+- Prepared the four Sprint 052 artifacts in `planning/sprints/0052-v09-strict-checking-multiline-records-migration/` for unconditional static checking, multiline `=` record literals, focused migration of affected positive fixtures, and regression evidence.
+- Sprint 051 is CLOSED / APPROVED. Sprint 052 is the first implementation sprint and owns strict checking and record syntax/migration only; Sprints 053 and 054 depend on its disposition, while Sprint 055 also depends on Sprint 052 as specified in the master plan.
+- The approved V0.9 contract, Sprint 051 diagnostics and conformance matrix remain authoritative. Sprint 052 has not been implemented or tested by this preparation; Builder evidence and Lead Developer disposition remain pending.
+
 ## Windows Build and Deployment Test (2026-10-05)
 
 - The project owner reports having tested building and deploying OpenAMX on a Windows machine.
