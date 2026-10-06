@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.9 Sprint 054 Architect Preparation (2026-10-06)
+
+- Sprint 054 depends on Sprint 052 only; it does not require Sprint 053. Sprint 052's ACCEPTED WITH RECORDED RESIDUALS disposition satisfies the dependency; Sprint 053 is ACCEPTED with an unpassed Windows host-suite residual and is documented for context only.
+- Follow the approved 1-based list contract exactly, including typed reads, statement-only named-list mutation, `length + 1` insertion, full prevalidation, imported/nested alias immutability, local alias visibility, original-element loop snapshots, and emitted-view isolation.
+- No-`at` removal validates a positive integer count but removes exactly one final element. `at` removal removes the full requested interval. Do not normalize these behaviors.
+- Use `AMX3009` for statically provable invalid bounds/intervals and `AMX1008` for dynamic list-operation errors/immutable mutation. Do not execute code to predict dynamic values.
+
 ## V0.9 Sprint 053 Architect Preparation (2026-10-06)
 
 - Proceed with Sprint 053 on the basis of Sprint 052's **ACCEPTED WITH RECORDED RESIDUALS** disposition. Preserve the five Windows VS Code Development Host failures as unpassed; do not treat them as blockers absent a demonstrated Sprint 053 regression.

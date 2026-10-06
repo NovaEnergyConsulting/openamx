@@ -1,5 +1,11 @@
 # Planning State
 
+## V0.9 Sprint 054 Architect Preparation (2026-10-06)
+
+- Prepared the four Sprint 054 artifacts in `planning/sprints/0054-v09-one-based-list-access-safe-mutation/` for 1-based list reads, typed element access, statement-form append/insert/removal, safe atomic mutation, import/alias protection, loop snapshots, view isolation, and focused editor handling.
+- Sprint 054 depends on Sprint 052, accepted with recorded residuals. Sprint 053 is accepted but is not a dependency; its Windows VS Code host result (13 pass, 6 fail) remains explicitly unpassed.
+- The approved Sprint 051 list contract and diagnostic/static-validation boundaries are authoritative. Sprint 054 has not been implemented or tested by this preparation; Builder evidence and Lead Developer disposition remain pending.
+
 ## V0.9 Sprint 053 Architect Preparation (2026-10-06)
 
 - Prepared the four Sprint 053 artifacts in `planning/sprints/0053-v09-string-escapes-expression-interpolation/` for approved string escape decoding and double-quoted AMX expression interpolation.

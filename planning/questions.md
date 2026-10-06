@@ -1,5 +1,11 @@
 # Planning Questions (Sprint 002)
 
+## V0.9 Sprint 054 Preparation (2026-10-06)
+
+- **Resolved by prior disposition:** Sprint 052 is ACCEPTED WITH RECORDED RESIDUALS; Sprint 054 may proceed. Sprint 053 is ACCEPTED but is not a dependency; its Windows Extension Development Host result remains unpassed (13 pass, 6 fail).
+- The approved Sprint 051 list contract resolves indexing, insertion/removal semantics, diagnostics, static/runtime checks, alias/import protection, loop snapshots, and view isolation. No additional business-rule decision is open for Sprint 054 preparation.
+- If implementation exposes a conflict or gap in the approved list contract, record the exact source/operation and expected alternatives here and obtain Lead Developer direction before changing behavior.
+
 ## V0.9 Sprint 053 Preparation (2026-10-06)
 
 - **Resolved by Lead Developer disposition:** Sprint 052 is ACCEPTED WITH RECORDED RESIDUALS; Sprint 053 may proceed. Its five Windows VS Code Development Host failures are preserved as unpassed residuals, not silently waived as passes.
