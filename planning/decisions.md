@@ -8,6 +8,20 @@
 - Preserve the Sprint 051 HTML/PDF/DOCX-specific empty/null behavior, report identity/source ordering, show-time snapshots, and export atomicity. Extend desktop non-file-backed schema/data-editor inspection as well as file-backed input paths.
 - Keep Sprint 058 documentation/help/broad editor parity and the existing unpassed platform/whitespace residuals outside Sprint 057 implementation scope.
 
+## V0.9 Sprint 057 Builder Decisions (2026-10-06)
+
+- Use the exact approved external JSON `{value, unit}` measurement shape and CSV `number unit-expression` text form. Resolve unit identifiers only from the entry-visible Sprint 055 registry; parse the restricted unit grammar without evaluating external text.
+- Present human-readable dimension names and visible-unit lists in schemas rather than leaking canonical module identities. Preserve each table cell's display unit and normalize each chart series/axis to its first non-null unit.
+- Follow the existing HTML/PDF/DOCX-specific null/empty policies. Per Lead Developer direction, corrected PDF empty-chart table widths to match the approved header-only data table; this resolved implementation mismatch is not a broader renderer-policy change.
+- Implementation evidence records exact checks/results and the desktop RPC/Windows extension residuals. Sprint 057 remains pending separate Lead Developer disposition; no Sprint 058 or integrated V0.9 acceptance is asserted.
+
+## V0.9 Sprint 057 Acceptance-Finding Decisions (2026-10-07)
+
+- Per Lead Developer direction, dimensions, units, and external unit text for record fields and function signatures resolve in the module that declares the record type or function, not in the importing or entry module. `src/typechecker/declarationRegistry.ts` records each declaration's module registry when `checkDocument` checks the declaring module. The checker (field access, record construction, defaults, view fields, function calls) and the runtime (JSON/CSV input, schemas, output serialization, computed-record and function validation, function-body unit literals) all consult it. Base identities remain the global Sprint 055 identities, so values compare correctly across modules.
+- Record measurement defaults (for example `Spare: ApparentPower? = 1 MVA`) are evaluated with the declaring registry and accepted as already-materialized measurements after a dimension check; external data still requires the exact `{value, unit}` or CSV text forms.
+- Narrative `{{...}}` interpolation formats measurements as displayed value plus unit text, matching the Sprint 056 string-interpolation form, in the shared report preparation used by HTML, PDF, and DOCX.
+- **Lead Developer disposition (2026-10-07): COMPLETE / APPROVED.** The Lead Developer re-ran the acceptance scenario and approved Sprint 057. The desktop RPC Windows path-separator assertion and the Windows Extension Development Host failures remain unpassed platform residuals.
+
 ## V0.9 Sprint 056 Architect Preparation (2026-10-06)
 
 - Sprint 056 consumes Sprint 055's approved dimension/unit identities, vectors, scales, explicit visibility, SI library, and registry; do not fork declaration metadata.

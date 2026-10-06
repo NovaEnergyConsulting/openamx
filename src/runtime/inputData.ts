@@ -4,6 +4,16 @@ import { AmxDiagnostic, inputError, throwInputErrors } from '../diagnostics/erro
 import { Environment } from './environment';
 import { evaluateExpression } from './evaluateExpression';
 import { parseStrictCsvText, parseStrictJsonText, type CsvTextCell } from './dataText';
+import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
+import { isMeasurement, measurement, type MeasurementValue } from './measurement';
+import { ExternalUnitTextError, parseExternalUnitText } from './externalUnits';
+import { fieldRegistry } from '../typechecker/declarationRegistry';
+
+function defaultsEnvironment(environment: Environment, registry: DimensionUnitRegistry | undefined): Environment {
+  return registry && environment.dimensionRegistry !== registry
+    ? new Environment(environment.recordTypes, environment.functions, registry)
+    : environment;
+}
 
 export { parseStrictCsvText, parseStrictJsonText } from './dataText';
 export { serializeCsvText } from './csvTextSerialization';
@@ -32,6 +42,7 @@ export interface InputSchemaField {
   type: string;
   optional: boolean;
   hasDefault: boolean;
+  measurement?: { dimension: string; visibleUnits: string[] };
 }
 
 export interface InputSchema {
@@ -39,23 +50,31 @@ export interface InputSchema {
   type: string;
   acceptedFormats: InputTextFormat[];
   fields?: InputSchemaField[];
+  measurement?: { dimension: string; visibleUnits: string[] };
 }
 
-export function describeInputSchema(declaration: InputDeclarationNode, types: Map<string, TypeDeclarationNode>): InputSchema {
+export function describeInputSchema(
+  declaration: InputDeclarationNode,
+  types: Map<string, TypeDeclarationNode>,
+  registry?: DimensionUnitRegistry
+): InputSchema {
   const recordType = declaration.annotation.type === 'listType'
     && declaration.annotation.element?.type === 'namedType'
     ? types.get(declaration.annotation.element.name!)
     : undefined;
-  const csvCompatible = !!recordType && recordType.fields.every(field => isCsvScalar(field.annotation));
+  const recordRegistry = recordType ? fieldRegistry(recordType, registry) : undefined;
+  const csvCompatible = !!recordType && recordType.fields.every(field => isCsvScalar(field.annotation, recordRegistry));
   return {
     name: declaration.name,
     type: typeName(declaration.annotation),
     acceptedFormats: csvCompatible ? ['json', 'csv'] : ['json'],
+    ...(registry ? measurementSchema(declaration.annotation, registry) : {}),
     ...(recordType ? { fields: recordType.fields.map(field => ({
       name: field.name,
       type: typeName(field.annotation),
       optional: field.optional,
-      hasDefault: field.defaultExpression !== undefined
+      hasDefault: field.defaultExpression !== undefined,
+      ...(recordRegistry ? measurementSchema(field.annotation, recordRegistry) : {})
     })) } : {})
   };
 }
@@ -66,7 +85,8 @@ export function validateInputText(
   declaration: InputDeclarationNode,
   types: Map<string, TypeDeclarationNode>,
   mode: ValidationMode = 'aggregate',
-  context: Pick<AmxDiagnostic, 'file' | 'dataFile'> = {}
+  context: Pick<AmxDiagnostic, 'file' | 'dataFile'> = {},
+  registry?: DimensionUnitRegistry
 ): InputTextValidationResult {
   if (mode !== 'aggregate' && mode !== 'fail-fast') {
     return { diagnostics: [inputError('AMX4001', `Unsupported validation mode '${safeText(String(mode))}'`, { ...context, inputName: declaration.name })] };
@@ -93,9 +113,9 @@ export function validateInputText(
         }));
         return { value: undefined, diagnostics };
       }
-      value = convertJson(parsed.value, declaration.annotation, '', declaration.source, types, environment, report, validationContext);
+      value = convertJson(parsed.value, declaration.annotation, '', declaration.source, types, environment, report, validationContext, undefined, registry);
     } else {
-      value = convertCsv(text, declaration.annotation, declaration.source, types, environment, report, validationContext);
+      value = convertCsv(text, declaration.annotation, declaration.source, types, environment, report, validationContext, registry);
     }
   } catch (error) {
     if (!(error instanceof StopValidation)) throw error;
@@ -108,7 +128,8 @@ export async function loadInputValues(
   types: Map<string, TypeDeclarationNode>,
   rawMappings: string[] = [],
   mode: ValidationMode = 'aggregate',
-  entryFile?: string
+  entryFile?: string,
+  registry?: DimensionUnitRegistry
 ): Promise<Map<string, unknown>> {
   if (mode !== 'aggregate' && mode !== 'fail-fast') {
     throwInputErrors([inputError('AMX4001', `Unsupported validation mode '${safeText(String(mode))}'`, { file: entryFile })]);
@@ -178,7 +199,7 @@ export async function loadInputValues(
         continue;
       }
 
-      const validated = validateInputText(text, extension.slice(1) as InputTextFormat, declaration, types, mode, { file: entryFile, dataFile: filePath });
+      const validated = validateInputText(text, extension.slice(1) as InputTextFormat, declaration, types, mode, { file: entryFile, dataFile: filePath }, registry);
       diagnostics.push(...validated.diagnostics);
       if (validated.diagnostics.length > 0 && mode === 'fail-fast') throw new StopValidation();
       values.set(declaration.name, validated.value);
@@ -200,11 +221,13 @@ function convertJson(
   environment: Environment,
   report: (diagnostic: AmxDiagnostic) => void,
   context: Omit<AmxDiagnostic, 'code' | 'message'>,
-  fieldSource?: SourceLocation
+  fieldSource?: SourceLocation,
+  registry?: DimensionUnitRegistry,
+  internalDefault = false
 ): unknown {
   if (annotation.type === 'nullableType') {
     if (value === null) return null;
-    return convertJson(value, annotation.element!, pointer, declarationSource, types, environment, report, context, fieldSource);
+    return convertJson(value, annotation.element!, pointer, declarationSource, types, environment, report, context, fieldSource, registry, internalDefault);
   }
   if (value === null) {
     report(shapeDiagnostic('Null is not allowed for this input type', typeName(annotation), 'null', pointer, context, declarationSource, fieldSource));
@@ -215,9 +238,16 @@ function convertJson(
       report(shapeDiagnostic('Expected a JSON array', typeName(annotation), actualType(value), pointer, context, declarationSource, fieldSource));
       return [];
     }
-    return value.map((item, index) => convertJson(item, annotation.element!, `${pointer}/${index}`, declarationSource, types, environment, report, context, fieldSource));
+    return value.map((item, index) => convertJson(item, annotation.element!, `${pointer}/${index}`, declarationSource, types, environment, report, context, fieldSource, registry, internalDefault));
   }
   const name = annotation.name!;
+  const dimension = registry?.dimensions.get(name);
+  if (dimension && internalDefault && isMeasurement(value)) {
+    if (sameVector(value.unit.vector, dimension.vector)) return value;
+    report(measurementDiagnostic('AMX4005', 'Measurement default has an incompatible dimension', pointer, context, declarationSource, fieldSource, formatVector(dimension.vector, registry!), formatVector(value.unit.vector, registry!)));
+    return null;
+  }
+  if (dimension) return convertJsonMeasurement(value, dimension.vector, pointer, declarationSource, fieldSource, context, report, registry!);
   if (name === 'Number' || name === 'String' || name === 'Boolean' || name === 'DateTime') {
     const valid = name === 'Number' ? typeof value === 'number' && Number.isFinite(value)
       : name === 'String' || name === 'DateTime' ? typeof value === 'string'
@@ -247,13 +277,14 @@ function convertJson(
     report(shapeDiagnostic(`Unknown field '${key}'`, 'declared record field', describe(object[key]), propertyPointer, context, declarationSource, fieldSource));
   }
   const materialized: Record<string, unknown> = {};
+  const recordRegistry = fieldRegistry(declaration, registry);
   for (const field of declaration.fields) {
     const propertyPointer = `${pointer}/${escapePointer(field.name)}`;
     if (Object.prototype.hasOwnProperty.call(object, field.name)) {
-      materialized[field.name] = convertJson(object[field.name], field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source);
+      materialized[field.name] = convertJson(object[field.name], field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source, recordRegistry, internalDefault);
     } else if (field.defaultExpression) {
-      const value = evaluateExpression(field.defaultExpression, environment, context.file);
-      materialized[field.name] = convertJson(value, field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source);
+      const value = evaluateExpression(field.defaultExpression, defaultsEnvironment(environment, recordRegistry), context.file);
+      materialized[field.name] = convertJson(value, field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source, recordRegistry, true);
     } else if (field.optional) {
       materialized[field.name] = null;
     } else {
@@ -270,14 +301,16 @@ function convertCsv(
   types: Map<string, TypeDeclarationNode>,
   environment: Environment,
   report: (diagnostic: AmxDiagnostic) => void,
-  context: Omit<AmxDiagnostic, 'code' | 'message'>
+  context: Omit<AmxDiagnostic, 'code' | 'message'>,
+  registry?: DimensionUnitRegistry
 ): unknown[] {
   if (annotation.type !== 'listType' || annotation.element?.type !== 'namedType' || !types.has(annotation.element.name!)) {
     report(shapeDiagnostic('CSV input requires a list of one record type', 'RecordType[]', typeName(annotation), '', context, declarationSource));
     return [];
   }
   const recordType = types.get(annotation.element.name!)!;
-  const scalarFields = recordType.fields.every(field => isCsvScalar(field.annotation));
+  const recordRegistry = fieldRegistry(recordType, registry);
+  const scalarFields = recordType.fields.every(field => isCsvScalar(field.annotation, recordRegistry));
   if (!scalarFields) {
     report(shapeDiagnostic('CSV records may contain only scalar fields', 'scalar-field RecordType[]', recordType.name, '', context, declarationSource));
     return [];
@@ -317,7 +350,8 @@ function convertCsv(
     const recordNumber = index;
     if (row.length !== headers.length) {
       report(inputError('AMX4003', `CSV record ${recordNumber} has ${row.length} fields; expected ${headers.length}`, {
-        ...context, dataPath: `record[${recordNumber}]`, recordNumber, expected: `${headers.length} fields`, actual: `${row.length} fields`
+        ...context, dataPath: `record[${recordNumber}]`, recordNumber, dataLine: recordNumber + 1,
+        expected: `${headers.length} fields`, actual: `${row.length} fields`
       }));
     }
     const materialized: Record<string, unknown> = {};
@@ -326,15 +360,15 @@ function convertCsv(
       const propertyPath = `record[${recordNumber}].${field.name}`;
       if (column < 0) {
         if (field.defaultExpression) {
-          const value = evaluateExpression(field.defaultExpression, environment, context.file);
-          materialized[field.name] = convertJson(value, field.annotation, propertyPath, context.declarationSource, types, environment, report, context, field.source);
+          const value = evaluateExpression(field.defaultExpression, defaultsEnvironment(environment, recordRegistry), context.file);
+          materialized[field.name] = convertJson(value, field.annotation, propertyPath, context.declarationSource, types, environment, report, context, field.source, recordRegistry, true);
         }
         else if (field.optional) materialized[field.name] = null;
         continue;
       }
       const cell = row[column];
       if (!cell) continue;
-      materialized[field.name] = convertCsvCell(cell, field.annotation, propertyPath, recordNumber, field.source, report, context);
+      materialized[field.name] = convertCsvCell(cell, field.annotation, propertyPath, recordNumber, column + 1, field.source, report, context, recordRegistry);
     }
     result.push(materialized);
   }
@@ -346,42 +380,171 @@ function convertCsvCell(
   annotation: TypeReferenceNode,
   dataPath: string,
   recordNumber: number,
+  columnNumber: number,
   fieldSource: SourceLocation | undefined,
   report: (diagnostic: AmxDiagnostic) => void,
-  context: Omit<AmxDiagnostic, 'code' | 'message'>
+  context: Omit<AmxDiagnostic, 'code' | 'message'>,
+  registry?: DimensionUnitRegistry
 ): unknown {
   const base = annotation.type === 'nullableType' ? annotation.element! : annotation;
   const nullable = annotation.type === 'nullableType';
+  const location = { ...context, recordNumber, dataLine: recordNumber + 1, dataColumn: columnNumber };
   if (cell.value === '' && !cell.quoted) {
     if (nullable) return null;
-    report(shapeDiagnostic('Blank CSV cell represents null, but this field is not nullable', typeName(annotation), 'null', dataPath, { ...context, recordNumber }, undefined, fieldSource));
+    report(shapeDiagnostic('Blank CSV cell represents null, but this field is not nullable', typeName(annotation), 'null', dataPath, location, undefined, fieldSource));
     return null;
   }
   if (cell.value === '' && cell.quoted) {
     if (base.type === 'namedType' && base.name === 'String') return '';
-    report(shapeDiagnostic('Quoted empty CSV cell is valid only for String fields', typeName(annotation), 'empty String', dataPath, { ...context, recordNumber }, undefined, fieldSource));
+    report(shapeDiagnostic('Quoted empty CSV cell is valid only for String fields', typeName(annotation), 'empty String', dataPath, location, undefined, fieldSource));
     return '';
   }
   if (base.type !== 'namedType') return cell.value;
+  const dimension = registry?.dimensions.get(base.name!);
+  if (dimension) {
+    const match = cell.value.match(/^\s*([+-]?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)\s+(.+?)\s*$/);
+    if (!match || !Number.isFinite(Number(match[1]))) {
+      report(measurementDiagnostic('AMX4005', 'CSV measurement cells must contain a finite number followed by a unit expression', dataPath, location, declarationSourceFrom(context), fieldSource, 'finite number and unit', safeText(cell.value)));
+      return cell.value;
+    }
+    return convertMeasurement(Number(match[1]), match[2], dimension.vector, dataPath, location, declarationSourceFrom(context), fieldSource, report, registry!);
+  }
   if (base.name === 'String') return cell.value;
   if (base.name === 'Boolean') {
     if (cell.value === 'true') return true;
     if (cell.value === 'false') return false;
-    report(shapeDiagnostic('Boolean CSV cells must be lowercase true or false', 'Boolean', cell.value, dataPath, { ...context, recordNumber }, undefined, fieldSource));
+    report(shapeDiagnostic('Boolean CSV cells must be lowercase true or false', 'Boolean', cell.value, dataPath, location, undefined, fieldSource));
     return cell.value;
   }
   if (base.name === 'Number') {
     if (!/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(cell.value) || !Number.isFinite(Number(cell.value))) {
-      report(shapeDiagnostic('Invalid finite JSON-number CSV cell', 'Number', cell.value, dataPath, { ...context, recordNumber }, undefined, fieldSource));
+      report(shapeDiagnostic('Invalid finite JSON-number CSV cell', 'Number', cell.value, dataPath, location, undefined, fieldSource));
       return cell.value;
     }
     return Number(cell.value);
   }
   if (base.name === 'DateTime') {
-    if (!isDateTime(cell.value)) report(shapeDiagnostic('Invalid RFC 3339 DateTime CSV cell', 'DateTime', cell.value, dataPath, { ...context, recordNumber }, undefined, fieldSource));
+    if (!isDateTime(cell.value)) report(shapeDiagnostic('Invalid RFC 3339 DateTime CSV cell', 'DateTime', cell.value, dataPath, location, undefined, fieldSource));
     return cell.value;
   }
   return cell.value;
+}
+
+function convertJsonMeasurement(
+  value: unknown,
+  vector: ReadonlyMap<string, number>,
+  pointer: string,
+  declarationSource: SourceLocation | undefined,
+  fieldSource: SourceLocation | undefined,
+  context: Omit<AmxDiagnostic, 'code' | 'message'>,
+  report: (diagnostic: AmxDiagnostic) => void,
+  registry: DimensionUnitRegistry
+): MeasurementValue | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    report(measurementDiagnostic('AMX4005', 'Measurement input must use the exact {value, unit} object shape', pointer, context, declarationSource, fieldSource, '{value, unit}', actualType(value)));
+    return null;
+  }
+  const object = value as Record<string, unknown>;
+  const keys = Object.keys(object);
+  if (keys.length !== 2 || !keys.includes('value') || !keys.includes('unit')) {
+    report(measurementDiagnostic('AMX4005', 'Measurement input must contain exactly the value and unit fields', pointer, context, declarationSource, fieldSource, '{value, unit}', describe(value)));
+    return null;
+  }
+  if (typeof object.value !== 'number' || !Number.isFinite(object.value) || typeof object.unit !== 'string') {
+    report(measurementDiagnostic('AMX4005', 'Measurement value must be finite and unit must be a string', pointer, context, declarationSource, fieldSource, 'finite value and unit string', describe(value)));
+    return null;
+  }
+  return convertMeasurement(object.value, object.unit, vector, `${pointer}/unit`, context, declarationSource, fieldSource, report, registry);
+}
+
+function convertMeasurement(
+  value: number,
+  unitText: string,
+  expectedVector: ReadonlyMap<string, number>,
+  unitPath: string,
+  context: Omit<AmxDiagnostic, 'code' | 'message'>,
+  declarationSource: SourceLocation | undefined,
+  fieldSource: SourceLocation | undefined,
+  report: (diagnostic: AmxDiagnostic) => void,
+  registry: DimensionUnitRegistry
+): MeasurementValue | null {
+  let unit;
+  try {
+    unit = parseExternalUnitText(unitText, registry);
+  } catch (error) {
+    if (!(error instanceof ExternalUnitTextError)) throw error;
+    const details = {
+      ...context,
+      dataPath: unitPath,
+      declarationSource: declarationSource ?? context.declarationSource,
+      fieldSource
+    };
+    report(inputError(error.unknownUnit ? 'AMX4004' : 'AMX4004', error.message, details));
+    return null;
+  }
+  if (!sameVector(unit.vector, expectedVector)) {
+    report(measurementDiagnostic('AMX4005', 'Measurement unit has an incompatible dimension', unitPath, context, declarationSource, fieldSource, formatVector(expectedVector, registry), formatVector(unit.vector, registry)));
+    return null;
+  }
+  return measurement(value, unit);
+}
+
+function measurementDiagnostic(
+  code: 'AMX4004' | 'AMX4005',
+  message: string,
+  dataPath: string,
+  context: Omit<AmxDiagnostic, 'code' | 'message'>,
+  declarationSource?: SourceLocation,
+  fieldSource?: SourceLocation,
+  expected?: string,
+  actual?: string
+): AmxDiagnostic {
+  return inputError(code, message, {
+    ...context,
+    dataPath,
+    ...(expected ? { expected } : {}),
+    ...(actual ? { actual: safeText(actual) } : {}),
+    declarationSource: declarationSource ?? context.declarationSource,
+    fieldSource
+  });
+}
+
+function declarationSourceFrom(context: Omit<AmxDiagnostic, 'code' | 'message'>): SourceLocation | undefined {
+  return context.declarationSource;
+}
+
+function measurementSchema(annotation: TypeReferenceNode, registry: DimensionUnitRegistry): Pick<InputSchemaField, 'measurement'> | Record<string, never> {
+  let base = annotation;
+  while (base.type !== 'namedType') base = base.element!;
+  const dimension = registry.dimensions.get(base.name!);
+  if (!dimension) return {};
+  return {
+    measurement: {
+      dimension: base.name!,
+      visibleUnits: [...registry.units.values()]
+        .filter(unit => sameVector(unit.vector, dimension.vector))
+        .map(unit => unit.name)
+        .sort()
+    }
+  };
+}
+
+function sameVector(
+  left: ReadonlyMap<string, number> | Readonly<Record<string, number>>,
+  right: ReadonlyMap<string, number> | Readonly<Record<string, number>>
+): boolean {
+  const leftEntries = left instanceof Map ? [...left] : Object.entries(left);
+  const rightMap = new Map(right instanceof Map ? right : Object.entries(right));
+  return leftEntries.length === rightMap.size && leftEntries.every(([identity, exponent]) => rightMap.get(identity) === exponent);
+}
+
+function formatVector(vector: ReadonlyMap<string, number> | Readonly<Record<string, number>>, registry: DimensionUnitRegistry): string {
+  const entries = vector instanceof Map ? [...vector] : Object.entries(vector);
+  return entries.sort(([left], [right]) => left.localeCompare(right)).map(([identity, exponent]) => {
+    const base = [...registry.dimensions.values()].find(dimension => dimension.baseIdentity === identity);
+    if (!base) throw new Error('Measurement schema references an unavailable base dimension');
+    return `${base.declarationName}${exponent === 1 ? '' : `^${exponent}`}`;
+  }).join(' * ') || 'dimensionless';
 }
 
 function shapeDiagnostic(
@@ -408,9 +571,12 @@ function typeName(annotation: TypeReferenceNode): string {
   return annotation.type === 'listType' ? `${typeName(annotation.element!)}[]` : `${typeName(annotation.element!)}?`;
 }
 
-function isCsvScalar(annotation: TypeReferenceNode): boolean {
+function isCsvScalar(annotation: TypeReferenceNode, registry?: DimensionUnitRegistry): boolean {
   const base = annotation.type === 'nullableType' ? annotation.element! : annotation;
-  return base.type === 'namedType' && ['String', 'Number', 'Boolean', 'DateTime'].includes(base.name!);
+  return base.type === 'namedType' && (
+    ['String', 'Number', 'Boolean', 'DateTime'].includes(base.name!)
+    || !!registry?.dimensions.has(base.name!)
+  );
 }
 
 function isDateTime(value: string): boolean {

@@ -125,10 +125,11 @@ function addChart(content: unknown[], emission: ChartViewEmission): void {
   const caption = title?.type === 'viewTitleOption' ? title.value : emission.name;
   const detail = description?.type === 'viewDescriptionOption' ? description.value : `${emission.kind} chart`;
   const rows = chartRows(emission);
+  const headings = chartHeadings(emission);
   content.push({ text: caption, style: 'heading' });
   content.push({ text: detail, style: 'caption' });
   if (rows.length > 0) content.push({ svg: chartSvg(rows), width: 470, height: 160 });
-  content.push({ table: { headerRows: 1, widths: rows[0]?.map(() => '*') ?? ['*'], body: [chartHeadings(emission), ...rows.map(row => row.map(valueToString))] }, layout: 'lightHorizontalLines', fontSize: 8 });
+  content.push({ table: { headerRows: 1, widths: headings.map(() => '*'), body: [headings, ...rows.map(row => row.map(valueToString))] }, layout: 'lightHorizontalLines', fontSize: 8 });
 }
 
 function chartRows(emission: ChartViewEmission): ViewDataValue[][] {
@@ -149,6 +150,7 @@ function chartRows(emission: ChartViewEmission): ViewDataValue[][] {
 }
 
 function chartHeadings(emission: ChartViewEmission): string[] {
+  if (emission.headings) return [...emission.headings];
   if (emission.declaration.kind === 'scatter') return ['x', 'y', 'group'];
   return ['label', ...emission.declaration.options.filter(option => option.type === 'chartSeriesOption').map(option => option.label)];
 }

@@ -314,4 +314,83 @@ show amounts
     expect(html).not.toContain("<safe>");
     expect(renderHtml(doc, "chart.amx")).toBe(html);
   });
+
+  it("renders measurement table cells in their own units and normalizes chart values to the first unit", () => {
+    const doc = parseDocumentText(`\`\`\`amx
+dimension Length
+unit meter: Length
+unit kilometer = 1000 * meter
+type Sample {
+  distance: Length
+}
+let samples: Sample[] = [
+  Sample { distance = 1 kilometer },
+  Sample { distance = 500 meter }
+]
+table register = table(samples) {
+  title: "Distance register"
+  column distance as "Distance"
+}
+let distances: Length[] = [1 kilometer, 500 meter]
+chart amounts = line(distances) {
+  title: "Distances"
+  description: "Normalized values"
+  series "Distance"
+}
+show register
+show amounts
+\`\`\``);
+    const html = renderHtml(doc, "measurements.amx");
+    expect(html).toContain(">1 kilometer</td>");
+    expect(html).toContain(">500 meter</td>");
+    expect(html).toContain("<th scope=\"col\">Distance (kilometer)</th>");
+    expect(html).toContain("<td>1</td></tr><tr><td>2</td><td>0.5</td>");
+  });
+
+  it("normalizes each measurement series and scatter axis independently without changing row order", () => {
+    const doc = parseDocumentText(`\`\`\`amx
+dimension Length
+dimension Time
+unit meter: Length
+unit kilometer = 1000 * meter
+unit second: Time
+unit hour = 3600 * second
+type Point {
+  category: String
+  first: Length?
+  second: Length?
+  x: Length?
+  y: Time?
+  group: String
+}
+let points: Point[] = [
+  Point { category = "A", first = null, second = 500 meter, x = 1000 meter, y = 3600 second, group = "G" },
+  Point { category = "B", first = 2 kilometer, second = 1 kilometer, x = 1 kilometer, y = 1 hour, group = "G" }
+]
+chart columns = bar(points) {
+  title: "Series"
+  description: "Independent unit choices"
+  category: category
+  series first as "First"
+  series second as "Second"
+}
+chart scatterPoints = scatter(points) {
+  title: "Axes"
+  description: "Independent axis units"
+  x: x
+  y: y
+  group: group
+}
+show columns
+show scatterPoints
+\`\`\``);
+    const html = renderHtml(doc, "chart-measurements.amx");
+    expect(html).toContain("<th scope=\"col\">First (kilometer)</th>");
+    expect(html).toContain("<th scope=\"col\">Second (meter)</th>");
+    expect(html).toContain("<td>A</td><td></td><td>500</td>");
+    expect(html).toContain("<td>B</td><td>2</td><td>1000</td>");
+    expect(html).toContain("<th scope=\"col\">x (meter)</th>");
+    expect(html).toContain("<th scope=\"col\">y (second)</th>");
+    expect(html).toContain("<td>1000</td><td>3600</td><td>G</td>");
+  });
 });

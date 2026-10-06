@@ -1,4 +1,7 @@
 import {
+  ChartDeclarationNode,
+  ChartFieldOptionNode,
+  ChartSeriesOptionNode,
   BinaryExpressionNode,
   UnaryExpressionNode,
   ConditionalExpressionNode,
@@ -20,6 +23,8 @@ import { inputError, staticError, throwInputErrors, throwInvalidLoopIterable, th
 import { Environment, ViewDataValue, ViewEmission } from './environment';
 import { evaluateStandardLibraryCall } from './standardLibrary';
 import type { CheckedType } from '../typechecker/checkDocument';
+import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
+import { fieldRegistry } from '../typechecker/declarationRegistry';
 import { canonicalUnit, composeUnits, isMeasurement, measurement, powerUnit, sqrtMeasurement, unitFromMetadata, type MeasurementUnit, type MeasurementValue } from './measurement';
 
 function validateRuntimeValue(
@@ -97,11 +102,12 @@ function validateRuntimeValue(
     }
     const record = actual as Record<string, unknown>;
     const fieldNames = new Set(declaration.fields.map(field => field.name));
+    const recordRegistry = fieldRegistry(declaration, env.dimensionRegistry);
     for (const field of declaration.fields) {
       if (!Object.prototype.hasOwnProperty.call(record, field.name)) {
-        report(`Missing computed field '${field.name}'`, checkedType(field.annotation, env), 'missing', `${dataPath}.${field.name}`, field.source);
+        report(`Missing computed field '${field.name}'`, checkedType(field.annotation, recordRegistry), 'missing', `${dataPath}.${field.name}`, field.source);
       } else {
-        visit(record[field.name], checkedType(field.annotation, env), `${dataPath}.${field.name}`, field.source);
+        visit(record[field.name], checkedType(field.annotation, recordRegistry), `${dataPath}.${field.name}`, field.source);
       }
     }
     for (const name of Object.keys(record).filter(name => !fieldNames.has(name)).sort()) {
@@ -112,12 +118,13 @@ function validateRuntimeValue(
   if (diagnostics.length) throwInputErrors(diagnostics);
 }
 
-function checkedType(reference: TypeReferenceNode, env?: Environment): CheckedType {
+function checkedType(reference: TypeReferenceNode, scope?: Environment | DimensionUnitRegistry): CheckedType {
+  const registry = scope instanceof Environment ? scope.dimensionRegistry : scope;
   if (reference.type === 'namedType') {
-    const dimension = env?.dimensionRegistry?.dimensions.get(reference.name!);
+    const dimension = registry?.dimensions.get(reference.name!);
     return dimension ? { kind: 'measurement', vector: dimension.vector } : { kind: 'named', name: reference.name! };
   }
-  const element = checkedType(reference.element!, env);
+  const element = checkedType(reference.element!, registry);
   return reference.type === 'listType' ? { kind: 'list', element } : { kind: 'nullable', element };
 }
 
@@ -454,17 +461,19 @@ function evalFunctionCall(
   const args = node.arguments.map(a => evaluateExpression(a, env, file));
   const userFunction = env.functions.get(node.callee);
   if (userFunction) {
+    const functionRegistry = fieldRegistry(userFunction, env.dimensionRegistry);
     const parameters: Record<string, unknown> = {};
     userFunction.parameters.forEach((parameter, index) => {
-      validateRuntimeValue(args[index], checkedType(parameter.annotation, env), env, node.arguments[index]?.source ?? node.source, file, `function ${node.callee}.${parameter.name}`);
+      validateRuntimeValue(args[index], checkedType(parameter.annotation, functionRegistry), env, node.arguments[index]?.source ?? node.source, file, `function ${node.callee}.${parameter.name}`);
       parameters[parameter.name] = args[index];
     });
     const frame = env.createCallFrame(parameters);
+    frame.dimensionRegistry = functionRegistry;
     userFunction.parameters.forEach(parameter => {
-      frame.bindingTypes.set(parameter.name, checkedType(parameter.annotation, env));
+      frame.bindingTypes.set(parameter.name, checkedType(parameter.annotation, functionRegistry));
     });
     const result = evaluateExpression(userFunction.body, frame, file);
-    validateRuntimeValue(result, checkedType(userFunction.returnType, env), env, node.source, file, `function ${node.callee} return`);
+    validateRuntimeValue(result, checkedType(userFunction.returnType, functionRegistry), env, node.source, file, `function ${node.callee} return`);
     return result;
   }
   const values = args[0];
@@ -582,6 +591,7 @@ export function evaluateStatements(statements: StatementNode[], env: Environment
 }
 
 function snapshotValue(value: unknown): ViewDataValue {
+  if (isMeasurement(value)) return `${value.value} ${value.unit.text}`;
   if (Array.isArray(value)) return Object.freeze(value.map(snapshotValue));
   if (value && typeof value === 'object') {
     const copy: Record<string, ViewDataValue> = {};
@@ -604,6 +614,8 @@ function snapshotView(name: string, env: Environment, file?: string, source?: So
   }
 
   let labels: readonly string[] | undefined;
+  let headings: readonly string[] | undefined;
+  let viewData: readonly ViewDataValue[];
   if (declaration.type === 'chartDeclaration') {
     const labelsOption = declaration.options.find(option => option.type === 'chartFieldOption' && option.role === 'labels');
     if (labelsOption?.type === 'chartFieldOption') {
@@ -624,15 +636,102 @@ function snapshotView(name: string, env: Environment, file?: string, source?: So
       }
       labels = snapshotValue(labelValues) as readonly string[];
     }
+    const normalized = normalizeChartMeasurements(value, declaration, name, file);
+    viewData = normalized.data;
+    headings = normalized.headings;
+  } else {
+    viewData = snapshotValue(value) as readonly ViewDataValue[];
   }
 
   const emission = {
-    name, data: snapshotValue(value) as readonly ViewDataValue[],
+    name, data: viewData,
     documentNodeIndex: env.currentDocumentNodeIndex, statementIndex: env.currentStatementIndex, source
   };
   return declaration.type === 'tableDeclaration'
     ? Object.freeze({ kind: 'table', ...emission, declaration })
-    : Object.freeze({ kind: 'chart', ...emission, declaration, ...(labels ? { labels } : {}) });
+    : Object.freeze({ kind: 'chart', ...emission, declaration, ...(labels ? { labels } : {}), ...(headings ? { headings } : {}) });
+}
+
+function normalizeChartMeasurements(
+  data: unknown[],
+  declaration: ChartDeclarationNode,
+  name: string,
+  file?: string
+): { data: readonly ViewDataValue[]; headings: readonly string[] } {
+  const scatter = declaration.kind === 'scatter';
+  const selectedColumns = scatter
+    ? declaration.options
+      .filter((option): option is ChartFieldOptionNode => option.type === 'chartFieldOption' && (option.role === 'x' || option.role === 'y'))
+      .map(option => ({ field: option.field, label: option.role, source: option.source }))
+    : declaration.options
+      .filter((option): option is ChartSeriesOptionNode => option.type === 'chartSeriesOption')
+      .map(option => ({ field: option.field, label: option.label, source: option.source }));
+  const chosenUnits = selectedColumns.map(column => {
+    const field = column.field;
+    const values = data.map(item => item !== null && typeof item === 'object' && !Array.isArray(item) && !isMeasurement(item)
+      ? (item as Record<string, unknown>)[field ?? '']
+      : field === undefined ? item : undefined);
+    const first = values.find(value => value !== null && value !== undefined);
+    const measurementFirst = isMeasurement(first) ? first : undefined;
+    for (const value of values) {
+      if (value === null || value === undefined) continue;
+      if (measurementFirst) {
+        if (!isMeasurement(value) || !sameMeasurementUnits(value, measurementFirst)) {
+          staticError('AMX3007', `Chart '${name}' contains incompatible measurement dimensions`, column.source, file, declaration.source);
+        }
+      } else if (isMeasurement(value)) {
+        staticError('AMX3007', `Chart '${name}' mixes measurements with non-measurement values`, column.source, file, declaration.source);
+      }
+    }
+    return measurementFirst;
+  });
+
+  const headings = scatter
+    ? (['x', 'y'] as const).map((axis, index) => chosenUnits[index] ? `${axis} (${chosenUnits[index]!.unit.text})` : axis).concat('group')
+    : ['label', ...selectedColumns.map((column, index) => {
+      const label = column.label;
+      return chosenUnits[index] ? `${label} (${chosenUnits[index]!.unit.text})` : label;
+    })];
+  const normalizedData = data.map((item): ViewDataValue => {
+    if (item !== null && typeof item === 'object' && !Array.isArray(item) && !isMeasurement(item)) {
+      const values: Record<string, ViewDataValue> = {};
+      for (const [field, value] of Object.entries(item)) {
+        const columnIndex = selectedColumns.findIndex(column => column.field === field);
+        values[field] = columnIndex < 0
+          ? snapshotValue(value)
+          : normalizeChartValue(value, chosenUnits[columnIndex], name, selectedColumns[columnIndex]?.source, declaration, file);
+      }
+      return Object.freeze(values);
+    }
+    return normalizeChartValue(item, chosenUnits[0], name, selectedColumns[0]?.source, declaration, file);
+  });
+  return { data: Object.freeze(normalizedData), headings: Object.freeze(headings) };
+}
+
+function normalizeChartValue(
+  value: unknown,
+  target: MeasurementValue | undefined,
+  name: string,
+  source: SourceLocation | undefined,
+  declaration: ChartDeclarationNode,
+  file?: string
+): ViewDataValue {
+  if (value === null || value === undefined) return null;
+  if (!target) return snapshotValue(value);
+  if (!isMeasurement(value) || !sameMeasurementUnits(value, target)) {
+    staticError('AMX3007', `Chart '${name}' contains an incompatible measurement value`, source, file, declaration.source);
+  }
+  const converted = value.value * value.unit.scale / target.unit.scale;
+  if (!Number.isFinite(converted)) {
+    staticError('AMX3007', `Chart '${name}' measurement cannot be normalized to its first display unit`, source, file, declaration.source);
+  }
+  return converted;
+}
+
+function sameMeasurementUnits(left: MeasurementValue, right: MeasurementValue): boolean {
+  const leftEntries = Object.entries(left.unit.vector);
+  return leftEntries.length === Object.keys(right.unit.vector).length
+    && leftEntries.every(([identity, exponent]) => right.unit.vector[identity] === exponent);
 }
 
 function evaluateStatement(statement: StatementNode, env: Environment, file?: string): void {

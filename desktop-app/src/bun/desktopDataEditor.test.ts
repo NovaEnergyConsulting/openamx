@@ -269,4 +269,63 @@ describe("Sprint 041 mapped data document boundary", () => {
 			rmSync(root, { recursive: true, force: true });
 		}
 	});
+
+	it("inspects visible measurement units before evaluation on an in-memory data path", async () => {
+		const root = mkdtempSync(join(tmpdir(), "openamx-measurement-schema-"));
+		const stateDirectory = join(root, ".openamx");
+		const units = join(root, "units.amx");
+		const entry = join(root, "report.amx");
+		mkdirSync(stateDirectory, { mode: 0o700 });
+		writeFileSync(join(stateDirectory, "project.json"), JSON.stringify({ version: 1, inputs: {} }));
+		writeFileSync(units, `\`\`\`amx
+export dimension Length
+export unit meter: Length
+export unit kilometer = 1000 * meter
+let divisor = 0
+let mustNotEvaluate = 1 meter / divisor
+\`\`\`
+`);
+		writeFileSync(entry, `\`\`\`amx
+import { Length, meter, kilometer } from "./units.amx"
+input distance: Length
+export let outputs: Length[] = [1 kilometer]
+\`\`\`
+`);
+		const service = createDesktopService(root);
+		try {
+			await service.request.openDocument({ path: entry });
+			const workbench = await service.request.getWorkbench();
+			expect(workbench.ok).toBe(true);
+			if (!workbench.ok || !workbench.state.requestIdentity) throw new Error("Entry identity is unavailable.");
+			const started = await service.request.startJob({
+				operation: "validate-data",
+				identity: workbench.state.requestIdentity,
+				inputInspection: { name: "distance", format: "json", text: '{"value":2,"unit":"kilometer"}' }
+			});
+			expect(started.ok).toBe(true);
+			if (!started.ok) throw new Error(started.error.message);
+			let job = started.job;
+			for (let attempt = 0; job.status === "running" && attempt < 100; attempt++) {
+				await new Promise(resolve => setTimeout(resolve, 5));
+				const polled = await service.request.getJob({ jobId: job.identity.jobId });
+				if (!polled.ok) throw new Error(polled.error.message);
+				job = polled.job;
+			}
+			expect(job.status).toBe("succeeded");
+			expect(job.result).toMatchObject({
+				kind: "data-validation",
+				valid: true,
+				schema: {
+					name: "distance",
+					measurement: { dimension: "Length", visibleUnits: ["kilometer", "meter"] }
+				},
+				outputs: [{
+					name: "outputs",
+					measurements: [{ path: "$", dimension: "Length", visibleUnits: ["kilometer", "meter"] }]
+				}]
+			});
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
 });

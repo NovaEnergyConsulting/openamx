@@ -287,10 +287,11 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     options.outputMappings,
     entryRecord.checkResult.exportedBindings,
     entryTypes,
-    options.reservedOutputPath
+    options.reservedOutputPath,
+    registry
   );
   const outputSchemas = options.inputInspection || options.outputInspection
-    ? describeOutputSchemas(entryRecord.checkResult.exportedBindings, entryTypes)
+    ? describeOutputSchemas(entryRecord.checkResult.exportedBindings, entryTypes, registry)
     : undefined;
   if (options.inputInspection) {
     const declaration = inputDeclarations.find(input => input.name === options.inputInspection!.name);
@@ -308,16 +309,17 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
       declaration,
       entryTypes,
       options.validation ?? 'aggregate',
-      { file: entryPath }
+      { file: entryPath },
+      registry
     );
     return {
       doc: entryRecord.doc,
-      env: new Environment(entryTypes),
+      env: new Environment(entryTypes, new Map(), registry),
       outputs,
       viewEmissions: [],
       registry,
       inputInspection: {
-        schema: describeInputSchema(declaration, entryTypes),
+        schema: describeInputSchema(declaration, entryTypes, registry),
         valid: validation.diagnostics.length === 0,
         diagnostics: validation.diagnostics,
         outputs: outputSchemas ?? []
@@ -325,14 +327,15 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     };
   }
   if (options.outputInspection) {
-    return { doc: entryRecord.doc, env: new Environment(entryTypes), outputs, viewEmissions: [], outputSchemas: outputSchemas ?? [], registry };
+    return { doc: entryRecord.doc, env: new Environment(entryTypes, new Map(), registry), outputs, viewEmissions: [], outputSchemas: outputSchemas ?? [], registry };
   }
   const inputValues = await loadInputValues(
     inputDeclarations,
     entryTypes,
     options.inputMappings,
     options.validation,
-    entryPath
+    entryPath,
+    registry
   );
 
   const evaluatedEnvironments = new Map<string, Environment>();

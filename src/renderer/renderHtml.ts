@@ -186,6 +186,7 @@ function chartRows(emission: ChartViewEmission): ViewDataValue[][] {
 }
 
 function chartHeadings(emission: ChartViewEmission): string[] {
+  if (emission.headings) return [...emission.headings];
   if (emission.declaration.kind === 'scatter') return ['x', 'y', 'group'];
   const series = emission.declaration.options.filter(option => option.type === 'chartSeriesOption');
   return ['label', ...series.map(option => option.label)];
@@ -325,4 +326,3 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
-

@@ -7,6 +7,7 @@ import { formatAmx } from '../formatter/formatAmx';
 import { parseExpression } from '../parser/parseExpression';
 import { evaluateExpression } from '../runtime/evaluateExpression';
 import type { Environment, ViewEmission } from '../runtime/environment';
+import { isMeasurement } from '../runtime/measurement';
 
 const REPORT_FIELDS = new Set(['organization', 'logo', 'logoAlt', 'accent', 'author', 'status', 'classification', 'footer', 'sourceVisible']);
 const TEXT_LIMITS: Record<string, number> = { organization: 120, logoAlt: 120, author: 120, status: 80, classification: 80, footer: 300 };
@@ -165,6 +166,7 @@ function substituteInlines(content: string, env: Environment, file?: string, lin
 function valueToString(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (Array.isArray(value)) return value.map(valueToString).join(', ');
+  if (isMeasurement(value)) return `${String(value.value)} ${value.unit.text}`;
   return String(value);
 }
 

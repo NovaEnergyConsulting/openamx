@@ -1,6 +1,7 @@
 import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, DimensionDeclarationNode, ExportNamesDeclarationNode, FunctionDeclarationNode, InputDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TableDeclarationNode, TypeDeclarationNode, TypeReferenceNode, UnitDeclarationNode, V02ExpressionNode, VisualizationOptionNode } from '../ast/types';
 import { moduleError, staticError } from '../diagnostics/errors';
-import type { DimensionMetadata, UnitMetadata } from './dimensionTypes';
+import type { DimensionMetadata, DimensionUnitRegistry, UnitMetadata } from './dimensionTypes';
+import { fieldRegistry, setDeclaringRegistry } from './declarationRegistry';
 
 export type CheckedType =
   | { kind: 'named'; name: string }
@@ -167,6 +168,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   const dimensions = new Map<string, DimensionMetadata>(context?.dimensions ?? []);
   const units = new Map<string, UnitMetadata>(context?.units ?? []);
   const baseUnits = context?.baseUnits ?? new Map<string, UnitMetadata>();
+  const moduleRegistry: DimensionUnitRegistry = { dimensions, units, baseUnits };
   const moduleIdentity = context?.moduleIdentity ?? file ?? '<memory>';
   const immutableNames = new Set<string>([...(context?.bindings?.keys() ?? []), ...(context?.functions?.keys() ?? []), ...(context?.types?.keys() ?? []), ...(context?.dimensions?.keys() ?? []), ...(context?.units?.keys() ?? [])]);
   const inputNames = new Set<string>();
@@ -379,14 +381,15 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     }
   }
 
-  function resolve(ref: TypeReferenceNode): CheckedType {
+  function resolve(ref: TypeReferenceNode, owner?: TypeDeclarationNode | FunctionDeclarationNode): CheckedType {
     if (ref.type === 'namedType') {
-      const dimension = ref.name ? dimensions.get(ref.name) : undefined;
+      const scope = owner ? fieldRegistry(owner) : undefined;
+      const dimension = ref.name ? (scope?.dimensions ?? dimensions).get(ref.name) : undefined;
       if (dimension) return { kind: 'measurement', vector: dimension.vector };
       if (!ref.name || (!primitives.has(ref.name) && !types.has(ref.name))) fail('AMX3001', `Unknown type '${ref.name}'`, ref.source);
       return named(ref.name!);
     }
-    return ref.type === 'listType' ? list(resolve(ref.element!)) : nullable(resolve(ref.element!));
+    return ref.type === 'listType' ? list(resolve(ref.element!, owner)) : nullable(resolve(ref.element!, owner));
   }
 
   function requireType(actual: CheckedType, expected: CheckedType, source?: SourceLocation): void {
@@ -538,7 +541,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
           seen.add(field.name);
           const declared = declaration!.fields.find(item => item.name === field.name);
           if (!declared) fail('AMX3001', `Unknown field '${field.name}'`, field.source);
-          const target = resolve(declared!.annotation);
+          const target = resolve(declared!.annotation, declaration);
           requireType(infer(field.expression, target), target, field.expression.source ?? field.source);
         }
         for (const field of declaration!.fields) {
@@ -552,7 +555,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         if (!declaration) fail('AMX3003', 'Field access requires a non-null record', expression.source);
         const field = declaration!.fields.find(item => item.name === expression.field);
         if (!field) fail('AMX3001', `Unknown field '${expression.field}'`, expression.source);
-        return resolve(field!.annotation);
+        return resolve(field!.annotation, declaration);
       }
       case 'listAccess': {
         const receiver = infer(expression.receiver);
@@ -701,10 +704,10 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         if (userFunction) {
           if (expression.arguments.length !== userFunction.parameters.length) fail('AMX3004', `Invalid arity for '${expression.callee}'`, expression.source);
           expression.arguments.forEach((argument, index) => {
-            const target = resolve(userFunction.parameters[index].annotation);
+            const target = resolve(userFunction.parameters[index].annotation, userFunction);
             requireType(infer(argument, target), target, argument.source);
           });
-          return resolve(userFunction.returnType);
+          return resolve(userFunction.returnType, userFunction);
         }
         const signature = signatures[expression.callee];
         if (!signature) fail('AMX3004', `Unknown function '${expression.callee}'`, expression.source);
@@ -815,7 +818,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
       for (const field of expression.fields) {
         const declaration = types.get(expression.name);
         const declared = declaration?.fields.find(item => item.name === field.name);
-        if (declared) checkDefault(field.expression, resolve(declared.annotation));
+        if (declared) checkDefault(field.expression, resolve(declared.annotation, declaration));
       }
     } else if (!(expression.type === 'unaryExpression' && expression.operator === '-'
       && (expression.argument.type === 'numberLiteral'
@@ -860,7 +863,10 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     if (!valueType) return fail('AMX3001', `Unknown visualization binding '${name}'`, source);
     if (valueType.kind !== 'list') return fail('AMX3002', `Visualization binding '${name}' must be a list`, source);
     const element = valueType.element;
-    if (element.kind === 'named' && element.name === 'Number') return { kind: 'numbers' };
+    if ((element.kind === 'named' && element.name === 'Number')
+      || element.kind === 'measurement'
+      || (element.kind === 'nullable' && (element.element.kind === 'measurement'
+        || element.element.kind === 'named' && element.element.name === 'Number'))) return { kind: 'numbers' };
     if (element.kind === 'named' && types.has(element.name)) return { kind: 'records', name: element.name };
     return fail('AMX3002', `Unsupported visualization list element type '${format(element)}'`, source);
   }
@@ -869,17 +875,25 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     const declaration = types.get(recordName)!;
     const field = declaration.fields.find(item => item.name === fieldName);
     if (!field) fail('AMX3001', `Unknown field '${fieldName}' on '${recordName}'`, source);
-    return resolve(field!.annotation);
+    return resolve(field!.annotation, declaration);
   }
 
   function isScalar(type: CheckedType): boolean {
     if (type.kind === 'named') return primitives.has(type.name);
-    return type.kind === 'nullable' && type.element.kind === 'named' && primitives.has(type.element.name);
+    if (type.kind === 'measurement') return true;
+    return type.kind === 'nullable' && (type.element.kind === 'measurement'
+      || type.element.kind === 'named' && primitives.has(type.element.name));
   }
 
   function isNumber(type: CheckedType): boolean {
     return (type.kind === 'named' && type.name === 'Number')
-      || (type.kind === 'nullable' && type.element.kind === 'named' && type.element.name === 'Number');
+      || type.kind === 'measurement'
+      || (type.kind === 'nullable' && (type.element.kind === 'measurement'
+        || type.element.kind === 'named' && type.element.name === 'Number'));
+  }
+
+  function isCategory(type: CheckedType): boolean {
+    return type.kind === 'named' && primitives.has(type.name);
   }
 
   function chartFieldOption(view: ChartDeclarationNode, role: ChartFieldOptionNode['role'], required: boolean): ChartFieldOptionNode | undefined {
@@ -927,7 +941,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
 
     if (input.kind === 'numbers') {
       if (view.kind === 'scatter') fail('AMX3002', 'Scatter charts require a list of records', view.bindingSource);
-      if (fields.some(field => field.role !== 'labels')) fail('AMX3003', `Field options are not valid for ${view.kind} charts with Number[] data`, fields.find(field => field.role !== 'labels')?.source);
+      if (fields.some(field => field.role !== 'labels')) fail('AMX3003', `Field options are not valid for ${view.kind} charts with scalar-list data`, fields.find(field => field.role !== 'labels')?.source);
       if (series.length !== 1 || series[0].field) fail('AMX3003', `${view.kind} charts with Number[] data require exactly one scalar series label`, series[1]?.source ?? view.source);
       const labels = chartFieldOption(view, 'labels', false);
       if (labels) {
@@ -961,8 +975,8 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
       const role = chartFieldOption(view, requiredRole, true)!;
       const roleType = viewField(input.name, role.field, role.fieldSource);
       if (view.kind === 'line') {
-        if (!(equal(roleType, named('Number')) || equal(roleType, named('DateTime')))) fail('AMX3002', 'Line chart x must bind a Number or DateTime field', role.fieldSource);
-      } else if (!isScalar(roleType) || roleType.kind === 'nullable') {
+        if (!(isNumber(roleType) || equal(roleType, named('DateTime')))) fail('AMX3002', 'Line chart x must bind a Number, measurement, or DateTime field', role.fieldSource);
+      } else if (!isCategory(roleType)) {
         fail('AMX3002', 'Bar/column category must bind a non-null scalar field', role.fieldSource);
       }
       if (series.length === 0 || series.some(item => !item.field)) fail('AMX3003', `${view.kind} charts with record data require field series`, view.source);
@@ -1002,6 +1016,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
       }
       case 'typeDeclaration': {
         if (hasName(statement.name)) fail('AMX3005', `Duplicate type '${statement.name}'`, statement.source);
+        setDeclaringRegistry(statement, moduleRegistry);
         const fields = new Set<string>();
         for (const field of statement.fields) {
           if (fields.has(field.name)) fail('AMX3005', `Duplicate field '${field.name}'`, field.source);
@@ -1017,6 +1032,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
       case 'functionDeclaration': {
         if (hasName(statement.name)) fail('AMX3005', `Duplicate declaration '${statement.name}'`, statement.source);
         if (stdlibNames.has(statement.name)) fail('AMX3005', `Function '${statement.name}' cannot shadow a standard-library function`, statement.source);
+        setDeclaringRegistry(statement, moduleRegistry);
         const paramNames = new Set<string>();
         const paramScope = new Map<string, CheckedType>();
         for (const parameter of statement.parameters) {

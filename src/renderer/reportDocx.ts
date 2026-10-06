@@ -123,7 +123,7 @@ function addChart(children: Array<Paragraph | Table>, emission: ChartViewEmissio
   } else {
     children.push(new Paragraph('No data'));
   }
-  const headings = emission.declaration.kind === 'scatter'
+  const headings = emission.headings ? [...emission.headings] : emission.declaration.kind === 'scatter'
     ? ['x', 'y', 'group']
     : ['label', ...emission.declaration.options.filter(option => option.type === 'chartSeriesOption').map(option => option.label)];
   const tableRows = [

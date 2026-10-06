@@ -30,13 +30,21 @@ export interface DataInputSchema {
 	name: string;
 	type: string;
 	acceptedFormats: Array<"json" | "csv">;
-	fields?: Array<{ name: string; type: string; optional: boolean; hasDefault: boolean }>;
+	measurement?: { dimension: string; visibleUnits: string[] };
+	fields?: Array<{
+		name: string;
+		type: string;
+		optional: boolean;
+		hasDefault: boolean;
+		measurement?: { dimension: string; visibleUnits: string[] };
+	}>;
 	truncated?: boolean;
 }
 export interface DataOutputSchema {
 	name: string;
 	type: string;
 	formats: Array<"json" | "csv">;
+	measurements?: Array<{ path: string; dimension: string; visibleUnits: string[] }>;
 	truncated?: boolean;
 }
 export interface DesktopJobResult {

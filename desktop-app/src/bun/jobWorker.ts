@@ -94,8 +94,12 @@ async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
 		const inputSchema = loaded.inputInspection.schema;
 		const fields = inputSchema.fields;
 		const inputTruncated = inputSchema.name.length > MAX_SCHEMA_TEXT || inputSchema.type.length > MAX_SCHEMA_TEXT
+			|| (inputSchema.measurement?.dimension.length ?? 0) > MAX_SCHEMA_TEXT
+			|| (inputSchema.measurement?.visibleUnits.length ?? 0) > MAX_SCHEMA_FIELDS
 			|| (fields?.length ?? 0) > MAX_SCHEMA_FIELDS
-			|| !!fields?.some(field => field.name.length > MAX_SCHEMA_TEXT || field.type.length > MAX_SCHEMA_TEXT);
+			|| !!fields?.some(field => field.name.length > MAX_SCHEMA_TEXT || field.type.length > MAX_SCHEMA_TEXT
+				|| (field.measurement?.dimension.length ?? 0) > MAX_SCHEMA_TEXT
+				|| (field.measurement?.visibleUnits.length ?? 0) > MAX_SCHEMA_FIELDS);
 		const outputsTruncated = loaded.inputInspection.outputs.length > 100;
 		return {
 			kind: "data-validation",
@@ -104,16 +108,31 @@ async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
 				name: inputSchema.name.slice(0, MAX_SCHEMA_TEXT),
 				type: inputSchema.type.slice(0, MAX_SCHEMA_TEXT),
 				acceptedFormats: inputSchema.acceptedFormats,
+				...(inputSchema.measurement ? { measurement: {
+					dimension: inputSchema.measurement.dimension.slice(0, MAX_SCHEMA_TEXT),
+					visibleUnits: inputSchema.measurement.visibleUnits.slice(0, MAX_SCHEMA_FIELDS)
+				} } : {}),
 				...(fields ? { fields: fields.slice(0, MAX_SCHEMA_FIELDS).map(field => ({
 					name: field.name.slice(0, MAX_SCHEMA_TEXT), type: field.type.slice(0, MAX_SCHEMA_TEXT),
-					optional: field.optional, hasDefault: field.hasDefault
+					optional: field.optional, hasDefault: field.hasDefault,
+					...(field.measurement ? { measurement: {
+						dimension: field.measurement.dimension.slice(0, MAX_SCHEMA_TEXT),
+						visibleUnits: field.measurement.visibleUnits.slice(0, MAX_SCHEMA_FIELDS)
+					} } : {})
 				})) } : {}),
 				...(inputTruncated ? { truncated: true } : {})
 			},
 			outputs: loaded.inputInspection.outputs.slice(0, 100).map(output => ({
 				name: output.name.slice(0, MAX_SCHEMA_TEXT), type: output.type.slice(0, MAX_SCHEMA_TEXT),
 				formats: output.formats,
-				...(output.name.length > MAX_SCHEMA_TEXT || output.type.length > MAX_SCHEMA_TEXT ? { truncated: true } : {})
+				...(output.measurements ? { measurements: output.measurements.slice(0, MAX_SCHEMA_FIELDS).map(measurement => ({
+					path: measurement.path.slice(0, MAX_SCHEMA_TEXT),
+					dimension: measurement.dimension.slice(0, MAX_SCHEMA_TEXT),
+					visibleUnits: measurement.visibleUnits.slice(0, MAX_SCHEMA_FIELDS)
+				})) } : {}),
+				...(output.name.length > MAX_SCHEMA_TEXT || output.type.length > MAX_SCHEMA_TEXT
+					|| !!output.measurements?.some(item => item.path.length > MAX_SCHEMA_TEXT || item.dimension.length > MAX_SCHEMA_TEXT || item.visibleUnits.length > MAX_SCHEMA_FIELDS)
+					|| (output.measurements?.length ?? 0) > MAX_SCHEMA_FIELDS ? { truncated: true } : {})
 			})),
 			...(outputsTruncated ? { outputsTruncated: true } : {}),
 			diagnostics: loaded.inputInspection.diagnostics.slice(0, 100).map(item => ({
@@ -128,7 +147,16 @@ async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
 		return {
 			kind: "output-discovery",
 			outputs: outputs.slice(0, 100).map(output => ({
-				name: output.name.slice(0, MAX_SCHEMA_TEXT), type: output.type.slice(0, MAX_SCHEMA_TEXT), formats: output.formats
+				name: output.name.slice(0, MAX_SCHEMA_TEXT), type: output.type.slice(0, MAX_SCHEMA_TEXT), formats: output.formats,
+				...(output.measurements ? { measurements: output.measurements.slice(0, MAX_SCHEMA_FIELDS).map(measurement => ({
+					path: measurement.path.slice(0, MAX_SCHEMA_TEXT),
+					dimension: measurement.dimension.slice(0, MAX_SCHEMA_TEXT),
+					visibleUnits: measurement.visibleUnits.slice(0, MAX_SCHEMA_FIELDS)
+				})) } : {}),
+				...(output.name.length > MAX_SCHEMA_TEXT || output.type.length > MAX_SCHEMA_TEXT
+					|| (output.measurements?.length ?? 0) > MAX_SCHEMA_FIELDS
+					|| !!output.measurements?.some(item => item.path.length > MAX_SCHEMA_TEXT || item.dimension.length > MAX_SCHEMA_TEXT || item.visibleUnits.length > MAX_SCHEMA_FIELDS)
+					? { truncated: true } : {})
 			})),
 			...(outputs.length > 100 ? { outputsTruncated: true } : {})
 		};

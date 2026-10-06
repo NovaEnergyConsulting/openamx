@@ -29,6 +29,9 @@ const closeButton = ref<HTMLButtonElement | null>(null);
 const eligibleOutputs = computed(() => props.outputs.filter(output => output.formats.includes(props.selectedFormat as "json" | "csv")));
 const needsBinding = computed(() => props.selectedFormat === "json" || props.selectedFormat === "csv");
 const canExport = computed(() => !props.busy && (!needsBinding.value || eligibleOutputs.value.some(output => output.name === props.selectedOutput)));
+function measurementHint(output: DataOutputSchema): string {
+	return output.measurements?.map(item => `${item.path}: ${item.dimension} (${item.visibleUnits.join(", ")})`).join("; ") ?? "";
+}
 
 watch(() => props.open, open => {
 	if (open) void nextTick(() => closeButton.value?.focus());
@@ -53,7 +56,7 @@ watch(() => props.open, open => {
 			</label>
 			<label v-if="needsBinding" class="export-field">Exported value
 				<select :value="selectedOutput" :disabled="busy || !eligibleOutputs.length" @change="emit('output', ($event.target as HTMLSelectElement).value)">
-					<option v-for="output in eligibleOutputs" :key="output.name" :value="output.name">{{ output.name }} · {{ output.type }}</option>
+					<option v-for="output in eligibleOutputs" :key="output.name" :value="output.name">{{ output.name }} · {{ output.type }}{{ measurementHint(output) ? ` · ${measurementHint(output)}` : "" }}</option>
 				</select>
 				<small v-if="!eligibleOutputs.length">No explicitly exported values support this format.</small>
 			</label>

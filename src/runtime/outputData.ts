@@ -3,6 +3,9 @@ import { TypeDeclarationNode } from '../ast/types';
 import { outputError } from '../diagnostics/errors';
 import { Environment } from './environment';
 import type { CheckedType } from '../typechecker/checkDocument';
+import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
+import { isMeasurement } from './measurement';
+import { fieldRegistry } from '../typechecker/declarationRegistry';
 
 export interface PreparedOutput {
   name: string;
@@ -20,6 +23,7 @@ export interface OutputSchema {
   name: string;
   type: string;
   formats: Array<'json' | 'csv'>;
+  measurements?: Array<{ path: string; dimension: string; visibleUnits: string[] }>;
 }
 
 function typeName(type: CheckedType): string {
@@ -34,64 +38,73 @@ function isPrimitive(type: CheckedType): boolean {
 }
 
 function isCsvScalar(type: CheckedType): boolean {
-  return isPrimitive(type) || (type.kind === 'nullable' && isPrimitive(type.element));
+  return type.kind === 'measurement' || isPrimitive(type) || (type.kind === 'nullable' && isCsvScalar(type.element));
 }
 
-function supportsJson(type: CheckedType, recordTypes: Map<string, TypeDeclarationNode>, visiting = new Set<string>()): boolean {
-  if (type.kind === 'nullable' || type.kind === 'list') return supportsJson(type.element, recordTypes, visiting);
+function supportsJson(type: CheckedType, recordTypes: Map<string, TypeDeclarationNode>, registry?: DimensionUnitRegistry, visiting = new Set<string>()): boolean {
+  if (type.kind === 'nullable' || type.kind === 'list') return supportsJson(type.element, recordTypes, registry, visiting);
+  if (type.kind === 'measurement') return true;
   if (type.kind !== 'named') return false;
   if (isPrimitive(type)) return true;
   const declaration = recordTypes.get(type.name);
   if (!declaration || visiting.has(type.name)) return false;
   const next = new Set(visiting).add(type.name);
-  return declaration.fields.every(field => supportsJson(checkedType(field.annotation), recordTypes, next));
+  return declaration.fields.every(field => supportsJson(checkedType(field.annotation, fieldRegistry(declaration, registry)), recordTypes, fieldRegistry(declaration, registry), next));
 }
 
-function supportsCsv(type: CheckedType, recordTypes: Map<string, TypeDeclarationNode>): boolean {
+function supportsCsv(type: CheckedType, recordTypes: Map<string, TypeDeclarationNode>, registry?: DimensionUnitRegistry): boolean {
   if (type.kind !== 'list' || type.element.kind !== 'named') return false;
   const declaration = recordTypes.get(type.element.name);
-  return !!declaration && declaration.fields.every(field => isCsvScalar(checkedType(field.annotation)));
+  return !!declaration && declaration.fields.every(field => isCsvScalar(checkedType(field.annotation, fieldRegistry(declaration, registry))));
 }
 
 export function describeOutputSchemas(
   exportedBindings: Map<string, CheckedType>,
-  recordTypes: Map<string, TypeDeclarationNode>
+  recordTypes: Map<string, TypeDeclarationNode>,
+  registry?: DimensionUnitRegistry
 ): OutputSchema[] {
   return [...exportedBindings].flatMap(([name, type]) => {
     const formats: Array<'json' | 'csv'> = [];
-    if (supportsJson(type, recordTypes)) formats.push('json');
-    if (supportsCsv(type, recordTypes)) formats.push('csv');
-    return formats.length ? [{ name, type: typeName(type), formats }] : [];
+    if (supportsJson(type, recordTypes, registry)) formats.push('json');
+    if (supportsCsv(type, recordTypes, registry)) formats.push('csv');
+    const measurements = registry ? measurementExpectations(type, recordTypes, registry) ?? [] : [];
+    return formats.length ? [{ name, type: typeName(type), formats, ...(measurements.length ? { measurements } : {}) }] : [];
   });
 }
 
-function assertJsonShape(type: CheckedType, recordTypes: Map<string, TypeDeclarationNode>, outputName: string): void {
+function assertJsonShape(type: CheckedType, recordTypes: Map<string, TypeDeclarationNode>, outputName: string, registry?: DimensionUnitRegistry): void {
   if (type.kind === 'nullable' || type.kind === 'list') {
-    assertJsonShape(type.element, recordTypes, outputName);
+    assertJsonShape(type.element, recordTypes, outputName, registry);
     return;
   }
+  if (type.kind === 'measurement') return;
   if (type.kind !== 'named') outputError('AMX6001', `Output '${outputName}' has no declared serializable type`);
   if (isPrimitive(type)) return;
   const declaration = recordTypes.get(type.name);
   if (!declaration) outputError('AMX6001', `Output '${outputName}' uses unknown record type '${type.name}'`);
-  for (const field of declaration.fields) assertJsonShape(checkedType(field.annotation), recordTypes, outputName);
+  const recordRegistry = fieldRegistry(declaration, registry);
+  for (const field of declaration.fields) assertJsonShape(checkedType(field.annotation, recordRegistry), recordTypes, outputName, recordRegistry);
 }
 
-function checkedType(reference: TypeDeclarationNode['fields'][number]['annotation']): CheckedType {
-  if (reference.type === 'namedType') return { kind: 'named', name: reference.name! };
-  const element = checkedType(reference.element!);
+function checkedType(reference: TypeDeclarationNode['fields'][number]['annotation'], registry?: DimensionUnitRegistry): CheckedType {
+  if (reference.type === 'namedType') {
+    const dimension = registry?.dimensions.get(reference.name!);
+    return dimension ? { kind: 'measurement', vector: dimension.vector } : { kind: 'named', name: reference.name! };
+  }
+  const element = checkedType(reference.element!, registry);
   return reference.type === 'listType' ? { kind: 'list', element } : { kind: 'nullable', element };
 }
 
-function assertCsvShape(type: CheckedType, recordTypes: Map<string, TypeDeclarationNode>, outputName: string): void {
+function assertCsvShape(type: CheckedType, recordTypes: Map<string, TypeDeclarationNode>, outputName: string, registry?: DimensionUnitRegistry): void {
   if (type.kind !== 'list' || type.element.kind !== 'named') {
     outputError('AMX6001', `CSV output '${outputName}' must be a list of one declared record type`);
   }
   const declaration = recordTypes.get(type.element.name);
   if (!declaration) outputError('AMX6001', `CSV output '${outputName}' uses unknown record type '${type.element.name}'`);
-  const unsupported = declaration.fields.find(field => !isCsvScalar(checkedType(field.annotation)));
+  const recordRegistry = fieldRegistry(declaration, registry);
+  const unsupported = declaration.fields.find(field => !isCsvScalar(checkedType(field.annotation, recordRegistry)));
   if (unsupported) {
-    outputError('AMX6001', `CSV output '${outputName}' field '${unsupported.name}' must be a scalar or nullable scalar, not ${typeName(checkedType(unsupported.annotation))}`);
+    outputError('AMX6001', `CSV output '${outputName}' field '${unsupported.name}' must be a scalar or nullable scalar, not ${typeName(checkedType(unsupported.annotation, recordRegistry))}`);
   }
 }
 
@@ -99,7 +112,8 @@ export function prepareOutputs(
   mappings: string[] | undefined,
   exportedBindings: Map<string, CheckedType>,
   recordTypes: Map<string, TypeDeclarationNode>,
-  reservedDestination?: string
+  reservedDestination?: string,
+  registry?: DimensionUnitRegistry
 ): PreparedOutput[] {
   const outputs: PreparedOutput[] = [];
   const names = new Set<string>();
@@ -128,8 +142,8 @@ export function prepareOutputs(
       outputError('AMX6001', `Output '${name}' must use the exact lowercase .json or .csv extension`);
     }
     const format = extension.slice(1) as 'json' | 'csv';
-    if (format === 'json') assertJsonShape(type, recordTypes, name);
-    else assertCsvShape(type, recordTypes, name);
+    if (format === 'json') assertJsonShape(type, recordTypes, name, registry);
+    else assertCsvShape(type, recordTypes, name, registry);
     outputs.push({ name, path: absolutePath, format, type });
   }
   return outputs;
@@ -139,10 +153,10 @@ function invalidValue(output: PreparedOutput, detail: string): never {
   outputError('AMX6002', `Cannot serialize output '${output.name}': ${detail}`);
 }
 
-function jsonValue(value: unknown, type: CheckedType, output: PreparedOutput, recordTypes: Map<string, TypeDeclarationNode>): unknown {
+function jsonValue(value: unknown, type: CheckedType, output: PreparedOutput, recordTypes: Map<string, TypeDeclarationNode>, registry?: DimensionUnitRegistry): unknown {
   if (type.kind === 'nullable') {
     if (value === null) return null;
-    return jsonValue(value, type.element, output, recordTypes);
+    return jsonValue(value, type.element, output, recordTypes, registry);
   }
   if (type.kind === 'null') {
     if (value === null) return null;
@@ -150,7 +164,12 @@ function jsonValue(value: unknown, type: CheckedType, output: PreparedOutput, re
   }
   if (type.kind === 'list') {
     if (!Array.isArray(value)) return invalidValue(output, `expected ${typeName(type)}`);
-    return value.map(item => jsonValue(item, type.element, output, recordTypes));
+    return value.map(item => jsonValue(item, type.element, output, recordTypes, registry));
+  }
+  if (type.kind === 'measurement') {
+    if (!isMeasurement(value) || !Number.isFinite(value.value)) return invalidValue(output, 'expected a finite measurement value');
+    if (!sameVector(value.unit.vector, type.vector)) return invalidValue(output, 'measurement has an incompatible dimension');
+    return { value: value.value, unit: value.unit.text };
   }
   if (type.kind !== 'named') return invalidValue(output, `unsupported type ${typeName(type)}`);
   if (type.name === 'Number') {
@@ -177,16 +196,23 @@ function jsonValue(value: unknown, type: CheckedType, output: PreparedOutput, re
   const ordered: Record<string, unknown> = {};
   for (const field of declaration.fields) {
     if (!Object.prototype.hasOwnProperty.call(record, field.name)) return invalidValue(output, `record ${type.name} is missing field '${field.name}'`);
-    ordered[field.name] = jsonValue(record[field.name], checkedType(field.annotation), output, recordTypes);
+    ordered[field.name] = jsonValue(record[field.name], checkedType(field.annotation, fieldRegistry(declaration, registry)), output, recordTypes, fieldRegistry(declaration, registry));
   }
   return ordered;
 }
 
-function csvCell(value: unknown, type: CheckedType, output: PreparedOutput): string {
+function csvCell(value: unknown, type: CheckedType, output: PreparedOutput, registry?: DimensionUnitRegistry): string {
   let text: string;
   if (type.kind === 'nullable') {
     if (value === null) return '';
-    return csvCell(value, type.element, output);
+    return csvCell(value, type.element, output, registry);
+  }
+  if (type.kind === 'measurement') {
+    if (!isMeasurement(value) || !Number.isFinite(value.value)) return invalidValue(output, 'expected a finite measurement value');
+    if (!sameVector(value.unit.vector, type.vector) || !value.unit.text) return invalidValue(output, 'measurement has an incompatible dimension or missing unit text');
+    text = `${JSON.stringify(value.value)} ${value.unit.text}`;
+    const quote = /[",\r\n]/.test(text) || /^\s|\s$/.test(text);
+    return quote ? `"${text.replace(/"/g, '""')}"` : text;
   }
   if (type.kind !== 'named') return invalidValue(output, `unsupported CSV cell type ${typeName(type)}`);
   if (type.name === 'Number') {
@@ -205,12 +231,12 @@ function csvCell(value: unknown, type: CheckedType, output: PreparedOutput): str
   return quote ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-function csvContents(value: unknown, type: CheckedType, output: PreparedOutput, recordTypes: Map<string, TypeDeclarationNode>): string {
+function csvContents(value: unknown, type: CheckedType, output: PreparedOutput, recordTypes: Map<string, TypeDeclarationNode>, registry?: DimensionUnitRegistry): string {
   if (type.kind !== 'list' || type.element.kind !== 'named') return invalidValue(output, 'expected a declared record list');
   const declaration = recordTypes.get(type.element.name);
   if (!declaration || !Array.isArray(value)) return invalidValue(output, `expected ${typeName(type)}`);
   const fields = declaration.fields;
-  const rows = [fields.map(field => csvCell(field.name, { kind: 'named', name: 'String' }, output)).join(',')];
+  const rows = [fields.map(field => csvCell(field.name, { kind: 'named', name: 'String' }, output, registry)).join(',')];
   const knownFields = new Set(fields.map(field => field.name));
   for (const [index, item] of value.entries()) {
     if (typeof item !== 'object' || item === null || Array.isArray(item)) return invalidValue(output, `record ${index} is not an object`);
@@ -219,7 +245,7 @@ function csvContents(value: unknown, type: CheckedType, output: PreparedOutput, 
     if (extras.length) return invalidValue(output, `record ${index} has undeclared field '${extras[0]}'`);
     rows.push(fields.map(field => {
       if (!Object.prototype.hasOwnProperty.call(record, field.name)) return invalidValue(output, `record ${index} is missing field '${field.name}'`);
-      return csvCell(record[field.name], checkedType(field.annotation), output);
+      return csvCell(record[field.name], checkedType(field.annotation, fieldRegistry(declaration, registry)), output, registry);
     }).join(','));
   }
   return `${rows.join('\n')}\n`;
@@ -229,10 +255,41 @@ export function serializeOutputs(outputs: PreparedOutput[], env: Environment): S
   return outputs.map(output => {
     const value = env.get(output.name);
     const contents = output.format === 'json'
-      ? `${JSON.stringify(jsonValue(value, output.type, output, env.recordTypes), null, 2)}\n`
-      : csvContents(value, output.type, output, env.recordTypes);
+      ? `${JSON.stringify(jsonValue(value, output.type, output, env.recordTypes, env.dimensionRegistry), null, 2)}\n`
+      : csvContents(value, output.type, output, env.recordTypes, env.dimensionRegistry);
     return { path: output.path, contents };
   });
+}
+
+function measurementExpectations(type: CheckedType, recordTypes: Map<string, TypeDeclarationNode>, registry: DimensionUnitRegistry, path = '$', seen = new Set<string>()): OutputSchema['measurements'] {
+  if (type.kind === 'nullable' || type.kind === 'list') return measurementExpectations(type.element, recordTypes, registry, path, seen);
+  if (type.kind === 'measurement') {
+    return [{
+      path,
+      dimension: formatDimensionVector(type.vector, registry),
+      visibleUnits: [...registry.units.values()].filter(unit => sameVector(unit.vector, type.vector)).map(unit => unit.name).sort()
+    }];
+  }
+  if (type.kind !== 'named' || isPrimitive(type) || seen.has(type.name)) return [];
+  const declaration = recordTypes.get(type.name);
+  if (!declaration) return [];
+  const next = new Set(seen).add(type.name);
+  const recordRegistry = fieldRegistry(declaration, registry) ?? registry;
+  return declaration.fields.flatMap(field => measurementExpectations(checkedType(field.annotation, recordRegistry), recordTypes, recordRegistry, `${path}.${field.name}`, next) ?? []);
+}
+
+function formatDimensionVector(vector: ReadonlyMap<string, number>, registry: DimensionUnitRegistry): string {
+  return [...vector].sort(([left], [right]) => left.localeCompare(right)).map(([identity, exponent]) => {
+    const base = [...registry.dimensions.values()].find(dimension => dimension.baseIdentity === identity);
+    if (!base) throw new Error('Output schema references an unavailable base dimension');
+    return `${base.declarationName}${exponent === 1 ? '' : `^${exponent}`}`;
+  }).join(' * ') || 'dimensionless';
+}
+
+function sameVector(left: ReadonlyMap<string, number> | Readonly<Record<string, number>>, right: ReadonlyMap<string, number> | Readonly<Record<string, number>>): boolean {
+  const entries = left instanceof Map ? [...left] : Object.entries(left);
+  const rightMap = new Map(right instanceof Map ? right : Object.entries(right));
+  return entries.length === rightMap.size && entries.every(([identity, exponent]) => rightMap.get(identity) === exponent);
 }
 
 export async function writeOutputs(outputs: SerializedOutput[]): Promise<void> {

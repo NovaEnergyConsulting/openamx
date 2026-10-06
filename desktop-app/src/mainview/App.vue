@@ -1214,8 +1214,8 @@ function displayDiagnostic(item: TextDiagnostic): string {
 						<button v-if="document?.kind === 'amx'" type="button" title="Refresh preview" aria-label="Refresh preview" @click="refresh"><RefreshCw :size="14" /></button>
 						<button v-if="document?.kind === 'amx'" type="button" title="Export active document" aria-label="Export active document" @click="openExportWorkflow"><Download :size="14" /> Export</button>
 						<button type="button" :disabled="document?.kind !== 'amx'" @click="openReportSettings"><SlidersHorizontal :size="14" /> Report settings</button>
-						<button v-if="document?.kind === 'amx'" type="button" :aria-pressed="focusMode === 'editor'" @click="setFocusMode('editor')">Source</button>
-						<button v-if="document?.kind === 'amx'" type="button" :aria-pressed="focusMode === 'preview'" @click="setFocusMode('preview')">Preview</button>
+						<!-- <button v-if="document?.kind === 'amx'" type="button" :aria-pressed="focusMode === 'editor'" @click="setFocusMode('editor')">Source</button>
+						<button v-if="document?.kind === 'amx'" type="button" :aria-pressed="focusMode === 'preview'" @click="setFocusMode('preview')">Preview</button> -->
 					</span>
 				</div>
 				<InputsPanel v-if="contextView === 'inputs' && document?.kind === 'amx'" :configuration="inputConfiguration" :diagnostics="analysis.diagnostics" :validation="validation" :busy="inputsBusy" @browse="browseInput" @clear="clearInput" @promote="promoteInput" @open="openMappedInput" @diagnostic="navigateInputDiagnostic" @validation-change="validation = $event; validationChanged()" @declaration="(line, column) => editorElement?.selectLocation(line, column)" />

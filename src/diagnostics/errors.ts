@@ -48,7 +48,7 @@ export class AmxError extends Error implements AmxDiagnostic {
 }
 
 export function inputError(
-  code: 'AMX4001' | 'AMX4002' | 'AMX4003',
+  code: 'AMX4001' | 'AMX4002' | 'AMX4003' | 'AMX4004' | 'AMX4005',
   message: string,
   context: Omit<AmxDiagnostic, 'code' | 'message'> = {}
 ): AmxDiagnostic {

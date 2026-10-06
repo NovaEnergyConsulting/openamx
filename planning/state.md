@@ -6,7 +6,22 @@
 - Sprint 056 is **COMPLETE / APPROVED** by Lead Developer disposition dated 2026-10-06. Reuse its measurement value/runtime descriptor and Sprint 055 registry; do not redefine arithmetic or unit identity.
 - Sprint 056's Windows Extension Development Host result (15 pass/5 fail: four `EBUSY` cleanup failures and one drive-letter casing assertion) remains unpassed. The full-worktree whitespace finding is in unrelated `writing/2026-10-03_Computable_Documents.md`; Sprint 056-owned paths passed. Do not alter that unrelated file or report these residuals as passing.
 - Sprint 057 depends on Sprint 056. Sprint 058 owns broad editor parity, migration documentation/help/examples, and integrated V0.9 acceptance; none is claimed by this preparation.
-- Sprint 057 implementation, verification, residuals, and separate Lead Developer disposition remain for the Builder to record after implementation.
+
+## V0.9 Sprint 057 Builder Implementation (2026-10-06)
+
+- Implemented JSON/CSV measurement input and output, restricted visible-unit expressions, measurement input/output schemas, desktop in-memory data-editor inspection, and unit-aware table/chart/report snapshots. Sprint 055/056 runtime identities and values remain authoritative.
+- JSON and CSV input/output follow the approved measurement object/text forms. Input diagnostics preserve JSON pointers or CSV record/field/row/column context, and schema metadata presents human-readable dimensions and visible units.
+- Root build passed. Full root tests passed (373 tests, 1,829 expectations). Desktop typecheck and web build passed; focused desktop data-editor coverage passed (8 tests, 47 expectations). Desktop's broader RPC contract check failed one Windows path-separator assertion (`nested\\module.amx` versus `nested/module.amx`) in `desktop-app/tests/rpc-contract-check.ts:432`.
+- The extension compile and test compilation passed, but its Windows Extension Development Host suite did not pass (14 passed/6 failed: five `EBUSY` temporary-directory cleanup failures and one drive-letter casing assertion). Sprint 056's separate 15/5 host residual remains unpassed.
+- Sprint 057-owned and full-worktree `git diff --check` passed in this run. The prior Sprint 056 unrelated whitespace finding was not edited.
+- Changed files, exact transport/schema shape, verification results, residuals, and the separate Lead Developer disposition request are recorded in [Sprint 057 Builder evidence](sprints/0057-v09-measurement-data-reporting-integration/builder-evidence.md). **Lead Developer disposition requested; the Builder does not self-accept Sprint 057.** No Sprint 058 or integrated V0.9 completion is claimed.
+
+## V0.9 Sprint 057 Acceptance-Finding Fix (2026-10-07)
+
+- Lead Developer acceptance testing found that a CSV input typed by an imported record with a dimension field (`NameplateData.PowerRating_MVA: ApparentPower`, cell `75 MVA`) failed with `AMX4003`. The master plan does not defer this, so it was fixed in Sprint 057. Per Lead Developer direction, record and function annotations, and their external unit text, resolve in the declaring module.
+- Also fixed: narrative `{{measurement}}` rendered `[object Object]`, and imported dimension-typed functions failed with `AMX3001` (Sprint 056-owned; fixed with Lead Developer approval).
+- Root build passed; full root tests passed (374 tests, 1,840 expectations). Desktop typecheck and the focused data-editor tests (8 tests, 47 expectations) passed. The extension compiled; its Windows host suite remained unpassed (15 passed/5 failed: four `EBUSY`, one drive-letter casing). Full-worktree `git diff --check` passed. **Lead Developer re-test and disposition requested; Sprint 057 is not self-accepted.**
+- **Lead Developer disposition (2026-10-07): COMPLETE / APPROVED.** The Lead Developer re-ran the acceptance scenario, confirmed that everything works as expected, and approved Sprint 057. The desktop RPC Windows path-separator assertion and the Windows Extension Development Host result (15 pass/5 fail) remain unpassed residuals; they are not reported as passing. Sprint 058 (editor parity, documentation, and integrated V0.9 acceptance) may proceed; no Sprint 058 or integrated V0.9 completion is claimed.
 
 ## V0.9 Sprint 056 Architect Preparation (2026-10-06)
 
