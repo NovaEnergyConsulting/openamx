@@ -64,6 +64,7 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 				}
 				break;
 			}
+			case "listAccess": expression(node.receiver); expression(node.index); break;
 			case "binaryExpression": expression(node.left); expression(node.right); break;
 			case "unaryExpression": expression(node.argument); break;
 			case "conditionalExpression": expression(node.test); expression(node.consequent); expression(node.alternate); break;
@@ -90,7 +91,8 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 			variableDeclaration: "let", typeDeclaration: "type", functionDeclaration: "fn",
 			inputDeclaration: "input", importDeclaration: "import", tableDeclaration: "table",
 			chartDeclaration: "chart", showStatement: "show", forStatement: "for",
-			assignmentStatement: "", compoundAssignmentStatement: ""
+			assignmentStatement: "", compoundAssignmentStatement: "",
+			addStatement: "add", removeStatement: "remove"
 		};
 		const word = keyword[node.type];
 		if (word) add(node.source, word, "keyword");
@@ -116,6 +118,8 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 		else if (node.type === "tableDeclaration" || node.type === "chartDeclaration") add(node.bindingSource, node.binding, "reference");
 		else if (node.type === "showStatement") add(node.nameSource, node.name, "reference");
 		else if (node.type === "assignmentStatement" || node.type === "compoundAssignmentStatement") expression(node.expression);
+		else if (node.type === "addStatement") { add(node.targetSource, node.name, "reference"); expression(node.value); if (node.index) expression(node.index); }
+		else if (node.type === "removeStatement") { add(node.targetSource, node.name, "reference"); expression(node.count); if (node.index) expression(node.index); }
 		else if (node.type === "forStatement") { expression(node.iterable); node.body.forEach(statement); }
 		else if ("expression" in node) expression(node.expression);
 	};

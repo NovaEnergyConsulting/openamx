@@ -662,6 +662,20 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
         continue;
       }
 
+      if (t.type === 'lbracket') {
+        advance();
+        if (current().type === 'rbracket') {
+          syntaxError('List index cannot be empty', locationAt(text, t.offset ?? 0, source));
+        }
+        const index = parseExpr(0);
+        if (current().type !== 'rbracket') {
+          syntaxError("Expected ']' after list index", locationAt(text, tokenOffset(current(), text.length), source));
+        }
+        advance();
+        left = { type: 'listAccess', receiver: left, index, source: locationAt(text, t.offset ?? 0, source) };
+        continue;
+      }
+
       // Conditional appearing after a left-hand side (e.g. via lower-precedence context).
       // Guarded so it only triggers at the true top level.
       if (t.type === 'keyword' && t.word === 'if') {

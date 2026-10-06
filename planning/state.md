@@ -4,7 +4,9 @@
 
 - Prepared the four Sprint 054 artifacts in `planning/sprints/0054-v09-one-based-list-access-safe-mutation/` for 1-based list reads, typed element access, statement-form append/insert/removal, safe atomic mutation, import/alias protection, loop snapshots, view isolation, and focused editor handling.
 - Sprint 054 depends on Sprint 052, accepted with recorded residuals. Sprint 053 is accepted but is not a dependency; its Windows VS Code host result (13 pass, 6 fail) remains explicitly unpassed.
-- The approved Sprint 051 list contract and diagnostic/static-validation boundaries are authoritative. Sprint 054 has not been implemented or tested by this preparation; Builder evidence and Lead Developer disposition remain pending.
+- Implemented the approved list contract across parser, checker, runtime, editor, formatter, and documentation. Builder test evidence and Windows-only desktop/extension residuals are recorded in `planning/sprints/0054-v09-one-based-list-access-safe-mutation/builder-evidence.md`.
+- Root build and tests pass (345 tests); desktop typecheck/web build pass. Desktop RPC and VS Code host checks retain documented Windows path/cleanup failures.
+- **Lead Developer disposition (2026-10-06): COMPLETE / APPROVED.** The user verified the implemented functionality and approved Sprint 054 closeout. Keep the documented platform test failures visible as residuals; they are not reported as passing checks.
 
 ## V0.9 Sprint 053 Architect Preparation (2026-10-06)
 

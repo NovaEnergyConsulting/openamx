@@ -76,8 +76,63 @@ function bodyContainsForExpression(expression: V02ExpressionNode): boolean {
     case 'matchExpression': return bodyContainsForExpression(expression.expression) || expression.cases.some(arm => bodyContainsForExpression(arm.expression)) || bodyContainsForExpression(expression.defaultExpression);
     case 'recordConstructor': return expression.fields.some(field => bodyContainsForExpression(field.expression));
     case 'fieldAccess': return bodyContainsForExpression(expression.receiver);
+    case 'listAccess': return bodyContainsForExpression(expression.receiver) || bodyContainsForExpression(expression.index);
     default: return false;
   }
+}
+
+function constantValue(expression: V02ExpressionNode): unknown | undefined {
+  switch (expression.type) {
+    case 'numberLiteral': return Number.isFinite(expression.value) ? expression.value : undefined;
+    case 'stringLiteral': case 'booleanLiteral': return expression.value;
+    case 'nullLiteral': return null;
+    case 'unaryExpression': {
+      const value = constantValue(expression.argument);
+      if (expression.operator === '-' && typeof value === 'number' && Number.isFinite(-value)) return -value;
+      if (expression.operator === 'not' && typeof value === 'boolean') return !value;
+      return undefined;
+    }
+    case 'binaryExpression': {
+      const left = constantValue(expression.left);
+      const right = constantValue(expression.right);
+      if (left === undefined || right === undefined) return undefined;
+      let result: unknown;
+      switch (expression.operator) {
+        case '+': case '-': case '*': case '/': case '%': case '^':
+          if (typeof left !== 'number' || typeof right !== 'number' || ((expression.operator === '/' || expression.operator === '%') && right === 0)) return undefined;
+          if (expression.operator === '+') result = left + right;
+          else if (expression.operator === '-') result = left - right;
+          else if (expression.operator === '*') result = left * right;
+          else if (expression.operator === '/') result = left / right;
+          else if (expression.operator === '%') result = left % right;
+          else result = Math.pow(left, right);
+          return typeof result === 'number' && Number.isFinite(result) ? result : undefined;
+        case '==': return left === right;
+        case '!=': return left !== right;
+        case '>': case '>=': case '<': case '<=':
+          if (typeof left !== 'number' || typeof right !== 'number') return undefined;
+          if (expression.operator === '>') return left > right;
+          if (expression.operator === '>=') return left >= right;
+          if (expression.operator === '<') return left < right;
+          return left <= right;
+        case 'and': case 'or':
+          if (typeof left !== 'boolean' || typeof right !== 'boolean') return undefined;
+          return expression.operator === 'and' ? left && right : left || right;
+      }
+    }
+    default: return undefined;
+  }
+}
+
+function literalListLength(expression: V02ExpressionNode): number | undefined {
+  if (expression.type === 'listLiteral') return expression.elements.length;
+  if (expression.type !== 'rangeExpression') return undefined;
+  const start = constantValue(expression.start);
+  const end = constantValue(expression.end);
+  if (typeof start !== 'number' || typeof end !== 'number'
+    || !Number.isSafeInteger(start) || !Number.isSafeInteger(end)) return undefined;
+  const length = Math.abs(end - start) + 1;
+  return Number.isSafeInteger(length) ? length : undefined;
 }
 
 export function checkDocument(doc: OpenAmxDocument, file?: string, context?: ModuleCheckContext): ModuleCheckResult {
@@ -91,7 +146,8 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   const exportedBindings = new Map<string, CheckedType>();
   const views = new Map<string, TableDeclarationNode | ChartDeclarationNode>();
   let loopDepth = 0;
-  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007', message: string, source?: SourceLocation): never => staticError(code, message, source, file);
+  let allowListMutation = true;
+  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3009', message: string, source?: SourceLocation): never => staticError(code, message, source, file);
 
   function resolve(ref: TypeReferenceNode): CheckedType {
     if (ref.type === 'namedType') {
@@ -198,6 +254,20 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         if (!field) fail('AMX3001', `Unknown field '${expression.field}'`, expression.source);
         return resolve(field!.annotation);
       }
+      case 'listAccess': {
+        const receiver = infer(expression.receiver);
+        if (receiver.kind !== 'list') return fail('AMX3002', `List access requires a non-null list, got ${format(receiver)}`, expression.source);
+        requireType(infer(expression.index), named('Number'), expression.index.source);
+        const index = constantValue(expression.index);
+        if (typeof index === 'number' && (!Number.isInteger(index) || index < 1)) {
+          fail('AMX3009', `List index ${index} must be a positive integer`, expression.index.source ?? expression.source);
+        }
+        const length = literalListLength(expression.receiver);
+        if (length !== undefined && typeof index === 'number' && index > length) {
+          fail('AMX3009', `List index ${index} is out of bounds for length ${length}; expected 1..${length}`, expression.index.source ?? expression.source);
+        }
+        return receiver.element;
+      }
       case 'binaryExpression': {
         const left = infer(expression.left);
         const right = infer(expression.right, left.kind === 'named' && left.name === 'DateTime' ? left : undefined);
@@ -275,17 +345,19 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         }
         return result!;
       }
-      case 'forExpression': return checkLoop(expression.variable, expression.iterable, expression.body, expression.source, expected);
+      case 'forExpression': return checkLoop(expression.variable, expression.iterable, expression.body, expression.source, expected, false);
     }
   }
 
-  function checkLoop(variable: string, iterable: V02ExpressionNode, body: StatementNode[], source?: SourceLocation, expected?: CheckedType): CheckedType {
+  function checkLoop(variable: string, iterable: V02ExpressionNode, body: StatementNode[], source?: SourceLocation, expected?: CheckedType, statementForm = true): CheckedType {
     const target = infer(iterable);
     if (target.kind !== 'list') fail('AMX3003', 'For loop needs a list or range', iterable.source ?? source);
     const prior = bindings.get(variable);
     const existing = new Set(bindings.keys());
     bindings.set(variable, (target as { kind: 'list'; element: CheckedType }).element);
     let returned: CheckedType | undefined;
+    const previousMutationPermission = allowListMutation;
+    allowListMutation = statementForm;
     loopDepth++;
     try {
       for (const statement of body) {
@@ -294,6 +366,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
       }
     } finally {
       loopDepth--;
+      allowListMutation = previousMutationPermission;
       for (const name of bindings.keys()) if (!existing.has(name)) bindings.delete(name);
       if (prior) bindings.set(variable, prior);
       else bindings.delete(variable);
@@ -542,6 +615,36 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         requireType(infer(statement.expression, target), target!, statement.expression.source ?? statement.source);
         return;
       }
+      case 'addStatement': case 'removeStatement': {
+        if (!allowListMutation) fail('AMX3003', 'List mutations are not allowed in expression-form loops', statement.source);
+        const target = bindings.get(statement.name);
+        if (!target) return fail('AMX3001', `Unknown identifier '${statement.name}'`, statement.targetSource ?? statement.source);
+        if (target.kind !== 'list') return fail('AMX3002', `Mutation target '${statement.name}' must be a list`, statement.targetSource ?? statement.source);
+        if (statement.type === 'addStatement') {
+          requireType(infer(statement.value, target.element), target.element, statement.value.source ?? statement.source);
+          if (statement.index) {
+            requireType(infer(statement.index), named('Number'), statement.index.source);
+            const index = constantValue(statement.index);
+            if (typeof index === 'number' && (!Number.isInteger(index) || index < 1)) {
+              fail('AMX3009', `Insertion position ${index} must be a positive integer`, statement.index.source);
+            }
+          }
+        } else {
+          requireType(infer(statement.count), named('Number'), statement.count.source);
+          const count = constantValue(statement.count);
+          if (typeof count === 'number' && (!Number.isInteger(count) || count < 1)) {
+            fail('AMX3009', `Removal count ${count} must be a positive integer`, statement.count.source);
+          }
+          if (statement.index) {
+            requireType(infer(statement.index), named('Number'), statement.index.source);
+            const index = constantValue(statement.index);
+            if (typeof index === 'number' && (!Number.isInteger(index) || index < 1)) {
+              fail('AMX3009', `Removal position ${index} must be a positive integer`, statement.index.source);
+            }
+          }
+        }
+        return;
+      }
       case 'tableDeclaration': checkTable(statement); return;
       case 'chartDeclaration': checkChart(statement); return;
       case 'showStatement':
@@ -549,7 +652,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         if (context?.isEntryModule === false) fail('AMX3005', 'Show statements may only occur in the entry module', statement.source);
         if (!views.has(statement.name)) fail('AMX3001', `Unknown or not-yet-declared visualization '${statement.name}'`, statement.nameSource ?? statement.source);
         return;
-      case 'forStatement': checkLoop(statement.variable, statement.iterable, statement.body, statement.source); return;
+      case 'forStatement': checkLoop(statement.variable, statement.iterable, statement.body, statement.source, undefined, true); return;
       case 'returnStatement': fail('AMX3003', 'Return outside expression loop', statement.source);
     }
   }

@@ -11,9 +11,12 @@ import {
   MatchExpressionNode,
   StatementNode,
   SourceLocation,
-  TypeReferenceNode
+  TypeReferenceNode,
+  ListAccessNode,
+  AddStatementNode,
+  RemoveStatementNode
 } from '../ast/types';
-import { inputError, staticError, throwInputErrors, throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext } from '../diagnostics/errors';
+import { inputError, staticError, throwInputErrors, throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext, throwListOperationError } from '../diagnostics/errors';
 import { Environment, ViewDataValue, ViewEmission } from './environment';
 import { evaluateStandardLibraryCall } from './standardLibrary';
 import type { CheckedType } from '../typechecker/checkDocument';
@@ -148,6 +151,9 @@ export function evaluateExpression(
 
     case 'fieldAccess':
       return (evaluateExpression(node.receiver, env, file) as Record<string, unknown>)[node.field];
+
+    case 'listAccess':
+      return evalListAccess(node, env, file);
 
     case 'numberLiteral':
       return node.value;
@@ -298,6 +304,21 @@ function evalListLiteral(
   file?: string
 ): unknown[] {
   return node.elements.map(el => evaluateExpression(el, env, file));
+}
+
+function evalListAccess(node: ListAccessNode, env: Environment, file?: string): unknown {
+  const receiver = evaluateExpression(node.receiver, env, file);
+  const index = evaluateExpression(node.index, env, file);
+  if (!Array.isArray(receiver)) {
+    throwListOperationError('List access requires a list value', node.source, file);
+  }
+  if (typeof index !== 'number' || !Number.isFinite(index) || !Number.isInteger(index) || index < 1) {
+    throwListOperationError(`List index must be a positive integer; got ${runtimeDescription(index)}`, node.index.source ?? node.source, file);
+  }
+  if (index > receiver.length) {
+    throwListOperationError(`List index ${index} is out of bounds for length ${receiver.length}; expected 1..${receiver.length}`, node.index.source ?? node.source, file);
+  }
+  return receiver[index - 1];
 }
 
 function evalFunctionCall(
@@ -458,12 +479,69 @@ function evaluateStatement(statement: StatementNode, env: Environment, file?: st
       env.update(statement.name, value, statement.source, file);
       return;
     }
+    case 'addStatement':
+      evaluateAddStatement(statement, env, file);
+      return;
+    case 'removeStatement':
+      evaluateRemoveStatement(statement, env, file);
+      return;
     case 'forStatement':
       evalForStatement(statement, env, file);
       return;
     case 'returnStatement':
       throwInvalidReturnContext(statement.source, file);
   }
+}
+
+function mutationTarget(name: string, env: Environment, source?: SourceLocation, file?: string): unknown[] {
+  const target = env.get(name, source, file);
+  if (!Array.isArray(target)) throwListOperationError(`Mutation target '${name}' is not a list`, source, file);
+  if (env.isImmutable(target)) throwListOperationError(`Cannot mutate immutable imported list '${name}'`, source, file);
+  return target;
+}
+
+function mutationElementType(name: string, env: Environment): CheckedType | undefined {
+  const type = env.bindingTypes.get(name);
+  return type?.kind === 'list' ? type.element : undefined;
+}
+
+function checkedPositiveInteger(value: unknown, description: string, source: SourceLocation | undefined, file?: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value) || value < 1) {
+    throwListOperationError(`${description} must be a positive integer; got ${runtimeDescription(value)}`, source, file);
+  }
+  return value;
+}
+
+function evaluateAddStatement(node: AddStatementNode, env: Environment, file?: string): void {
+  const target = mutationTarget(node.name, env, node.source, file);
+  const value = evaluateExpression(node.value, env, file);
+  const elementType = mutationElementType(node.name, env);
+  if (elementType) validateRuntimeValue(value, elementType, env, node.value.source ?? node.source, file, `${node.name} element`);
+  const position = node.index
+    ? checkedPositiveInteger(evaluateExpression(node.index, env, file), 'Insertion position', node.index.source ?? node.source, file)
+    : target.length + 1;
+  if (position > target.length + 1) {
+    throwListOperationError(`Insertion position ${position} is out of bounds for length ${target.length}; expected 1..${target.length + 1}`, node.index?.source ?? node.source, file);
+  }
+  target.splice(position - 1, 0, value);
+}
+
+function evaluateRemoveStatement(node: RemoveStatementNode, env: Environment, file?: string): void {
+  const target = mutationTarget(node.name, env, node.source, file);
+  const count = checkedPositiveInteger(evaluateExpression(node.count, env, file), 'Removal count', node.count.source ?? node.source, file);
+  if (target.length === 0) throwListOperationError('Cannot remove from an empty list', node.source, file);
+  if (!node.index) {
+    target.pop();
+    return;
+  }
+  const position = checkedPositiveInteger(evaluateExpression(node.index, env, file), 'Removal position', node.index.source ?? node.source, file);
+  if (position > target.length) {
+    throwListOperationError(`Removal position ${position} is out of bounds for length ${target.length}; expected 1..${target.length}`, node.index.source ?? node.source, file);
+  }
+  if (count > target.length - position + 1) {
+    throwListOperationError(`Removal interval ${position}..${position + count - 1} exceeds list length ${target.length}`, node.count.source ?? node.source, file);
+  }
+  target.splice(position - 1, count);
 }
 
 function evalRange(node: RangeExpressionNode, env: Environment, file?: string): number[] {
@@ -505,7 +583,7 @@ function evalForExpression(node: ForExpressionNode, env: Environment, file?: str
 function evaluateLoopIterable(node: V02ExpressionNode, env: Environment, file?: string): unknown[] {
   const value = evaluateExpression(node, env, file);
   if (!Array.isArray(value)) throwInvalidLoopIterable(node.source, file);
-  return value;
+  return value.slice();
 }
 
 function withLoopBinding(

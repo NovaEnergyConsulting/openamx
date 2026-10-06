@@ -392,7 +392,7 @@
         "amx-keywords": {
             "patterns": [
                 {
-                    "match": "\\b(export|import|from|input|let|type|fn|return|for|in|if|then|else|match|case|default|show|table|chart)\\b",
+                    "match": "\\b(export|import|from|input|let|type|fn|return|for|in|if|then|else|match|case|default|show|table|chart|add|remove|at)\\b",
                     "name": "keyword.control.amx"
                 },
                 {

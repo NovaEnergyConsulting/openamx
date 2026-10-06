@@ -56,7 +56,7 @@ export function throwInputErrors(diagnostics: AmxDiagnostic[]): never {
   throw new AmxError(first, diagnostics);
 }
 
-export function staticError(code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007', message: string, source?: SourceLocation, file?: string): never {
+export function staticError(code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3009', message: string, source?: SourceLocation, file?: string): never {
   throw new AmxError({ code, message, file, line: source?.line, column: source?.column });
 }
 
@@ -129,4 +129,8 @@ export function throwInvalidReturnContext(source?: SourceLocation, file?: string
     line: source?.line,
     column: source?.column
   });
+}
+
+export function throwListOperationError(message: string, source?: SourceLocation, file?: string): never {
+  throw new AmxError({ code: 'AMX1008', message, file, line: source?.line, column: source?.column });
 }

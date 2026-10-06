@@ -112,6 +112,8 @@ These are statements targeting named list bindings, not list-returning expressio
 - Imported values remain immutable, including nested shared lists accessed through aliases. An alias must not bypass import protection.
 - Local lists may be mutated in statement-form loops. Iteration visits a snapshot of the original elements, even if the live list is changed.
 - Preserve pure-function constraints and report/view snapshots. Changing a live list must not change already emitted views.
+- Use `AMX3009` for bounds errors that are provable from safe constants and a literal list/range; otherwise validate at runtime and report invalid access/mutation with `AMX1008`.
+- The checker may not evaluate identifiers, calls, loops, or mutable lists to predict dynamic bounds. Validate insertion positions and complete removal intervals before the first write.
 
 ## 5. Dimensions and Units
 

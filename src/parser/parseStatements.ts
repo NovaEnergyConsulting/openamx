@@ -149,6 +149,74 @@ export function parseStatements(
       continue;
     }
 
+    const addMatch = rawLine.match(/^\s*add\s+(.+)$/);
+    if (addMatch) {
+      const collected = collectDelimitedExpression(lines, i, addMatch[1]);
+      const remainder = collected.text;
+      const remainderSource = locationAtOffset(remainder, 0, {
+        line: source.line,
+        column: rawLine.length - addMatch[1].length + 1
+      });
+      const split = findTopLevelKeyword(remainder, 'to');
+      if (!split) syntaxError('Invalid add statement', source);
+      const valueText = remainder.slice(0, split.start).trim();
+      const targetTail = remainder.slice(split.end);
+      const targetAndIndex = targetTail.trim();
+      const at = findTopLevelKeyword(targetAndIndex, 'at');
+      const name = (at ? targetAndIndex.slice(0, at.start) : targetAndIndex).trim();
+      const indexText = at ? targetAndIndex.slice(at.end).trim() : undefined;
+      if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(name) || !valueText || (at && !indexText)) {
+        syntaxError('Invalid add statement', source);
+      }
+      const valueOffset = remainder.indexOf(valueText);
+      const targetOffset = split.end + targetTail.indexOf(targetAndIndex);
+      const indexOffset = at ? targetOffset + at.end + targetAndIndex.slice(at.end).length - targetAndIndex.slice(at.end).trimStart().length : undefined;
+      statements.push({
+        type: 'addStatement',
+        name,
+        targetSource: locationAtOffset(remainder, targetOffset, remainderSource),
+        value: parseExpression(valueText, locationAtOffset(remainder, valueOffset, remainderSource)),
+        ...(indexText ? { index: parseExpression(indexText, locationAtOffset(remainder, indexOffset!, remainderSource)) } : {}),
+        source
+      });
+      i += collected.lineCount - 1;
+      continue;
+    }
+
+    const removeMatch = rawLine.match(/^\s*remove\s+(.+)$/);
+    if (removeMatch) {
+      const collected = collectDelimitedExpression(lines, i, removeMatch[1]);
+      const remainder = collected.text;
+      const remainderSource = locationAtOffset(remainder, 0, {
+        line: source.line,
+        column: rawLine.length - removeMatch[1].length + 1
+      });
+      const split = findTopLevelKeyword(remainder, 'from');
+      if (!split) syntaxError('Invalid remove statement', source);
+      const countText = remainder.slice(0, split.start).trim();
+      const targetTail = remainder.slice(split.end);
+      const targetAndIndex = targetTail.trim();
+      const at = findTopLevelKeyword(targetAndIndex, 'at');
+      const name = (at ? targetAndIndex.slice(0, at.start) : targetAndIndex).trim();
+      const indexText = at ? targetAndIndex.slice(at.end).trim() : undefined;
+      if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(name) || !countText || (at && !indexText)) {
+        syntaxError('Invalid remove statement', source);
+      }
+      const countOffset = remainder.indexOf(countText);
+      const targetOffset = split.end + targetTail.indexOf(targetAndIndex);
+      const indexOffset = at ? targetOffset + at.end + targetAndIndex.slice(at.end).length - targetAndIndex.slice(at.end).trimStart().length : undefined;
+      statements.push({
+        type: 'removeStatement',
+        name,
+        targetSource: locationAtOffset(remainder, targetOffset, remainderSource),
+        count: parseExpression(countText, locationAtOffset(remainder, countOffset, remainderSource)),
+        ...(indexText ? { index: parseExpression(indexText, locationAtOffset(remainder, indexOffset!, remainderSource)) } : {}),
+        source
+      });
+      i += collected.lineCount - 1;
+      continue;
+    }
+
     const letMatch = rawLine.match(/^\s*let\s+([A-Za-z][A-Za-z0-9_]*)(?:\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*))?\s*=\s*(.*)$/);
 
     if (letMatch) {
@@ -203,6 +271,40 @@ export function parseStatements(
   }
 
   return statements;
+}
+
+function locationAtOffset(text: string, offset: number, source: SourceLocation): SourceLocation {
+  const before = text.slice(0, offset).split(/\r?\n/);
+  return {
+    line: source.line + before.length - 1,
+    column: (before.length === 1 ? source.column : 1) + before[before.length - 1].length
+  };
+}
+
+function findTopLevelKeyword(text: string, keyword: string): { start: number; end: number } | undefined {
+  let depth = 0;
+  for (let index = 0; index < text.length; index++) {
+    const character = text[index];
+    if (character === '"' || character === "'") {
+      const end = findStringLiteralEnd(text, index);
+      if (end !== undefined) index = end;
+      continue;
+    }
+    if ('([{'.includes(character)) {
+      depth++;
+      continue;
+    }
+    if (')]}'.includes(character)) {
+      depth--;
+      continue;
+    }
+    if (depth === 0 && text.startsWith(keyword, index)
+      && /\s/.test(text[index - 1] ?? '')
+      && /\s/.test(text[index + keyword.length] ?? '')) {
+      return { start: index, end: index + keyword.length };
+    }
+  }
+  return undefined;
 }
 
 function parseVisualization(
@@ -493,7 +595,7 @@ function collectDelimitedExpression(
     if (nextLine.trim()) {
       const indentation = nextLine.length - nextLine.trimStart().length;
       const previous = parts[parts.length - 1].trimEnd();
-      const startsStatement = /^(?:export\s+)?(?:let|type|fn|import|input|table|chart|show|for|return)\b/.test(nextLine.trimStart())
+      const startsStatement = /^(?:export\s+)?(?:let|type|fn|import|input|table|chart|show|for|return|add|remove)\b/.test(nextLine.trimStart())
         || /^[A-Za-z][A-Za-z0-9_]*\s*(?:\+=|=(?!=))/.test(nextLine.trimStart());
       if (indentation <= statementIndent && startsStatement && !/[,([{+\-*/%^=]$/.test(previous)) break;
     }

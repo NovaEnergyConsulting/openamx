@@ -38,6 +38,7 @@ export class Environment {
   readonly bindingTypes = new Map<string, CheckedType>();
   readonly viewDefinitions = new Map<string, TableDeclarationNode | ChartDeclarationNode>();
   readonly viewEmissions: ViewEmission[] = [];
+  private immutableValues = new WeakSet<object>();
   currentDocumentNodeIndex = -1;
   currentStatementIndex = -1;
   validationMode: 'aggregate' | 'fail-fast' = 'aggregate';
@@ -56,7 +57,10 @@ export class Environment {
     const frame = new Environment(this.recordTypes, this.functions);
     frame.validationMode = this.validationMode;
     for (const [name, type] of this.bindingTypes) frame.bindingTypes.set(name, type);
-    for (const [name, value] of Object.entries(parameters)) frame.set(name, value);
+    for (const [name, value] of Object.entries(parameters)) {
+      frame.set(name, value);
+      if (this.isImmutable(value)) frame.markImmutable(value);
+    }
     return frame;
   }
 
@@ -65,6 +69,20 @@ export class Environment {
    */
   set(name: string, value: unknown): void {
     this.store.set(name, value);
+  }
+
+  markImmutable(value: unknown): void {
+    const visit = (item: unknown): void => {
+      if (!item || typeof item !== 'object' || this.immutableValues.has(item)) return;
+      this.immutableValues.add(item);
+      if (Array.isArray(item)) item.forEach(visit);
+      else Object.values(item).forEach(visit);
+    };
+    visit(value);
+  }
+
+  isImmutable(value: unknown): boolean {
+    return !!value && typeof value === 'object' && this.immutableValues.has(value);
   }
 
   update(name: string, value: unknown, source?: SourceLocation, file?: string): void {
@@ -111,6 +129,7 @@ export class Environment {
    */
   clear(): void {
     this.store.clear();
+    this.immutableValues = new WeakSet<object>();
     this.viewDefinitions.clear();
     this.viewEmissions.length = 0;
   }

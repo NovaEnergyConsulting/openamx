@@ -309,7 +309,9 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     for (const [name, bindingType] of record.checkResult.bindingTypes) env.bindingTypes.set(name, bindingType);
     for (const [name, sourcePath] of record.importedBindingSources) {
       const dependencyEnv = evaluatedEnvironments.get(sourcePath)!;
-      env.set(name, dependencyEnv.get(name));
+      const value = dependencyEnv.get(name);
+      env.set(name, value);
+      env.markImmutable(value);
     }
     if (canonicalPath === realEntry) {
       for (const [name, value] of inputValues) env.set(name, value);

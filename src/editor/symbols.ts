@@ -88,6 +88,7 @@ export function editorSymbolFacts(
 				case "rangeExpression": expression(node.start); expression(node.end); break;
 				case "matchExpression": expression(node.expression); node.cases.forEach(arm => expression(arm.expression)); expression(node.defaultExpression); break;
 				case "fieldAccess": expression(node.receiver); break;
+				case "listAccess": expression(node.receiver); expression(node.index); break;
 				case "forExpression": expression(node.iterable); break;
 				default: break;
 			}
@@ -120,6 +121,16 @@ export function editorSymbolFacts(
 				if (statement.type === "assignmentStatement" || statement.type === "compoundAssignmentStatement") {
 					add(statement.source, statement.name, visible.get(statement.name));
 					expression(statement.expression);
+				}
+				if (statement.type === "addStatement") {
+					add(statement.targetSource, statement.name, visible.get(statement.name));
+					expression(statement.value);
+					if (statement.index) expression(statement.index);
+				}
+				if (statement.type === "removeStatement") {
+					add(statement.targetSource, statement.name, visible.get(statement.name));
+					expression(statement.count);
+					if (statement.index) expression(statement.index);
 				}
 				if (statement.type === "forStatement") expression(statement.iterable);
 				const declared = declaration(moduleText, file, statement);

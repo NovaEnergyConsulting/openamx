@@ -175,6 +175,13 @@ export interface FieldAccessNode {
   source?: SourceLocation;
 }
 
+export interface ListAccessNode {
+  type: 'listAccess';
+  receiver: V02ExpressionNode;
+  index: V02ExpressionNode;
+  source?: SourceLocation;
+}
+
 // --- Identifier ---
 export interface IdentifierNode {
   type: 'identifier';
@@ -262,7 +269,7 @@ export interface ForExpressionNode {
 }
 
 export type V02ExpressionNode = ExpressionNode | MatchExpressionNode | RangeExpressionNode | ForExpressionNode
-  | NullLiteralNode | RecordConstructorNode | FieldAccessNode;
+  | NullLiteralNode | RecordConstructorNode | FieldAccessNode | ListAccessNode;
 
 // --- Document structure ---
 export interface NarrativeNode {
@@ -295,6 +302,24 @@ export interface CompoundAssignmentStatementNode {
   source?: SourceLocation;
 }
 
+export interface AddStatementNode {
+  type: 'addStatement';
+  name: string;
+  targetSource?: SourceLocation;
+  value: V02ExpressionNode;
+  index?: V02ExpressionNode;
+  source?: SourceLocation;
+}
+
+export interface RemoveStatementNode {
+  type: 'removeStatement';
+  name: string;
+  targetSource?: SourceLocation;
+  count: V02ExpressionNode;
+  index?: V02ExpressionNode;
+  source?: SourceLocation;
+}
+
 export interface ForStatementNode {
   type: 'forStatement';
   variable: string;
@@ -320,6 +345,8 @@ export type StatementNode =
   | VariableDeclarationNode
   | AssignmentStatementNode
   | CompoundAssignmentStatementNode
+  | AddStatementNode
+  | RemoveStatementNode
   | ForStatementNode
   | ReturnStatementNode;
 

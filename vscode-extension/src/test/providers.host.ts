@@ -563,6 +563,37 @@ suite('OpenAMX providers', () => {
     assert.equal((await waitForDiagnostics(narrativeDocument.uri, false)).length, 0);
   });
 
+  test('checks one-based list bounds and formats add/remove statements in executable AMX', async () => {
+    const document = await vscode.workspace.openTextDocument({
+      language: 'amx',
+      content: [
+        '```amx',
+        'let values: Number[] = [1, 2]',
+        '  let first = values[1]   ',
+        '  add 3 to values at 3   ',
+        '  remove 1 from values   ',
+        'let invalid = values[0]',
+        '```'
+      ].join('\n')
+    });
+    await vscode.window.showTextDocument(document);
+    const diagnostics = await waitForDiagnostics(document.uri, true);
+    assert.equal(diagnostics.length, 1);
+    assert.equal(diagnostics[0].code, 'AMX3009');
+    assert.deepEqual(diagnostics[0].range.start, new vscode.Position(5, 21));
+
+    const edits = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+      'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 2, insertSpaces: true }
+    );
+    assert.ok(edits);
+    const workspaceEdit = new vscode.WorkspaceEdit();
+    workspaceEdit.set(document.uri, edits);
+    assert.ok(await vscode.workspace.applyEdit(workspaceEdit));
+    assert.equal(document.getText().includes('add 3 to values at 3'), true);
+    assert.equal(document.getText().includes('remove 1 from values'), true);
+    assert.equal((await waitForDiagnostics(document.uri, true))[0].code, 'AMX3009');
+  });
+
   test('clears source diagnostics when a document closes', async () => {
     const document = await vscode.workspace.openTextDocument({
       language: 'amx',
