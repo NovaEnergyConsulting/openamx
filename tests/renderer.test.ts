@@ -271,7 +271,7 @@ describe("renderer - V0.4 captured views", () => {
 type Asset {
   id: String
 }
-let assets: Asset[] = [Asset { id: "<A>" }]
+let assets: Asset[] = [Asset { id = "<A>" }]
 table register = table(assets) {
   title: "Register & risks"
   column id as "Asset <id>"
@@ -315,4 +315,3 @@ show amounts
     expect(renderHtml(doc, "chart.amx")).toBe(html);
   });
 });
-

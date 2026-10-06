@@ -11,7 +11,6 @@ import { editorSymbolFacts } from "../../../src/editor/symbols";
 import { editorCodeActionFacts, editorRenameFact, isSafeRenameIdentifier } from "../../../src/editor/refactoring";
 import { sourceOffset } from "../../../src/editor/sourceRanges";
 import { formatAmx } from "../../../src/formatter/formatAmx";
-import { checkingActivated, checkDocument } from "../../../src/typechecker/checkDocument";
 import { loadEntryModule } from "../../../src/runtime/moduleLoader";
 import { renderPreparedHtml } from "../../../src/renderer/renderHtml";
 import { preparePdfReport, serializePdfReport } from "../../../src/renderer/reportPdf";

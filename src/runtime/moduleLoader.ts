@@ -8,10 +8,10 @@ import {
   TypeDeclarationNode
 } from '../ast/types';
 import { parseDocument, parseDocumentText } from '../parser/parseDocument';
-import { checkDocument, checkingActivated, CheckedType, ModuleCheckResult } from '../typechecker/checkDocument';
+import { checkDocument, CheckedType, ModuleCheckResult } from '../typechecker/checkDocument';
 import { evaluateStatements } from './evaluateExpression';
 import { Environment } from './environment';
-import { moduleError, staticError, throwInputErrors, type AmxDiagnostic } from '../diagnostics/errors';
+import { AmxError, moduleError, staticError, throwInputErrors, type AmxDiagnostic } from '../diagnostics/errors';
 import { describeInputSchema, loadInputValues, validateInputText, type InputSchema, type InputTextFormat, ValidationMode } from './inputData';
 import { describeOutputSchemas, prepareOutputs, type OutputSchema, PreparedOutput } from './outputData';
 import type { ViewEmission } from './environment';
@@ -145,6 +145,10 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
           ? parseDocumentText(overlayText)
           : await parseDocument(canonicalPath);
     } catch (error) {
+      if (error instanceof AmxError && error.code === 'AMX3006') {
+        error.file ??= canonicalPath;
+        throw error;
+      }
       const message = error instanceof Error ? error.message : String(error);
       visiting.pop();
       return moduleError('AMX5001', `Failed to parse module '${canonicalPath}': ${message}`, undefined, canonicalPath);
@@ -221,17 +225,12 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
       }
     }
 
-    let checkResult: ModuleCheckResult = {
-      exportedTypes: new Map(), exportedFunctions: new Map(), exportedBindings: new Map(), bindingTypes: new Map()
-    };
-    if (imports.length > 0 || checkingActivated(doc) || options.inputMappings?.length || options.validation !== undefined || options.outputMappings?.length) {
-      checkResult = checkDocument(doc, canonicalPath, {
-        types: importedTypes,
-        functions: importedFunctions,
-        bindings: importedBindings,
-        isEntryModule: canonicalPath === realEntry
-      });
-    }
+    const checkResult: ModuleCheckResult = checkDocument(doc, canonicalPath, {
+      types: importedTypes,
+      functions: importedFunctions,
+      bindings: importedBindings,
+      isEntryModule: canonicalPath === realEntry
+    });
 
     visiting.pop();
     const record: ModuleRecord = { canonicalPath, doc, checkResult, importedTypes, importedFunctions, importedBindings, importedBindingSources };

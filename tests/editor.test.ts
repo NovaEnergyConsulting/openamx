@@ -49,6 +49,21 @@ test("shared module analysis uses supplied unsaved imports without evaluation", 
 	expect(analysis.modules.get(modulePath)?.checkResult.exportedBindings.has("rate")).toBe(true);
 });
 
+test("shared editor analysis checks untyped documents and imported modules unconditionally", () => {
+	const valid = analyzeEditorModules("```amx\nlet count = 3\n```\n", "/project/report.amx");
+	expect(valid.bindingTypes?.get("count")).toEqual({ kind: "named", name: "Number" });
+	expect(() => analyzeEditorModules("```amx\nlet count = \"three\" + 1\n```\n", "/project/invalid.amx"))
+		.toThrow(expect.objectContaining({ code: "AMX3007" }));
+	expect(() => analyzeEditorModules("```amx\ntype Item {\n  id: Number\n}\nlet item = Item { id: 1 }\n```\n", "/project/legacy.amx"))
+		.toThrow(expect.objectContaining({ code: "AMX3006", file: "/project/legacy.amx", line: 5, column: 21 }));
+
+	const entry = "```amx\nimport { invalid } from \"./library.amx\"\n```\n";
+	expect(() => analyzeEditorModules(entry, "/project/report.amx", (_from, targetPath) => ({
+		file: targetPath,
+		text: "```amx\nexport let invalid = \"three\" + 1\n```\n"
+	}))).toThrow(expect.objectContaining({ code: "AMX3007" }));
+});
+
 test("shared module analysis withholds graphs beyond its bounded traversal", () => {
 	const entry = "```amx\nimport { value0 } from \"./module0.amx\"\nlet result: Number = value0\n```\n";
 	const resolveModule = (_from: string, targetPath: string) => {

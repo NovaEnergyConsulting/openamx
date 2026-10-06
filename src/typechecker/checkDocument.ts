@@ -57,32 +57,8 @@ function format(type: CheckedType): string {
   return type.kind === 'list' ? `${format(type.element)}[]` : `${format(type.element)}?`;
 }
 
-export function checkingActivated(doc: OpenAmxDocument): boolean {
-  const expressionHasV03 = (expression: V02ExpressionNode): boolean => {
-    switch (expression.type) {
-      case 'nullLiteral': case 'recordConstructor': case 'fieldAccess': return true;
-      case 'binaryExpression': return expressionHasV03(expression.left) || expressionHasV03(expression.right);
-      case 'unaryExpression': return expressionHasV03(expression.argument);
-      case 'conditionalExpression': return [expression.test, expression.consequent, expression.alternate].some(expressionHasV03);
-      case 'listLiteral': return expression.elements.some(expressionHasV03);
-      case 'functionCall': return expression.arguments.some(expressionHasV03);
-      case 'rangeExpression': return expressionHasV03(expression.start) || expressionHasV03(expression.end);
-      case 'matchExpression': return expressionHasV03(expression.expression) || expression.cases.some(arm => expressionHasV03(arm.expression)) || expressionHasV03(expression.defaultExpression);
-      case 'forExpression': return expressionHasV03(expression.iterable) || expression.body.some(statementHasV03);
-      default: return false;
-    }
-  };
-  const statementHasV03 = (statement: StatementNode): boolean => statement.type === 'typeDeclaration'
-    || statement.type === 'functionDeclaration'
-    || statement.type === 'importDeclaration'
-    || statement.type === 'inputDeclaration'
-    || statement.type === 'tableDeclaration'
-    || statement.type === 'chartDeclaration'
-    || statement.type === 'showStatement'
-    || (statement.type === 'variableDeclaration' && (!!statement.annotation || !!statement.exported))
-    || (statement.type === 'forStatement' && (expressionHasV03(statement.iterable) || statement.body.some(statementHasV03)))
-    || ('expression' in statement && expressionHasV03(statement.expression));
-  return doc.nodes.some(node => node.type === 'executableCodeBlock' && node.statements.some(statementHasV03));
+export function checkingActivated(_doc: OpenAmxDocument): boolean {
+  return true;
 }
 
 const stdlibNames = new Set(['sum', 'min', 'max', 'mean', 'round', 'abs', 'sqrt', 'pow']);
@@ -114,7 +90,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   const exportedBindings = new Map<string, CheckedType>();
   const views = new Map<string, TableDeclarationNode | ChartDeclarationNode>();
   let loopDepth = 0;
-  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005', message: string, source?: SourceLocation): never => staticError(code, message, source, file);
+  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007', message: string, source?: SourceLocation): never => staticError(code, message, source, file);
 
   function resolve(ref: TypeReferenceNode): CheckedType {
     if (ref.type === 'namedType') {
@@ -126,6 +102,10 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
 
   function requireType(actual: CheckedType, expected: CheckedType, source?: SourceLocation): void {
     if (!assignable(actual, expected)) fail('AMX3002', `Expected ${format(expected)}, got ${format(actual)}`, source);
+  }
+
+  function requireOperatorType(actual: CheckedType, expected: CheckedType, source?: SourceLocation): void {
+    if (!assignable(actual, expected)) fail('AMX3007', `Expected ${format(expected)}, got ${format(actual)}`, source);
   }
 
   function checkDateTime(value: string): boolean {
@@ -209,19 +189,19 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         const left = infer(expression.left);
         const right = infer(expression.right, left.kind === 'named' && left.name === 'DateTime' ? left : undefined);
         if (['and', 'or'].includes(expression.operator)) {
-          requireType(left, named('Boolean'), expression.left.source);
-          requireType(right, named('Boolean'), expression.right.source);
+          requireOperatorType(left, named('Boolean'), expression.left.source);
+          requireOperatorType(right, named('Boolean'), expression.right.source);
         } else if (['==', '!='].includes(expression.operator)) {
           const scalar = (type: CheckedType) => type.kind === 'named' && primitives.has(type.name);
           if (!((scalar(left) && equal(left, right)) || (left.kind === 'null' && right.kind === 'nullable') || (right.kind === 'null' && left.kind === 'nullable'))) fail('AMX3003', 'Equality requires compatible scalar operands', expression.source);
         } else {
-          requireType(left, named('Number'), expression.left.source);
-          requireType(right, named('Number'), expression.right.source);
+          requireOperatorType(left, named('Number'), expression.left.source);
+          requireOperatorType(right, named('Number'), expression.right.source);
         }
         return ['and', 'or', '==', '!=', '>', '>=', '<', '<='].includes(expression.operator) ? named('Boolean') : named('Number');
       }
       case 'unaryExpression':
-        requireType(infer(expression.argument), named(expression.operator === 'not' ? 'Boolean' : 'Number'), expression.argument.source);
+        requireOperatorType(infer(expression.argument), named(expression.operator === 'not' ? 'Boolean' : 'Number'), expression.argument.source);
         return named(expression.operator === 'not' ? 'Boolean' : 'Number');
       case 'conditionalExpression': {
         requireType(infer(expression.test), named('Boolean'), expression.test.source);

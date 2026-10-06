@@ -30,7 +30,7 @@ let scores: Number[] = for screening in screenings {
 }
 let totalScore: Number = sum(scores)
 let results: ScreeningResult[] = for screening in screenings {
-  return ScreeningResult { assetId: screening.assetId, score: screeningScore(screening.severity, screening.occurrence), note: screening.note }
+  return ScreeningResult { assetId = screening.assetId, score = screeningScore(screening.severity, screening.occurrence), note = screening.note }
 }
 
 table screeningRegister = table(results) {

@@ -34,9 +34,9 @@ let scores: Number[] = for screening in screenings {
   return screeningScore(screening.severity, screening.occurrence)
 }
 let totalScore: Number = sum(scores)
-export let summary: Summary = Summary { assetName: asset.name, reviewedAt: reviewedAt, totalScore: totalScore }
+export let summary: Summary = Summary { assetName = asset.name, reviewedAt = reviewedAt, totalScore = totalScore }
 export let resultRows: ScreeningResult[] = for screening in screenings {
-  return ScreeningResult { assetId: screening.assetId, score: screeningScore(screening.severity, screening.occurrence), note: screening.note }
+  return ScreeningResult { assetId = screening.assetId, score = screeningScore(screening.severity, screening.occurrence), note = screening.note }
 }
 </code></pre><p>Asset <strong>North Pump 01</strong> was reviewed at 2026-09-29T12:00:00Z.
 The illustrative screening total is 38.</p>

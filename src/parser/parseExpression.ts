@@ -11,6 +11,7 @@ import {
   MatchCaseNode
 } from '../ast/types';
 import { parseForExpression } from './parseFor';
+import { AmxError, syntaxError } from '../diagnostics/errors';
 
 type Token =
   | { type: 'number'; value: number; text: string; offset: number }
@@ -18,11 +19,11 @@ type Token =
   | { type: 'boolean'; value: boolean; text: string; offset: number }
   | { type: 'identifier'; name: string; text: string; offset: number }
   | { type: 'null'; text: string; offset: number }
-  | { type: 'forExpression'; value: string; text: string }
+  | { type: 'forExpression'; value: string; text: string; offset: number }
   | { type: 'matchExpression'; value: string; text: string; offset: number }
   | { type: 'operator'; op: string; text: string }
   | { type: 'keyword'; word: 'and' | 'or' | 'not' | 'if' | 'then' | 'else'; text: string }
-  | { type: 'lparen' | 'rparen' | 'lbracket' | 'rbracket' | 'lbrace' | 'rbrace' | 'colon' | 'dot' | 'comma' | 'eof'; text?: string; offset?: number };
+  | { type: 'lparen' | 'rparen' | 'lbracket' | 'rbracket' | 'lbrace' | 'rbrace' | 'colon' | 'equals' | 'dot' | 'comma' | 'eof'; text?: string; offset?: number };
 
 function tokenize(text: string, source?: SourceLocation): Token[] {
   const tokens: Token[] = [];
@@ -42,7 +43,7 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
     if (text.startsWith('for', i) && !/[A-Za-z0-9_]/.test(text[i + 3] ?? '')) {
       const end = findForExpressionEnd(text, i);
       const loopText = text.slice(i, end + 1);
-      tokens.push({ type: 'forExpression', value: loopText, text: loopText });
+      tokens.push({ type: 'forExpression', value: loopText, text: loopText, offset: i });
       i = end + 1;
       continue;
     }
@@ -124,19 +125,19 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
     }
 
     // Single-character operators and grouping
-    if ('+-*/%^()[].,{}:'.includes(ch)) {
+    if ('+-*/%^()[].,{}:='.includes(ch)) {
       if (ch === '(') {
-        tokens.push({ type: 'lparen', text: ch });
+        tokens.push({ type: 'lparen', text: ch, offset: i });
       } else if (ch === ')') {
-        tokens.push({ type: 'rparen', text: ch });
+        tokens.push({ type: 'rparen', text: ch, offset: i });
       } else if (ch === '[') {
-        tokens.push({ type: 'lbracket', text: ch });
+        tokens.push({ type: 'lbracket', text: ch, offset: i });
       } else if (ch === ']') {
-        tokens.push({ type: 'rbracket', text: ch });
+        tokens.push({ type: 'rbracket', text: ch, offset: i });
       } else if (ch === ',') {
-        tokens.push({ type: 'comma', text: ch });
-      } else if (ch === '{' || ch === '}' || ch === ':' || ch === '.') {
-        tokens.push({ type: ({ '{': 'lbrace', '}': 'rbrace', ':': 'colon', '.': 'dot' } as const)[ch as '{' | '}' | ':' | '.'], text: ch, offset: i });
+        tokens.push({ type: 'comma', text: ch, offset: i });
+      } else if (ch === '{' || ch === '}' || ch === ':' || ch === '=' || ch === '.') {
+        tokens.push({ type: ({ '{': 'lbrace', '}': 'rbrace', ':': 'colon', '=': 'equals', '.': 'dot' } as const)[ch as '{' | '}' | ':' | '=' | '.'], text: ch, offset: i });
       } else {
         tokens.push({ type: 'operator', op: ch, text: ch });
       }
@@ -225,6 +226,10 @@ function locationAt(text: string, offset: number, source?: SourceLocation): Sour
   };
 }
 
+function tokenOffset(token: Token, fallback: number): number {
+  return 'offset' in token ? token.offset ?? fallback : fallback;
+}
+
 function parseMatchExpression(text: string, source?: SourceLocation): MatchExpressionNode {
   let open = -1;
   let depth = 0;
@@ -280,6 +285,7 @@ function parseMatchExpression(text: string, source?: SourceLocation): MatchExpre
     try {
       return parseExpression(branch, locationAt(text, offset, source));
     } catch (error) {
+      if (error instanceof AmxError) throw error;
       return fail(`Invalid match arm expression: ${error instanceof Error ? error.message : String(error)}`, offset);
     }
   };
@@ -407,13 +413,26 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
         const fields: { name: string; expression: V02ExpressionNode; source?: SourceLocation }[] = [];
         while (current().type !== 'rbrace') {
           const field = current();
-          if (field.type !== 'identifier') throw new Error('Expected constructor field name');
+          if (field.type !== 'identifier') {
+            syntaxError('Expected record constructor field name', locationAt(text, tokenOffset(field, text.length), source));
+          }
           advance();
-          if (current().type !== 'colon') throw new Error('Expected : after constructor field');
+          if (current().type === 'colon') {
+            syntaxError('Record constructor fields use =, not :', locationAt(text, tokenOffset(current(), text.length), source));
+          }
+          if (current().type !== 'equals') {
+            syntaxError('Expected = after record constructor field', locationAt(text, tokenOffset(current(), text.length), source));
+          }
           advance();
           fields.push({ name: field.name, expression: parseExpr(0), source: locationAt(text, field.offset, source) });
-          if (current().type !== 'comma') break;
+          if (current().type !== 'comma') {
+            if (current().type !== 'rbrace') {
+              syntaxError('Expected , or } after record constructor field', locationAt(text, tokenOffset(current(), text.length), source));
+            }
+            break;
+          }
           advance();
+          if (current().type === 'rbrace') break;
         }
         if (current().type !== 'rbrace') throw new Error('Expected } after constructor fields');
         advance();
@@ -632,4 +651,3 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
 
   return result;
 }
-

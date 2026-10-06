@@ -28,7 +28,7 @@ suite('OpenAMX providers', () => {
   test('outlines original record fields and withholds duplicate symbol targets', async () => {
     const document = await vscode.workspace.openTextDocument({ language: 'amx', content: [
       '😀 narrative', '```amx', 'type Asset {', 'name: String', '}',
-      'let first: Asset = Asset { name: "one" }', '```'
+      'let first: Asset = Asset { name = "one" }', '```'
     ].join('\r\n') });
     const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
       'vscode.executeDocumentSymbolProvider', document.uri
@@ -243,7 +243,7 @@ suite('OpenAMX providers', () => {
       'type Asset {',
       'name: String',
       '}',
-      'let asset: Asset = Asset { name: "pump" }',
+      'let asset: Asset = Asset { name = "pump" }',
       '```',
       '```amx',
       'let legacy = 2',
@@ -268,7 +268,7 @@ suite('OpenAMX providers', () => {
       'type Asset {',
       '  name: String',
       '}',
-      'let asset: Asset = Asset { name: "pump" }',
+      'let asset: Asset = Asset { name = "pump" }',
       '```',
       '```amx',
       'let legacy = 2',
@@ -326,7 +326,7 @@ suite('OpenAMX providers', () => {
       '```amx',
       'import { Asset, score, factor } from "./model.amx"',
       'input assets: Asset[]',
-      'let asset: Asset = Asset { name: "pump" }',
+      'let asset: Asset = Asset { name = "pump" }',
       'let result: Number = score(asset)',
       'let fieldValue: String = asset.name',
       '```'
@@ -413,7 +413,7 @@ suite('OpenAMX providers', () => {
     await fs.writeFile(entryPath, [
       '```amx',
       'import { Asset } from "./model.amx"',
-      'let asset: Asset = Asset { name: "pump" }',
+      'let asset: Asset = Asset { name = "pump" }',
       '```'
     ].join('\n'), 'utf8');
 

@@ -11,7 +11,6 @@ import type {
 } from "../ast/types";
 import { parseDocumentText } from "../parser/parseDocument";
 import { parseFrontMatter } from "../parser/parseFrontMatter";
-import { checkingActivated } from "../typechecker/checkDocument";
 import type { EditorModuleAnalysis } from "./moduleAnalysis";
 import { isExecutableBlockOffset } from "./highlighting";
 import { sourceOffset } from "./sourceRanges";
@@ -258,17 +257,15 @@ export function editorCompletionFacts(
 	const contextCursor = Math.max(0, Math.min(cursorOffset, contextText.length));
 	const lineStart = contextText.lastIndexOf("\n", Math.max(0, contextCursor - 1)) + 1;
 	const prefix = contextText.slice(lineStart, contextCursor);
-	const v03 = checkingActivated(parsed) || /^\s*(?:type|fn|import|input|export)\b/.test(prefix) || /:\s*[A-Z][A-Za-z0-9_]*$/.test(prefix);
-	const v04 = checkingActivated(parsed) || /^\s*(?:table|chart|show)\b/.test(prefix) || /\b(?:title|description|column|category|x|y|group|labels|series)\b/.test(prefix);
 	const fieldReceiver = prefix.match(/\b([A-Za-z][A-Za-z0-9_]*)\.\w*$/)?.[1];
 	const fields = fieldReceiver ? visible.recordTypes.get(fieldReceiver)?.fields.map(field => field.name) ?? [] : [];
 	const facts: EditorCompletionFact[] = [
-		...[...v02Keywords, ...(v03 ? v03Keywords : []), ...(v04 ? v04Keywords : [])].map(label => ({ label, kind: "keyword" as const })),
+		...[...v02Keywords, ...v03Keywords, ...v04Keywords].map(label => ({ label, kind: "keyword" as const })),
 		...standardFunctions.map(label => ({ label, kind: "function" as const })),
 		...[...visible.functions].map(label => ({ label, kind: "function" as const })),
-		...(v03 ? [...visible.types].map(label => ({ label, kind: "class" as const })) : []),
+		...[...visible.types].map(label => ({ label, kind: "class" as const })),
 		...[...visible.variables].map(label => ({ label, kind: "variable" as const })),
-		...(v04 ? [...visible.views].map(label => ({ label, kind: "reference" as const })) : []),
+		...[...visible.views].map(label => ({ label, kind: "reference" as const })),
 		...fields.map(label => ({ label, kind: "field" as const }))
 	];
 	return facts;

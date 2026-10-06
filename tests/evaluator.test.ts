@@ -33,11 +33,32 @@ describe("Sprint 014 activated checking and records", () => {
   const run = (source: string) => evaluateDocument(document(source), 'case.amx');
 
   it("materializes defaults, nullable omissions and nested records in declaration order with fresh copies", () => {
-    const values = run(`type Inner {\n  name: String\n}\ntype Outer {\n  id: Number\n  inner: Inner = Inner { name: "A" }\n  tags: String[] = []\n  note?: String?\n}\nlet first: Outer = Outer { id: 1 }\nlet second: Outer = Outer { id: 2, note: null }\nlet name: String = first.inner.name`);
+    const values = run(`type Inner {\n  name: String\n}\ntype Outer {\n  id: Number\n  inner: Inner = Inner { name = "A" }\n  tags: String[] = []\n  note?: String?\n}\nlet first: Outer = Outer { id = 1 }\nlet second: Outer = Outer { id = 2, note = null }\nlet name: String = first.inner.name`);
     expect(values).toMatchObject({ first: { id: 1, inner: { name: 'A' }, tags: [], note: null }, second: { id: 2, note: null }, name: 'A' });
     expect(Object.keys(values.first as object)).toEqual(['id', 'inner', 'tags', 'note']);
     expect((values.first as any).tags).not.toBe((values.second as any).tags);
     expect((values.first as any).inner).not.toBe((values.second as any).inner);
+  });
+
+  it("evaluates canonical nested multiline record constructors without changing field values", () => {
+    const values = run([
+      'type Point {',
+      '  x: Number',
+      '  y: Number',
+      '}',
+      'type Shape {',
+      '  origin: Point',
+      '  values: Number[]',
+      '}',
+      'let shape: Shape = Shape {',
+      '  origin = Point {',
+      '    x = (1 + 2),',
+      '    y = 4,',
+      '  },',
+      '  values = [1, (2 + 3), 6],',
+      '}'
+    ].join('\n'));
+    expect(values.shape).toEqual({ origin: { x: 3, y: 4 }, values: [1, 5, 6] });
   });
 
   it("narrows a nullable record only within the checked if branch", () => {
@@ -57,7 +78,7 @@ describe("Sprint 014 activated checking and records", () => {
       ['let value = [null]', 'AMX3003'],
       ['let value: Number = "bad"', 'AMX3002'],
       ['let value: Number = if 1 then 2 else 3', 'AMX3002'],
-      ['let value: Number = 1 + true', 'AMX3002'],
+      ['let value: Number = 1 + true', 'AMX3007'],
       ['let value: Boolean = [1] == [1]', 'AMX3003'],
       ['let value: Number = mystery(1)', 'AMX3004'],
       ['let value: Number = round(1, true)', 'AMX3002'],
@@ -66,10 +87,10 @@ describe("Sprint 014 activated checking and records", () => {
       ['let value: Number = match 1 {\n case 1 => "wrong"\n default => 2\n}', 'AMX3002'],
       ['let value: Number[] = for item in 1 {\n return item\n}', 'AMX3003'],
       ['let value: DateTime = "2023-02-29T12:00:00Z"', 'AMX3002'],
-      ['type A {\n  id: Number\n}\nlet a: A = A { id: 1, id: 2 }', 'AMX3005'],
-      ['type A {\n  id: Number\n}\nlet a: A = A { extra: 1 }', 'AMX3001'],
+      ['type A {\n  id: Number\n}\nlet a: A = A { id = 1, id = 2 }', 'AMX3005'],
+      ['type A {\n  id: Number\n}\nlet a: A = A { extra = 1 }', 'AMX3001'],
       ['type A {\n  id: Number\n}\nlet a: A = A { }', 'AMX3002'],
-      ['type A {\n  id: Number\n}\nlet a: A = A { id: 1 }\nlet b = a.missing', 'AMX3001'],
+      ['type A {\n  id: Number\n}\nlet a: A = A { id = 1 }\nlet b = a.missing', 'AMX3001'],
       ['type A {\n  id?: Number\n}', 'AMX3005'],
       ['type A {\n  id: Number = unknown\n}', 'AMX3005'],
       ['type A {\n  id: A\n}', 'AMX3001'],
@@ -88,14 +109,18 @@ describe("Sprint 014 activated checking and records", () => {
     }
   });
 
-  it("checks all blocks before evaluation and rendering but leaves V0.2-only truthiness alone", () => {
+  it("checks all blocks before evaluation, including inferred and previously unchecked expressions", () => {
     const invalid = parseDocumentText('```amx\nlet values = min([])\n```\n```amx\nlet bad: Number = "x"\n```');
     expect(() => checkDocument(invalid, 'case.amx')).toThrow(AmxError);
     expect(() => evaluateDocument(invalid, 'case.amx')).toThrow(AmxError);
     expect(() => renderHtml(invalid)).toThrow(AmxError);
-    const legacy = document('let mixed = [1, "two"]\nlet truthy = if 1 then 3 else 4');
-    expect(checkingActivated(legacy)).toBe(false);
-    expect(evaluateDocument(legacy)).toMatchObject({ mixed: [1, 'two'], truthy: 3 });
+    const inferred = document('let count = 3\nlet next = count + 1');
+    expect(checkingActivated(inferred)).toBe(true);
+    expect(evaluateDocument(inferred)).toMatchObject({ count: 3, next: 4 });
+    const previouslyUnchecked = document('let count = "three" + 1');
+    expect(() => evaluateDocument(previouslyUnchecked, 'untyped.amx')).toThrow(expect.objectContaining({
+      code: 'AMX3007', file: 'untyped.amx'
+    }));
   });
 });
 
@@ -132,12 +157,12 @@ describe("Sprint 021 visualization checking", () => {
   });
 
   it("typechecks and selects a direct record constructor in a match arm", () => {
-    const values = evaluateDocument(document(`type Asset {\n  id: String\n}\nlet selected: Asset = match 1 {\n  case 1 => Asset { id: "first" }\n  case 1 => Asset { id: "second" }\n  default => Asset { id: "fallback" }\n}`), 'match-constructor.amx');
+    const values = evaluateDocument(document(`type Asset {\n  id: String\n}\nlet selected: Asset = match 1 {\n  case 1 => Asset { id = "first" }\n  case 1 => Asset { id = "second" }\n  default => Asset { id = "fallback" }\n}`), 'match-constructor.amx');
     expect(values.selected).toEqual({ id: 'first' });
   });
 
   it("captures ordered immutable show snapshots without changing plain-object bindings", () => {
-    const doc = parseDocumentText(`\`\`\`amx\ntype Asset {\n  id: String\n}\nlet assets: Asset[] = [Asset { id: "A" }]\ntable register = table(assets) {\n  title: "Register"\n  column id as "Asset"\n}\n\`\`\`\nBefore first show\n\`\`\`amx\nshow register\n\`\`\`\nBetween shows\n\`\`\`amx\nassets = []\n\`\`\`\nAfter mutation\n\`\`\`amx\nshow register\n\`\`\``);
+    const doc = parseDocumentText(`\`\`\`amx\ntype Asset {\n  id: String\n}\nlet assets: Asset[] = [Asset { id = "A" }]\ntable register = table(assets) {\n  title: "Register"\n  column id as "Asset"\n}\n\`\`\`\nBefore first show\n\`\`\`amx\nshow register\n\`\`\`\nBetween shows\n\`\`\`amx\nassets = []\n\`\`\`\nAfter mutation\n\`\`\`amx\nshow register\n\`\`\``);
     const environment = evaluateDocumentEnvironment(doc, 'snapshot.amx');
     expect(environment.viewEmissions.map(emission => [emission.kind, emission.documentNodeIndex, emission.statementIndex])).toEqual([['table', 2, 0], ['table', 6, 0]]);
     expect(environment.viewEmissions.map(emission => emission.data)).toEqual([[{ id: 'A' }], []]);
@@ -362,18 +387,18 @@ describe("evaluator - variable references and order", () => {
     expect(ctx.result).toBe(300);
   });
 
-  it("forward reference produces undefined error (AMX1004)", () => {
+  it("rejects a forward reference during static checking", () => {
     const doc = makeDocFromBody("let a = b + 1\nlet b = 10");
     expect(() => evaluateDocument(doc)).toThrow(AmxError);
     try {
       evaluateDocument(doc);
     } catch (e: any) {
-      expect(e.code).toBe("AMX1004");
-      expect(e.message).toContain("Undefined identifier 'b'");
+      expect(e.code).toBe("AMX3001");
+      expect(e.message).toContain("Unknown identifier 'b'");
     }
   });
 
-  it("undefined variable produces AMX1004 with location when available", () => {
+  it("rejects an undefined variable during static checking with its location", () => {
     const body = "let x = unknownVar";
     const doc = makeDocFromBody(body);
     try {
@@ -381,8 +406,8 @@ describe("evaluator - variable references and order", () => {
       throw new Error("Expected error");
     } catch (e: any) {
       expect(e).toBeInstanceOf(AmxError);
-      expect(e.code).toBe("AMX1004");
-      expect(e.message).toBe("Undefined identifier 'unknownVar'");
+      expect(e.code).toBe("AMX3001");
+      expect(e.message).toContain("Unknown identifier 'unknownVar'");
       // Source location should be present (line 1 from the let)
       expect(e.line).toBe(1);
     }
@@ -507,10 +532,9 @@ describe("evaluator - logicals", () => {
     expect(ctx.d).toBe(true);
   });
 
-  it("treats non-zero/non-empty as truthy for logicals", () => {
+  it("rejects non-Boolean logical operands before evaluation", () => {
     const doc = makeDocFromBody("let r = 5 and \"x\"");
-    const ctx = evaluateDocument(doc);
-    expect(ctx.r).toBe(true);
+    expect(() => evaluateDocument(doc)).toThrow(expect.objectContaining({ code: "AMX3007" }));
   });
 });
 
@@ -541,14 +565,14 @@ describe("evaluator - list literals", () => {
     expect(ctx.xs).toEqual([1, 2, 3]);
   });
 
-  it("evaluates list with mixed expressions", () => {
-    const doc = makeDocFromBody("let a = 10\nlet ys = [a + 1, 2 * 3, false]");
+  it("evaluates a homogeneous list with mixed expressions", () => {
+    const doc = makeDocFromBody("let a = 10\nlet ys = [a + 1, 2 * 3, 4]");
     const ctx = evaluateDocument(doc);
-    expect(ctx.ys).toEqual([11, 6, false]);
+    expect(ctx.ys).toEqual([11, 6, 4]);
   });
 
   it("supports empty list", () => {
-    const doc = makeDocFromBody("let empty = []");
+    const doc = makeDocFromBody("let empty: Number[] = []");
     const ctx = evaluateDocument(doc);
     expect(ctx.empty).toEqual([]);
   });
@@ -597,29 +621,19 @@ describe("evaluator - standard library", () => {
 });
 
 describe("evaluator - stdlib errors", () => {
-  it("sum on non-list produces AMX2001", () => {
+  it("statically rejects a non-list standard-library argument", () => {
     const doc = makeDocFromBody("let bad = sum(42)");
-    expect(() => evaluateDocument(doc)).toThrow(AmxError);
-    try { evaluateDocument(doc); } catch (e: any) {
-      expect(e.code).toBe("AMX2001");
-      expect(e.message).toContain("sum expects a list");
-    }
+    expect(() => evaluateDocument(doc)).toThrow(expect.objectContaining({ code: "AMX3002" }));
   });
 
-  it("min/max/mean on empty list produce AMX2004", () => {
+  it("statically rejects an empty list with no inferable standard-library element type", () => {
     const doc = makeDocFromBody("let m = min([])");
     expect(() => evaluateDocument(doc)).toThrow(AmxError);
-    try { evaluateDocument(doc); } catch (e: any) {
-      expect(e.code).toBe("AMX2004");
-    }
   });
 
-  it("wrong argument count for pow produces AMX2003", () => {
+  it("statically rejects a standard-library call with the wrong arity", () => {
     const doc = makeDocFromBody("let p = pow(2)");
-    expect(() => evaluateDocument(doc)).toThrow(AmxError);
-    try { evaluateDocument(doc); } catch (e: any) {
-      expect(e.code).toBe("AMX2003");
-    }
+    expect(() => evaluateDocument(doc)).toThrow(expect.objectContaining({ code: "AMX3004" }));
   });
 
   it("sqrt of negative produces AMX2005", () => {

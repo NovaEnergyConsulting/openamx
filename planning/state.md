@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.9 Sprint 052 Builder Evidence (2026-10-06)
+
+- Implemented unconditional static checking for direct evaluation, file-backed module graphs, shared editor analysis/completion, CLI paths routed through the module loader, and desktop worker/service paths. The only remaining `checkingActivated`-gated caller is a non-product Sprint 035 feasibility spike; the helper itself always returns `true`.
+- Added canonical multiline `field = value` record constructors, balanced nested-expression collection, syntax rejection of constructor colons as `AMX3006`, formatter support/refusal behavior, and source-path preservation for editor parser diagnostics. Migrated only the affected positive examples, generated snapshot, and test fixtures; negative coverage remains.
+- Focused tests pass (194 tests/730 expectations), root tests pass (322/1,345), root build passes, desktop tests pass (24/126), desktop typecheck passes, isolated release timeout test passes, and final `git diff --check` passes.
+- VS Code extension compilation and test compilation pass, but its Windows Extension Development Host suite has 14 passes and 5 failures (four `EBUSY` temp cleanup failures and one drive-letter case assertion). Exact commands, full changed-file list, migrations, call-site audit, and residuals are recorded in [Sprint 052 Builder evidence](sprints/0052-v09-strict-checking-multiline-records-migration/builder-evidence.md).
+- Separate Lead Developer disposition: **ACCEPTED WITH RECORDED RESIDUALS** (2026-10-06). The Windows VS Code host-suite failures remain visible as an accepted residual; they are not counted as a pass. No downstream V0.9 completion is claimed.
+
 ## V0.9 Sprint 051 Architect Preparation (2026-10-06)
 
 - Prepared the Sprint 051 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0051-v09-language-contract-cross-surface-design/`.

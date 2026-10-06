@@ -1,5 +1,13 @@
 # Planning Decisions
 
+## V0.9 Sprint 052 Builder Decisions (2026-10-06)
+
+- Enforce checking at the shared document/module boundaries rather than introducing a new CLI/UI mode. Keep `checkingActivated` only as an always-true compatibility helper; the sole remaining gated caller is the non-product Sprint 035 feasibility spike.
+- Use canonical constructor `field = value` syntax with commas and optional trailing commas. Reject constructor-colon syntax as `AMX3006`; preserve colons for type declaration fields and annotations. Do not auto-repair invalid syntax in the formatter.
+- Keep migrated negative examples invalid for their intended field/type reasons by changing only their record delimiters. Keep historical V0.3 documentation and explicitly negative examples unchanged.
+- Builder verification is recorded in `planning/sprints/0052-v09-strict-checking-multiline-records-migration/builder-evidence.md`. Core/root/desktop checks pass; the VS Code Development Host test has a Windows observed residual (14 pass, 5 fail).
+- **Lead Developer disposition (2026-10-06): ACCEPTED WITH RECORDED RESIDUALS.** Accept Sprint 052 with the five VS Code host-test failures explicitly retained as residuals; do not represent the host suite as passing. This does not accept downstream V0.9 work.
+
 ## V0.9 Sprint 051 Architect Preparation (2026-10-06)
 
 - Sprint 051 owns the V0.9 technical contract and cross-surface design gate only; it has no sprint dependency and must not implement features or migrate production fixtures.

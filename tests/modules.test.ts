@@ -104,12 +104,28 @@ describe("Sprint 015 pure functions", () => {
 describe("Sprint 015 modules, imports, and exports", () => {
   it("evaluates an imported type, function, and value, deterministically once, and isolates unrelated module bindings", async () => {
     const dir = await makeDir();
-    await write(dir, "lib.amx", "```amx\nlet libOnly: Number = 99\nexport type Point {\n  x: Number\n  y: Number\n}\nexport fn distanceSquared(a: Point, b: Point): Number = (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2\nexport let origin: Point = Point { x: 0, y: 0 }\n```\n");
-    const entry = await write(dir, "entry.amx", "```amx\nimport { Point, distanceSquared, origin } from \"./lib.amx\"\n\nlet p: Point = Point { x: 3, y: 4 }\nlet d: Number = distanceSquared(p, origin)\n```\n");
+    await write(dir, "lib.amx", "```amx\nlet libOnly: Number = 99\nexport type Point {\n  x: Number\n  y: Number\n}\nexport fn distanceSquared(a: Point, b: Point): Number = (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2\nexport let origin: Point = Point { x = 0, y = 0 }\n```\n");
+    const entry = await write(dir, "entry.amx", "```amx\nimport { Point, distanceSquared, origin } from \"./lib.amx\"\n\nlet p: Point = Point { x = 3, y = 4 }\nlet d: Number = distanceSquared(p, origin)\n```\n");
     const { env } = await loadEntryModule(entry);
     const values = env.toObject();
     expect(values).toMatchObject({ p: { x: 3, y: 4 }, d: 25, origin: { x: 0, y: 0 } });
     expect(values).not.toHaveProperty("libOnly");
+  });
+
+  it("statically rejects an invalid untyped imported module before loading its exports", async () => {
+    const dir = await makeDir();
+    await write(dir, "library.amx", "```amx\nexport let invalid = \"three\" + 1\n```\n");
+    const entry = await write(dir, "entry.amx", "```amx\nimport { invalid } from \"./library.amx\"\nlet result = invalid\n```\n");
+    await expectAmxError(loadEntryModule(entry), "AMX3007");
+  });
+
+  it("preserves AMX3006 for legacy constructor syntax through file-backed module loading", async () => {
+    const dir = await makeDir();
+    const entry = await write(dir, "entry.amx", "```amx\ntype Item {\n  id: Number\n}\nlet item = Item { id: 1 }\n```\n");
+    const error = await expectAmxError(loadEntryModule(entry), "AMX3006");
+    expect(error.file).toBe(entry);
+    expect(error.line).toBe(5);
+    expect(error.column).toBe(21);
   });
 
   it("evaluates a diamond dependency graph once and shares the same exported value by reference", async () => {
@@ -264,7 +280,7 @@ describe("Sprint 015 modules, imports, and exports", () => {
 describe("Sprint 015 opt-in Asset Management library", () => {
   it("keeps the six library types absent from the core environment until explicitly imported", async () => {
     const dir = await makeDir();
-    const entry = await write(dir, "entry.amx", "```amx\nlet a: Asset = Asset { id: \"1\", name: \"n\", assetClass: \"c\", criticality: 1 }\n```\n");
+    const entry = await write(dir, "entry.amx", "```amx\nlet a: Asset = Asset { id = \"1\", name = \"n\", assetClass = \"c\", criticality = 1 }\n```\n");
     await expectAmxError(loadEntryModule(entry), "AMX3001");
   });
 
@@ -272,12 +288,12 @@ describe("Sprint 015 opt-in Asset Management library", () => {
     const entry = await writeRootFile(
       "```amx\n" +
       "import { FailureMode, Risk, Strategy, Asset, MaintenanceTask, LifecycleCost } from \"./libraries/asset-management.amx\"\n\n" +
-      "let mode: FailureMode = FailureMode { id: \"FM1\", name: \"Bearing wear\", severity: 8, occurrence: 3 }\n" +
-      "let asset: Asset = Asset { id: \"A1\", name: \"Pump 1\", assetClass: \"Pump\", criticality: 5, failureModes: [mode] }\n" +
-      "let risk: Risk = Risk { id: \"R1\", failureMode: mode, likelihood: 2, consequence: 4 }\n" +
-      "let strategy: Strategy = Strategy { id: \"S1\", name: \"Predictive\" }\n" +
-      "let task: MaintenanceTask = MaintenanceTask { id: \"T1\", assetId: \"A1\", title: \"Inspect\", intervalDays: 30 }\n" +
-      "let cost: LifecycleCost = LifecycleCost { assetId: \"A1\", acquisitionCost: 1000, operatingCost: 200, maintenanceCost: 50 }\n" +
+      "let mode: FailureMode = FailureMode { id = \"FM1\", name = \"Bearing wear\", severity = 8, occurrence = 3 }\n" +
+      "let asset: Asset = Asset { id = \"A1\", name = \"Pump 1\", assetClass = \"Pump\", criticality = 5, failureModes = [mode] }\n" +
+      "let risk: Risk = Risk { id = \"R1\", failureMode = mode, likelihood = 2, consequence = 4 }\n" +
+      "let strategy: Strategy = Strategy { id = \"S1\", name = \"Predictive\" }\n" +
+      "let task: MaintenanceTask = MaintenanceTask { id = \"T1\", assetId = \"A1\", title = \"Inspect\", intervalDays = 30 }\n" +
+      "let cost: LifecycleCost = LifecycleCost { assetId = \"A1\", acquisitionCost = 1000, operatingCost = 200, maintenanceCost = 50 }\n" +
       "```\n"
     );
     const { env } = await loadEntryModule(entry);
@@ -408,7 +424,7 @@ describe("Sprint 016 entry inputs and CLI mappings", () => {
 
   it("validates computed typed records in declaration order and honors fail-fast", async () => {
     const dir = await makeDir();
-    const entry = await write(dir, "computed.amx", "```amx\ntype Pair {\n  first: Number\n  second: Number\n}\nlet pair: Pair = Pair { first: 1 / 0, second: 0 / 0 }\n```\n");
+    const entry = await write(dir, "computed.amx", "```amx\ntype Pair {\n  first: Number\n  second: Number\n}\nlet pair: Pair = Pair { first = 1 / 0, second = 0 / 0 }\n```\n");
     const aggregate = await expectAmxError(loadEntryModule(entry), "AMX4003");
     expect(aggregate.diagnostics?.map(item => item.dataPath)).toEqual(['record Pair.first', 'record Pair.second']);
     expect(aggregate.diagnostics?.every(item => item.fieldSource?.line)).toBe(true);
@@ -474,7 +490,7 @@ describe("Sprint 016 entry inputs and CLI mappings", () => {
 describe("Sprint 021 module visualization boundaries", () => {
   it("returns entry view emissions without adding view names to the binding object", async () => {
     const dir = await makeDir();
-    const entry = await write(dir, "entry.amx", `\`\`\`amx\nimport { Asset } from "./assets.amx"\nlet assets: Asset[] = [Asset { id: "A" }]\ntable register = table(assets) {\n  title: "Register"\n  column id as "Asset"\n}\nshow register\n\`\`\`\n`);
+    const entry = await write(dir, "entry.amx", `\`\`\`amx\nimport { Asset } from "./assets.amx"\nlet assets: Asset[] = [Asset { id = "A" }]\ntable register = table(assets) {\n  title: "Register"\n  column id as "Asset"\n}\nshow register\n\`\`\`\n`);
     await write(dir, "assets.amx", `\`\`\`amx\nexport type Asset {\n  id: String\n}\n\`\`\`\n`);
     const loaded = await loadEntryModule(entry);
     expect(loaded.viewEmissions).toHaveLength(1);

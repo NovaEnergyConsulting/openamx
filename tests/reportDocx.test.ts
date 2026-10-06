@@ -27,7 +27,7 @@ describe('report DOCX adapter', () => {
     const directory = await mkdtemp(join(tmpdir(), 'openamx-docx-'));
     temporaryDirectories.push(directory);
     const input = join(directory, 'report.amx');
-    const rowValues = Array.from({ length: 3 }, (_value, index) => `Row { name: "Pump ${index + 1}", score: ${index + 1} }`).join(', ');
+    const rowValues = Array.from({ length: 3 }, (_value, index) => `Row { name = "Pump ${index + 1}", score = ${index + 1} }`).join(', ');
     const source = [
       '# Report', '', 'Narrative before', '', '- First item', '- Second item', '', '```amx',
       'type Row {', '  name: String', '  score: Number', '}',

@@ -33,6 +33,18 @@ afterEach(async () => {
 });
 
 describe('Sprint 017 CLI outputs', () => {
+  it('rejects invalid untyped programs before CLI execution and output', async () => {
+    const directory = await createDirectory();
+    const entry = await write(directory, 'invalid.amx', '```amx\nlet value = "three" + 1\n```\n');
+    const output = `${directory}/result.json`;
+    const result = await runCli('run', entry, '--output', `value=${output}`);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('AMX3007');
+    expect(result.stdout).toBe('');
+    expect(await Bun.file(output).exists()).toBe(false);
+  });
+
   it('writes repeated explicit entry exports and rejects private, imported, and non-value names', async () => {
     const directory = await createDirectory();
     await write(directory, 'library.amx', '```amx\nexport let shared: Number = 9\n```\n');
@@ -93,7 +105,7 @@ describe('Sprint 017 CLI outputs', () => {
       '  created: DateTime',
       '  note: String?',
       '}',
-      'let rows: Row[] = [Row { title: "North, station", created: "2026-09-29T12:00:00Z", note: null }, Row { title: "", created: "2026-09-30T12:00:00Z", note: "" }]',
+      'let rows: Row[] = [Row { title = "North, station", created = "2026-09-29T12:00:00Z", note = null }, Row { title = "", created = "2026-09-30T12:00:00Z", note = "" }]',
       'export let rowsJson: Row[] = rows',
       'export let rowsCsv: Row[] = rows',
       '```',

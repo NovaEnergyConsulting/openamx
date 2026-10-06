@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import { formatAmx } from '../src/formatter/formatAmx';
 import { parseStatements } from '../src/parser/parseStatements';
+import { parseDocumentText } from '../src/parser/parseDocument';
+import { evaluateDocument } from '../src/runtime/evaluateDocument';
 
 describe('formatAmx', () => {
   it('normalizes line endings, edge whitespace, and final newline', () => {
@@ -55,7 +57,7 @@ describe('formatAmx', () => {
       'asset: LocalAsset',
       '}',
       'fn label(asset: LocalAsset): String = asset.name',
-      'let item: Envelope = Envelope { asset: LocalAsset { name: "pump", count: 1 + 2 } }',
+      'let item: Envelope = Envelope { asset = LocalAsset { name = "pump", count = 1 + 2 } }',
       'let selected = match 1 {',
       'case 1 => "one"',
       'default => "other"',
@@ -72,7 +74,7 @@ describe('formatAmx', () => {
       '  asset: LocalAsset',
       '}',
       'fn label(asset: LocalAsset): String = asset.name',
-      'let item: Envelope = Envelope { asset: LocalAsset { name: "pump", count: 1 + 2 } }',
+      'let item: Envelope = Envelope { asset = LocalAsset { name = "pump", count = 1 + 2 } }',
       'let selected = match 1 {',
       '  case 1 => "one"',
       '  default => "other"',
@@ -113,5 +115,45 @@ describe('formatAmx', () => {
     ].join('\n'));
     expect(formatAmx(formatted)).toBe(formatted);
     expect(() => parseStatements(formatted)).not.toThrow();
+  });
+
+  it('formats valid multiline constructors idempotently and refuses legacy constructor colons', () => {
+    const source = [
+      'let item = Outer {',
+      'inner = Inner {',
+      'name = "braces } and commas, are string data",',
+      '},',
+      'values = [1, 2],',
+      '}'
+    ].join('\n');
+    const formatted = formatAmx(source);
+    expect(formatted).toBe([
+      'let item = Outer {',
+      '  inner = Inner {',
+      '    name = "braces } and commas, are string data",',
+      '  },',
+      '  values = [1, 2],',
+      '}',
+      ''
+    ].join('\n'));
+    expect(formatAmx(formatted)).toBe(formatted);
+    expect(() => formatAmx('let item = Item { field: 1 }')).toThrow(expect.objectContaining({ code: 'AMX3006' }));
+  });
+
+  it('preserves evaluated meaning when formatting a typed multiline record', () => {
+    const source = [
+      'type Point {',
+      'x: Number',
+      'y: Number',
+      '}',
+      'let point: Point = Point {',
+      'x = (1 + 2),',
+      'y = 4,',
+      '}'
+    ].join('\n');
+    const formatted = formatAmx(source);
+    const evaluate = (text: string) => evaluateDocument(parseDocumentText(`\`\`\`amx\n${text}\n\`\`\``));
+
+    expect(evaluate(formatted)).toEqual(evaluate(source));
   });
 });

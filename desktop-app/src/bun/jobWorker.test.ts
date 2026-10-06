@@ -81,3 +81,35 @@ test("trusted worker serializes only explicitly exported compatible data binding
 		rmSync(root, { recursive: true, force: true });
 	}
 });
+
+test("trusted worker rejects an invalid untyped program before returning a run result", async () => {
+	const root = mkdtempSync(join(tmpdir(), "openamx-job-invalid-"));
+	const entryPath = join(root, "report.amx");
+	const source = "```amx\nlet value = \"three\" + 1\n```\n";
+	writeFileSync(entryPath, source);
+	const worker = new Worker(new URL("./jobWorker.ts", import.meta.url).href);
+	try {
+		const completed = new Promise<WorkerJobMessage>((resolve, reject) => {
+			worker.addEventListener("message", event => {
+				const message = event.data as WorkerJobMessage;
+				if (message.kind === "complete" || message.kind === "failed") resolve(message);
+			});
+			worker.addEventListener("error", event => reject(new Error(event.message)));
+		});
+		const request: WorkerJobRequest = {
+			kind: "start", jobId: 43, operation: "run", entryPath, entryText: source,
+			projectRoot: root, sourceOverlay: [], inputMappings: [], validation: "aggregate"
+		};
+		worker.postMessage(request);
+		const result = await Promise.race([
+			completed,
+			new Promise<never>((_, reject) => setTimeout(() => reject(new Error("worker job timed out")), 5000))
+		]);
+		expect(result.kind).toBe("failed");
+		if (result.kind !== "failed") throw new Error("Expected static-check failure.");
+		expect(result.diagnostics[0]?.code).toBe("AMX3007");
+	} finally {
+		worker.terminate();
+		rmSync(root, { recursive: true, force: true });
+	}
+});

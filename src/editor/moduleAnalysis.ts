@@ -2,7 +2,7 @@ import path from "node:path";
 import type { FunctionDeclarationNode, ImportDeclarationNode, OpenAmxDocument, StatementNode, TypeDeclarationNode } from "../ast/types";
 import { AmxError } from "../diagnostics/errors";
 import { parseDocumentText } from "../parser/parseDocument";
-import { type CheckedType, checkDocument, checkingActivated, type ModuleCheckResult } from "../typechecker/checkDocument";
+import { type CheckedType, checkDocument, type ModuleCheckResult } from "../typechecker/checkDocument";
 
 const MAX_EDITOR_MODULES = 101;
 
@@ -44,13 +44,6 @@ export type EditorModuleResolver = (
 	importNode: ImportDeclarationNode
 ) => ResolvedEditorModule;
 
-const emptyCheckResult = (): ModuleCheckResult => ({
-	exportedTypes: new Map(),
-	exportedFunctions: new Map(),
-	exportedBindings: new Map(),
-	bindingTypes: new Map()
-});
-
 function statementsOf(document: OpenAmxDocument): StatementNode[] {
 	return document.nodes.flatMap(node => node.type === "executableCodeBlock" ? node.statements : []);
 }
@@ -60,7 +53,10 @@ function moduleIssue(code: string, message: string, file: string, source?: { lin
 }
 
 function locatedError(error: unknown, file?: string): AmxError {
-	if (error instanceof AmxError) return error;
+	if (error instanceof AmxError) {
+		error.file ??= file;
+		return error;
+	}
 	const message = error instanceof Error ? error.message : String(error);
 	const location = message.match(/\bat (\d+):(\d+)/);
 	return new AmxError({ code: "AMX3001", message, file, line: location ? Number(location[1]) : undefined, column: location ? Number(location[2]) : undefined });
@@ -90,7 +86,7 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 		(statement): statement is ImportDeclarationNode => statement.type === "importDeclaration"
 	);
 	if (!entryImports.length) {
-		const checkResult = checkingActivated(entryDocument) ? checkDocument(entryDocument, entryFile) : emptyCheckResult();
+		const checkResult = checkDocument(entryDocument, entryFile);
 		return { document: entryDocument, importedTypes: new Map(), importedFunctions: new Map(), importedBindings: new Map(), ...checkResult };
 	}
 	if (entryImports.length && (!entryFile || !path.isAbsolute(entryFile))) {
@@ -151,6 +147,10 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 			try { dependencyDocument = parseDocumentText(resolved!.text); }
 			catch (error) {
 				const nested = locatedError(error, resolved!.file);
+				if (nested.code === "AMX3006") {
+					nested.file ??= resolved!.file;
+					throw nested;
+				}
 				moduleIssue("AMX5001", `Failed to parse module '${importNode.path}': ${nested.message}`, file, importNode.pathSource);
 			}
 			const dependency = visit(resolved!.file, dependencyDocument!, { file, source: importNode.pathSource });
@@ -166,11 +166,9 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 			}
 		}
 
-		let checkResult = emptyCheckResult();
-		if (imports.length || checkingActivated(document)) {
-			try { checkResult = checkDocument(document, file, { types: importedTypes, functions: importedFunctions, bindings: importedBindings }); }
-			catch (error) { visiting.pop(); throw locatedError(error, file); }
-		}
+		let checkResult: ModuleCheckResult;
+		try { checkResult = checkDocument(document, file, { types: importedTypes, functions: importedFunctions, bindings: importedBindings }); }
+		catch (error) { visiting.pop(); throw locatedError(error, file); }
 		visiting.pop();
 		const record = { file, document, checkResult, importedTypes, importedFunctions, importedBindings, importTargets };
 		records.set(file, record);

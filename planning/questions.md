@@ -1,5 +1,11 @@
 # Planning Questions (Sprint 002)
 
+## V0.9 Sprint 052 Lead Developer Disposition (2026-10-06)
+
+- **Resolved by explicit Lead Developer disposition (2026-10-06): ACCEPTED WITH RECORDED RESIDUALS.** Accept Sprint 052 with the Builder evidence and the Windows VS Code Development Host residual below. This disposition does not claim the host suite passed or accept downstream V0.9 work.
+- The extension script compiles the extension and host tests successfully, but its Windows Development Host run reports 14 passing tests and five failures: four `EBUSY` temp-directory cleanup errors and one path-case assertion. Keep those failures visible in `builder-evidence.md`.
+- No ambiguity in the approved language contract was found. Any future behavior or scope change still requires a new Lead Developer decision.
+
 ## V0.9 Sprint 052 Preparation (2026-10-06)
 
 - **Resolved by Sprint 051 approval:** Sprint 052 may begin; the contract gate is CLOSED / APPROVED. Strict checking, valid unannotated inference, constructor `=`/colon rejection, multiline nesting, diagnostics, and compatibility boundaries are specified by the approved language contract and Sprint 051 blueprint.

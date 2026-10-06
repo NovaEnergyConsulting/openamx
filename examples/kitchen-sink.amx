@@ -350,15 +350,15 @@ type ExampleRecord {
   owner?: String = "Operations"
   reviewedAt?: DateTime? = null
   tags: String[] = ["demo"]
-  location: Location = Location { site: "Workshop", active: true }
+  location: Location = Location { site = "Workshop", active = true }
 }
 
 type EmptyRecord {
 }
 
-let minimalRecord: ExampleRecord = ExampleRecord { id: "A-01" }
-let completeRecord: ExampleRecord = ExampleRecord { location: Location { site: "North", active: false }, tags: [], reviewedAt: "2026-10-03T09:30:00.123456789+02:00", owner: "Reliability", note: "", enabled: false, quantity: 2, id: "A-02" }
-let explicitNullRecord: ExampleRecord = ExampleRecord { id: "A-03", note: null, reviewedAt: null }
+let minimalRecord: ExampleRecord = ExampleRecord { id = "A-01" }
+let completeRecord: ExampleRecord = ExampleRecord { location = Location { site = "North", active = false }, tags = [], reviewedAt = "2026-10-03T09:30:00.123456789+02:00", owner = "Reliability", note = "", enabled = false, quantity = 2, id = "A-02" }
+let explicitNullRecord: ExampleRecord = ExampleRecord { id = "A-03", note = null, reviewedAt = null }
 let emptyRecord: EmptyRecord = EmptyRecord {}
 let recordId: String = minimalRecord.id
 let nestedSite: String = completeRecord.location.site
@@ -405,8 +405,8 @@ fn describeSwitch(enabled: Boolean): String = match enabled {
   default => "Disabled"
 }
 fn makeLocation(code: Number): Location = match code {
-  case 1 => Location { site: "North" }
-  default => Location { site: "South" }
+  case 1 => Location { site = "North" }
+  default => Location { site = "South" }
 }
 
 let functionScore: Number = roundedRisk(8, 3)
@@ -432,12 +432,12 @@ primitives. They validate shape, not severity scales, identifier policies,
 engineering formulas, or cross-record relationships.
 
 ```amx
-let failureMode: FailureMode = FailureMode { id: "FM-01", name: "Bearing wear", description: "Synthetic observation", severity: 8, occurrence: 3, detectability: 2 }
-let risk: Risk = Risk { id: "R-01", failureMode: failureMode, likelihood: 3, consequence: 8, score: riskProduct(8, 3) }
-let strategy: Strategy = Strategy { id: "S-01", name: "Condition monitoring", targetRiskIds: ["R-01"] }
-let asset: Asset = Asset { id: "A-01", name: "Workshop pump", assetClass: "Pump", criticality: 4, failureModes: [failureMode] }
-let task: MaintenanceTask = MaintenanceTask { id: "T-01", assetId: asset.id, strategyId: strategy.id, title: "Inspect bearing", intervalDays: 30, estimatedCost: 150 }
-let lifecycleCost: LifecycleCost = LifecycleCost { assetId: asset.id, acquisitionCost: 12000, operatingCost: 3000, maintenanceCost: 1500, disposalCost: null }
+let failureMode: FailureMode = FailureMode { id = "FM-01", name = "Bearing wear", description = "Synthetic observation", severity = 8, occurrence = 3, detectability = 2 }
+let risk: Risk = Risk { id = "R-01", failureMode = failureMode, likelihood = 3, consequence = 8, score = riskProduct(8, 3) }
+let strategy: Strategy = Strategy { id = "S-01", name = "Condition monitoring", targetRiskIds = ["R-01"] }
+let asset: Asset = Asset { id = "A-01", name = "Workshop pump", assetClass = "Pump", criticality = 4, failureModes = [failureMode] }
+let task: MaintenanceTask = MaintenanceTask { id = "T-01", assetId = asset.id, strategyId = strategy.id, title = "Inspect bearing", intervalDays = 30, estimatedCost = 150 }
+let lifecycleCost: LifecycleCost = LifecycleCost { assetId = asset.id, acquisitionCost = 12000, operatingCost = 3000, maintenanceCost = 1500, disposalCost = null }
 let knownLifecycleTotal: Number = lifecycleCost.acquisitionCost + lifecycleCost.operatingCost + lifecycleCost.maintenanceCost
 ```
 
@@ -464,7 +464,7 @@ export type Sample {
 }
 
 export let samples: Sample[] = for step in [1 to 30] {
-  return Sample { label: if step % 2 == 0 then "Even" else "Odd", step: step, measuredAt: "2026-10-03T07:30:00Z", score: step * 2, benchmark: if step % 5 == 0 then nullableNumber else step * 1.5, available: step % 2 == 0, note: if step % 3 == 0 then optionalNote else "", groupName: if step <= 15 then "First half" else "Second half" }
+  return Sample { label = if step % 2 == 0 then "Even" else "Odd", step = step, measuredAt = "2026-10-03T07:30:00Z", score = step * 2, benchmark = if step % 5 == 0 then nullableNumber else step * 1.5, available = step % 2 == 0, note = if step % 3 == 0 then optionalNote else "", groupName = if step <= 15 then "First half" else "Second half" }
 }
 
 type Summary {
@@ -477,7 +477,7 @@ type Summary {
 let sampleScores: Number[] = for sample in samples {
   return sample.score
 }
-export let summary: Summary = Summary { assetId: asset.id, decision: functionDecision, total: sum(sampleScores), generatedAt: instant }
+export let summary: Summary = Summary { assetId = asset.id, decision = functionDecision, total = sum(sampleScores), generatedAt = instant }
 export let exportedNested: ExampleRecord = completeRecord
 export let exportedNull: Number? = null
 ```
@@ -511,7 +511,7 @@ table sampleTable = table(samples) {
 }
 show sampleTable
 
-let snapshotRows: Sample[] = [Sample { label: "Original", step: 1, measuredAt: instant, score: 2, benchmark: null, available: true, groupName: "Demo" }]
+let snapshotRows: Sample[] = [Sample { label = "Original", step = 1, measuredAt = instant, score = 2, benchmark = null, available = true, groupName = "Demo" }]
 table snapshotTable = table(snapshotRows) {
   title: "One view, two snapshots"
   column label as "State at show"
@@ -525,7 +525,7 @@ the final state, **{{ finalSnapshotLabel }}**, because all fences run before
 narrative interpolation. The following fence reuses the earlier view declaration:
 
 ```amx
-snapshotRows = [Sample { label: "Updated", step: 1, measuredAt: instant, score: 20, benchmark: null, available: true, groupName: "Demo" }]
+snapshotRows = [Sample { label = "Updated", step = 1, measuredAt = instant, score = 20, benchmark = null, available = true, groupName = "Demo" }]
 let finalSnapshotLabel: String = "Updated"
 show snapshotTable
 ```
@@ -829,8 +829,8 @@ let semicolon = 1; let second = 2
 let badNull: Number = null
 let badRange = [1.5 to 3]
 let badDate: DateTime = "2026-02-30T12:00:00Z"
-let badConstructor = ExampleRecord { id: "A", extra: true }
-let duplicateField = ExampleRecord { id: "A", id: "B" }
+let badConstructor = ExampleRecord { id = "A", extra = true }
+let duplicateField = ExampleRecord { id = "A", id = "B" }
 let missingField = ExampleRecord {}
 let badField = minimalRecord.unknown
 let badEquality = values == values

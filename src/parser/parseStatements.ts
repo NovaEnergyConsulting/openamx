@@ -1,6 +1,7 @@
 import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, InputDeclarationNode, SourceLocation, StatementNode, TableDeclarationNode, TypeReferenceNode, VariableDeclarationNode, VisualizationOptionNode } from '../ast/types';
 import { parseExpression } from './parseExpression';
 import { parseForStatement } from './parseFor';
+import { AmxError } from '../diagnostics/errors';
 
 interface ParseContext {
   allowReturn?: boolean;
@@ -155,8 +156,9 @@ export function parseStatements(
       let expression;
       try {
         expression = parseExpression(expressionText.text, containsForExpression(expressionText.text) && !containsMatchExpression(expressionText.text)
-          ? source : { line: source.line, column: rawLine.indexOf(letMatch[3]) + 1 });
+          ? source : { line: source.line, column: rawLine.lastIndexOf(letMatch[3]) + 1 });
       } catch (error) {
+        if (error instanceof AmxError) throw error;
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(`Invalid declaration at ${source.line}:${source.column}: ${message}`);
       }
@@ -184,10 +186,11 @@ export function parseStatements(
           type: compoundMatch ? 'compoundAssignmentStatement' : 'assignmentStatement',
           name: assignment[1],
           ...(compoundMatch ? { operator: '+=' as const } : {}),
-          expression: parseExpression(expressionText.text, { line: source.line, column: rawLine.indexOf(assignment[2]) + 1 }),
+          expression: parseExpression(expressionText.text, { line: source.line, column: rawLine.lastIndexOf(assignment[2]) + 1 }),
           source
         } as StatementNode);
       } catch (error) {
+        if (error instanceof AmxError) throw error;
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(`Invalid assignment at ${source.line}:${source.column}: ${message}`);
       }
@@ -433,10 +436,12 @@ function collectExpressionLoop(
   expression: string,
   start: SourceLocation
 ): { text: string; lineCount: number } {
-  if (!containsForExpression(expression) && !containsMatchExpression(expression)) return { text: expression, lineCount: 1 };
+  if (!containsForExpression(expression) && !containsMatchExpression(expression)) {
+    return collectDelimitedExpression(lines, lineIndex, expression);
+  }
   if (containsMatchExpression(expression) && !containsForExpression(expression)) {
     const end = findLoopEnd(lines, lineIndex, { line: start.line + lineIndex, column: start.column });
-    const expressionOffset = lines[lineIndex].indexOf(expression);
+    const expressionOffset = lines[lineIndex].lastIndexOf(expression);
     return {
       text: [lines[lineIndex].slice(expressionOffset), ...lines.slice(lineIndex + 1, end + 1)].join('\n'),
       lineCount: end - lineIndex + 1
@@ -446,11 +451,56 @@ function collectExpressionLoop(
     line: start.line + lineIndex,
     column: start.column
   });
-  const expressionOffset = lines[lineIndex].indexOf(expression);
+  const expressionOffset = lines[lineIndex].lastIndexOf(expression);
   return {
     text: [lines[lineIndex].slice(expressionOffset), ...lines.slice(lineIndex + 1, loopEnd + 1)].join('\n'),
     lineCount: loopEnd - lineIndex + 1
   };
+}
+
+function collectDelimitedExpression(
+  lines: string[],
+  lineIndex: number,
+  expression: string
+): { text: string; lineCount: number } {
+  const expressionOffset = lines[lineIndex].lastIndexOf(expression);
+  const parts = [lines[lineIndex].slice(expressionOffset)];
+  const delimiters: string[] = [];
+  const scan = (text: string) => {
+    let quote: string | undefined;
+    let escaped = false;
+    for (const character of text) {
+      if (quote) {
+        if (escaped) escaped = false;
+        else if (character === '\\') escaped = true;
+        else if (character === quote) quote = undefined;
+        continue;
+      }
+      if (character === '"' || character === "'") quote = character;
+      else if (character === '(' || character === '[' || character === '{') delimiters.push(character);
+      else if (character === ')' || character === ']' || character === '}') {
+        const expected = character === ')' ? '(' : character === ']' ? '[' : '{';
+        if (delimiters[delimiters.length - 1] === expected) delimiters.pop();
+      }
+    }
+  };
+  scan(parts[0]);
+  let lineCount = 1;
+  const statementIndent = lines[lineIndex].length - lines[lineIndex].trimStart().length;
+  while (delimiters.length > 0 && lineIndex + lineCount < lines.length) {
+    const nextLine = lines[lineIndex + lineCount];
+    if (nextLine.trim()) {
+      const indentation = nextLine.length - nextLine.trimStart().length;
+      const previous = parts[parts.length - 1].trimEnd();
+      const startsStatement = /^(?:export\s+)?(?:let|type|fn|import|input|table|chart|show|for|return)\b/.test(nextLine.trimStart())
+        || /^[A-Za-z][A-Za-z0-9_]*\s*(?:\+=|=(?!=))/.test(nextLine.trimStart());
+      if (indentation <= statementIndent && startsStatement && !/[,([{+\-*/%^=]$/.test(previous)) break;
+    }
+    parts.push(nextLine);
+    scan(nextLine);
+    lineCount++;
+  }
+  return { text: parts.join('\n'), lineCount };
 }
 
 function containsForExpression(text: string): boolean {
@@ -462,4 +512,3 @@ function containsMatchExpression(text: string): boolean {
   const withoutStrings = text.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, '');
   return /\bmatch\s+/.test(withoutStrings);
 }
-

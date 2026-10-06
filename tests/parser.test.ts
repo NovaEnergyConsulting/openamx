@@ -101,7 +101,7 @@ body
 
 describe("parseStatements", () => {
   it("parses source-located types, annotations, constructors, access and null only inside amx fences", () => {
-    const doc = parseDocumentText('type Hidden { id: String }\n~~~amx\ntype AlsoHidden {\n  id: String\n}\n~~~\n```amx\ntype Asset {\n  id: String\n  tags?: String[] = []\n  note?: String?\n}\nlet asset: Asset = Asset { id: "A" }\nlet label: String? = asset.note\nlet empty: String? = null\n```');
+    const doc = parseDocumentText('type Hidden { id: String }\n~~~amx\ntype AlsoHidden {\n  id: String\n}\n~~~\n```amx\ntype Asset {\n  id: String\n  tags?: String[] = []\n  note?: String?\n}\nlet asset: Asset = Asset { id = "A" }\nlet label: String? = asset.note\nlet empty: String? = null\n```');
     const blocks = doc.nodes.filter(node => node.type === 'executableCodeBlock');
     expect(blocks).toHaveLength(1);
     const statements = (blocks[0] as ExecutableCodeBlockNode).statements;
@@ -154,6 +154,80 @@ describe("parseStatements", () => {
     const [loop] = parseStatements("for item in [1] {\n  total += item\n}", { line: 10, column: 1 });
     expect(loop.source).toEqual({ line: 10, column: 1 });
     expect((loop as any).body[0].source).toEqual({ line: 11, column: 3 });
+  });
+
+  it("parses nested multiline records, lists and parenthesized expressions with trailing commas", () => {
+    const [declaration] = parseStatements([
+      'let value = Outer {',
+      '  inner = Inner {',
+      '    text = "}{, := delimiters",',
+      '    amount = (1 + (4)),',
+      '  },',
+      '  tags = [',
+      '    "left,}",',
+      '    "right{:"',
+      '  ],',
+      '}',
+      'let following = 7'
+    ].join('\n'), { line: 3, column: 1 });
+
+    expect(declaration).toMatchObject({
+      type: 'variableDeclaration',
+      source: { line: 3, column: 1 },
+      expression: {
+        type: 'recordConstructor',
+        name: 'Outer',
+        fields: [
+          {
+            name: 'inner',
+            expression: {
+              type: 'recordConstructor',
+              name: 'Inner',
+              fields: [{ name: 'text' }, { name: 'amount', expression: { type: 'binaryExpression' } }]
+            }
+          },
+          { name: 'tags', expression: { type: 'listLiteral', elements: [{ value: 'left,}' }, { value: 'right{:' }] } }
+        ]
+      }
+    });
+    expect(parseStatements('let value = Outer {\n  field = 1,\n}\nlet next = 2')).toHaveLength(2);
+
+    const lf = 'let value = Outer {\n  field = Inner { amount = 2, },\n}';
+    const crlf = lf.replace(/\n/g, '\r\n');
+    expect(parseStatements(crlf)).toEqual(parseStatements(lf));
+  });
+
+  it("rejects constructor colons and missing separators as AMX3006 while preserving annotation colons", () => {
+    for (const source of ['let value = Item { field: 1 }', 'let value = Item { first = 1\nsecond = 2 }']) {
+      expect(() => parseStatements(source)).toThrow(expect.objectContaining({ code: 'AMX3006' }));
+    }
+    expect(() => parseStatements('type Item {\n field: Number\n}\nlet value: Item = Item { field = 1 }')).not.toThrow();
+  });
+
+  it("reports equivalent multiline constructor source locations for LF and CRLF", () => {
+    const sources = ['let value = Item {\n  field: 1\n}', 'let value = Item {\r\n  field: 1\r\n}'];
+    for (const source of sources) {
+      try {
+        parseStatements(source, { line: 8, column: 1 });
+        throw new Error('Expected constructor-colon syntax error');
+      } catch (error) {
+        expect(error).toMatchObject({ code: 'AMX3006', line: 9, column: 8 });
+      }
+    }
+  });
+
+  it("reports equivalent locations for incomplete multiline constructors", () => {
+    const sources = ['let value = Item {\n  field = 1', 'let value = Item {\r\n  field = 1'];
+    const locations = sources.map(source => {
+      try {
+        parseStatements(source, { line: 8, column: 1 });
+        throw new Error('Expected incomplete record syntax error');
+      } catch (error) {
+        expect(error).toMatchObject({ code: 'AMX3006' });
+        return { line: (error as { line: number }).line, column: (error as { column: number }).column };
+      }
+    });
+    expect(locations[0]).toEqual(locations[1]);
   });
 
   it("requires returns only in expression loops and rejects nested/control-flow forms", () => {
@@ -265,7 +339,7 @@ describe("match expression parsing", () => {
   });
   it("parses record constructors directly in match arms with source locations", () => {
       const match = parseExpression(
-        'match 1 {\ncase 1 => Asset { id: "A" }\ndefault => Asset { id: "B" }\n}',
+        'match 1 {\ncase 1 => Asset { id = "A" }\ndefault => Asset { id = "B" }\n}',
         { line: 20, column: 4 }
       ) as MatchExpressionNode;
       expect(match.cases[0].expression).toMatchObject({
@@ -531,4 +605,3 @@ Narrative {{ outside }} and {{ inside }}.
     expect((doc.nodes[2] as NarrativeNode).content).toBe("After\r\n");
   });
 });
-

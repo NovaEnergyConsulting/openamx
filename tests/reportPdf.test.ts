@@ -49,7 +49,7 @@ describe('report PDF adapter', () => {
     const directory = await mkdtemp(join(tmpdir(), 'openamx-report-'));
     temporaryDirectories.push(directory);
     const input = join(directory, 'report.amx');
-    const rowValues = Array.from({ length: 55 }, (_value, index) => `Row { name: "Pump ${index + 1}", score: ${index + 1} }`).join(', ');
+    const rowValues = Array.from({ length: 55 }, (_value, index) => `Row { name = "Pump ${index + 1}", score = ${index + 1} }`).join(', ');
     await Bun.write(input, `# Emissions\n\n\`\`\`amx\ntype Row {\n  name: String\n  score: Number\n}\nlet rows: Row[] = [${rowValues}]\nlet scores: Number[] = [4, 7]\ntable register = table(rows) {\n  title: "Risk Register"\n  column name as "Asset"\n  column score as "Score"\n}\nchart exposure = bar(scores) {\n  title: "Exposure"\n  description: "Static scores"\n  series "Score"\n}\nshow register\nshow exposure\n\`\`\``);
     const loaded = await loadEntryModule(input);
     const bytes = await serializePdfReport(preparePdfReport(await prepareReport(loaded.doc, loaded.env, { file: input })));

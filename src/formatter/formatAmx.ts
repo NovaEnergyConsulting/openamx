@@ -18,8 +18,8 @@ export function formatAmx(source: string): string {
 
     const content = line.trimStart();
     const braces = scanBraces(content);
-    depth = Math.max(0, depth - braces.leadingClosures);
-    const result = `${'  '.repeat(depth)}${content}`;
+    const lineDepth = Math.max(0, depth - braces.leadingClosures);
+    const result = `${'  '.repeat(lineDepth)}${content}`;
     depth = Math.max(0, depth + braces.opens - braces.closes);
     return result;
   });
