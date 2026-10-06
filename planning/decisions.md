@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.9 Sprint 053 Architect Preparation (2026-10-06)
+
+- Proceed with Sprint 053 on the basis of Sprint 052's **ACCEPTED WITH RECORDED RESIDUALS** disposition. Preserve the five Windows VS Code Development Host failures as unpassed; do not treat them as blockers absent a demonstrated Sprint 053 regression.
+- Implement only the approved string contract: both quote styles decode the finite escape set; interpolation is full AMX `${...}` in double quotes only; unknown/incomplete syntax fails; source remains single-line; collections are not implicitly stringified.
+- Keep narrative interpolation separate and unchanged. Coordinate measurement-to-string display assertions with Sprint 056; do not implement measurement values in Sprint 053.
+- Limit integration to directly affected parser/checker/evaluator/formatter/editor behavior. Sprint 058 owns broad editor parity and user-facing docs/help.
+
 ## V0.9 Sprint 052 Builder Decisions (2026-10-06)
 
 - Enforce checking at the shared document/module boundaries rather than introducing a new CLI/UI mode. Keep `checkingActivated` only as an always-true compatibility helper; the sole remaining gated caller is the non-product Sprint 035 feasibility spike.

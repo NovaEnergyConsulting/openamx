@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.9 Sprint 053 Architect Preparation (2026-10-06)
+
+- Prepared the four Sprint 053 artifacts in `planning/sprints/0053-v09-string-escapes-expression-interpolation/` for approved string escape decoding and double-quoted AMX expression interpolation.
+- Sprint 052 is ACCEPTED WITH RECORDED RESIDUALS. Its unconditional-checking/record implementation is the dependency baseline; five Windows VS Code Development Host failures remain explicitly unpassed and do not block Sprint 053.
+- Sprint 053 owns string syntax, evaluation, diagnostics/source mapping, formatter/direct editor integration, and focused migration/tests. Measurement-to-string coverage is coordinated with Sprint 056; list and unit work remain out of scope.
+- Sprint 053 has not been implemented or tested by this preparation. Builder evidence and a separate Lead Developer disposition remain pending.
+
 ## V0.9 Sprint 052 Builder Evidence (2026-10-06)
 
 - Implemented unconditional static checking for direct evaluation, file-backed module graphs, shared editor analysis/completion, CLI paths routed through the module loader, and desktop worker/service paths. The only remaining `checkingActivated`-gated caller is a non-product Sprint 035 feasibility spike; the helper itself always returns `true`.
