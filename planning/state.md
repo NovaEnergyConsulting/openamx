@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.10 Sprint 061 Architect Preparation (2026-10-07)
+
+- Prepared the four Sprint 061 artifacts in `planning/sprints/0061-v10-shared-chart-model-openamx-theme/` for the approved shared ECharts chart model and OpenAMX theme implementation.
+- Sprint 060 is **COMPLETE / APPROVED WITH RECORDED RESIDUALS** by separate Lead Developer disposition and explicitly authorizes Sprint 061. Sprint 061 uses exact ECharts `6.1.0` and the shared root dependency placement as its implementation baseline.
+- Sprint 061 owns the pure emission-to-options/model adapter, theme defaults, truthful accessibility/empty-state metadata, dependency addition, and focused model tests only. HTML/PDF/desktop integration remains in Sprints 062/063; production iframe scripts remain disabled while the Sprint 060 navigation escape is unresolved.
+- Named Sprint 060 security, actual Electrobun packaging, generated ARIA, SVG ID stability, visual tolerance, size/performance, input-method, and render-failure residuals remain unpassed. This preparation claims no implementation or test results.
+
 ## V0.10 Sprint 060 Lead Developer Disposition (2026-10-07)
 
 - **COMPLETE / APPROVED WITH RECORDED RESIDUALS.** The Lead Developer approved the Sprint 060 contract and architecture proposals and authorized Sprint 061.

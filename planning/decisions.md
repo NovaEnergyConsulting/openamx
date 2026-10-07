@@ -1,5 +1,14 @@
 # Planning Decisions
 
+## V0.10 Sprint 061 Architect Preparation (2026-10-07)
+
+- Sprint 060 is **COMPLETE / APPROVED WITH RECORDED RESIDUALS**; Sprint 061 is explicitly authorized. Implement the approved ECharts `6.1.0` exact root dependency baseline and shared model contract; no duplicate desktop-only dependency.
+- The adapter consumes immutable captured `ChartViewEmission` data downstream of existing evaluation/normalization. Preserve source order, duplicates, null semantics, measurement unit/dimension metadata, complete table data, and report snapshot behavior. Do not change AMX/runtime semantics.
+- Apply Sprint 060's approved chart behavior: horizontal first-row-top bars, vertical columns, source-order numeric/DateTime lines with UTC ISO presentation and null gaps, distinct named axes for independently normalized units, and first-seen scatter groups with null-coordinate points omitted only from plot data.
+- Establish a deterministic theme using the existing renderer palette and restrained resolved report accent. Keep the complete data table independent of ECharts interaction state and provide truthful accessibility metadata rather than library-generated null/DateTime ARIA.
+- Keep production HTML/PDF/desktop integration in Sprints 062/063. The Sprint 060 external-link/meta-refresh navigation finding is still failed; do not enable iframe scripts or treat CSP/opaque-origin evidence as a fix.
+- Actual Electrobun packaging, SVG generated-ID byte stability, cross-surface visual tolerance, greater-than-5,000-point envelope, pointer/keyboard/touch interaction, and public chart failure diagnostics remain evidence residuals. Sprint 061 does not claim or silently close them.
+
 ## V0.10 Sprint 060 Lead Developer Disposition (2026-10-07)
 
 - **COMPLETE / APPROVED WITH RECORDED RESIDUALS.** The Lead Developer approved all contract and architecture proposals in the Sprint 060 blueprint and authorized Sprint 061. The exact ECharts `6.1.0` candidate and proposed shared root dependency placement are approved as the implementation baseline; this does not claim that application integration or packaged-resource verification has occurred.

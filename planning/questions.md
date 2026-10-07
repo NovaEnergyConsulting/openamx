@@ -1,5 +1,13 @@
 # Planning Questions (Sprint 002)
 
+## V0.10 Sprint 061 Preparation (2026-10-07)
+
+- **Resolved by Lead Developer disposition (2026-10-07):** Sprint 060 is COMPLETE / APPROVED WITH RECORDED RESIDUALS and Sprint 061 is explicitly authorized. Use ECharts `6.1.0` at the proposed shared root dependency placement. The approval is not evidence of production integration, packaged desktop resolution, legal clearance, or final V0.10 acceptance.
+- Sprint 060's approved contract resolves chart-kind orientation/order, numeric/DateTime/measurement behavior, unit axes, null/empty/group semantics, interactions, palette/accent direction, dimensions, and accessibility requirements. Implement those decisions; do not reopen semantics absent a concrete contradiction.
+- Keep the Sprint 060 external-link/meta-refresh network-navigation failure open for the later script-enabled preview integration gate. Production iframe scripts remain disabled; CSP plus opaque origin alone did not prevent navigation.
+- Preserve the other named residuals: actual Electrobun package/resource resolution unavailable; inaccurate default ECharts ARIA for null/DateTime; generated SVG IDs vary; cross-surface tolerance and >5,000-point end-to-end behavior unmeasured; pointer/keyboard/touch and public render-failure injection unavailable. Record any direct Sprint 061 evidence separately without retroactively promoting earlier statuses.
+- If code reveals the captured `ChartViewEmission` or measurement representation cannot satisfy an approved rule without changing runtime semantics or scope, record a minimal repro and request Lead Developer direction. Otherwise proceed with a typed, pure model and deterministic theme.
+
 ## V0.10 Sprint 060 Gate Disposition and Residuals (2026-10-07)
 
 - **Resolved by Lead Developer disposition (2026-10-07):** all Sprint 060 contract and architecture proposals are approved; Sprint 060 is COMPLETE / APPROVED WITH RECORDED RESIDUALS; Sprint 061 is explicitly authorized but has not started.
