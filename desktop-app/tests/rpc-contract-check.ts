@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -184,6 +184,72 @@ assert.equal(rejectedCreation.ok, false);
 assert.equal(existsSync(join(nonEmptyProjectDirectory, ".openamx", "project.json")), false);
 assert.equal(readFileSync(join(nonEmptyProjectDirectory, "existing.txt"), "utf8"), "preserve");
 console.log("Sprint 038 project creation assertions passed");
+
+const formattingRoot = mkdtempSync(join(tmpdir(), "openamx-formatting-"));
+try {
+	const formattingEntry = join(formattingRoot, "report.amx");
+	const savedSource = "# Saved\n\n```amx\nlet total = 1\n```\n";
+	const unsavedSource = "---\ntitle: Formatting\n---\n\n# Unsaved  \n\n```amx\n  let total = 42  \n```\n\n```text\n  illustrative  \n```\n\n```amx\ntype Box {\nvalue: Number\n}\n```";
+	const expectedSource = unsavedSource.replace("  let total = 42  \n", "let total = 42\n").replace("value: Number\n", "  value: Number\n");
+	writeFileSync(formattingEntry, savedSource);
+	const formattingService = createDesktopService();
+	assert.equal((await formattingService.request.openProject({ path: formattingRoot })).ok, true);
+	assert.equal((await formattingService.request.openDocument({ path: formattingEntry })).ok, true);
+	assert.deepEqual(await formattingService.request.setAutosave({ enabled: false, delayMs: 500 }), { ok: true, enabled: false, delayMs: 500 });
+	const unsavedDocument = structuredClone(await formattingService.request.updateBuffer({ text: unsavedSource }));
+	if (!unsavedDocument.ok) throw new Error(unsavedDocument.error.message);
+	assert.equal(unsavedDocument.document.dirty, true);
+	const formattedBuffer = await formattingService.request.formatBuffer();
+	if (!formattedBuffer.ok) throw new Error(formattedBuffer.error.message);
+	assert.equal(formattedBuffer.text, expectedSource);
+	assert.deepEqual(await formattingService.request.readDocument(), unsavedDocument);
+	assert.equal(readFileSync(formattingEntry, "utf8"), savedSource);
+	const appliedFormatting = structuredClone(await formattingService.request.updateBuffer({ text: formattedBuffer.text }));
+	if (!appliedFormatting.ok) throw new Error(appliedFormatting.error.message);
+	assert.equal(appliedFormatting.document.text, expectedSource);
+	assert.equal(appliedFormatting.document.revision, unsavedDocument.document.revision + 1);
+	assert.deepEqual(await formattingService.request.formatBuffer(), formattedBuffer);
+	assert.deepEqual(await formattingService.request.readDocument(), appliedFormatting);
+	assert.equal((await formattingService.request.saveDocument()).ok, true);
+	assert.equal(readFileSync(formattingEntry, "utf8"), expectedSource);
+
+	const crlfSource = "---\r\ntitle: CRLF\r\n---\r\n# Report\r\n```amx\r\n  let total = 42  \r\n```\r\n";
+	assert.equal((await formattingService.request.updateBuffer({ text: crlfSource })).ok, true);
+	assert.deepEqual(await formattingService.request.formatBuffer(), { ok: true, text: crlfSource.replace("  let total = 42  \r\n", "let total = 42\r\n") });
+	const narrativeSource = "# Narrative only  \n\n~~~amx\n  illustrative  \n~~~";
+	assert.equal((await formattingService.request.updateBuffer({ text: narrativeSource })).ok, true);
+	assert.deepEqual(await formattingService.request.formatBuffer(), { ok: true, text: narrativeSource });
+
+	for (const [invalidSource, expectedError] of [
+		["# Report\n```amx\n  let total = 42  \n```\n```amx\ninvalid syntax\n```\n", "Unsupported statement at 6:1"],
+		["# Report\n```amx\nlet total = 42\n", "Unclosed amx fence at 2:1"],
+		["---\ntitle: [\n---\n", "Malformed front matter"],
+		["---\ntitle: missing delimiter\n", "Malformed front matter"]
+	]) {
+		const beforeFailure = structuredClone(await formattingService.request.updateBuffer({ text: invalidSource }));
+		assert.equal(beforeFailure.ok, true);
+		const failure = await formattingService.request.formatBuffer();
+		assert.equal(failure.ok, false);
+		if (failure.ok) throw new Error("Invalid document must not be formatted.");
+		assert.ok(failure.error.message.includes(expectedError), failure.error.message);
+		assert.deepEqual(await formattingService.request.readDocument(), beforeFailure);
+		assert.equal(readFileSync(formattingEntry, "utf8"), expectedSource);
+	}
+
+	const dataPath = join(formattingRoot, "data.json");
+	writeFileSync(dataPath, "{}");
+	assert.equal((await formattingService.request.openDocument({ path: dataPath })).ok, true);
+	const beforeDataFormatting = structuredClone(await formattingService.request.readDocument());
+	const dataFormatting = await formattingService.request.formatBuffer();
+	assert.equal(dataFormatting.ok, false);
+	if (dataFormatting.ok) throw new Error("Non-AMX document must not be formatted.");
+	assert.equal(dataFormatting.error.code, "DESKTOP_FILE_KIND");
+	assert.deepEqual(await formattingService.request.readDocument(), beforeDataFormatting);
+	assert.equal(readFileSync(dataPath, "utf8"), "{}");
+	console.log("Document-aware desktop formatting contract passed");
+} finally {
+	rmSync(formattingRoot, { recursive: true, force: true });
+}
 
 const autosaveRoot = mkdtempSync(join(tmpdir(), "openamx-autosave-"));
 const autosaveEntry = join(autosaveRoot, "invalid.amx");

@@ -1,8 +1,73 @@
 import { describe, expect, it } from 'bun:test';
-import { formatAmx } from '../src/formatter/formatAmx';
+import { readFileSync } from 'node:fs';
+import { formatAmx, formatAmxDocument } from '../src/formatter/formatAmx';
 import { parseStatements } from '../src/parser/parseStatements';
 import { parseDocumentText } from '../src/parser/parseDocument';
 import { evaluateDocument } from '../src/runtime/evaluateDocument';
+
+describe('formatAmxDocument', () => {
+  it('formats the hello-world document without treating front matter as statements', () => {
+    const source = readFileSync(new URL('../examples/hello-world.amx', import.meta.url), 'utf8');
+    expect(formatAmxDocument(source)).toBe(source);
+  });
+
+  it('preserves surrounding text while formatting multiple blocks idempotently', () => {
+    const prefix = '---\ntitle: "Formatting"\n---\n\n# Report  \n\n';
+    const middle = '```\n\nNarrative {{ total }}.  \n\n```text\n  not executable  \n```\n\n   ```` amx  \n';
+    const suffix = '  `````  \n\nFinal narrative without a newline';
+    const first = '  let total = 1  \n';
+    const second = 'type Box {\nvalue: Number\n}\n';
+    const source = prefix + '```amx\n' + first + middle + second + suffix;
+    const expected = prefix + '```amx\nlet total = 1\n' + middle + 'type Box {\n  value: Number\n}\n' + suffix;
+
+    const formatted = formatAmxDocument(source);
+    expect(formatted).toBe(expected);
+    expect(formatAmxDocument(formatted)).toBe(formatted);
+    expect(evaluateDocument(parseDocumentText(formatted))).toEqual(evaluateDocument(parseDocumentText(source)));
+  });
+
+  it('preserves CRLF in front matter, narrative, fences, and executable content', () => {
+    const source = '---\r\ntitle: CRLF\r\n---\r\n# Report\r\n```amx\r\ntype Box {\r\nvalue: Number  \r\n}\r\n```\r\n';
+    const expected = source.replace('value: Number  \r\n', '  value: Number\r\n');
+    expect(formatAmxDocument(source)).toBe(expected);
+    expect(formatAmxDocument(expected)).toBe(expected);
+  });
+
+  it('uses each executable block\'s own line endings', () => {
+    const source = '# Mixed\r\n```amx\n  let first = 1  \n```\r\n```amx\r\n  let second = 2  \r\n```';
+    expect(formatAmxDocument(source)).toBe('# Mixed\r\n```amx\nlet first = 1\n```\r\n```amx\r\nlet second = 2\r\n```');
+  });
+
+  it('leaves illustrative fences and documents without executable blocks unchanged', () => {
+    const sources = [
+      '',
+      '  \r\n# Markdown  \r\n',
+      '~~~amx\n  invalid syntax  \n~~~\n',
+      '```AMX\n  invalid syntax  \n```\n',
+      '```amx extra\n  invalid syntax  \n```\n',
+      '````text\n```amx\ninvalid syntax\n```\n````\n',
+      '~~~text\n```amx\ninvalid syntax\n```\n~~~\n',
+      '    ```amx\n  illustrative text  \n    ```\n'
+    ];
+    for (const source of sources) expect(formatAmxDocument(source)).toBe(source);
+  });
+
+  it('handles empty executable blocks without changing fences or final newline state', () => {
+    expect(formatAmxDocument('```amx\n```')).toBe('```amx\n```');
+    expect(formatAmxDocument('```amx\r\n \r\n\r\n```\r\n')).toBe('```amx\r\n```\r\n');
+  });
+
+  it('rejects invalid later blocks with document-relative error locations', () => {
+    const source = '# Report\n```amx\n  let first = 1  \n```\n```amx\ninvalid syntax\n```\n';
+    expect(() => formatAmxDocument(source)).toThrow('Unsupported statement at 6:1');
+  });
+
+  it('rejects malformed front matter and unclosed executable fences', () => {
+    expect(() => formatAmxDocument('---\ntitle: missing delimiter\n')).toThrow('Malformed front matter');
+    expect(() => formatAmxDocument('---\ntitle: [\n---\n')).toThrow('Malformed front matter');
+    expect(() => formatAmxDocument('# Report\n```amx\nlet value = 1\n')).toThrow('Unclosed amx fence at 2:1');
+  });
+});
 
 describe('formatAmx', () => {
   it('normalizes line endings, edge whitespace, and final newline', () => {

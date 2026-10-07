@@ -10,7 +10,7 @@ import { editorHighlightFacts } from "../../../src/editor/highlighting";
 import { editorSymbolFacts } from "../../../src/editor/symbols";
 import { editorCodeActionFacts, editorRenameFact, isSafeRenameIdentifier } from "../../../src/editor/refactoring";
 import { sourceOffset } from "../../../src/editor/sourceRanges";
-import { formatAmx } from "../../../src/formatter/formatAmx";
+import { formatAmxDocument } from "../../../src/formatter/formatAmx";
 import { loadEntryModule } from "../../../src/runtime/moduleLoader";
 import { renderPreparedHtml } from "../../../src/renderer/renderHtml";
 import { preparePdfReport, serializePdfReport } from "../../../src/renderer/reportPdf";
@@ -1860,7 +1860,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				try {
 					const document = requireCurrent();
 					if (document.kind !== "amx") return errorResult<{ text: string }>({ code: "DESKTOP_FILE_KIND", message: "Canonical AMX formatting is available only for .amx documents." });
-					return { ok: true, text: formatAmx(document.text) };
+					return { ok: true, text: formatAmxDocument(document.text) };
 				}
 				catch (error) { return errorResult<{ text: string }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},

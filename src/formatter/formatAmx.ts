@@ -1,5 +1,30 @@
+import { parseDocumentText } from '../parser/parseDocument';
 import { parseStatements } from '../parser/parseStatements';
 import { findStringLiteralEnd } from '../parser/stringScanner';
+
+export function formatAmxDocument(source: string): string {
+  const document = parseDocumentText(source);
+  const lineStarts = [0];
+  for (const newline of source.matchAll(/\n/g)) {
+    lineStarts.push(newline.index + 1);
+  }
+
+  const replacements = document.nodes.flatMap(node => {
+    if (node.type !== 'executableCodeBlock' || !node.source) return [];
+    const start = lineStarts[node.source.line];
+    const opener = source.slice(lineStarts[node.source.line - 1], start);
+    const newline = node.content.match(/\r?\n/)?.[0] ?? (opener.endsWith('\r\n') ? '\r\n' : '\n');
+    const canonical = formatAmx(node.content);
+    const text = newline === '\r\n' ? canonical.replace(/\n/g, '\r\n') : canonical;
+    return [{ start, end: start + node.content.length, text }];
+  });
+
+  let formatted = source;
+  for (const replacement of replacements.reverse()) {
+    formatted = formatted.slice(0, replacement.start) + replacement.text + formatted.slice(replacement.end);
+  }
+  return formatted;
+}
 
 /** Format executable AMX block content without changing expression text. */
 export function formatAmx(source: string): string {
