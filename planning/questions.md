@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.9 Sprint 058 Preparation (2026-10-07)
+
+- **Resolved by prior Lead Developer dispositions:** Sprint 053, Sprint 054, and Sprint 057 satisfy Sprint 058's dependency gate. Their Windows VS Code host/desktop RPC findings remain separate, unpassed residuals in their respective evidence; Sprint 058 does not presume those checks passed.
+- No new V0.9 business-rule decision is open for Sprint 058 preparation. Follow the approved `docs/language-spec-v0.9.md`, Sprint 051 technical appendix, and master plan. Editor differences are handled by verifying/fixing only capabilities each client already supports.
+- If the Builder finds a concrete implementation/specification conflict or a platform residual blocks a required behavior check, record the minimal reproduction, expected contract, actual result, and affected surface here. Obtain Lead Developer direction before changing approved semantics; otherwise proceed with the bounded scope and report the residual.
+- Builder evidence and a separate Lead Developer disposition remain required. Sprint preparation does not claim integrated acceptance or V0.9 completion.
+
 ## V0.9 Sprint 057 Preparation (2026-10-06)
 
 - **Resolved by Sprint 056 disposition:** Sprint 057 may proceed using the approved measurement runtime values and Sprint 055 registry. Sprint 056 is COMPLETE / APPROVED; its Windows Extension Development Host run (15 pass/5 fail) and unrelated full-worktree whitespace finding remain unpassed residuals.

@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.9 Sprint 058 Architect Preparation (2026-10-07)
+
+- Sprint 058 consumes approved behavior from Sprints 052-057 and owns final editor parity, user-facing docs/migration guidance, representative examples, bundled help, and integrated available-host acceptance only. The V0.9 spec and approved Sprint 051 appendix remain authoritative; this preparation changes no language semantics.
+- Audit shared editor facts, formatter, VS Code providers/TextMate grammar, and desktop analysis separately. Fix only demonstrated feature gaps; do not add new editor capabilities to force superficial parity. Incomplete drafts must remain safe to analyze, and inert fences/narrative remain outside executable-language behavior.
+- Migration guidance must cover only the approved constructor-colon to `=` change, finite string escape decoding, and strict checking; annotation/type declaration colons remain valid. No automatic migration or formatter repair is promised.
+- Preserve the separate unpassed Sprint 053, 054, and 057 Windows host/RPC residuals. Acceptance on available hosts does not certify other platforms or reclassify historical failures.
+
 ## V0.9 Sprint 057 Architect Preparation (2026-10-06)
 
 - Sprint 057 consumes Sprint 056's immutable measurement values and Sprint 055's checked, entry-visible unit registry. External unit strings use only visible units with multiplication/division, parentheses, and signed integer powers; never execute AMX text from data.

@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.9 Sprint 058 Architect Preparation (2026-10-07)
+
+- Prepared the four Sprint 058 artifacts in `planning/sprints/0058-v09-editor-parity-documentation-acceptance/` for final cross-feature editor parity, user-facing specification/migration guidance, representative examples, bundled Help Center content, and integrated V0.9 verification.
+- Required dependencies Sprint 053, Sprint 054, and Sprint 057 are **COMPLETE / APPROVED** by separate Lead Developer dispositions. Sprint 052 remains **ACCEPTED WITH RECORDED RESIDUALS**; Sprint 055 and Sprint 056 are **COMPLETE / APPROVED**. Consume their approved behavior without changing semantics.
+- Sprint 053's Windows VS Code host result (13 pass/6 fail), Sprint 054's Windows desktop RPC path-separator failure and extension-host result (15 pass/5 fail), and Sprint 057's separate Windows desktop RPC path-separator failure and extension-host result (15 pass/5 fail) remain unpassed residuals. Preserve each sprint's own evidence; none is reported as a pass or silently treated as a new functional defect.
+- The approved V0.9 language contract and Sprint 051 technical appendix remain authoritative. No new language/business-rule question is open for this preparation. Builder must record a reproducible conflict and request Lead Developer direction before any semantic change.
+- Sprint 058 is prepared for Builder handoff only. Preparation does not claim implementation, integrated verification, final V0.9 acceptance, or release/platform certification.
+
 ## V0.9 Sprint 057 Architect Preparation (2026-10-06)
 
 - Prepared the four Sprint 057 artifacts in `planning/sprints/0057-v09-measurement-data-reporting-integration/` for external JSON/CSV measurement input/output, restricted unit-expression validation, schema and desktop data-editor integration, unit-aware tables/charts, and HTML/PDF/DOCX reports.
