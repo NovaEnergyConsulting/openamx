@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.9 Sprint 059 Architect Preparation (2026-10-07)
+
+- Prepared the four Sprint 059 artifacts in `planning/sprints/0059-v09-final-acceptance-verification-closeout/` as a verification-only final V0.9 acceptance gate after Sprint 058.
+- Sprint 058 is **COMPLETE / APPROVED**. Its two accepted but unpassed verification residuals are actual TextMate tokenization and the stalled Hutch desktop wrapper checks. The pack requires real tokenization evidence and a bounded wrapper retry, with direct desktop checks reported separately.
+- Updated the V0.9 master plan with a final closeout sprint. Sprint 059 adds no language or product feature scope; historical Sprint 053/054/057 Windows RPC/host failures remain distinct unpassed residuals and are not implementation targets.
+- Builder evidence must request an explicit Lead Developer V0.9 disposition. Sprint 058 approval and Sprint 059 Builder completion do not imply final V0.9 acceptance, platform certification, or release readiness.
+
 ## V0.9 Sprint 058 Builder Implementation (2026-10-07)
 
 - Corrected the demonstrated V0.9 editor gaps: shared completion now offers `dimension` and `unit`; the VS Code TextMate grammar recognizes those declaration keywords; and rename validation reserves both keywords. Added shared/VS Code coverage for imported dimension/unit identity, source ranges, references, hover, and unit rename.

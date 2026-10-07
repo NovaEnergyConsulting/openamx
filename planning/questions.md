@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.9 Sprint 059 Preparation (2026-10-07)
+
+- **Resolved by Sprint 058 disposition:** Sprint 059 follows Sprint 058 **COMPLETE / APPROVED** and owns only final verification/acceptance closeout. Sprint 058's actual TextMate tokenization and Hutch wrapper checks remain accepted, unpassed verification residuals.
+- No new language/business-rule question is open. Keep the approved V0.9 contract and Sprint 051 technical appendix authoritative; do not introduce feature work under the closeout sprint.
+- Builder should use an available TextMate-compatible tokenizer or justify a minimal test-only dependency; it must exercise the actual grammar. Make one bounded Hutch wrapper attempt and report wrapper and direct command outcomes distinctly.
+- Preserve the Sprint 053/054/057 Windows results separately. If a new concrete functional defect or a blocker to required verification appears, record the exact reproduction and request Lead Developer direction. Final V0.9 acceptance remains a separate explicit Lead Developer disposition.
+
 ## V0.9 Sprint 058 Builder Closeout (2026-10-07)
 
 - **Resolved by focused editor evidence:** shared completion lacked the V0.9 `dimension` and `unit` keywords; the VS Code TextMate keyword rule also omitted them. Both are corrected and covered. Rename now rejects those keywords. Shared and Extension Host checks prove imported dimension/unit declarations resolve to declaring-module ranges, references, hover, and unit rename.

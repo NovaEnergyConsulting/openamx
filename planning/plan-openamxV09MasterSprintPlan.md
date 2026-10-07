@@ -4,7 +4,7 @@ Approved planning scope on 2026-10-06. Deliver all four feature groups in [the l
 
 The authoritative companion is [the V0.9 language and compatibility contract](../docs/language-spec-v0.9.md). These documents describe required behavior, not implemented or verified functionality. Detailed requirements, blueprint, acceptance, and handoff sprint packs are prepared later, before their respective sprints, using the [existing template](sprints/0000-sprint-template/). Publication of this plan does not authorize language implementation.
 
-Continue sprint numbering at 051 and organize the work into eight sprints, with no fixed sprint/date budget.
+Continue sprint numbering at 051 and organize the language/design work into eight sprints, followed by a final verification and acceptance closeout sprint. There is no fixed sprint/date budget. The closeout adds no language or product feature scope.
 
 ## Recommended Approach
 
@@ -161,6 +161,14 @@ Continue sprint numbering at 051 and organize the work into eight sprints, with 
 - Update language documentation, help, examples, and compatibility/migration guidance.
 - Run targeted feature tests followed by integrated root/extension/desktop validation.
 - Record exact evidence and residuals using established planning conventions.
+
+### Phase 5 - Final Verification and Acceptance Closeout
+
+#### Sprint 059: V0.9 Final Acceptance and Verification Closeout (depends on Sprint 058)
+
+- Complete the remaining Sprint 058 verification evidence, including actual TextMate tokenization and a bounded rerun of the desktop Hutch wrapper checks.
+- Run the final integrated root, VS Code, desktop, and representative V0.9 example checks on available hosts; distinguish wrappers, direct fallback steps, and historical platform residuals.
+- Submit the complete evidence package for a separate Lead Developer V0.9 disposition. This sprint adds no product behavior and does not itself imply acceptance or release readiness.
 
 ## Sprint 051 Technical Contract Gate
 

@@ -1,5 +1,13 @@
 # Planning Decisions
 
+## V0.9 Sprint 059 Architect Preparation (2026-10-07)
+
+- Sprint 059 is a final verification/acceptance closeout only, following Sprint 058 **COMPLETE / APPROVED**. It does not add product or language behavior and cannot reopen approved Sprint 052-058 semantics without a separate Lead Developer decision.
+- Close Sprint 058's tokenizer evidence gap by executing the actual TextMate grammar with a compatible tokenizer. Any needed tokenizer dependency must be test-only, minimal, and documented; grammar JSON inspection alone is insufficient.
+- Retry the Hutch desktop wrapper checks once with a bounded execution window. Record wrapper status independently from direct Vue/Vite/worker/resource checks; direct success does not convert a wrapper stall into a pass.
+- Preserve historical Sprint 053/054/057 Windows host/RPC outcomes as their own unpassed residuals. Sprint 059's available-host run cannot reclassify those results or claim native/platform certification.
+- Final V0.9 acceptance is the Lead Developer's explicit decision after reviewing Sprint 059 evidence; the Builder must only request that disposition.
+
 ## V0.9 Sprint 058 Builder Decisions (2026-10-07)
 
 - The concrete parity fixes are limited to existing capabilities: add `dimension`/`unit` to shared completion, VS Code declaration coloring, and reserved rename identifiers. Imported dimension/unit navigation uses the existing shared symbol identities and declaring-module source ranges; no language behavior changed.
