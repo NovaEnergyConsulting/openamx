@@ -1,5 +1,11 @@
 # Planning Questions (Sprint 002)
 
+## V0.10 Sprint 060 Gate Disposition and Residuals (2026-10-07)
+
+- **Resolved by Lead Developer disposition (2026-10-07):** all Sprint 060 contract and architecture proposals are approved; Sprint 060 is COMPLETE / APPROVED WITH RECORDED RESIDUALS; Sprint 061 is explicitly authorized but has not started.
+- Follow-up residuals remain: untrusted link/meta-refresh navigation attempts; inaccurate default ECharts ARIA for null/DateTime; actual Electrobun packaged-resource test unavailable; raw SVG ID churn; no cross-surface visual metric; only a 5,000-point evidence envelope; pointer/keyboard/touch behavior not tested; no public valid-render failure injection/diagnostic. Retain these exact statuses. Production iframe scripts must not be enabled until untrusted navigation is prevented and tested.
+- Product limits, legal conclusions, cross-platform support, release readiness, and V0.10 implementation completion are not approved or claimed by this disposition.
+
 ## V0.10 Sprint 060 Preparation (2026-10-07)
 
 - The V0.10 master plan resolves product scope but leaves implementation-facing chart, interaction, visual, packaging, and security detail to Sprint 060. Complete the Sprint 060 decision register with evidence-backed proposals; do not treat this preparation as approval.

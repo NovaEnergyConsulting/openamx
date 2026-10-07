@@ -1,0 +1,65 @@
+{
+  "echarts": "6.1.0",
+  "environment": "Bun 1.4.2; linux x64",
+  "viewport": "640x360 SVG SSR",
+  "cases": [
+    {
+      "label": "small",
+      "points": 20,
+      "svgBytes": 8294,
+      "svgSha256": "c314df0d97b120500b78e800fab72b46652fd6438666ab3c64ce7c5713ab5f1a",
+      "rawOutputStable": false,
+      "normalizedStructureStable": true,
+      "tableJsonBytes": 421,
+      "renderMs": [
+        53.59308199999998,
+        11.570647000000008,
+        6.982202000000029,
+        6.083287999999982
+      ],
+      "repeatedOutputStable": true
+    },
+    {
+      "label": "typical",
+      "points": 1000,
+      "svgBytes": 16838,
+      "svgSha256": "abdc143f821aedb9e96c90c71b2ff336b3192f5183360cf49b504a062545c944",
+      "rawOutputStable": false,
+      "normalizedStructureStable": true,
+      "tableJsonBytes": 20424,
+      "renderMs": [
+        13.324410999999998,
+        10.605662999999993,
+        26.137186999999983,
+        13.392333000000008
+      ],
+      "repeatedOutputStable": true
+    },
+    {
+      "label": "bounded-large",
+      "points": 5000,
+      "svgBytes": 61373,
+      "svgSha256": "0b122d0cb4a6eb6326c261fcdd16661ab8ccaa8b621aa45812087e072df3937d",
+      "rawOutputStable": false,
+      "normalizedStructureStable": true,
+      "tableJsonBytes": 102070,
+      "renderMs": [
+        32.11510899999996,
+        31.55301800000001,
+        26.173588000000052,
+        19.854696999999987
+      ],
+      "repeatedOutputStable": true
+    }
+  ],
+  "multipleCharts": {
+    "count": 4,
+    "svgBytes": [
+      3467,
+      4021,
+      3468,
+      3715
+    ],
+    "totalMs": 33.39062900000005
+  }
+}

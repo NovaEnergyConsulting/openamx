@@ -1,0 +1,8 @@
+{
+  "name": "openamx-sprint060-echarts-probe",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "echarts": "6.1.0"
+  }
+}

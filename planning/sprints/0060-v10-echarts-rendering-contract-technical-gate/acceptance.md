@@ -31,3 +31,22 @@ Sprint 060 is complete only when all applicable criteria are evidenced and a sep
 9. Separate Lead Developer gate disposition and Sprint 061 authorization status.
 
 Sprint 060 acceptance does not claim that ECharts has been implemented, that any production renderer changed, or that V0.10 is complete or releasable.
+
+## Builder Evidence Status (2026-10-07)
+
+Detailed commands, host/tool versions, screenshots, limitations, contract proposals, and residuals are in [`builder-evidence.md`](builder-evidence.md). Current status is **submitted for separate Lead Developer disposition; Sprint 061 remains blocked**.
+
+| Criterion group | Builder status |
+|---|---|
+| Chart kinds, input forms, mappings, order, duplicates, numeric/DateTime/measurement and mixed-unit axes | **Partial**: current behavior was grounded in existing tests; isolated ECharts fixtures passed. A shared adapter consuming actual emissions was not implemented or tested. |
+| Null, empty/all-null, partial data, complete table alternatives | **Partial**: candidate browser state preserved nulls and empty values; candidate-owned empty label; empty PDF/table parity remains untested. |
+| Per-kind interaction, reset, resize, print, accessibility | **Partial/failed**: zoom, reset, legend, resize and print table were exercised; pointer/keyboard/touch and desktop lifecycle remain untested. Generated ARIA misrepresents null as `NaN` and DateTime as epoch milliseconds. |
+| Visual system and comparison tolerance | **Partial**: desktop/mobile screenshots and two PDF raster pages inspected; cross-surface pixel tolerance was proposed but not measured or approved. |
+| Standalone offline browser and Bun SVG | **Passed for named fixtures only**: Chromium `152.0.7977.82`, local `file://` with network blocked; Bun `1.4.2` SSR. |
+| pdfmake serialization and visual PDF | **Passed for tested subset only**: pdfmake `0.3.11`, actual two-page PDF inspected. |
+| Desktop packaged-resource resolution | **Blocked/unavailable**: only a temporary Bun bundle fixture ran; no Electrobun application package/native runtime was produced. |
+| Security and unapproved network | **Failed**: parent/bridge access denied and inline handler blocked, but external link and meta refresh navigated from the opaque sandbox. |
+| License, notices, fonts, SVG subset, size/timing | **Partial**: candidate notice inventory and probes recorded; no legal conclusion, product limit or supported-target claim. |
+| Render failure diagnostics and atomicity | **Partial**: malformed SVG serialization and atomic pre-commit failures preserved destination; valid ECharts failure through public production adapter was unavailable. |
+| No production changes / no Sprint 061 implementation during Sprint 060 | **Passed**: root/desktop manifests, lockfiles, production renderers and iframe permissions are unchanged. Sprint 061 is authorized but has not started. |
+| Separate Lead Developer disposition | **Complete**: **COMPLETE / APPROVED WITH RECORDED RESIDUALS** (2026-10-07); contract and architecture approved; Sprint 061 explicitly authorized. Failed/unavailable checks above remain residuals, not passes. |

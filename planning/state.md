@@ -1,5 +1,18 @@
 # Planning State
 
+## V0.10 Sprint 060 Lead Developer Disposition (2026-10-07)
+
+- **COMPLETE / APPROVED WITH RECORDED RESIDUALS.** The Lead Developer approved the Sprint 060 contract and architecture proposals and authorized Sprint 061.
+- Named residuals remain exactly as evidenced: untrusted external-link/meta-refresh navigation attempts from the opaque sandbox; ECharts generated ARIA reports null as `NaN` and DateTime as epoch values; actual Electrobun packaged-resource resolution was unavailable; raw SVG bytes vary due to generated IDs; cross-surface visual tolerance, larger end-to-end bounds, pointer/keyboard/touch behavior, and public chart-render failure diagnostics remain unverified.
+- These residuals are not reclassified as passing or as cross-platform certification. Sprint 061 is authorized but has not started. No production dependency, renderer, iframe permission, limit, or report behavior changed in Sprint 060.
+
+## V0.10 Sprint 060 Builder Evidence Submission (2026-10-07)
+
+- Builder evidence and the completed proposal matrix are in `planning/sprints/0060-v10-echarts-rendering-contract-technical-gate/builder-evidence.md` and `blueprint.md`. Exact ECharts `6.1.0` probes passed on named Bun/Chromium/pdfmake fixtures; they do not approve a version or implementation.
+- Security gate is failed: an external link and meta refresh initiated network navigation from an opaque `allow-scripts` frame despite CSP; built-in ARIA describes null as `NaN` and DateTime as epoch milliseconds. Actual Electrobun packaged-resource resolution remains blocked/unavailable.
+- No production renderer, sandbox permission, dependency, lockfile, worker limit, chart semantics, or export behavior changed. Existing focused renderer/PDF/presentation tests passed (26 tests); DOCX is unchanged baseline only.
+- Historical Builder status at submission: Lead Developer disposition pending; Builder recommended keeping the gate blocked. This was superseded by the separate disposition above.
+
 ## V0.10 Sprint 060 Architect Preparation (2026-10-07)
 
 - Prepared the four Sprint 060 artifacts in `planning/sprints/0060-v10-echarts-rendering-contract-technical-gate/` from the V0.10 master plan for the ECharts rendering contract and technical feasibility gate.

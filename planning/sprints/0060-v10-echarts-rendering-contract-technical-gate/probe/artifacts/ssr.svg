@@ -1,0 +1,56 @@
+<svg width="640" height="360" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" viewBox="0 0 640 360">
+<rect width="640" height="360" x="0" y="0" fill="none"></rect>
+<path d="M96 280.5L576 280.5" fill="none" pointer-events="visible" stroke="#dbdee4" class="zr0-cls-0"></path>
+<path d="M96 237.5L576 237.5" fill="none" pointer-events="visible" stroke="#dbdee4" class="zr0-cls-0"></path>
+<path d="M96 194.5L576 194.5" fill="none" pointer-events="visible" stroke="#dbdee4" class="zr0-cls-0"></path>
+<path d="M96 151.5L576 151.5" fill="none" pointer-events="visible" stroke="#dbdee4" class="zr0-cls-0"></path>
+<path d="M96 108.5L576 108.5" fill="none" pointer-events="visible" stroke="#dbdee4" class="zr0-cls-0"></path>
+<path d="M96 65.5L576 65.5" fill="none" pointer-events="visible" stroke="#dbdee4" class="zr0-cls-0"></path>
+<path d="M96 280.5L576 280.5" fill="none" pointer-events="visible" stroke="#54555a" stroke-linecap="round" class="zr0-cls-0"></path>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:sans-serif;" transform="translate(88 280)" fill="#54555a">0</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:sans-serif;" transform="translate(88 237)" fill="#54555a">0.2</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:sans-serif;" transform="translate(88 194)" fill="#54555a">0.4</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:sans-serif;" transform="translate(88 151)" fill="#54555a">0.6</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:sans-serif;" transform="translate(88 108)" fill="#54555a">0.8</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:sans-serif;" transform="translate(88 65)" fill="#54555a">1</text>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:sans-serif;" y="6" transform="translate(216 288)" fill="#54555a">A</text>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:sans-serif;" y="6" transform="translate(456 288)" fill="#54555a">B</text>
+<g clip-path="url(#zr0-c0)">
+<path d="M216 65" fill="none" pointer-events="visible" stroke="#5070dd" stroke-width="2" stroke-linejoin="bevel" class="zr0-cls-3"></path>
+</g>
+<path d="M1 0A1 1 0 1 1 1 -0.1A1 1 0 0 1 1 0" transform="matrix(3,0,0,3,216,65)" fill="#fff" stroke="#5070dd" stroke-width="0.6666666666666666" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="zr0-cls-4"></path>
+<defs >
+<clipPath id="zr0-c0">
+<path d="M95 64l482 0l0 217l-482 0Z" fill="#000" class="zr0-cls-1 zr0-cls-2"></path>
+</clipPath>
+</defs>
+<style ><![CDATA[
+.zr0-cls-0:hover {
+pointer-events:none;
+}
+.zr0-cls-1 {
+animation:zr0-ani-0 1s linear both;
+}
+.zr0-cls-2:hover {
+cursor:pointer;
+fill:rgba(0,0,0,1);
+}
+.zr0-cls-3:hover {
+cursor:pointer;
+}
+.zr0-cls-4:hover {
+cursor:pointer;
+fill:rgba(255,255,255,1);
+}
+@keyframes zr0-ani-0 {
+0% {
+d:path("M95 64l0 0l0 217l0 0Z");
+}
+100% {
+d:path("M95 64l482 0l0 217l-482 0Z");
+}
+}
+]]>
+
+</style>
+</svg>

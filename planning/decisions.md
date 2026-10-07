@@ -1,5 +1,20 @@
 # Planning Decisions
 
+## V0.10 Sprint 060 Lead Developer Disposition (2026-10-07)
+
+- **COMPLETE / APPROVED WITH RECORDED RESIDUALS.** The Lead Developer approved all contract and architecture proposals in the Sprint 060 blueprint and authorized Sprint 061. The exact ECharts `6.1.0` candidate and proposed shared root dependency placement are approved as the implementation baseline; this does not claim that application integration or packaged-resource verification has occurred.
+- The navigation escape, inaccurate default ARIA for null/DateTime, unavailable actual Electrobun package run, generated SVG ID churn, unmeasured cross-surface visual tolerance, 5,000-point-only performance envelope, untested pointer/keyboard/touch cases, and unavailable public chart-render failure injection remain named residuals with their original evidence statuses.
+- Sprint 061 may implement the shared model/theme within the approved scope. Do not enable production iframe scripts or claim the no-network gate closed until the untrusted-navigation path is remediated and adversarially verified in its owning sprint. Residuals do not become passes by disposition.
+- Sprint 061 is authorized but has not started. Sprint 060 approval is not V0.10 implementation completion, release readiness, native/platform certification, or a legal conclusion about distribution notices.
+
+## V0.10 Sprint 060 Builder Findings (2026-10-07)
+
+- Direct isolated evidence is recorded in `planning/sprints/0060-v10-echarts-rendering-contract-technical-gate/builder-evidence.md`; proposals and per-case status are in the Sprint 060 `blueprint.md`. These are Builder findings, not accepted product decisions.
+- Candidate `echarts@6.1.0` passed isolated Bun 1.4.2 SVG SSR, Chromium 152.0.7977.82 local-file rendering, and pdfmake 0.3.11 serialization plus visual PDF inspection for the tested subset. Raw SSR SVG bytes differ across runs due to generated zrender IDs; normalized structure was stable.
+- The opaque sandbox denied parent reads and bridge visibility, and nonce CSP blocked inline event handlers. External link and meta-refresh navigation still escaped to the network; no-unapproved-network is **not satisfied**. ECharts built-in accessible summaries used `NaN` for null and epoch milliseconds for DateTime.
+- A temporary Bun worker bundle resolved ECharts, but no actual Electrobun app package/native runtime was tested. The subsequent Lead Developer disposition approves the candidate implementation baseline but does not upgrade this unavailable check or approve limit changes.
+- Historical Builder closeout recommendation was to keep Sprint 061 blocked. It was superseded by the separate Lead Developer disposition above.
+
 ## V0.10 Sprint 060 Architect Preparation (2026-10-07)
 
 - Sprint 060 consumes the scope and recommended shared-adapter direction in `planning/plan-openamxV10MasterSprintPlan.md`; it may specify implementation-facing contracts but may not redefine AMX chart/data semantics or broaden product scope.
