@@ -2,7 +2,7 @@
   "name": "openamx-vscode",
   "displayName": "OpenAMX",
   "description": "Formatting, completion, static diagnostics, navigation, outline, references and contextual fixes for OpenAMX documents.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "publisher": "EngineersTools",
   "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
