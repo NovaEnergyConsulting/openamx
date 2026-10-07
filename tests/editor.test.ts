@@ -49,6 +49,35 @@ test("shared module analysis uses supplied unsaved imports without evaluation", 
 	expect(analysis.modules.get(modulePath)?.checkResult.exportedBindings.has("rate")).toBe(true);
 });
 
+test("shared editor symbols preserve imported dimension and unit declaration identity", () => {
+	const entryFile = "/project/entry.amx";
+	const moduleFile = "/project/units.amx";
+	const moduleText = "```amx\nexport dimension Length\nexport unit meter: Length\n```\n";
+	const text = [
+		"```amx",
+		'import { Length, meter } from "./units.amx"',
+		"dimension Distance = Length",
+		"unit kilometer = 1000 * meter",
+		"let distance: Length = 1 meter",
+		"let converted = distance in kilometer",
+		"```",
+		""
+	].join("\n");
+	const analysis = analyzeEditorModules(text, entryFile, (_from, targetPath) => ({ file: targetPath, text: moduleText }));
+	const facts = editorSymbolFacts(text, entryFile, analysis.document, analysis, new Map([[moduleFile, moduleText]]));
+	const lengthDeclaration = facts.find(fact => fact.file === moduleFile && fact.declaration && fact.name === "Length");
+	const meterDeclaration = facts.find(fact => fact.file === moduleFile && fact.declaration && fact.name === "meter");
+	const lengthReferences = facts.filter(fact => fact.file === entryFile && !fact.declaration && fact.name === "Length");
+	const meterReferences = facts.filter(fact => fact.file === entryFile && !fact.declaration && fact.name === "meter");
+
+	expect(lengthDeclaration).toBeDefined();
+	expect(meterDeclaration).toBeDefined();
+	expect(lengthReferences.length).toBeGreaterThan(0);
+	expect(meterReferences.length).toBeGreaterThan(0);
+	expect(lengthReferences.map(fact => fact.target)).toEqual(lengthReferences.map(() => lengthDeclaration!.target));
+	expect(meterReferences.map(fact => fact.target)).toEqual(meterReferences.map(() => meterDeclaration!.target));
+});
+
 test("shared editor analysis checks untyped documents and imported modules unconditionally", () => {
 	const valid = analyzeEditorModules("```amx\nlet count = 3\n```\n", "/project/report.amx");
 	expect(valid.bindingTypes?.get("count")).toEqual({ kind: "named", name: "Number" });
@@ -99,6 +128,17 @@ test("shared completion facts use the live prefix when parsing only complete sta
 	const labels = editorCompletionFacts(completeSource, cursor, parsed, undefined, source).map(item => item.label);
 
 	expect(labels).toContain("type");
+});
+
+test("shared completion offers V0.9 dimension and unit declaration keywords", () => {
+	const source = "```amx\ndimension Length\nunit meter: Length\n";
+	const cursor = source.length;
+	const prepared = prepareEditorCompletion(source, cursor);
+	expect(prepared).toBeDefined();
+	const labels = editorCompletionFacts(prepared!.text, cursor, prepared!.document, undefined, source).map(item => item.label);
+
+	expect(labels).toContain("dimension");
+	expect(labels).toContain("unit");
 });
 
 test("shared completion preparation accepts only the exact executable fence", () => {
@@ -201,5 +241,7 @@ test("shared refactoring facts require unique diagnostics and proven symbol iden
 	expect(editorCodeActionFacts(actionText, actionDocument, []).length).toBe(0);
 	expect(isSafeRenameIdentifier("renamedValue")).toBe(true);
 	expect(isSafeRenameIdentifier("if")).toBe(false);
+	expect(isSafeRenameIdentifier("dimension")).toBe(false);
+	expect(isSafeRenameIdentifier("unit")).toBe(false);
 	expect(isSafeRenameIdentifier("Number")).toBe(false);
 });

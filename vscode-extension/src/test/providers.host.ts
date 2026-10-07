@@ -146,6 +146,52 @@ suite('OpenAMX providers', () => {
       await fs.rm(directory, { recursive: true, force: true });
     }
   });
+  test('resolves imported dimension and unit symbols to their declaring module', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'openamx-measurement-navigation-'));
+    const unitsPath = path.join(directory, 'units.amx');
+    const entryPath = path.join(directory, 'entry.amx');
+    const unitsText = '```amx\nexport dimension Length\nexport unit meter: Length\n```';
+    const entryText = [
+      '```amx',
+      'import { Length, meter } from "./units.amx"',
+      'dimension Distance = Length',
+      'let distance: Length = 1 meter',
+      'let converted = distance in meter',
+      '```'
+    ].join('\n');
+    await fs.writeFile(unitsPath, unitsText);
+    await fs.writeFile(entryPath, entryText);
+    try {
+      const entry = await vscode.workspace.openTextDocument(vscode.Uri.file(entryPath));
+      const lengthOffset = entryText.lastIndexOf('Length');
+      const meterOffset = entryText.lastIndexOf('meter');
+      const lengthDefinition = await vscode.commands.executeCommand<vscode.Location[]>(
+        'vscode.executeDefinitionProvider', entry.uri, entry.positionAt(lengthOffset)
+      );
+      const meterDefinition = await vscode.commands.executeCommand<vscode.Location[]>(
+        'vscode.executeDefinitionProvider', entry.uri, entry.positionAt(meterOffset)
+      );
+
+      assert.equal(lengthDefinition?.[0].uri.fsPath, unitsPath);
+      assert.deepEqual(lengthDefinition?.[0].range, new vscode.Range(1, 17, 1, 23));
+      assert.equal(meterDefinition?.[0].uri.fsPath, unitsPath);
+      assert.deepEqual(meterDefinition?.[0].range, new vscode.Range(2, 12, 2, 17));
+      assert.equal((await vscode.commands.executeCommand<vscode.Hover[]>(
+        'vscode.executeHoverProvider', entry.uri, entry.positionAt(meterOffset)
+      ))?.length, 1);
+      assert.equal((await vscode.commands.executeCommand<vscode.Location[]>(
+        'vscode.executeReferenceProvider', entry.uri, entry.positionAt(meterOffset)
+      ))?.length, 4);
+      const rename = await vscode.commands.executeCommand<vscode.WorkspaceEdit | undefined>(
+        'vscode.executeDocumentRenameProvider', entry.uri, entry.positionAt(meterOffset), 'metre'
+      );
+      assert.ok(rename);
+      assert.equal(rename.get(entry.uri).length, 3);
+      assert.equal(rename.get(vscode.Uri.file(unitsPath)).length, 1);
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
   test('renames only a proven symbol identity and withholds collisions', async () => {
     const document = await vscode.workspace.openTextDocument({ language: 'amx', content: [
       '```amx', 'let amount: Number = 2', 'let result: Number = amount + amount', '```'
@@ -305,7 +351,7 @@ suite('OpenAMX providers', () => {
     );
     const labels = new Set(completions?.items.map(item => String(item.label)) ?? []);
 
-    for (const expected of ['let', 'to', 'sum', 'earlier', 'item']) assert.ok(labels.has(expected), expected);
+    for (const expected of ['let', 'to', 'sum', 'earlier', 'item', 'dimension', 'unit']) assert.ok(labels.has(expected), expected);
     for (const absent of ['narrativeOnly', 'result', 'after']) assert.ok(!labels.has(absent), absent);
     for (const fn of ['min', 'max', 'mean', 'round', 'abs', 'sqrt', 'pow']) assert.ok(labels.has(fn), fn);
 
@@ -316,6 +362,19 @@ suite('OpenAMX providers', () => {
     for (const fn of ['sum', 'min', 'max', 'mean', 'round', 'abs', 'sqrt', 'pow']) {
       assert.ok(!outsideLabels.has(fn), fn);
     }
+  });
+  test('TextMate grammar includes V0.9 declaration keywords without activating inert fences', async () => {
+    const extension = vscode.extensions.getExtension('EngineersTools.openamx-vscode');
+    assert.ok(extension);
+    const grammar = JSON.parse(await fs.readFile(path.join(extension.extensionPath, 'amx.tmGrammar.json'), 'utf8'));
+    const keywordRule = grammar.repository['amx-keywords'].patterns.find((pattern: { match?: unknown }) =>
+      typeof pattern.match === 'string' && pattern.match.includes('dimension|unit'));
+    assert.ok(keywordRule?.match);
+    for (const keyword of ['dimension', 'unit']) assert.ok(new RegExp(keywordRule.match).test(keyword), keyword);
+    assert.equal(grammar.repository['executable-fence'].contentName, 'meta.block.amx');
+    assert.ok(JSON.stringify(grammar.repository['executable-fence'].patterns).includes('#amx'));
+    assert.equal(grammar.repository['inert-fence'].patterns, undefined);
+    assert.ok(!JSON.stringify(grammar.repository['inert-fence']).includes('#amx'));
   });
 
   test('completes V0.3 types, inputs, functions, imported exports, and known record fields', async () => {

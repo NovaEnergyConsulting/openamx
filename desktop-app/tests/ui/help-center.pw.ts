@@ -1,13 +1,14 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 const expectedTopicIds = [
-	"getting-started", "starters", "language", "documents", "data",
+	"getting-started", "starters", "language", "language-v0.9", "documents", "data",
 	"preview-export", "recovery", "diagnostics", "release-notes"
 ];
 const expectedSearchTerms = [
 	["getting-started", "welcome first project starter create open"],
 	["starters", "example templates hello asset management operation note"],
 	["language", "language syntax code fence markdown let type function import export input record table chart cli"],
+	["language-v0.9", "v0.9 migration record constructor equals = colon annotation string escape interpolation list index dimension unit measurement conversion JSON CSV"],
 	["documents", "active tab import source editor save intelligence rename"],
 	["data", "csv json external private mapping schema validation"],
 	["preview-export", "run preview cancel stale html pdf docx json csv"],
@@ -52,6 +53,12 @@ test("bundled help keeps stable topics, local search, registry shortcuts, routin
 		await search.fill(terms);
 		await expect(page.locator(`.help-topics [data-topic-id='${id}']`), `${id} search terms`).toBeVisible();
 	}
+	await search.fill("measurement conversion");
+	const v09Topic = page.locator(".help-topics [data-topic-id='language-v0.9']");
+	await expect(v09Topic).toBeVisible();
+	await v09Topic.click();
+	await expect(page.locator(".help-content")).toContainText("Record constructor fields use =");
+	await expect(page.locator(".help-content")).toContainText("List indexes are 1-based");
 	await search.fill("Ctrl/Cmd+S");
 	await expect(page.locator(".help-shortcuts")).toContainText("Save active tab");
 	await expect(page.locator(".help-shortcuts")).toContainText("Ctrl/Cmd+S");

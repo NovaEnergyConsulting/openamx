@@ -90,9 +90,11 @@ Other [examples](examples/) show calculations, tables and charts, typed JSON/CSV
 inputs, local modules, and JSON/CSV outputs. The Asset Management schemas are
 opt-in examples, not domain-certified standards.
 
-The [language specification](docs/language-spec-v0.5.md) documents typed data,
-modules, inputs, and report behavior. Earlier specifications describe the
-language's evolution: [V0.2](docs/language-spec-v0.2.md),
+The [V0.9 language specification](docs/language-spec-v0.9.md) documents the
+current language and compatibility contract. See the [V0.9 migration guide](docs/migrating-to-v0.9.md)
+for the three approved compatibility changes. Earlier specifications describe
+the language's evolution: [V0.5](docs/language-spec-v0.5.md),
+[V0.2](docs/language-spec-v0.2.md),
 [V0.3](docs/language-spec-v0.3.md), and [V0.4](docs/language-spec-v0.4.md).
 
 ## Design Boundaries

@@ -24,6 +24,7 @@ const v02Keywords = ["let", "for", "in", "to", "return", "match", "case", "defau
 const v03Keywords = ["null", "type", "fn", "import", "from", "input", "export"];
 const v04Keywords = ["table", "chart", "show", "title", "description", "column", "category", "x", "y", "group", "labels", "series", "as"];
 const v09ListKeywords = ["add", "remove", "at"];
+const v09UnitKeywords = ["dimension", "unit"];
 const standardFunctions = ["sum", "min", "max", "mean", "round", "abs", "sqrt", "pow"];
 const primitiveTypes = ["Number", "String", "Boolean", "DateTime"];
 
@@ -260,7 +261,7 @@ export function editorCompletionFacts(
 	const fieldReceiver = prefix.match(/\b([A-Za-z][A-Za-z0-9_]*)\.\w*$/)?.[1];
 	const fields = fieldReceiver ? visible.recordTypes.get(fieldReceiver)?.fields.map(field => field.name) ?? [] : [];
 	const facts: EditorCompletionFact[] = [
-		...[...v02Keywords, ...v03Keywords, ...v04Keywords, ...v09ListKeywords].map(label => ({ label, kind: "keyword" as const })),
+		...[...v02Keywords, ...v03Keywords, ...v04Keywords, ...v09ListKeywords, ...v09UnitKeywords].map(label => ({ label, kind: "keyword" as const })),
 		...standardFunctions.map(label => ({ label, kind: "function" as const })),
 		...[...visible.functions].map(label => ({ label, kind: "function" as const })),
 		...[...visible.types].map(label => ({ label, kind: "class" as const })),

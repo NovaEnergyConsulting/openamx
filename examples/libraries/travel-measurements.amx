@@ -1,0 +1,20 @@
+```amx
+export dimension Length
+export dimension Time
+export dimension Speed = Length / Time
+
+export unit meter: Length
+export unit kilometer = 1000 * meter
+export unit second: Time
+export unit minute = 60 * second
+export unit hour = 3600 * second
+export unit kilometer_per_hour = kilometer / hour
+
+export type Trip {
+  route: String
+  distance: Length
+  duration: Time
+}
+
+export fn averageSpeed(distance: Length, duration: Time): Speed = round((distance / duration) in kilometer_per_hour, 2)
+```

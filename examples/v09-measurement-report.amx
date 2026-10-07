@@ -1,0 +1,45 @@
+---
+title: Measurement Report
+---
+
+# Route measurements
+
+First average speed: {{ summaries[1].averageSpeed }}.
+
+```amx
+import { Length, Speed, Trip, averageSpeed, kilometer, kilometer_per_hour } from "./libraries/travel-measurements.amx"
+
+input trips: Trip[]
+
+type TripSummary {
+  route: String
+  distance: Length
+  averageSpeed: Speed
+}
+
+let summaries: TripSummary[] = for trip in trips {
+  return TripSummary {
+    route = trip.route,
+    distance = trip.distance in kilometer,
+    averageSpeed = averageSpeed(trip.distance, trip.duration) in kilometer_per_hour,
+  }
+}
+export let exportedSummaries: TripSummary[] = summaries
+
+table tripRegister = table(summaries) {
+  title: "Route measurements"
+  column route as "Route"
+  column distance as "Distance"
+  column averageSpeed as "Average speed"
+}
+
+chart distanceByRoute = bar(summaries) {
+  title: "Distance by route"
+  description: "Normalized route distances"
+  category: route
+  series distance as "Distance"
+}
+
+show tripRegister
+show distanceByRoute
+```

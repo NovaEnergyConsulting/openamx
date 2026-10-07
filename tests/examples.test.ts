@@ -19,6 +19,32 @@ function normalizeLineEndings(text: string): string {
   return text.replace(/\r\n/g, "\n");
 }
 
+describe("V0.9 user documentation", () => {
+  it("links the README and specification and keeps migration/help contracts searchable", async () => {
+    const readme = await Bun.file("README.md").text();
+    const specification = await Bun.file("docs/language-spec-v0.9.md").text();
+    const migration = await Bun.file("docs/migrating-to-v0.9.md").text();
+    const help = JSON.parse(await Bun.file("desktop-app/src/mainview/components/help-content.json").text()) as {
+      topics: Array<{ id: string; terms: string; steps: string[] }>;
+    };
+    const v09Topic = help.topics.find(topic => topic.id === "language-v0.9");
+
+    expect(readme).toContain("[V0.9 language specification](docs/language-spec-v0.9.md)");
+    expect(readme).toContain("[V0.9 migration guide](docs/migrating-to-v0.9.md)");
+    expect(specification).toContain("[project README](../README.md)");
+    expect(specification).toContain("[V0.9 migration guide](migrating-to-v0.9.md)");
+    expect([...migration.matchAll(/^## /gm)]).toHaveLength(3);
+    expect(migration).toContain("Record constructors use `=`");
+    expect(migration).toContain("String escapes are decoded");
+    expect(migration).toContain("Invalid programs are checked");
+    expect(migration).toContain("Colons remain required");
+    expect(migration).toContain("does not automatically migrate projects");
+    expect(new Set(help.topics.map(topic => topic.id)).size).toBe(help.topics.length);
+    expect(v09Topic?.terms).toContain("measurement conversion");
+    expect(v09Topic?.steps.join(" ")).toContain("List indexes are 1-based");
+  });
+});
+
 describe("V0.2 canonical examples", () => {
   it("renders the basic example without executing its ordinary fence", async () => {
     const path = "examples/hello-world.amx";
@@ -259,6 +285,45 @@ describe("Kitchen-sink example", () => {
       expect(exported.stderr).toBe("");
       expect(exported.exitCode).toBe(0);
       expect((await Bun.file(docxPath).bytes()).byteLength).toBeGreaterThan(1000);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("V0.9 measurement report example", () => {
+  it("runs imported JSON measurements through exports and unit-aware HTML reports", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "openamx-v09-measurements-"));
+    try {
+      const jsonOutput = path.join(directory, "summaries.json");
+      const run = await runCli(
+        "run", "examples/v09-measurement-report.amx",
+        "--input", "trips=examples/v09-trips.json",
+        "--output", `exportedSummaries=${jsonOutput}`
+      );
+      expect(run.exitCode).toBe(0);
+      expect(run.stderr).toBe("");
+      expect(JSON.parse(await Bun.file(jsonOutput).text())).toEqual([
+        { route: "North loop", distance: { value: 1.5, unit: "kilometer" }, averageSpeed: { value: 3, unit: "kilometer_per_hour" } },
+        { route: "South loop", distance: { value: 0.5, unit: "kilometer" }, averageSpeed: { value: 1.5, unit: "kilometer_per_hour" } }
+      ]);
+
+      const htmlPath = path.join(directory, "measurements.html");
+      const render = await runCli(
+        "render", "examples/v09-measurement-report.amx", "--out", htmlPath,
+        "--input", "trips=examples/v09-trips.json"
+      );
+      expect(render.exitCode).toBe(0);
+      expect(render.stderr).toBe("");
+      const html = await Bun.file(htmlPath).text();
+      expect(html).toContain("First average speed: 3 kilometer_per_hour.");
+      expect(html).toContain("<th scope=\"col\">Distance</th>");
+      expect(html).toContain("<th scope=\"col\">Average speed</th>");
+      expect(html).toContain("<td>1.5 kilometer</td><td>3 kilometer_per_hour</td>");
+      expect(html).toContain("<td>0.5 kilometer</td><td>1.5 kilometer_per_hour</td>");
+      expect(html).toContain("North loop");
+      expect(html).toContain("South loop");
+      expect(html).toContain("Distance by route");
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

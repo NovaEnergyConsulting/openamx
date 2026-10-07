@@ -1,5 +1,14 @@
 # Planning State
 
+## V0.9 Sprint 058 Builder Implementation (2026-10-07)
+
+- Corrected the demonstrated V0.9 editor gaps: shared completion now offers `dimension` and `unit`; the VS Code TextMate grammar recognizes those declaration keywords; and rename validation reserves both keywords. Added shared/VS Code coverage for imported dimension/unit identity, source ranges, references, hover, and unit rename.
+- Updated the root README and V0.9 spec cross-links, added `docs/migrating-to-v0.9.md` for only the three approved compatibility changes, added an executable imported-measurement JSON/report example, and added bundled searchable V0.9 Help with UI and JSON-contract coverage.
+- Focused regression suite passed (154 tests); `bun run build` passed; final `bun test` passed (377 tests, 2 Windows-only skips, 1,875 expectations). VS Code compile/test compile passed and Linux Extension Development Host passed 22 tests. Desktop RPC, direct Vue typecheck, direct Vite/worker/resource build steps, and Help UI (2 tests) passed.
+- Desktop's Hutch wrapper stalled in `hutch electrobun prepare` for 7m47s before typecheck/build; the idle process was stopped. The wrapper gates are not called passing; their available local steps were run directly. The workspace has no TextMate tokenizer dependency, so grammar structure was inspected in a host regression but actual TextMate tokenization remains unverified.
+- Sprint 053, 054, and 057 historical Windows failures remain separately recorded and unpassed. Exact changed files, host/results, capability matrix, and residuals are in [Sprint 058 Builder evidence](sprints/0058-v09-editor-parity-documentation-acceptance/builder-evidence.md).
+- **Lead Developer disposition (2026-10-07): COMPLETE / APPROVED**, with the Hutch wrapper stall and unavailable TextMate-tokenizer run accepted as recorded, unpassed verification residuals. This closes Sprint 058 only; it does not claim final V0.9 acceptance, release readiness, native/platform certification, or publication.
+
 ## V0.9 Sprint 058 Architect Preparation (2026-10-07)
 
 - Prepared the four Sprint 058 artifacts in `planning/sprints/0058-v09-editor-parity-documentation-acceptance/` for final cross-feature editor parity, user-facing specification/migration guidance, representative examples, bundled Help Center content, and integrated V0.9 verification.

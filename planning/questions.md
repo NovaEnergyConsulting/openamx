@@ -1,5 +1,14 @@
 # Planning Questions (Sprint 002)
 
+## V0.9 Sprint 058 Builder Closeout (2026-10-07)
+
+- **Resolved by focused editor evidence:** shared completion lacked the V0.9 `dimension` and `unit` keywords; the VS Code TextMate keyword rule also omitted them. Both are corrected and covered. Rename now rejects those keywords. Shared and Extension Host checks prove imported dimension/unit declarations resolve to declaring-module ranges, references, hover, and unit rename.
+- **Resolved by example execution:** the positive V0.9 report fixture uses a module-owned measurement type/function, JSON `{value, unit}` input, conversion and explicit rounding, JSON output, narrative display, a measurement table, and a chart. CLI run/render and its example regression pass.
+- **Accepted verification residual:** a TextMate grammar tokenizer was not installed/available in this workspace. The host test inspects the actual grammar rule and executable/inert fence definitions, but does not execute TextMate tokenization; this remains unpassed.
+- **Accepted verification residual:** `bun run --cwd desktop-app typecheck` and `build:web` did not get past `hutch electrobun prepare`, which waited idle for 7m47s and was stopped. Direct `vue-tsc`, Vite production build, Bun worker build, and runtime-resource copy scripts passed; the wrapped checks remain unpassed.
+- Final root build passed; root suite passed 377 tests with 2 Windows-only skips and 0 failures; Linux VS Code host passed 22 tests. Keep the Sprint 053/054/057 Windows results as separate, unpassed historical findings; this Linux run did not rerun those hosts. Full results are in [Sprint 058 Builder evidence](sprints/0058-v09-editor-parity-documentation-acceptance/builder-evidence.md).
+- **Lead Developer disposition (2026-10-07): COMPLETE / APPROVED.** The Lead Developer accepts Sprint 058 as complete with the above verification residuals recorded. The Builder's root/available-host results and historical Windows findings retain their exact pass/fail status. This does not claim final V0.9 acceptance or native/platform certification.
+
 ## V0.9 Sprint 058 Preparation (2026-10-07)
 
 - **Resolved by prior Lead Developer dispositions:** Sprint 053, Sprint 054, and Sprint 057 satisfy Sprint 058's dependency gate. Their Windows VS Code host/desktop RPC findings remain separate, unpassed residuals in their respective evidence; Sprint 058 does not presume those checks passed.

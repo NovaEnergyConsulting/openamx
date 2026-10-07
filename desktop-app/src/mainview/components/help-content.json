@@ -36,6 +36,19 @@
       ]
     },
     {
+      "id": "language-v0.9",
+      "title": "V0.9 language and migration",
+      "summary": "Use V0.9 records, strings, lists, dimensions, units, and measurements.",
+      "terms": "v0.9 migration record constructor equals = colon annotation string escape interpolation list index dimension unit measurement conversion JSON CSV",
+      "steps": [
+        "Record constructor fields use =; colons remain in type fields and annotations.",
+        "Strings decode the approved escapes. Double-quoted strings support ${expression}; single-quoted strings do not.",
+        "List indexes are 1-based. Dimensions and units are explicit declarations and imports; measurements use visible units and explicit conversion.",
+        "Every document is statically checked. Formatting does not repair invalid source, and projects are not migrated automatically.",
+        "Migration guidance covers these three compatibility changes only; it does not promise automatic migration or formatter repair."
+      ]
+    },
+    {
       "id": "documents",
       "title": "Documents and imports",
       "summary": "Work with the active report and unsaved modules.",

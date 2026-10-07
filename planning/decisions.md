@@ -1,5 +1,14 @@
 # Planning Decisions
 
+## V0.9 Sprint 058 Builder Decisions (2026-10-07)
+
+- The concrete parity fixes are limited to existing capabilities: add `dimension`/`unit` to shared completion, VS Code declaration coloring, and reserved rename identifiers. Imported dimension/unit navigation uses the existing shared symbol identities and declaring-module source ranges; no language behavior changed.
+- The migration guide documents only constructor `:` to `=`, finite string escape decoding, and strict checking. It explicitly preserves type/annotation colons and promises neither auto-migration nor formatter repair.
+- The representative workflow imports a local measurement model, reads approved JSON measurement objects, converts/rounds displayed values, and exercises JSON output plus HTML narrative/table/chart paths. It remains an example, not a new measurement or reporting rule.
+- Available-host verification passed the root build/tests and Linux VS Code host. Hutch preparation stalled before wrapper typecheck/build; equivalent local typecheck and web/worker/resource build steps passed directly. Actual TextMate tokenization was not available, so the grammar regression verifies the grammar definitions, not token output. Keep both as explicit evidence boundaries pending Lead Developer disposition.
+- Preserve all Sprint 053/054/057 Windows host/RPC findings as separate unpassed historical residuals. No Windows rerun or native desktop certification is claimed.
+- **Lead Developer disposition (2026-10-07): COMPLETE / APPROVED.** Accept Sprint 058 closeout with the Hutch wrapper stall and unavailable TextMate-tokenizer run recorded as unpassed verification residuals. Do not recast those checks or the separate Sprint 053/054/057 Windows findings as passes; this is not final V0.9 acceptance or platform certification.
+
 ## V0.9 Sprint 058 Architect Preparation (2026-10-07)
 
 - Sprint 058 consumes approved behavior from Sprints 052-057 and owns final editor parity, user-facing docs/migration guidance, representative examples, bundled help, and integrated available-host acceptance only. The V0.9 spec and approved Sprint 051 appendix remain authoritative; this preparation changes no language semantics.

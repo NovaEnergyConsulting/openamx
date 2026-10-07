@@ -1,6 +1,6 @@
 # OpenAMX V0.9 Language and Compatibility Contract
 
-Approved planning contract on 2026-10-06. This describes required behavior, not implemented or verified functionality. V0.9 is a core-language cycle with the associated existing data, reporting, and editor integrations. The [master sprint plan](../planning/plan-openamxV09MasterSprintPlan.md) defines delivery sequencing; detailed sprint packs are prepared separately.
+Approved planning contract on 2026-10-06. This describes required behavior, not implemented or verified functionality. V0.9 is a core-language cycle with the associated existing data, reporting, and editor integrations. See the [project README](../README.md) for the project entry point. The [master sprint plan](../planning/plan-openamxV09MasterSprintPlan.md) defines delivery sequencing; detailed sprint packs are prepared separately. For the three approved compatibility changes, see the [V0.9 migration guide](migrating-to-v0.9.md).
 
 ## 1. Scope and Compatibility
 

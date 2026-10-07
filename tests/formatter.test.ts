@@ -172,4 +172,23 @@ describe('formatAmx', () => {
 
     expect(evaluate(formatted)).toEqual(evaluate(source));
   });
+
+  it('formats V0.9 measurements and list mutation meaning-preservingly and idempotently', () => {
+    const source = [
+      'dimension Length',
+      'unit meter: Length',
+      'unit kilometer = 1000 * meter',
+      'let distances: Length[] = [1 kilometer, 500 meter]',
+      'add 2 meter to distances',
+      'let selected: Length = distances[1]',
+      'let converted = selected in meter',
+      'remove 1 from distances'
+    ].join('\n');
+    const formatted = formatAmx(source);
+    const evaluate = (text: string) => evaluateDocument(parseDocumentText(`\`\`\`amx\n${text}\n\`\`\``));
+
+    expect(formatAmx(formatted)).toBe(formatted);
+    expect(evaluate(formatted)).toEqual(evaluate(source));
+    expect(() => parseStatements(formatted)).not.toThrow();
+  });
 });

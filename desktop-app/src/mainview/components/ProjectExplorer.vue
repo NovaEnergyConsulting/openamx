@@ -25,7 +25,7 @@ const groupedFiles = computed(() => {
 		<div class="explorer-actions"><button type="button" @click="emit('createAmx')">New AMX</button><button type="button" @click="emit('createFolder')">New folder</button><button type="button" :disabled="!canMoveActive" @click="emit('moveActive')">Move / rename</button></div>
 		<input id="project-search" v-model="search" aria-label="Search project files" placeholder="Search files">
 		<div v-for="[folder, entries] in groupedFiles" :key="folder">
-			<p class="folder">{{ folder }}</p>
+			<p class="folder">{{ folder === '.' ? 'Root Folder' : folder }}</p>
 			<button v-for="file in entries" :key="file.path" class="file" :class="{ selected: workbench.active?.endsWith(file.path) }" :aria-current="workbench.active?.endsWith(file.path) ? 'page' : undefined" @click="emit('open', file.path)">
 				<span>{{ file.path.split('/').pop() }}</span><small>{{ file.kind }}</small>
 			</button>
