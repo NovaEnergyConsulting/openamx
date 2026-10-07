@@ -1,5 +1,15 @@
 # Planning Questions (Sprint 002)
 
+## V0.10 Sprint 060 Preparation (2026-10-07)
+
+- The V0.10 master plan resolves product scope but leaves implementation-facing chart, interaction, visual, packaging, and security detail to Sprint 060. Complete the Sprint 060 decision register with evidence-backed proposals; do not treat this preparation as approval.
+- Which exact ECharts release and package placement can satisfy Bun SVG, browser-local standalone HTML, pdfmake, and desktop packaged-runtime needs while meeting license/notice and size constraints? Owner: Sprint 060 Builder; disposition: Lead Developer.
+- Can ECharts SVG render reliably in the existing pdfmake pipeline and packaged desktop environments, including required fonts, labels, null states, and offline resources? If not, document alternatives and request explicit architecture/scope direction before implementation.
+- What exact behavior is correct for all existing chart kinds, DateTime/measurement axes, independently normalized units, null/empty/grouped data, and per-kind interactions while preserving existing AMX semantics? Owner: Sprint 060 Builder proposal; Lead Developer approval required for any unresolved semantic choice.
+- What isolated iframe/bootstrap/resource policy supports required interactions while denying report-authored execution, parent/application/bridge access, and unapproved network? Require adversarial evidence before enabling any script permission.
+- What representative data/output bounds and measurable HTML/PDF comparison tolerances are justified by current limits and evidence? Propose values in the contract; no product-limit change is authorized here.
+- Sprint 060 has no sprint dependency. Its gate remains open until the Lead Developer explicitly approves or keeps it blocked; Sprint 061 is not authorized by Builder completion alone.
+
 ## V0.9 Sprint 059 Builder Closeout (2026-10-07)
 
 - **Resolved by tokenizer regression:** unterminated AMX strings/interpolations previously kept TextMate rules active across Markdown fences. End-of-line recovery now unwinds those rules; malformed strings, nested braces, exact fence lengths, following inert fences, and narrative interpolation boundaries pass actual tokenization tests. No language/runtime semantics changed.

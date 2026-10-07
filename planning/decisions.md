@@ -1,5 +1,13 @@
 # Planning Decisions
 
+## V0.10 Sprint 060 Architect Preparation (2026-10-07)
+
+- Sprint 060 consumes the scope and recommended shared-adapter direction in `planning/plan-openamxV10MasterSprintPlan.md`; it may specify implementation-facing contracts but may not redefine AMX chart/data semantics or broaden product scope.
+- Treat the ECharts version, package placement, browser bootstrap, security configuration, option/data model details, visual tolerances, limits, and PDF/desktop compatibility as gate questions until supported by direct evidence and explicit Lead Developer disposition.
+- The proposed shared chart model must preserve captured emission order, existing normalization/dimensional metadata, null semantics, immutable snapshots, and report pipeline behavior. Interactive browser state must not alter static exports or captured AMX data.
+- Feasibility experiments are isolated and disposable. No production renderer changes, iframe permission changes, or runtime dependency changes are authorized. If SVG/pdfmake or packaged desktop resolution fails, report alternatives and request approval before changing architecture.
+- Sprint 061 is gated on explicit approval of Sprint 060's contract and architecture; Builder completion or a passing subset of probes does not close the gate.
+
 ## V0.9 Sprint 059 Builder Findings (2026-10-07)
 
 - Add `vscode-textmate` and `vscode-oniguruma` as extension-only development dependencies because no compatible tokenizer was available in the workspace. The actual grammar now has tokenizer-backed scope coverage; the dependencies are not in production/runtime dependencies.

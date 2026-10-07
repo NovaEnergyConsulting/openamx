@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.10 Sprint 060 Architect Preparation (2026-10-07)
+
+- Prepared the four Sprint 060 artifacts in `planning/sprints/0060-v10-echarts-rendering-contract-technical-gate/` from the V0.10 master plan for the ECharts rendering contract and technical feasibility gate.
+- Sprint 060 has no sprint dependency and can proceed independently of the separate final V0.9 disposition. It does not implement production rendering, change iframe permissions, add runtime dependencies, or authorize an architecture alternative.
+- The pack requires executable chart/null/unit/interaction/accessibility/print/security contracts and isolated offline browser, Bun SVG, pdfmake/PDF, and desktop packaged-resource evidence. Results and residuals remain pending Builder work and explicit Lead Developer gate disposition.
+- Sprint 061 remains blocked until that disposition explicitly approves the contract and architecture. No V0.10 implementation or feasibility result is claimed by this preparation.
+
 ## V0.9 Sprint 059 Builder Verification (2026-10-07)
 
 - Added test-only `vscode-textmate`/`vscode-oniguruma` dependencies and a host regression that executes the actual grammar. Corrected TextMate recovery for unterminated single/double strings, string interpolation, and nested expression braces at end-of-line; narrative interpolation retains its exact `}}` boundary. The real tokenizer confirms executable/inert fence separation and valid fence-length handling.
