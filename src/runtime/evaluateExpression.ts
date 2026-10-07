@@ -20,7 +20,7 @@ import {
   RemoveStatementNode
 } from '../ast/types';
 import { inputError, staticError, throwInputErrors, throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext, throwListOperationError, throwMeasurementDomainError } from '../diagnostics/errors';
-import { Environment, ViewDataValue, ViewEmission } from './environment';
+import { ChartViewEmission, Environment, ViewDataValue, ViewEmission } from './environment';
 import { evaluateStandardLibraryCall } from './standardLibrary';
 import type { CheckedType } from '../typechecker/checkDocument';
 import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
@@ -615,6 +615,7 @@ function snapshotView(name: string, env: Environment, file?: string, source?: So
 
   let labels: readonly string[] | undefined;
   let headings: readonly string[] | undefined;
+  let measurementDescriptors: ChartViewEmission['measurementDescriptors'];
   let viewData: readonly ViewDataValue[];
   if (declaration.type === 'chartDeclaration') {
     const labelsOption = declaration.options.find(option => option.type === 'chartFieldOption' && option.role === 'labels');
@@ -639,6 +640,7 @@ function snapshotView(name: string, env: Environment, file?: string, source?: So
     const normalized = normalizeChartMeasurements(value, declaration, name, file);
     viewData = normalized.data;
     headings = normalized.headings;
+    measurementDescriptors = normalized.measurementDescriptors;
   } else {
     viewData = snapshotValue(value) as readonly ViewDataValue[];
   }
@@ -649,7 +651,11 @@ function snapshotView(name: string, env: Environment, file?: string, source?: So
   };
   return declaration.type === 'tableDeclaration'
     ? Object.freeze({ kind: 'table', ...emission, declaration })
-    : Object.freeze({ kind: 'chart', ...emission, declaration, ...(labels ? { labels } : {}), ...(headings ? { headings } : {}) });
+    : Object.freeze({
+      kind: 'chart', ...emission, declaration,
+      ...(labels ? { labels } : {}), ...(headings ? { headings } : {}),
+      ...(measurementDescriptors?.length ? { measurementDescriptors } : {})
+    });
 }
 
 function normalizeChartMeasurements(
@@ -657,15 +663,24 @@ function normalizeChartMeasurements(
   declaration: ChartDeclarationNode,
   name: string,
   file?: string
-): { data: readonly ViewDataValue[]; headings: readonly string[] } {
+): {
+  data: readonly ViewDataValue[];
+  headings: readonly string[];
+  measurementDescriptors: ChartViewEmission['measurementDescriptors'];
+} {
   const scatter = declaration.kind === 'scatter';
-  const selectedColumns = scatter
+  const selectedColumns: Array<{
+    role: 'series' | 'x' | 'y';
+    field?: string;
+    label: string;
+    source?: SourceLocation;
+  }> = scatter
     ? declaration.options
       .filter((option): option is ChartFieldOptionNode => option.type === 'chartFieldOption' && (option.role === 'x' || option.role === 'y'))
-      .map(option => ({ field: option.field, label: option.role, source: option.source }))
+      .map(option => ({ role: option.role as 'x' | 'y', field: option.field, label: option.role, source: option.source }))
     : declaration.options
       .filter((option): option is ChartSeriesOptionNode => option.type === 'chartSeriesOption')
-      .map(option => ({ field: option.field, label: option.label, source: option.source }));
+      .map(option => ({ role: 'series' as const, field: option.field, label: option.label, source: option.source }));
   const chosenUnits = selectedColumns.map(column => {
     const field = column.field;
     const values = data.map(item => item !== null && typeof item === 'object' && !Array.isArray(item) && !isMeasurement(item)
@@ -688,10 +703,24 @@ function normalizeChartMeasurements(
 
   const headings = scatter
     ? (['x', 'y'] as const).map((axis, index) => chosenUnits[index] ? `${axis} (${chosenUnits[index]!.unit.text})` : axis).concat('group')
-    : ['label', ...selectedColumns.map((column, index) => {
-      const label = column.label;
-      return chosenUnits[index] ? `${label} (${chosenUnits[index]!.unit.text})` : label;
+    : ['label', ...selectedColumns.flatMap((column, index) => column.role === 'series'
+      ? [chosenUnits[index] ? `${column.label} (${chosenUnits[index]!.unit.text})` : column.label]
+      : [])];
+  const measurementDescriptors = selectedColumns.flatMap((column, index) => {
+    const unit = chosenUnits[index]?.unit;
+    if (!unit) return [];
+    return [Object.freeze({
+      role: column.role,
+      ...(column.field === undefined ? {} : { field: column.field }),
+      label: column.label,
+      unit: Object.freeze({
+        text: unit.text,
+        scale: unit.scale,
+        vector: Object.freeze({ ...unit.vector }),
+        factors: Object.freeze(unit.factors.map(factor => Object.freeze({ ...factor })))
+      })
     })];
+  });
   const normalizedData = data.map((item): ViewDataValue => {
     if (item !== null && typeof item === 'object' && !Array.isArray(item) && !isMeasurement(item)) {
       const values: Record<string, ViewDataValue> = {};
@@ -705,7 +734,11 @@ function normalizeChartMeasurements(
     }
     return normalizeChartValue(item, chosenUnits[0], name, selectedColumns[0]?.source, declaration, file);
   });
-  return { data: Object.freeze(normalizedData), headings: Object.freeze(headings) };
+  return {
+    data: Object.freeze(normalizedData),
+    headings: Object.freeze(headings),
+    measurementDescriptors: Object.freeze(measurementDescriptors)
+  };
 }
 
 function normalizeChartValue(

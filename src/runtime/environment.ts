@@ -24,6 +24,21 @@ export interface ChartViewEmission extends ViewEmissionLocation {
   declaration: ChartDeclarationNode;
   labels?: readonly string[];
   headings?: readonly string[];
+  measurementDescriptors?: readonly ChartMeasurementDescriptor[];
+}
+
+export interface ChartMeasurementDescriptor {
+  readonly role: 'series' | 'x' | 'y';
+  readonly field?: string;
+  readonly label: string;
+  readonly unit: ChartMeasurementUnitDescriptor;
+}
+
+export interface ChartMeasurementUnitDescriptor {
+  readonly text: string;
+  readonly scale: number;
+  readonly vector: Readonly<Record<string, number>>;
+  readonly factors: readonly Readonly<{ identity: string; name: string; exponent: number }>[];
 }
 
 export type ViewEmission = TableViewEmission | ChartViewEmission;

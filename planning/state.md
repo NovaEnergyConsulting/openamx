@@ -1,5 +1,11 @@
 # Planning State
 
+## V0.10 Sprint 061 Closeout (2026-10-07)
+
+- **COMPLETE / APPROVED WITH RECORDED RESIDUALS** by Lead Developer disposition on 2026-10-07. The Lead Developer accepted Builder evidence and authorized closeout. The narrowly scoped additive immutable chart-emission unit/dimension metadata field and runtime snapshot tests were authorized and implemented.
+- Added root `echarts@6.1.0`, immutable measurement descriptors, and one pure shared chart model. Root build passes; full suite passes (397 tests, 2 existing Windows-only skips); required scoped regressions pass (52 tests). No destination renderer was wired.
+- Sprint 060 residuals remain unchanged and unpassed. Sprint 061 closeout does not claim V0.10 completion, destination integration, package/security/visual parity, platform certification, legal clearance, or release readiness.
+
 ## V0.10 Sprint 061 Architect Preparation (2026-10-07)
 
 - Prepared the four Sprint 061 artifacts in `planning/sprints/0061-v10-shared-chart-model-openamx-theme/` for the approved shared ECharts chart model and OpenAMX theme implementation.

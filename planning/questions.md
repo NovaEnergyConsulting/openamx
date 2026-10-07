@@ -2,6 +2,8 @@
 
 ## V0.10 Sprint 061 Preparation (2026-10-07)
 
+- **Resolved by Lead Developer authorization (2026-10-07):** add a narrowly scoped immutable unit/dimension metadata field to chart emissions; Sprint 061 may edit the runtime snapshot boundary and focused tests. Preserve existing normalized values and do not redo normalization. Implementation evidence is in `planning/sprints/0061-v10-shared-chart-model-openamx-theme/builder-evidence.md`.
+- **Resolved by Lead Developer disposition (2026-10-07):** Sprint 061 is COMPLETE / APPROVED WITH RECORDED RESIDUALS and closed. The Sprint 060 residuals remain unpassed and retain their existing owners; this does not imply HTML/PDF/desktop integration or V0.10 acceptance.
 - **Resolved by Lead Developer disposition (2026-10-07):** Sprint 060 is COMPLETE / APPROVED WITH RECORDED RESIDUALS and Sprint 061 is explicitly authorized. Use ECharts `6.1.0` at the proposed shared root dependency placement. The approval is not evidence of production integration, packaged desktop resolution, legal clearance, or final V0.10 acceptance.
 - Sprint 060's approved contract resolves chart-kind orientation/order, numeric/DateTime/measurement behavior, unit axes, null/empty/group semantics, interactions, palette/accent direction, dimensions, and accessibility requirements. Implement those decisions; do not reopen semantics absent a concrete contradiction.
 - Keep the Sprint 060 external-link/meta-refresh network-navigation failure open for the later script-enabled preview integration gate. Production iframe scripts remain disabled; CSP plus opaque origin alone did not prevent navigation.

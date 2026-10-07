@@ -8,6 +8,7 @@ import { Environment } from '../src/runtime/environment';
 import { parseExternalUnitText } from '../src/runtime/externalUnits';
 import { describeInputSchema, validateInputText } from '../src/runtime/inputData';
 import { isMeasurement, measurement } from '../src/runtime/measurement';
+import { evaluateDocumentEnvironment } from '../src/runtime/evaluateDocument';
 import { describeOutputSchemas, prepareOutputs, serializeOutputs } from '../src/runtime/outputData';
 import { prepareReport } from '../src/renderer/reportPreparation';
 import { renderPreparedHtml } from '../src/renderer/renderHtml';
@@ -84,6 +85,58 @@ function captureError(action: () => unknown, code: string): AmxError {
 }
 
 describe('Sprint 057 measurement data contracts', () => {
+  it('captures immutable chart unit descriptors alongside normalized values', () => {
+    const doc = parseDocumentText(`\`\`\`amx
+dimension Length
+dimension Time
+unit meter: Length
+unit kilometer = 1000 * meter
+unit second: Time
+type Observation {
+  label: String
+  distance: Length
+  duration: Time
+}
+let observations: Observation[] = [
+  Observation { label = "A", distance = 1 kilometer, duration = 2 second },
+  Observation { label = "B", distance = 500 meter, duration = 3 second }
+]
+chart travel = column(observations) {
+  title: "Travel"
+  description: "Distance and duration"
+  category: label
+  series distance as "Distance"
+  series duration as "Duration"
+}
+show travel
+\`\`\``);
+    const emission = evaluateDocumentEnvironment(doc, 'chart-measurement.amx').viewEmissions[0];
+    expect(emission).toMatchObject({
+      kind: 'chart',
+      data: [{ distance: 1, duration: 2 }, { distance: 0.5, duration: 3 }],
+      headings: ['label', 'Distance (kilometer)', 'Duration (second)'],
+      measurementDescriptors: [
+        { role: 'series', field: 'distance', label: 'Distance', unit: { text: 'kilometer', scale: 1000 } },
+        { role: 'series', field: 'duration', label: 'Duration', unit: { text: 'second', scale: 1 } }
+      ]
+    });
+
+    const descriptors = emission.kind === 'chart' ? emission.measurementDescriptors! : [];
+    expect(Object.values(descriptors[0].unit.vector)).toEqual([1]);
+    expect(descriptors[0].unit.factors).toMatchObject([{ name: 'kilometer', exponent: 1 }]);
+    expect(Object.values(descriptors[1].unit.vector)).toEqual([1]);
+    expect(descriptors[1].unit.factors).toMatchObject([{ name: 'second', exponent: 1 }]);
+    expect(Object.isFrozen(descriptors)).toBe(true);
+    for (const descriptor of descriptors) {
+      expect(Object.isFrozen(descriptor)).toBe(true);
+      expect(Object.isFrozen(descriptor.unit)).toBe(true);
+      expect(Object.isFrozen(descriptor.unit.vector)).toBe(true);
+      expect(Object.isFrozen(descriptor.unit.factors)).toBe(true);
+      expect(Object.isFrozen(descriptor.unit.factors[0])).toBe(true);
+    }
+
+  });
+
   it('loads exact nested JSON measurement objects and rejects bare values and malformed shapes', () => {
     const { types, inputs, registry } = setup();
     const declaration = inputs.get('payload')!;

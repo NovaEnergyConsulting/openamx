@@ -1,5 +1,15 @@
 # Planning Decisions
 
+## V0.10 Sprint 061 Builder Finding (2026-10-07)
+
+- The approved requirement to preserve normalized measurement values and dimensional metadata cannot currently be met by a downstream-only adapter: `normalizeChartMeasurements` turns each measurement into a number and writes only `unit.text` into headings; `ChartViewEmission` exposes only those values/headings, not unit identity or dimension vectors.
+- Before authorization, do not infer dimensional metadata from heading strings or change runtime/evaluator semantics without direction. The 2026-10-07 Lead Developer authorization below resolves the additive metadata boundary only; other AMX/runtime semantics remain unchanged.
+- Sprint 060 remains COMPLETE / APPROVED WITH RECORDED RESIDUALS. Its residual evidence is unchanged.
+- **Lead Developer authorization (2026-10-07):** add a narrowly scoped immutable unit/dimension metadata field to captured chart emissions; Sprint 061 may edit the runtime snapshot boundary and add focused tests. The field records the already-chosen display unit and does not redo normalization.
+- Builder implementation captures the selected unit text, scale, factors, and dimension vector for normalized chart series and scatter x/y fields, while retaining existing normalized data and line-x snapshot values. The shared adapter remains downstream and is not wired into HTML/PDF/desktop.
+- Verification: focused chart/model + renderer/PDF/presentation/measurement regressions pass (52 tests); root build passes; final root suite passes (397 tests, 2 existing Windows-only skips). Exact commands, dependency graph, notice inventory, and residuals are recorded in Sprint 061 evidence.
+- **Lead Developer disposition (2026-10-07): COMPLETE / APPROVED WITH RECORDED RESIDUALS.** Sprint 061 is accepted as completed and closed. Sprint 060's residual statuses and Sprint 062/063 ownership remain unchanged.
+
 ## V0.10 Sprint 061 Architect Preparation (2026-10-07)
 
 - Sprint 060 is **COMPLETE / APPROVED WITH RECORDED RESIDUALS**; Sprint 061 is explicitly authorized. Implement the approved ECharts `6.1.0` exact root dependency baseline and shared model contract; no duplicate desktop-only dependency.
