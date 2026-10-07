@@ -1,5 +1,11 @@
 # Planning Questions (Sprint 002)
 
+## V0.9 Sprint 059 Builder Closeout (2026-10-07)
+
+- **Resolved by tokenizer regression:** unterminated AMX strings/interpolations previously kept TextMate rules active across Markdown fences. End-of-line recovery now unwinds those rules; malformed strings, nested braces, exact fence lengths, following inert fences, and narrative interpolation boundaries pass actual tokenization tests. No language/runtime semantics changed.
+- The Hutch wrapper retry stalled at 510 seconds; direct typecheck/build/resource equivalents passed independently. The wrapper and direct statuses are kept separate in Builder evidence.
+- Request a separate final V0.9 disposition, including the repeated Hutch wrapper stall and historical Windows residuals. Sprint 059 Builder evidence is not self-acceptance.
+
 ## V0.9 Sprint 059 Preparation (2026-10-07)
 
 - **Resolved by Sprint 058 disposition:** Sprint 059 follows Sprint 058 **COMPLETE / APPROVED** and owns only final verification/acceptance closeout. Sprint 058's actual TextMate tokenization and Hutch wrapper checks remain accepted, unpassed verification residuals.

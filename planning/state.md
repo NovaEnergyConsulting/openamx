@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.9 Sprint 059 Builder Verification (2026-10-07)
+
+- Added test-only `vscode-textmate`/`vscode-oniguruma` dependencies and a host regression that executes the actual grammar. Corrected TextMate recovery for unterminated single/double strings, string interpolation, and nested expression braces at end-of-line; narrative interpolation retains its exact `}}` boundary. The real tokenizer confirms executable/inert fence separation and valid fence-length handling.
+- Root build passed; root tests passed (377, 2 Windows-only skips, 1,875 expectations). VS Code compile and Linux host suite passed (22 tests); desktop RPC, 28 desktop unit tests, 2 Help UI tests, and the representative run/export/HTML example checks passed.
+- One bounded Hutch wrapper attempt stopped in `hutch electrobun prepare` at 510 seconds (exit 124/SIGTERM), before `vue-tsc`; `build:web` wrapper was not run. Direct Vue typecheck, Vite build, worker bundle, Sharp runtime copy, and PDF font copy passed separately and do not imply wrapper success.
+- Historical Sprint 053/054/057 Windows residuals remain separately unpassed. No native/platform certification or release readiness is claimed.
+- Builder evidence is in [Sprint 059 Builder evidence](sprints/0059-v09-final-acceptance-verification-closeout/builder-evidence.md). Sprint 059 closeout and final V0.9 acceptance remain pending a separate Lead Developer disposition; no platform certification or release readiness is claimed.
+
 ## V0.9 Sprint 059 Architect Preparation (2026-10-07)
 
 - Prepared the four Sprint 059 artifacts in `planning/sprints/0059-v09-final-acceptance-verification-closeout/` as a verification-only final V0.9 acceptance gate after Sprint 058.

@@ -3,6 +3,8 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { INITIAL, Registry } from 'vscode-textmate';
+import { loadWASM, OnigScanner, OnigString } from 'vscode-oniguruma';
 import { parseDocumentText } from '../../../src/parser/parseDocument';
 import { declarationRange, tokenRange } from '../providers/symbolRanges';
 
@@ -363,18 +365,127 @@ suite('OpenAMX providers', () => {
       assert.ok(!outsideLabels.has(fn), fn);
     }
   });
-  test('TextMate grammar includes V0.9 declaration keywords without activating inert fences', async () => {
+  test('tokenizes V0.9 syntax with the actual TextMate grammar and preserves Markdown boundaries', async () => {
     const extension = vscode.extensions.getExtension('EngineersTools.openamx-vscode');
     assert.ok(extension);
+    const wasm = await fs.readFile(require.resolve('vscode-oniguruma/release/onig.wasm'));
+    await loadWASM(wasm);
     const grammar = JSON.parse(await fs.readFile(path.join(extension.extensionPath, 'amx.tmGrammar.json'), 'utf8'));
-    const keywordRule = grammar.repository['amx-keywords'].patterns.find((pattern: { match?: unknown }) =>
-      typeof pattern.match === 'string' && pattern.match.includes('dimension|unit'));
-    assert.ok(keywordRule?.match);
-    for (const keyword of ['dimension', 'unit']) assert.ok(new RegExp(keywordRule.match).test(keyword), keyword);
-    assert.equal(grammar.repository['executable-fence'].contentName, 'meta.block.amx');
-    assert.ok(JSON.stringify(grammar.repository['executable-fence'].patterns).includes('#amx'));
-    assert.equal(grammar.repository['inert-fence'].patterns, undefined);
-    assert.ok(!JSON.stringify(grammar.repository['inert-fence']).includes('#amx'));
+    const registry = new Registry({
+      onigLib: Promise.resolve({
+        createOnigScanner: (patterns) => new OnigScanner(patterns),
+        createOnigString: (value) => new OnigString(value)
+      }),
+      loadGrammar: async (scopeName) => scopeName === 'source.amx' ? grammar : null
+    });
+    const tokenizer = await registry.loadGrammar('source.amx');
+    assert.ok(tokenizer);
+
+    const tokenize = (source: string) => {
+      let ruleStack = INITIAL;
+      return source.split(/\r?\n/).map((line) => {
+        const result = tokenizer.tokenizeLine(line, ruleStack);
+        ruleStack = result.ruleStack;
+        return { line, tokens: result.tokens };
+      });
+    };
+    const lines = tokenize([
+      'Narrative dimension and unit remain prose.',
+      '```amx',
+      'dimension Length',
+      'unit meter: Length',
+      'let rows: Number[] = [1, 2, 3]',
+      'let second = rows[2]',
+      'let converted = 2 kilometer in meter',
+      'add 4 to rows at 2',
+      'remove 1 from rows',
+      'type Sample { distance: Length }',
+      'let record = Sample { distance = 2 meter }',
+      'let label = "escaped \\${notCode}; value ${second}"',
+      'let draft = (2 meter',
+      'let malformedInterpolation = "${second + }"',
+      '```',
+      '```js',
+      'let inert = 1 meter',
+      '```',
+      'Narrative {{2 meter}} and unit.'
+    ].join('\n'));
+    const scopesAt = (lineText: string, text: string, tokenizedLines = lines): readonly string[] => {
+      const line = tokenizedLines.find((item) => item.line === lineText);
+      assert.ok(line, `missing tokenized line: ${lineText}`);
+      const start = lineText.indexOf(text);
+      assert.notEqual(start, -1, `missing token text: ${text}`);
+      const token = line.tokens.find((item) => item.startIndex <= start && item.endIndex > start);
+      assert.ok(token, `missing token at ${text}`);
+      return token.scopes;
+    };
+    const hasScope = (lineText: string, text: string, scope: string, tokenizedLines = lines) =>
+      assert.ok(scopesAt(lineText, text, tokenizedLines).includes(scope), `${text} should have ${scope}`);
+    const lacksScope = (lineText: string, text: string, scope: string, tokenizedLines = lines) =>
+      assert.ok(!scopesAt(lineText, text, tokenizedLines).includes(scope), `${text} should not have ${scope}`);
+
+    hasScope('dimension Length', 'dimension', 'keyword.control.amx');
+    hasScope('unit meter: Length', 'unit', 'keyword.control.amx');
+    hasScope('let rows: Number[] = [1, 2, 3]', '1', 'constant.numeric.amx');
+    hasScope('let second = rows[2]', '2', 'constant.numeric.amx');
+    hasScope('let converted = 2 kilometer in meter', 'in', 'keyword.control.amx');
+    hasScope('add 4 to rows at 2', 'add', 'keyword.control.amx');
+    hasScope('remove 1 from rows', 'remove', 'keyword.control.amx');
+    hasScope('let record = Sample { distance = 2 meter }', '= 2', 'keyword.operator.amx');
+    hasScope('let label = "escaped \\${notCode}; value ${second}"', '\\${', 'constant.character.escape.amx');
+    lacksScope('let label = "escaped \\${notCode}; value ${second}"', '\\${', 'meta.interpolation.string.amx');
+    hasScope('let label = "escaped \\${notCode}; value ${second}"', '${second}', 'meta.interpolation.string.amx');
+    hasScope('let malformedInterpolation = "${second + }"', '+', 'keyword.operator.amx');
+    lacksScope('Narrative dimension and unit remain prose.', 'dimension', 'keyword.control.amx');
+    lacksScope('let inert = 1 meter', 'let', 'keyword.control.amx');
+    hasScope('Narrative {{2 meter}} and unit.', '2', 'constant.numeric.amx');
+    lacksScope('Narrative {{2 meter}} and unit.', 'and', 'meta.interpolation.amx');
+
+    const unterminated = tokenize([
+      '```amx',
+      'let unfinished = "${1 +',
+      '```',
+      '```js',
+      'let inertAfterInterpolation = 2',
+      '```',
+      '```amx',
+      'let unfinishedDouble = "still open',
+      '```',
+      '```js',
+      'let inertAfterDouble = 3',
+      '```',
+      '```amx',
+      "let unfinishedSingle = 'still open",
+      '```',
+      '```js',
+      'let inertAfterSingle = 4',
+      '```',
+      '```amx',
+      'let unfinishedNested = "${call({ value: 1',
+      '```',
+      '```js',
+      'let inertAfterNested = 5',
+      '```',
+      '````amx',
+      'let unfinishedLong = "still open',
+      '```',
+      'let remainsExecutable = 6',
+      '````',
+      '```js',
+      'let inertAfterLongFence = 7',
+      '```',
+      'Narrative after the fences.'
+    ].join('\n'));
+    for (const inertLineText of [
+      'let inertAfterInterpolation = 2',
+      'let inertAfterDouble = 3',
+      'let inertAfterSingle = 4',
+      'let inertAfterNested = 5',
+      'let inertAfterLongFence = 7'
+    ]) {
+      lacksScope(inertLineText, 'let', 'keyword.control.amx', unterminated);
+    }
+    hasScope('let remainsExecutable = 6', 'let', 'keyword.control.amx', unterminated);
   });
 
   test('completes V0.3 types, inputs, functions, imported exports, and known record fields', async () => {

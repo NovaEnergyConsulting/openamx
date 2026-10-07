@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.9 Sprint 059 Builder Findings (2026-10-07)
+
+- Add `vscode-textmate` and `vscode-oniguruma` as extension-only development dependencies because no compatible tokenizer was available in the workspace. The actual grammar now has tokenizer-backed scope coverage; the dependencies are not in production/runtime dependencies.
+- Real tokenization revealed that an unterminated interpolated string in an executable AMX fence absorbed subsequent Markdown, causing `let` inside a later inert fence to receive `keyword.control.amx`. Following the user's direction to fix it, AMX double/single string, interpolation, and nested expression-brace rules now recover at end-of-line, consistent with single-line strings. The exact `}}` narrative interpolation delimiter is preserved. Actual tokenization and the full 22-test Linux Extension Development Host suite pass; no parser/runtime semantics changed.
+- The single bounded Hutch `typecheck` wrapper attempt stalled at `hutch electrobun prepare` for 510 seconds and was stopped by TERM (exit 124). Direct Vue/Vite/worker/resource checks passed independently. `build:web` wrapper remains not run; no direct command upgrades a wrapper result.
+- Full evidence and preserved Sprint 053/054/057 Windows residuals are in [Sprint 059 Builder evidence](sprints/0059-v09-final-acceptance-verification-closeout/builder-evidence.md). Final V0.9 disposition remains an explicit Lead Developer decision.
+
 ## V0.9 Sprint 059 Architect Preparation (2026-10-07)
 
 - Sprint 059 is a final verification/acceptance closeout only, following Sprint 058 **COMPLETE / APPROVED**. It does not add product or language behavior and cannot reopen approved Sprint 052-058 semantics without a separate Lead Developer decision.

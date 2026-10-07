@@ -275,7 +275,7 @@
             "patterns": [
                 {
                     "begin": "\"",
-                    "end": "\"",
+                    "end": "\"|$",
                     "name": "string.quoted.double.amx",
                     "beginCaptures": {
                         "0": {
@@ -290,7 +290,7 @@
                     "patterns": [
                         {
                             "begin": "(?<!\\\\)(?:\\\\\\\\)*(\\$\\{)",
-                            "end": "\\}",
+                            "end": "\\}|$",
                             "name": "meta.interpolation.string.amx",
                             "beginCaptures": {
                                 "1": {
@@ -319,7 +319,7 @@
                 },
                 {
                     "begin": "'",
-                    "end": "'",
+                    "end": "'|$",
                     "name": "string.quoted.single.amx",
                     "beginCaptures": {
                         "0": {
@@ -342,7 +342,7 @@
         },
         "amx-expression-braces": {
             "begin": "\\{",
-            "end": "\\}",
+            "end": "\\}|$",
             "name": "meta.brace.expression.amx",
             "patterns": [
                 {
