@@ -11,7 +11,7 @@ const expectedSearchTerms = [
 	["language-v0.9", "v0.9 migration record constructor equals = colon annotation string escape interpolation list index dimension unit measurement conversion JSON CSV"],
 	["documents", "active tab import source editor save intelligence rename"],
 	["data", "csv json external private mapping schema validation"],
-	["preview-export", "run preview cancel stale html pdf docx json csv"],
+	["preview-export", "run preview cancel stale html offline interactive charts legend zoom static pdf data table docx json csv"],
 	["recovery", "conflict autosave crash restore discard recovery"],
 	["diagnostics", "logs export privacy path secret credential source input"],
 	["release-notes", "version changes release notes feature"]
@@ -53,6 +53,11 @@ test("bundled help keeps stable topics, local search, registry shortcuts, routin
 		await search.fill(terms);
 		await expect(page.locator(`.help-topics [data-topic-id='${id}']`), `${id} search terms`).toBeVisible();
 	}
+	await search.fill("offline");
+	const previewTopic = page.locator(".help-topics [data-topic-id='preview-export']");
+	await previewTopic.click();
+	await expect(page.locator(".help-content")).toContainText("PDF charts are static");
+	await expect(page.locator(".help-content")).toContainText("complete chart data remains in report tables");
 	await search.fill("measurement conversion");
 	const v09Topic = page.locator(".help-topics [data-topic-id='language-v0.9']");
 	await expect(v09Topic).toBeVisible();

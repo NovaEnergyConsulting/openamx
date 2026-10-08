@@ -59,6 +59,7 @@ Open an existing folder with **Open project**. Recent projects preserve only val
 - CSV and JSON tabs offer virtualized structured editing, raw mode, schema/validation details, and edit history. Supported table data is capped at 100,000 rows; larger or unsupported values retain a bounded raw fallback without silent truncation.
 - The Inputs pane maps declared logical inputs. Local choices remain private by default; contained project defaults require explicit promotion. External mapped data is labeled private.
 - Report Settings supports project defaults and current-document overrides. One Export workflow supports HTML, PDF, DOCX, and eligible explicitly exported JSON/CSV bindings.
+- Charts are interactive in the live preview and HTML reports, with the runtime bundled for offline use. PDF charts are static; full chart data remains in the report tables. DOCX chart behavior is unchanged.
 - File writes, settings updates, autosave, recovery, trash, conflicts, output preparation, and atomic commits are owned by Bun. Cancellation or staleness before atomic replacement preserves the previous file; a rename already in progress is not interruptible.
 
 ## Help and Preferences

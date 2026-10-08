@@ -1,5 +1,24 @@
 # Planning State
 
+## V0.10 Final Implementation Disposition (2026-10-08)
+
+- **ACCEPTED / CLOSED WITH RECORDED RESIDUALS.** The Lead Developer accepts the V0.10 implementation and closes its implementation work.
+- Preserve Sprint 064's measured cross-surface SSIM miss, unmeasured 2 CSS px bounds, data-editor polling timeouts, and native/platform/formal-accessibility boundaries at their recorded statuses. Acceptance does not promote them to passes.
+- No release readiness, publication, or broader platform/accessibility certification is authorized or claimed.
+
+## V0.10 Sprint 064 Lead Developer Disposition (2026-10-08)
+
+- **COMPLETE / APPROVED WITH RECORDED RESIDUALS.** The Lead Developer accepted Sprint 064 closeout and confirmed testing of the new features.
+- Retain the raster SSIM result below target, unmeasured <=2 CSS px chart-bound check, parallel/isolated desktop data-editor polling timeouts, and platform/accessibility boundaries at their recorded statuses. None is promoted to passing.
+- Final V0.10 implementation acceptance is recorded above; no release or publication authorization is recorded.
+
+## V0.10 Sprint 064 Builder Evidence (2026-10-08)
+
+- Integrated CLI HTML/PDF, Chromium local-file and hostile-content preview, desktop RPC/worker/UI, Linux package-resource/native-window, PDF raster/text/font, accessibility/print, and a 5,201-point workload were exercised. Detailed commands, artifacts, test totals, host scope, and failures are in [Sprint 064 Builder evidence](sprints/0064-v10-cross-surface-acceptance-closeout/builder-evidence.md).
+- Root build and focused regressions pass. Parallel full root suite: 400 passed, 2 skipped, 1 existing desktop data-editor timeout at 543.40 ms. Serial root suite: 401 passed, 2 skipped. Isolated data-editor tests reproduce two 500 ms polling timeouts; no unrelated fix was made.
+- Cross-surface record-bar plot SSIM is 0.244895 against the proposed >=0.97 target; 2 CSS px bounds were not established. This remains an open acceptance finding for Lead Developer disposition, not a waived criterion.
+- Current-facing README/help/example guidance was updated. A Linux stable native window launched and was captured; other hosts/browsers and formal accessibility audit remain unverified. Sprint 064 and V0.10 implementation are accepted with residuals; no publication or release authorization is recorded.
+
 ## V0.10 Sprint 064 Architect Preparation (2026-10-08)
 
 - Prepared the four Sprint 064 artifacts in `planning/sprints/0064-v10-cross-surface-acceptance-closeout/` for integrated HTML/desktop/PDF acceptance, current reporting documentation/help/examples, and final evidence submission.

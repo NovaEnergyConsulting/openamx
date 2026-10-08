@@ -1,5 +1,24 @@
 # Planning Decisions
 
+## V0.10 Final Implementation Disposition (2026-10-08)
+
+- **ACCEPTED / CLOSED WITH RECORDED RESIDUALS.** The Lead Developer accepts the V0.10 implementation and closes its implementation work.
+- Sprint 064's SSIM miss, unmeasured 2 CSS px bounds, data-editor polling timeouts, and platform/accessibility limits remain recorded residuals. The acceptance does not change their pass/fail/unmeasured status.
+- No release readiness, publication, or broader platform/accessibility certification is authorized or implied.
+
+## V0.10 Sprint 064 Lead Developer Disposition (2026-10-08)
+
+- **COMPLETE / APPROVED WITH RECORDED RESIDUALS.** The Lead Developer accepts the Sprint 064 closeout and confirms testing of the new features.
+- Accept the cross-surface SSIM miss and unmeasured 2 CSS px chart bounds as named Sprint residuals, without changing or waiving the target. Preserve the parallel and isolated desktop data-editor poll timeouts as unpassed.
+- At the Sprint 064 disposition point, final V0.10 status remained separate. It is now resolved by the final implementation disposition above; release readiness and publication remain unapproved.
+
+## V0.10 Sprint 064 Builder Evidence (2026-10-08)
+
+- Preserve Sprint 064's matched-crop record-bar SSIM result (0.244895) as **below** the proposed >=0.97 target. The plot/label <=2 CSS px bounds were not measured. Do not waive or redefine either target; Lead Developer must disposition the evidence or approve an alternative measure.
+- Preserve the parallel root full-suite result (400 passed, 2 Windows-only skips, 1 desktop data-editor polling timeout at 543.40 ms), the serial root result (401 passed, 2 skips, 0 failed), and isolated data-editor timeouts at 539.47 ms and 534.01 ms as separate runs. No data-editor change is authorized or made.
+- The Linux x64 stable archive worker/resources and one mapped native Linux window were directly checked. These results do not imply native installer acceptance on other systems, cross-platform/browser support, or formal accessibility certification.
+- Builder evidence is submitted; final V0.10 acceptance remains a separate Lead Developer decision. No release, publication, or self-acceptance.
+
 ## V0.10 Sprint 064 Architect Preparation (2026-10-08)
 
 - Sprint 062 and Sprint 063 satisfy Sprint 064's dependencies with separate **COMPLETE / APPROVED WITH RECORDED RESIDUALS** dispositions. Sprint 064 owns integrated acceptance and closeout only; it adds no product feature scope.

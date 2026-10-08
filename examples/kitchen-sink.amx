@@ -40,11 +40,9 @@ bun run src/cli.ts export docx examples/kitchen-sink.amx --out /tmp/kitchen-sink
 bun run src/cli.ts run examples/kitchen-sink.amx --output summary=/tmp/kitchen-summary.json --output samples=/tmp/kitchen-samples.csv
 ```
 
-**Current PDF limitation:** this full tour includes a shown empty chart in
-section 12. The current PDF adapter fails to serialize that chart with
-`AMX6002`; HTML and DOCX can retain it. To explore PDF with the current adapter,
-use a variant that omits only `show emptyChart`. The empty-chart example stays
-live here so the demo does not silently omit a supported visualization state.
+The HTML report and desktop preview render interactive offline charts. PDF
+charts are static, but preserve the chart data in their tables, including the
+shown empty state; DOCX chart behavior is unchanged.
 
 ## 2. Document Structure and Module Imports
 

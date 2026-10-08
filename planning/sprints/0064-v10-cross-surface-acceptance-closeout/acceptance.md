@@ -1,5 +1,13 @@
 # Sprint 064 Acceptance Criteria
 
+## Lead Developer Disposition (2026-10-08)
+
+**COMPLETE / APPROVED WITH RECORDED RESIDUALS.** The Lead Developer accepts Sprint 064 closeout based on the Builder evidence and confirms testing of the new features. The cross-surface raster SSIM result remains below the proposed target, the 2 CSS px label/plot bound remains unmeasured, and the named full-suite data-editor polling failures remain unpassed. These are recorded residuals, not reclassified passes or changed thresholds. This Sprint disposition is distinct from the final V0.10 implementation disposition recorded below; it does not authorize publication or claim release readiness.
+
+## Final V0.10 Disposition (2026-10-08)
+
+**V0.10 IMPLEMENTATION ACCEPTED / CLOSED WITH RECORDED RESIDUALS.** The Lead Developer accepts the V0.10 implementation and closes its implementation work. Sprint 064's recorded SSIM miss, unmeasured 2 CSS px bound, data-editor polling timeouts, and platform/accessibility limits remain residuals at their original statuses. This acceptance does not authorize publication or claim release readiness, platform certification, or formal accessibility certification.
+
 Sprint 064 closeout is complete when every criterion is reconciled with direct evidence and a separate Lead Developer disposition records final V0.10 acceptance status:
 
 - Entry evidence confirms Sprint 062 and Sprint 063 are each **COMPLETE / APPROVED WITH RECORDED RESIDUALS**, with their exact Builder evidence/dispositions reviewed. Sprint 061's shared chart model remains the common source; no earlier result is retroactively upgraded.

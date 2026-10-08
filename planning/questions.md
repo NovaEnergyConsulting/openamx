@@ -1,5 +1,16 @@
 # Planning Questions (Sprint 002)
 
+## V0.10 Sprint 064 Closeout (2026-10-08)
+
+- **Resolved for Sprint 064 by Lead Developer disposition:** COMPLETE / APPROVED WITH RECORDED RESIDUALS. The measured SSIM miss remains below target, the 2 CSS px bounds remain unmeasured, and the data-editor polling timeouts remain unpassed; approval records these as residuals and does not waive or reclassify them.
+- Final V0.10 implementation acceptance is resolved by the separate disposition below; no release or publication authorization is recorded.
+
+## V0.10 Sprint 064 Lead Developer Disposition (2026-10-08)
+
+- **Resolved for Sprint 064, not for the version:** the Lead Developer approved Sprint closeout with the SSIM miss and unmeasured 2 CSS px chart bounds retained as named residuals. The threshold was not changed or waived.
+- **Resolved: final V0.10 implementation status.** The Lead Developer accepted and closed the implementation with recorded residuals. The data-editor full-suite timeout remains unpassed in its parallel and isolated reproductions; serial root pass does not erase those results.
+- Native stable Linux x64 window startup passed once; other OS/architectures/browser engines and formal accessibility audit remain unverified. No publication/release readiness claim is made.
+
 ## V0.10 Sprint 064 Preparation (2026-10-08)
 
 - **Resolved by separate Lead Developer dispositions:** Sprint 062 and Sprint 063 are each COMPLETE / APPROVED WITH RECORDED RESIDUALS; Sprint 064's dependency gate is satisfied. These do not imply integrated V0.10 acceptance.

@@ -67,6 +67,10 @@ standalone HTML document; `export` supports `pdf` and `docx`. Data inputs are
 explicitly mapped with `--input name=path`. See `bun run dist/cli.js --help` for
 the available commands and options.
 
+Charts are interactive in standalone HTML and the desktop live preview; their
+runtime is bundled, so reports work offline. PDF charts are static, and the
+complete chart data remains in report tables. DOCX chart behavior is unchanged.
+
 Run the test suite with:
 
 ```sh

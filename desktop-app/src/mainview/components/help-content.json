@@ -76,10 +76,11 @@
       "id": "preview-export",
       "title": "Preview and export",
       "summary": "Keep results tied to the current document state.",
-      "terms": "run preview cancel stale html pdf docx json csv",
+      "terms": "run preview cancel stale html offline interactive charts legend zoom static pdf data table docx json csv",
       "steps": [
         "Preview updates after edits; Pause and Refresh are available in the context pane.",
         "Run is explicit. A stale result is labeled and is not presented as current success.",
+        "Charts are interactive in the live preview and HTML reports; the bundled runtime works offline. PDF charts are static, and complete chart data remains in report tables. DOCX chart behavior is unchanged.",
         "Export supports HTML, PDF, DOCX, JSON, and CSV where the selected binding is eligible.",
         "Cancellation or a failed preparation preserves an existing destination; atomic replacement cannot be interrupted once started."
       ]
