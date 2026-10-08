@@ -1169,7 +1169,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 				<CodeEditor v-if="document" ref="editorElement" :path="document.path" :text="document.text" :revision="document.revision" :highlights="staticAnalysis.highlights" :diagnostics="staticAnalysis.diagnostics" :symbols="staticAnalysis.symbols" :actions="staticAnalysis.actions" :complete="requestCompletions" :rename="renameSymbol" @change="updateText" @navigate="navigateSymbol" @references="showReferences" />
 				<div class="diagnostics" :class="{ 'mobile-hidden': detailPanel !== 'diagnostics' }" aria-live="polite"><p v-for="(item, index) in staticAnalysis.diagnostics" :key="`static-${item.code}-${item.line}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Static · {{ item.code }} {{ item.file?.split(/[\\/]/).pop() }} ({{ item.line }}:{{ item.column }}) {{ displayDiagnostic(item) }}</button></p><p v-for="(item, index) in [...analysis.diagnostics, ...inputConfiguration.diagnostics]" :key="`${item.code}-${item.line}-${index}`"><strong>Run · {{ item.code }}</strong> {{ displayDiagnostic(item) }} <span v-if="item.line">({{ item.line }}:{{ item.column }})</span></p><p v-if="![...staticAnalysis.diagnostics, ...analysis.diagnostics, ...inputConfiguration.diagnostics].length" class="muted">No current diagnostics.</p></div>
 			</section>
-			<section class="preview-pane" :class="{ 'mobile-hidden': detailPanel !== 'preview' }" aria-label="Live HTML preview"><div class="pane-header"><strong>ACTIVE DOCUMENT PREVIEW · {{ workbench.active?.split(/[\\/]/).pop() ?? 'No document' }}</strong><span class="state" :class="`state-${previewState}`">{{ previewState }}</span></div><iframe :srcdoc="preview" sandbox="" title="OpenAMX live HTML preview"></iframe></section>
+			<section class="preview-pane" :class="{ 'mobile-hidden': detailPanel !== 'preview' }" aria-label="Live HTML preview"><div class="pane-header"><strong>ACTIVE DOCUMENT PREVIEW · {{ workbench.active?.split(/[\\/]/).pop() ?? 'No document' }}</strong><span class="state" :class="`state-${previewState}`">{{ previewState }}</span></div><iframe :srcdoc="preview" sandbox="allow-scripts" title="OpenAMX live HTML preview"></iframe></section>
 		</div>
 		<section class="result-strip" :class="{ 'mobile-hidden': detailPanel !== 'results' }" aria-label="Analysis result">
 			<div><strong>RUN RESULT</strong><span class="state" :class="`state-${runState}`">{{ runState }}</span></div>
@@ -1230,7 +1230,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 					<button v-for="(diagnostic, index) in dataEditorContexts.get(document.path)?.diagnostics" :key="`${diagnostic.code}-${index}`" type="button" class="data-inspector-diagnostic" :disabled="!diagnostic.dataLine" @click="navigateDataDiagnostic(document.path, diagnostic)">{{ diagnostic.code }} · {{ diagnostic.message }}<small v-if="diagnostic.dataPath || diagnostic.dataLine">{{ diagnostic.dataPath }}<template v-if="diagnostic.dataLine"> ({{ diagnostic.dataLine }}:{{ diagnostic.dataColumn ?? 1 }})</template></small></button>
 				</section>
 				<template v-else>
-					<iframe v-if="document?.kind === 'amx'" :srcdoc="preview" sandbox="" title="OpenAMX live HTML preview"></iframe>
+					<iframe v-if="document?.kind === 'amx'" :srcdoc="preview" sandbox="allow-scripts" title="OpenAMX live HTML preview"></iframe>
 					<div v-else class="file-kind-shell"><strong>Context</strong><p>Select an AMX document to show its live report preview.</p></div>
 				</template>
 			</section>

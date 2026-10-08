@@ -163,7 +163,7 @@ show nullChart
     const loaded = await loadEntryModule(input);
     const prepared = await prepareReport(loaded.doc, loaded.env, { file: input, projectRoot: root });
     const html = renderPreparedHtml(prepared);
-    expect(html).toContain('class="openamx-empty">No data');
+    expect(html).toContain('"emptyState":{"label":"No data"}');
     expect(html).toContain('<th scope="col">Distance</th>');
     expect(html).not.toContain('Distance (meter)');
     expect(html).toContain('<td></td>');

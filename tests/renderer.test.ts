@@ -17,10 +17,11 @@
 
 import { describe, it, expect } from "bun:test";
 import { parseStatements } from "../src/parser/parseStatements";
-import { renderHtml } from "../src/renderer/renderHtml";
+import { renderHtml, renderPreparedHtml } from "../src/renderer/renderHtml";
 import { OpenAmxDocument } from "../src/ast/types";
 import { AmxError } from "../src/diagnostics/errors";
 import { parseDocumentText } from "../src/parser/parseDocument";
+import type { PreparedReport } from "../src/renderer/reportPreparation";
 
 function makeDocFromBody(body: string, metadata: Record<string, unknown> = {}): OpenAmxDocument {
   const nodes: OpenAmxDocument["nodes"] = [];
@@ -49,6 +50,10 @@ function makeDocFromBody(body: string, metadata: Record<string, unknown> = {}): 
   }
   flushNarrative();
   return { metadata, nodes };
+}
+
+function normalizeNonce(html: string): string {
+  return html.replace(/nonce-[^'\"]+/g, "nonce-[nonce]").replace(/nonce="[^"]+"/g, 'nonce="[nonce]"');
 }
 
 describe("renderer - headings paragraphs bullets", () => {
@@ -183,7 +188,7 @@ Value is {{ x }}.`;
     const doc2 = makeDocFromBody(body, { title: "R" });
     const h1 = renderHtml(doc1);
     const h2 = renderHtml(doc2);
-    expect(h1).toBe(h2);
+    expect(normalizeNonce(h1)).toBe(normalizeNonce(h2));
   });
 
   it("executes blocks before interpolation and safely displays code in document order", () => {
@@ -233,6 +238,36 @@ Value is {{ x }}.`;
     const html = renderHtml(doc);
     expect(html).toContain('<pre><code class="language-text">let hidden = 8\n</code></pre>');
     expect(html).not.toContain('class="language-amx"');
+  });
+});
+
+describe("renderer - report Markdown security policy", () => {
+  it("keeps visible Markdown text while stripping authored navigation, active markup, and resources", () => {
+    const payload = `[visible link](https://outside.invalid/path "external")\n\n<a href="javascript:alert(1)" target="_top" onclick="alert(2)">raw link text</a>\n\n<meta http-equiv="refresh" content="0;url=https://outside.invalid/refresh">\n<script>alert('script text')</script>\n<style>@import url(https://outside.invalid/style.css)</style>\n<img src="https://outside.invalid/image.png" alt="remote image">\n<form action="https://outside.invalid/submit"><button>visible form text</button></form>\n<svg><use href="https://outside.invalid/sprite.svg#icon"></use></svg>`;
+    const html = renderHtml(makeDocFromBody(payload));
+    const prepared = renderPreparedHtml({
+      title: "Security test",
+      identity: { accent: "#146C94", sourceVisible: true },
+      items: [{ type: "narrative", text: payload }]
+    } satisfies PreparedReport);
+
+    for (const output of [html, prepared]) {
+      expect(output).toContain("visible link");
+      expect(output).toContain("raw link text");
+      expect(output).toContain("visible form text");
+      expect(output).toContain("<span>visible link</span>");
+      expect(output).not.toContain("outside.invalid");
+      expect(output).not.toContain("javascript:");
+      expect(output).not.toContain('http-equiv="refresh"');
+      expect(output).not.toContain("<script");
+      expect(output).not.toContain("script text");
+      expect(output).not.toContain("@import");
+      expect(output).not.toContain("<img");
+      expect(output).not.toContain("onclick");
+      expect(output).not.toContain("target=");
+      expect(output).not.toContain("<form");
+      expect(output).not.toContain("<svg");
+    }
   });
 });
 
@@ -309,10 +344,11 @@ show amounts
     expect(html).toContain('role="img"');
     expect(html).toContain("Amounts &lt;safe&gt;");
     expect(html).toContain("Values &amp; trends");
-    expect(html).toContain("openamx-print-chart");
-    expect(html).toContain("<svg");
+    expect(html).toContain("openamx-chart-data");
+    expect(html).toContain("data-chart-model");
+    expect(html).toContain('class="openamx-chart-plot"');
     expect(html).not.toContain("<safe>");
-    expect(renderHtml(doc, "chart.amx")).toBe(html);
+    expect(normalizeNonce(renderHtml(doc, "chart.amx"))).toBe(normalizeNonce(html));
   });
 
   it("renders measurement table cells in their own units and normalizes chart values to the first unit", () => {

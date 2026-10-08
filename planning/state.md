@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.10 Sprint 062 Closeout (2026-10-08)
+
+- Implemented shared HTML chart rendering from Sprint 061 `createChartViewModel`, with embedded ECharts `6.1.0`, a fail-closed JSON projection/fixed trusted formatter bootstrap, full independent table/accessibility/print output, interaction controls, resize/disposal, and a shared `sanitize-html@2.17.0` Markdown allow-list. No chart meaning, measurement normalization, PDF implementation, DOCX code, output caps, or release scope changed.
+- Proved current external Markdown link navigation before the fix, then passed the hostile-content request/navigation suite in standalone local-file HTML, empty-sandbox preview before permission change, test-only opaque `allow-scripts` probe, and both actual App.vue preview declarations. After the gate passed, both declared frames use exactly `allow-scripts`; opaque origin remains.
+- Root build and tests pass (398 passed, 2 existing Windows-only skips); focused renderer/model/presentation/CLI tests pass (33); desktop typecheck/RPC/full Playwright UI pass (13); Hutch stable Linux x64 build and actual packaged worker/resource chart-preview smoke pass. No native Electrobun window/install/launch or cross-platform result is claimed. Exact commands, host versions, screenshots, request logs, warnings, package paths, and residuals are in `planning/sprints/0062-v10-offline-interactive-html-desktop-preview/builder-evidence.md`.
+- **COMPLETE / APPROVED WITH RECORDED RESIDUALS** by separate Lead Developer disposition (2026-10-08). Accepted Sprint 062 Builder evidence and closed this sprint. Native launch/platform certification, non-Chromium testing, formal accessibility, cross-surface tolerance, >5,000-point end-to-end bounds, and valid chart-render failure injection remain residuals as recorded; none is promoted to a pass. This is not PDF chart integration, Sprint 063/064 completion, V0.10 integrated acceptance, release readiness, or publication.
+
 ## V0.10 Sprint 062 Architect Preparation (2026-10-07)
 
 - Prepared the four Sprint 062 artifacts in `planning/sprints/0062-v10-offline-interactive-html-desktop-preview/` for offline interactive HTML charts and desktop live-preview integration.

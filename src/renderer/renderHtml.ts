@@ -1,4 +1,9 @@
+/// <reference path="../types/echarts-runtime.d.ts" />
+import { randomBytes } from 'node:crypto';
+import echartsBrowserRuntime from 'echarts/dist/echarts.min.js' with { type: 'text' };
 import { marked } from 'marked';
+import sanitizeHtml from 'sanitize-html';
+import type { EChartsOption } from 'echarts';
 import { OpenAmxDocument } from '../ast/types';
 import { AmxError } from '../diagnostics/errors';
 import { parseExpression } from '../parser/parseExpression';
@@ -7,7 +12,22 @@ import { evaluateDocumentEnvironment } from '../runtime/evaluateDocument';
 import { Environment } from '../runtime/environment';
 import type { ViewDataValue, ViewEmission, TableViewEmission, ChartViewEmission } from '../runtime/environment';
 import { formatAmx } from '../formatter/formatAmx';
+import { createChartViewModel, type ChartViewModel } from './chartModel';
 import type { PreparedReport } from './reportPreparation';
+
+const REPORT_MARKDOWN_POLICY: sanitizeHtml.IOptions = {
+  allowedTags: [
+    'a', 'blockquote', 'br', 'code', 'del', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'hr', 'li', 'ol', 'p', 'pre', 'span', 'strong', 'table', 'tbody', 'td', 'th', 'thead', 'tr', 'ul'
+  ],
+  allowedAttributes: { code: ['class'] },
+  allowedSchemes: [],
+  allowProtocolRelative: false,
+  parseStyleAttributes: false,
+  disallowedTagsMode: 'discard',
+  enforceHtmlBoundary: true,
+  transformTags: { a: sanitizeHtml.simpleTransform('span', {}, true) }
+};
 
 export interface ReportIdentityOptions {
   report?: Record<string, unknown>;
@@ -24,6 +44,25 @@ export interface ResolvedReportIdentity {
   classification?: string;
   footer?: string;
   sourceVisible: boolean;
+}
+
+type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+
+interface BrowserChartModel {
+  kind: ChartViewModel['kind'];
+  title: string;
+  description: string;
+  dimensions: ChartViewModel['dimensions'];
+  option: JsonValue;
+  formatterPaths: string[];
+  table: ChartViewModel['table'];
+  series: ChartViewModel['series'];
+  axes: ChartViewModel['axes'];
+  accessibility: ChartViewModel['accessibility'];
+  plottedPointCount: number;
+  emptyState?: ChartViewModel['emptyState'];
+  dateTimePresentation?: ChartViewModel['dateTimePresentation'];
+  zoomable: boolean;
 }
 
 /**
@@ -58,7 +97,7 @@ export function renderHtml(doc: OpenAmxDocument, file?: string, env?: Environmen
   for (const [nodeIndex, node] of doc.nodes.entries()) {
     if (node.type === 'narrative') {
       const substituted = substituteInlines(node.content, environment, file, node.source?.line);
-      const htmlFragment = marked.parse(substituted) as string;
+      const htmlFragment = renderSafeMarkdown(substituted);
       bodyFragments.push(htmlFragment);
     } else if (node.type === 'executableCodeBlock') {
       if (sourceVisible) {
@@ -66,7 +105,7 @@ export function renderHtml(doc: OpenAmxDocument, file?: string, env?: Environmen
         bodyFragments.push(`<pre><code class="language-amx">${escapeHtml(formatted)}</code></pre>`);
       }
       for (const emission of emissionsByNode.get(nodeIndex) ?? []) {
-        bodyFragments.push(renderViewEmission(emission));
+        bodyFragments.push(renderViewEmission(emission, resolvedReport));
       }
     }
   }
@@ -78,13 +117,16 @@ export function renderHtml(doc: OpenAmxDocument, file?: string, env?: Environmen
 
   const bodyHtml = bodyFragments.join('');
   const escapedTitle = escapeHtml(title);
-  const accentStyle = resolvedReport.accent ? `<style>:root{--openamx-accent:${resolvedReport.accent};}</style>` : '';
-  const viewAssets = environment.viewEmissions.length > 0 ? renderViewAssets() : '';
+  const hasViews = environment.viewEmissions.length > 0;
+  const nonce = hasViews || !!resolvedReport.accent ? randomBytes(18).toString('base64') : '';
+  const accentStyle = safeAccentStyle(resolvedReport.accent, nonce);
+  const viewAssets = hasViews ? renderViewAssets(nonce) : '';
 
   return `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
+  ${renderContentSecurityPolicy(nonce, hasViews)}
   <title>${escapedTitle}</title>${accentStyle ? `\n${accentStyle}` : ''}${viewAssets ? `\n${viewAssets}` : ''}
 </head>
 <body>
@@ -106,17 +148,20 @@ export function renderPreparedHtml(report: PreparedReport): string {
     bodyFragments.push(`<header class="openamx-report-header"><div class="openamx-report-identity">${logo}<div class="openamx-report-meta">${metadata.map(value => `<div class="openamx-report-attr">${escapeHtml(value)}</div>`).join('')}</div></div></header>`);
   }
   for (const item of report.items) {
-    if (item.type === 'narrative') bodyFragments.push(marked.parse(item.text) as string);
+    if (item.type === 'narrative') bodyFragments.push(renderSafeMarkdown(item.text));
     else if (item.type === 'source') bodyFragments.push(`<pre><code class="language-amx">${escapeHtml(item.text)}</code></pre>`);
-    else bodyFragments.push(renderViewEmission(item.emission));
+    else bodyFragments.push(renderViewEmission(item.emission, identity));
   }
   if (identity.footer) bodyFragments.push(`<footer class="openamx-report-footer">${escapeHtml(identity.footer)}</footer>`);
-  const accentStyle = identity.accent === '#146C94' ? '' : `<style>:root{--openamx-accent:${identity.accent};}</style>`;
-  const viewAssets = report.items.some(item => item.type === 'view') ? renderViewAssets() : '';
+  const hasViews = report.items.some(item => item.type === 'view');
+  const nonce = hasViews || identity.accent !== '#146C94' ? randomBytes(18).toString('base64') : '';
+  const accentStyle = safeAccentStyle(identity.accent, nonce);
+  const viewAssets = hasViews ? renderViewAssets(nonce) : '';
   return `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
+  ${renderContentSecurityPolicy(nonce, hasViews)}
   <title>${escapeHtml(report.title)}</title>${accentStyle ? `\n${accentStyle}` : ''}${viewAssets ? `\n${viewAssets}` : ''}
 </head>
 <body>
@@ -124,9 +169,13 @@ ${bodyFragments.join('')}</body>
 </html>`;
 }
 
-function renderViewEmission(emission: ViewEmission): string {
+function renderViewEmission(emission: ViewEmission, identity: Pick<ResolvedReportIdentity, 'accent'>): string {
   if (emission.kind === 'table') return renderTable(emission);
-  return renderChart(emission);
+  return renderChart(emission, identity);
+}
+
+function renderSafeMarkdown(markdown: string): string {
+  return sanitizeHtml(marked.parse(markdown) as string, REPORT_MARKDOWN_POLICY);
 }
 
 function renderTable(emission: TableViewEmission): string {
@@ -150,63 +199,97 @@ function renderTable(emission: TableViewEmission): string {
 </section>`;
 }
 
-function renderChart(emission: ChartViewEmission): string {
-  const id = viewId(emission);
-  const title = emission.declaration.options.find(option => option.type === 'viewTitleOption');
-  const description = emission.declaration.options.find(option => option.type === 'viewDescriptionOption');
-  const caption = title?.type === 'viewTitleOption' ? title.value : emission.name;
-  const detail = description?.type === 'viewDescriptionOption' ? description.value : `${emission.kind} chart`;
-  const rows = chartRows(emission);
-  const svg = rows.length === 0 ? '' : renderChartSvg(emission, rows);
-  const textRows = rows.map(row => `<tr>${row.map(value => `<td>${escapeHtml(valueToString(value))}</td>`).join('')}</tr>`).join('');
-  const headings = chartHeadings(emission);
-  return `<figure class="openamx-view openamx-chart" data-view="${id}" aria-labelledby="${id}-title" aria-describedby="${id}-description">
-  <figcaption><strong id="${id}-title">${escapeHtml(caption)}</strong><span id="${id}-description">${escapeHtml(detail)}</span></figcaption>
-  ${svg || '<p class="openamx-empty">No data</p>'}
-  <table class="openamx-chart-data"><caption>Data for ${escapeHtml(caption)}</caption><thead><tr>${headings.map(value => `<th scope="col">${escapeHtml(value)}</th>`).join('')}</tr></thead><tbody>${textRows}</tbody></table>
-  <div class="openamx-print-chart"><strong>${escapeHtml(caption)}</strong><p>${escapeHtml(detail)}</p><table><thead><tr>${headings.map(value => `<th scope="col">${escapeHtml(value)}</th>`).join('')}</tr></thead><tbody>${textRows}</tbody></table></div>
+function renderChart(emission: ChartViewEmission, identity: Pick<ResolvedReportIdentity, 'accent'>): string {
+  const accent = identity.accent && /^#[0-9A-Fa-f]{6}$/.test(identity.accent) ? identity.accent : '#146C94';
+  const model = createChartViewModel(emission, { accent });
+  const browserModel = serializeChartModel(model);
+  const id = model.table.id;
+  const titleId = `${id}-title`;
+  const descriptionId = `${id}-description`;
+  const summaryId = `${id}-summary`;
+  const seriesControls = model.series.length > 1
+    ? `<div class="openamx-chart-legend" role="group" aria-label="Chart series">${model.series.map(series => `<button type="button" class="openamx-legend-toggle" data-series="${escapeHtml(series.name)}" aria-pressed="true"><span aria-hidden="true" style="--series-color:${escapeHtml(series.color)}"></span>${escapeHtml(series.name)}</button>`).join('')}</div>`
+    : '';
+  const zoomControls = browserModel.zoomable
+    ? `<div class="openamx-chart-controls" role="group" aria-label="Chart zoom controls"><button type="button" data-zoom="out" aria-label="Zoom out">Zoom out</button><button type="button" data-zoom="in" aria-label="Zoom in">Zoom in</button><button type="button" data-zoom="reset">Reset zoom</button></div>`
+    : '';
+  const textRows = model.table.rows.map(row => `<tr>${row.values.map(value => `<td>${escapeHtml(valueToString(value))}</td>`).join('')}</tr>`).join('');
+  const data = safeJson(browserModel);
+  return `<figure class="openamx-view openamx-chart" id="${id}-figure" data-openamx-chart aria-labelledby="${titleId}" aria-describedby="${descriptionId} ${summaryId}">
+  <figcaption><strong id="${titleId}">${escapeHtml(model.title)}</strong><span id="${descriptionId}">${escapeHtml(model.description)}</span></figcaption>
+  <p id="${summaryId}" class="sr-only">${escapeHtml(model.accessibility.summary)}</p>
+  ${seriesControls}${zoomControls}
+  <div id="${id}-plot" class="openamx-chart-plot" role="img" aria-label="${escapeHtml(model.title)}" aria-describedby="${descriptionId} ${summaryId} ${id}-table-caption"></div>
+  <table class="openamx-chart-data" id="${id}"><caption id="${id}-table-caption">${escapeHtml(model.table.caption)}</caption><thead><tr>${model.table.headings.map(value => `<th scope="col">${escapeHtml(value)}</th>`).join('')}</tr></thead><tbody>${textRows}</tbody></table>
+  <script type="application/json" data-chart-model>${data}</script>
 </figure>`;
 }
 
-function chartRows(emission: ChartViewEmission): ViewDataValue[][] {
-  const options = emission.declaration.options;
-  const category = options.find(option => option.type === 'chartFieldOption' && option.role === 'category');
-  const x = options.find(option => option.type === 'chartFieldOption' && option.role === 'x');
-  const y = options.find(option => option.type === 'chartFieldOption' && option.role === 'y');
-  const group = options.find(option => option.type === 'chartFieldOption' && option.role === 'group');
-  const series = options.filter(option => option.type === 'chartSeriesOption');
-  const labels = emission.labels ?? emission.data.map((_value, index) => String(index + 1));
-  return emission.data.map((value, index) => {
-    if (isRecordValue(value)) {
-      if (emission.declaration.kind === 'scatter') return [value[x?.type === 'chartFieldOption' ? x.field : 'x'], value[y?.type === 'chartFieldOption' ? y.field : 'y'], group?.type === 'chartFieldOption' ? value[group.field] : ''];
-      return [category?.type === 'chartFieldOption' ? value[category.field] : labels[index], ...series.map(option => option.type === 'chartSeriesOption' && option.field ? value[option.field] : null)];
-    }
-    return [labels[index], value];
-  });
-}
-
-function chartHeadings(emission: ChartViewEmission): string[] {
-  if (emission.headings) return [...emission.headings];
-  if (emission.declaration.kind === 'scatter') return ['x', 'y', 'group'];
-  const series = emission.declaration.options.filter(option => option.type === 'chartSeriesOption');
-  return ['label', ...series.map(option => option.label)];
-}
-
-function renderChartSvg(emission: ChartViewEmission, rows: ViewDataValue[][]): string {
-  const width = 640;
-  const height = 240;
-  const numeric = rows.flatMap(row => row.slice(1)).filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
-  const max = Math.max(1, ...numeric.map(value => Math.abs(value)));
-  if (emission.declaration.kind === 'scatter') {
-    const points = rows.filter(row => typeof row[0] === 'number' && typeof row[1] === 'number').map((row, index) => `<circle cx="${40 + (Number(row[0]) / max) * 560}" cy="${200 - (Number(row[1]) / max) * 160}" r="5" fill="${chartColor(index)}"><title>${escapeHtml(valueToString(row[0]))}, ${escapeHtml(valueToString(row[1]))}</title></circle>`).join('');
-    return `<svg role="img" viewBox="0 0 ${width} ${height}" aria-label="${escapeHtml(emission.name)} chart" xmlns="http://www.w3.org/2000/svg"><line x1="40" y1="200" x2="600" y2="200" stroke="currentColor"/><line x1="40" y1="40" x2="40" y2="200" stroke="currentColor"/>${points}</svg>`;
+function serializeChartModel(model: ChartViewModel): BrowserChartModel {
+  const formatterPaths: string[] = [];
+  const option = projectSerializable(model.option, '$', formatterPaths) as JsonValue;
+  const zoomable = model.kind === 'scatter' || (model.kind === 'line' && model.option.xAxis !== undefined
+    && !isCategoryAxis(model.option.xAxis));
+  if (zoomable) {
+    const zoom = [{ type: 'inside', xAxisIndex: 0, ...(model.kind === 'scatter' ? { yAxisIndex: 0 } : {}), filterMode: 'none', zoomOnMouseWheel: true, moveOnMouseMove: true, moveOnMouseWheel: true }];
+    optionProperty(option, 'dataZoom', zoom);
   }
-  const bars = rows.flatMap((row, rowIndex) => row.slice(1).map((value, seriesIndex) => typeof value === 'number' ? `<rect x="${40 + rowIndex * 560 / Math.max(1, rows.length) + seriesIndex * 14}" y="${200 - (value / max) * 160}" width="12" height="${Math.max(0, (value / max) * 160)}" fill="${chartColor(seriesIndex)}"><title>${escapeHtml(valueToString(row[0]))}: ${escapeHtml(valueToString(value))}</title></rect>` : '')).join('');
-  return `<svg role="img" viewBox="0 0 ${width} ${height}" aria-label="${escapeHtml(emission.name)} chart" xmlns="http://www.w3.org/2000/svg"><line x1="40" y1="200" x2="600" y2="200" stroke="currentColor"/><line x1="40" y1="40" x2="40" y2="200" stroke="currentColor"/>${bars}</svg>`;
+  return {
+    kind: model.kind,
+    title: model.title,
+    description: model.description,
+    dimensions: model.dimensions,
+    option,
+    formatterPaths,
+    table: model.table,
+    series: model.series,
+    axes: model.axes,
+    accessibility: model.accessibility,
+    plottedPointCount: model.plottedPointCount,
+    ...(model.emptyState ? { emptyState: model.emptyState } : {}),
+    ...(model.dateTimePresentation ? { dateTimePresentation: model.dateTimePresentation } : {}),
+    zoomable
+  };
 }
 
-function chartColor(index: number): string {
-  return ['#146c94', '#d97706', '#15803d', '#b42318'][index % 4];
+function projectSerializable(value: unknown, path: string, formatterPaths: string[]): JsonValue | undefined {
+  if (typeof value === 'function') {
+    const allowed = path === '$.tooltip.formatter'
+      || /\.(xAxis|yAxis)(\.\d+)?\.axisLabel\.formatter$/.test(path)
+      || /\.(xAxis|yAxis)(\.\d+)?\.axisPointer\.label\.formatter$/.test(path);
+    if (!allowed) throw new Error(`Unsupported function in chart model at ${path}.`);
+    formatterPaths.push(path);
+    return undefined;
+  }
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new Error(`Non-finite chart value at ${path}.`);
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item, index) => projectSerializable(item, `${path}.${index}`, formatterPaths) ?? null);
+  }
+  if (typeof value === 'object') {
+    const projected: Record<string, JsonValue> = {};
+    for (const [key, item] of Object.entries(value)) {
+      const itemPath = `${path}.${key}`;
+      const itemProjection = projectSerializable(item, itemPath, formatterPaths);
+      if (itemProjection !== undefined) projected[key] = itemProjection;
+    }
+    return projected;
+  }
+  if (value === undefined) return undefined;
+  throw new Error(`Unsupported chart model value at ${path}.`);
+}
+
+function optionProperty(option: JsonValue, key: string, value: JsonValue): void {
+  if (option === null || Array.isArray(option) || typeof option !== 'object') throw new Error('Chart option projection is not an object.');
+  option[key] = value;
+}
+
+function isCategoryAxis(axis: EChartsOption['xAxis']): boolean {
+  const first = Array.isArray(axis) ? axis[0] : axis;
+  return first?.type === 'category' || first?.type === undefined;
 }
 
 function viewId(emission: ViewEmission): string {
@@ -221,13 +304,51 @@ function safeJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
 }
 
-function renderViewAssets(): string {
-  return `<style>
+function renderContentSecurityPolicy(nonce: string, hasViews: boolean): string {
+  const scripts = hasViews ? `'nonce-${nonce}'` : "'none'";
+  const styles = hasViews || nonce ? `'nonce-${nonce}'` : "'none'";
+  const styleAttributes = hasViews ? "; style-src-attr 'unsafe-inline'" : '';
+  return `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${scripts}; style-src ${styles}${styleAttributes}; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; media-src 'none'">`;
+}
+
+function safeAccentStyle(accent: string | undefined, nonce: string): string {
+  if (!accent || !/^#[0-9A-Fa-f]{6}$/.test(accent) || accent.toLowerCase() === '#146c94') return '';
+  return `<style nonce="${nonce}">:root{--openamx-accent:${accent};}</style>`;
+}
+
+function renderChartBootstrap(): string {
+  return `(()=>{
+const charts=new Map();
+const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const iso=value=>{const date=new Date(typeof value==='number'?value:Date.parse(value));return Number.isNaN(date.getTime())?'':date.toISOString()};
+const locate=(object,path)=>path.slice(2).split('.').reduce((current,key)=>current==null?undefined:current[/^\\d+$/.test(key)?Number(key):key],object);
+const rowLabel=(value,model)=>{const row=model.table.rows.find(item=>item.id===String(value));return row?String(row.values[0]??''):String(value??'')};
+const axisLabel=(value,model)=>model.dateTimePresentation?iso(value):rowLabel(value,model);
+const formatTooltip=(input,model)=>{const entries=(Array.isArray(input)?input:[input]).filter(item=>item&&typeof item==='object');return entries.map(entry=>{const series=model.series.find(item=>item.id===entry.seriesId||item.name===entry.seriesName);const values=Array.isArray(entry.value)?entry.value:[];if(model.kind==='scatter'){const x=values[0]??null,y=values[1]??null;const xUnit=model.axes.find(item=>item.role==='x')?.name,yUnit=model.axes.find(item=>item.role==='y')?.name;return '<div><strong>'+escapeHtml(entry.seriesName||'')+'</strong><br>x: '+escapeHtml(x)+(xUnit?' '+escapeHtml(xUnit):'')+'<br>y: '+escapeHtml(y)+(yUnit?' '+escapeHtml(yUnit):'')+'</div>'}const rawCategory=entry.axisValue??values[0]??entry.name;const category=model.dateTimePresentation?iso(rawCategory):rowLabel(rawCategory,model);const value=model.kind==='line'?values[1]:entry.value;const categoryUnit=model.kind==='line'?model.axes.find(item=>item.role==='x')?.name:undefined;const coordinate=escapeHtml(category)+(categoryUnit?' '+escapeHtml(categoryUnit):'');return '<div><strong>'+escapeHtml(entry.seriesName||'')+'</strong><br>'+coordinate+': '+escapeHtml(value)+(series?.unit?.text?' '+escapeHtml(series.unit.text):'')+'</div>'}).join('')};
+const setZoom=(chart,zoom)=>{const current=chart.getOption().dataZoom?.[0]??{start:0,end:100};chart.setOption({dataZoom:[{...current,...zoom}]})};
+const restoreFormatters=model=>{for(const path of model.formatterPaths){const key=path.split('.').at(-1),parentPath=path.slice(0,path.lastIndexOf('.')),parent=locate(model.option,parentPath);if(!parent)throw new Error('Chart formatter path is invalid.');if(path==='$.tooltip.formatter')parent[key]=params=>formatTooltip(params,model);else if(parentPath.endsWith('.axisPointer.label'))parent[key]=params=>iso(params?.value);else parent[key]=value=>axisLabel(value,model)}};
+const initialize=root=>{const payloadNode=root.querySelector('[data-chart-model]'),plot=root.querySelector('.openamx-chart-plot');if(!payloadNode||!plot)return;const model=JSON.parse(payloadNode.textContent||'null');restoreFormatters(model);const chart=echarts.init(plot,null,{renderer:'canvas'});chart.setOption(model.option);root.querySelectorAll('[data-series]').forEach(button=>button.addEventListener('click',()=>chart.dispatchAction({type:'legendToggleSelect',name:button.dataset.series})));chart.on('legendselectchanged',event=>root.querySelectorAll('[data-series]').forEach(button=>button.setAttribute('aria-pressed',String(event.selected?.[button.dataset.series]!==false))));root.querySelectorAll('[data-zoom]').forEach(button=>button.addEventListener('click',()=>{const current=chart.getOption().dataZoom?.[0]??{start:0,end:100},span=(current.end??100)-(current.start??0);if(button.dataset.zoom==='reset')setZoom(chart,{start:0,end:100});else{const next=Math.max(5,Math.min(100,span*(button.dataset.zoom==='in'?.75:1.33))),center=((current.start??0)+(current.end??100))/2;setZoom(chart,{start:Math.max(0,center-next/2),end:Math.min(100,center+next/2)})}}));const resizeObserver=new ResizeObserver(()=>chart.resize());resizeObserver.observe(plot);charts.set(root,{chart,resizeObserver})};
+const dispose=root=>{const item=charts.get(root);if(!item)return;item.resizeObserver.disconnect();item.chart.dispose();charts.delete(root)};
+const start=()=>{
+document.querySelectorAll('[data-openamx-chart]').forEach(initialize);
+const mutationObserver=new MutationObserver(()=>{for(const root of charts.keys())if(!document.documentElement.contains(root))dispose(root)});mutationObserver.observe(document.documentElement,{childList:true,subtree:true});
+window.addEventListener('pagehide',()=>{for(const root of charts.keys())dispose(root);mutationObserver.disconnect()},{once:true});
+};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();`;
+}
+
+function renderViewAssets(nonce: string): string {
+  const assets = `<style>
 .openamx-view{margin:1.5rem 0}.openamx-view table{border-collapse:collapse;width:100%}.openamx-view th,.openamx-view td{border:1px solid #a8b3bd;padding:.4rem;text-align:left}.openamx-view th button{font:inherit;font-weight:700;background:none;border:0;padding:0;cursor:pointer}.openamx-table-controls{display:flex;gap:1rem;flex-wrap:wrap;margin:.5rem 0}.openamx-status{min-height:1.4em}.openamx-pagination{display:flex;gap:.75rem;align-items:center;margin:.5rem 0}.openamx-chart svg{display:block;width:100%;max-width:40rem;height:auto;border:1px solid #a8b3bd}.openamx-chart figcaption{display:flex;flex-direction:column;gap:.25rem}.openamx-chart-data{margin-top:.75rem}.openamx-print-view,.openamx-print-chart{display:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media print{.openamx-table-controls,.openamx-status,.openamx-pagination,.openamx-table>table,.openamx-chart>svg,.openamx-chart-data{display:none}.openamx-print-view,.openamx-print-chart{display:block}.openamx-view{break-inside:avoid}.openamx-view th{background:#eee}.openamx-view thead{display:table-header-group}}
 </style>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{for(const root of document.querySelectorAll('[data-view].openamx-table')){const table=root.querySelector('table[id$="-interactive"]'),body=table?.querySelector('tbody'),filter=root.querySelector('[data-filter]'),size=root.querySelector('[data-page-size]'),status=root.querySelector('[data-status]'),pageLabel=root.querySelector('[data-page-label]');if(!table||!body||!filter||!size||!status||!pageLabel)continue;const payload=JSON.parse(document.getElementById(root.dataset.view+'-data').textContent),rows=[...body.querySelectorAll('tr')],original=rows.map((row,index)=>({row,index,text:row.textContent?.toLowerCase()??''}));let page=0,pageSize=25,sortField='',ascending=true;const update=()=>{let visible=original.filter(item=>item.text.includes(filter.value.toLowerCase()));if(sortField){visible.sort((a,b)=>{const av=payload.rows[a.index][sortField],bv=payload.rows[b.index][sortField];if(av===null&&bv!==null)return 1;if(av!==null&&bv===null)return -1;let result=av===bv?0:av<bv?-1:1;return (ascending?result:-result)||a.index-b.index})}visible.forEach(item=>body.appendChild(item.row));const pages=Math.max(1,Math.ceil(visible.length/pageSize));page=Math.min(page,pages-1);rows.forEach(row=>row.hidden=true);visible.slice(page*pageSize,(page+1)*pageSize).forEach(item=>item.row.hidden=false);status.textContent=visible.length===0?(filter.value?'No matching rows':'No rows'):'Showing '+(page*pageSize+1)+'-'+Math.min((page+1)*pageSize,visible.length)+' of '+visible.length+' rows';pageLabel.textContent='Page '+(page+1)+' of '+pages;root.querySelector('[data-page="previous"]').disabled=page===0;root.querySelector('[data-page="next"]').disabled=page>=pages-1};filter.addEventListener('input',()=>{page=0;update()});size.addEventListener('change',()=>{pageSize=Number(size.value);page=0;update()});root.querySelectorAll('[data-sort]').forEach(button=>button.addEventListener('click',()=>{const next=button.dataset.sort??'';ascending=sortField===next?!ascending:true;sortField=next;table.querySelectorAll('th').forEach(th=>th.setAttribute('aria-sort',th.querySelector('button')===button?(ascending?'ascending':'descending'):'none'));page=0;update()}));root.querySelector('[data-page="previous"]').addEventListener('click',()=>{page--;update()});root.querySelector('[data-page="next"]').addEventListener('click',()=>{page++;update()});update()}});
 </script>`;
+  return assets
+    .replace('<style>', `<style nonce="${nonce}">`)
+    .replace('<script>', `<script nonce="${nonce}">`)
+    .replace('</script>', `</script><style nonce="${nonce}">.openamx-chart-plot{width:100%;min-width:320px;height:360px}.openamx-chart-legend,.openamx-chart-controls{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;margin:.5rem 0}.openamx-legend-toggle{display:inline-flex;align-items:center;gap:.4rem}.openamx-legend-toggle span{width:.75rem;height:.75rem;border-radius:50%;background:var(--series-color);flex:none}.openamx-legend-toggle[aria-pressed="false"]{opacity:.55}@media print{.openamx-chart-controls,.openamx-chart-legend{display:none!important}.openamx-chart-plot{min-width:0;break-inside:avoid}.openamx-chart-data{display:table!important}}</style><script nonce="${nonce}">${echartsBrowserRuntime}</script><script nonce="${nonce}">${renderChartBootstrap()}</script>`);
 }
 
 function renderReportHeader(report: ResolvedReportIdentity, _file?: string): string {

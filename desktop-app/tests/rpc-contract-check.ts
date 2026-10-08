@@ -29,6 +29,10 @@ function workerThatReturnsThenCloses(): Worker {
 	} as unknown as Worker;
 }
 
+function normalizeHtmlNonce(html: string): string {
+	return html.replace(/nonce-[^'\"]+/g, "nonce-[nonce]").replace(/nonce="[^"]+"/g, 'nonce="[nonce]"');
+}
+
 function delayedPreviewWorkerFactory() {
 	let releaseResult!: () => void;
 	let signalResultCaptured!: () => void;
@@ -67,7 +71,9 @@ const result = createPingResponse("request-1", "1.4.2");
 assert.deepEqual(result, { nonce: "request-1", runtime: "bun", version: "1.4.2" });
 assert.deepEqual(Object.keys(result), ["nonce", "runtime", "version"]);
 const webviewSource = readFileSync(join(import.meta.dir, "../src/mainview/App.vue"), "utf8");
-assert.match(webviewSource, /sandbox=""/);
+assert.equal(webviewSource.match(/sandbox="allow-scripts"/g)?.length, 2);
+assert.match(webviewSource, /sandbox="allow-scripts"/);
+assert.doesNotMatch(webviewSource, /sandbox="[^\"]*(allow-same-origin|allow-top-navigation|allow-popups|allow-forms|allow-downloads)/);
 assert.doesNotMatch(webviewSource, /node:fs|node:child_process|loadEntryModule|loadInputValues|preparePdfReport|serializePdfReport|prepareDocxReport|serializeDocxReport|Bun\./);
 const workerTestRoot = mkdtempSync(join(tmpdir(), "openamx-worker-entry-"));
 const sourceWorkerRoot = join(workerTestRoot, "source");
@@ -1381,7 +1387,7 @@ assert.equal(htmlSave.job.result?.kind, "export");
 if (htmlSave.job.result?.kind !== "export") throw new Error("Expected HTML export result.");
 assert.equal(htmlSave.job.result.fileName, "analysis.html");
 assert.equal(htmlSave.job.result.path, undefined);
-assert.equal(readFileSync(htmlPath, "utf8"), previewWithInputs.html);
+assert.equal(normalizeHtmlNonce(readFileSync(htmlPath, "utf8")), normalizeHtmlNonce(previewWithInputs.html));
 const pdfPath = join(reportDirectory, "analysis.pdf");
 const pdfStartedAt = performance.now();
 const pdfExport = await selectedExport(pdfPath, "pdf");

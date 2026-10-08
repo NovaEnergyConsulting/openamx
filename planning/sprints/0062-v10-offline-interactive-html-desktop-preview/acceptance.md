@@ -1,5 +1,14 @@
 # Sprint 062 Acceptance Criteria
 
+## Lead Developer Disposition (2026-10-08)
+
+**COMPLETE / APPROVED WITH RECORDED RESIDUALS.** The Lead Developer accepts the Sprint 062 Builder evidence and closes this sprint. All implemented acceptance criteria are accepted based on the recorded root, browser, desktop, and packaged-worker evidence. The named evidence gaps below remain residuals; this closeout does not promote them to passes or waive the no-unapproved-network gate.
+
+- No native Electrobun window/install/launch or non-Linux target was exercised. The Linux stable package and its worker/resource preview were verified; this is not native/platform certification.
+- No browser engine other than Chromium was tested; formal accessibility audit, cross-surface visual tolerance, >5,000-point end-to-end bounds, and valid chart-render failure injection remain unverified.
+- Sprint 060 generated SVG ID variance remains relevant to static SVG output; PDF chart rendering remains Sprint 063 scope. DOCX source and behavior remain unchanged.
+- Sprint 062 closeout does not imply Sprint 063 PDF completion, Sprint 064 integrated acceptance, V0.10 completion, release readiness, or publication.
+
 Sprint 062 is complete when all criteria below are evidenced or explicitly retained as a Lead Developer-approved residual; the no-unapproved-network security gate cannot be waived by a blocked request or by Builder completion:
 
 - Shared HTML rendering uses Sprint 061's `createChartViewModel` for all `bar`, `column`, `line`, and `scatter` charts. CLI standalone HTML, desktop live preview, and desktop HTML export share this path and do not separately reinterpret rows, unit normalization, ordering, grouping, empty state, or theme.
@@ -19,7 +28,7 @@ Sprint 062 is complete when all criteria below are evidenced or explicitly retai
 - Existing preview freshness, cancellable job behavior, last-good output, HTML export workflow, and exact 8,000,000-character HTML / 32,000,000-byte worker limits remain intact. No limit is increased; over-limit behavior remains explicit and safe.
 - Actual packaged desktop worker/runtime/resource resolution is exercised on an available host, or is explicitly marked blocked/unavailable with precise evidence. A temporary source bundle or Vite dev server does not count as package proof.
 - Focused renderer/security/Playwright tests, existing preview freshness/desktop tests, root build and relevant/full test suites are run where available. Evidence gives exact commands, versions, host, results/skips, screenshots/request logs, changed files, and any limitation.
-- PDF ECharts rendering remains unchanged for Sprint 063; DOCX remains unchanged regression baseline. Builder evidence requests a separate Lead Developer disposition and does not claim V0.10 integrated acceptance, native/platform certification, release readiness, or publication.
+- PDF ECharts rendering remains unchanged for Sprint 063; DOCX remains unchanged regression baseline. The separate Lead Developer disposition is recorded above; Sprint 062 closure does not claim V0.10 integrated acceptance, native/platform certification, release readiness, or publication.
 
 ## Required Regression Set
 

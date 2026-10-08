@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.10 Sprint 062 Lead Developer Disposition (2026-10-08)
+
+- **COMPLETE / APPROVED WITH RECORDED RESIDUALS.** The Lead Developer accepts the Sprint 062 Builder evidence and closes the sprint.
+- Accept the verified sanitizer/navigation containment and `allow-scripts`-only opaque preview gate, shared-model interactive HTML, offline standalone output, tested chart interactions/print/lifecycle, root and desktop regressions, and available Linux packaged-worker/resource evidence as recorded.
+- Retain exact unverified boundaries: native Electrobun window/install/launch and non-Linux platforms; browser engines other than Chromium; formal accessibility audit; cross-surface visual tolerance; >5,000-point end-to-end bounds; valid chart-render failure injection. Sprint 060's generated SVG ID variability remains relevant to static output.
+- This disposition does not close Sprint 063 PDF chart integration or Sprint 064 integrated acceptance and does not imply V0.10 completion, release readiness, platform certification, or publication. DOCX remains unchanged.
+
 ## V0.10 Sprint 062 Architect Preparation (2026-10-07)
 
 - Sprint 061 is **COMPLETE / APPROVED WITH RECORDED RESIDUALS**. Consume its exact `echarts@6.1.0` root dependency, pure `createChartViewModel` API, immutable captured measurement descriptors, complete ordered table data, tooltip/accessibility inputs, and shared theme. Do not duplicate the model or re-normalize units.
@@ -7,6 +14,15 @@
 - The Sprint 060 link/meta-refresh escape is a failed security gate. Report-authored content needs an allow-list policy and zero attempted external navigations/requests. A blocked response/DNS error, CSP `navigate-to`, or opaque origin alone does not prove containment.
 - Keep both preview sandbox attributes empty until hostile-content tests pass. Then permit only `allow-scripts`; never combine with `allow-same-origin` or grant navigation, forms, popups, downloads, or bridge/application privileges.
 - Preserve Sprint 061 chart semantics and all named Sprint 060 residual statuses, including unavailable actual Electrobun packaging, generated SVG ID variance, unmeasured visual tolerance/large-data behavior, untested input methods, and render-failure diagnostics. No cap increase or architecture substitution is authorized.
+
+## V0.10 Sprint 062 Builder Decisions (2026-10-08)
+
+- Use exact root `sanitize-html@2.17.0` (MIT; notice at `node_modules/sanitize-html/LICENSE`) with one explicit Markdown allow-list shared by direct and prepared HTML rendering. Preserve visible link text as inert spans; no authored URL/resource attributes or styles survive. This is implementation evidence, not a request to expand authoring capabilities.
+- Serialize only JSON chart option data and approved Sprint 061 metadata. Record known formatter paths and reattach fixed trusted tooltip/category/UTC callbacks from bootstrap. Reject unexpected functions and non-finite numeric values. ECharts browser runtime is embedded from exact root `echarts@6.1.0`; no `unsafe-eval` CSP permission.
+- Use nonce-only runtime/script/style policy, with a dedicated `style-src-attr 'unsafe-inline'` directive for trusted ECharts-generated style attributes. Keep default/network/frame/form/object/base/worker/media restrictions. Text-only HTML uses deterministic `script-src 'none'; style-src 'none'` because it has no runtime.
+- The no-navigation gate passed in local-file standalone output, actual sandbox-empty app preview, and a real test-only opaque `allow-scripts` frame before changing preview permission. Therefore both declared `App.vue` iframe sites now use exactly `allow-scripts`, retaining opaque origins and granting no other sandbox capability.
+- Browser interactions are destination presentation only. Full table rows remain independent of legend/zoom state. Chart resize uses ResizeObserver; removal/pagehide disconnects observers and disposes instances. Print hides transient controls and keeps the chart plot and complete table.
+- Sprint 062 Builder evidence reports exact Linux package worker/resource preview success, but does not claim native Electrobun application launch or other platform results. The separate disposition request is in `planning/sprints/0062-v10-offline-interactive-html-desktop-preview/builder-evidence.md`; Sprint 063 PDF and Sprint 064 integrated acceptance remain distinct.
 
 ## V0.10 Sprint 061 Builder Finding (2026-10-07)
 
