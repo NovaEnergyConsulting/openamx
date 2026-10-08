@@ -1,5 +1,15 @@
 # Planning Questions (Sprint 002)
 
+## V0.10 Sprint 064 Preparation (2026-10-08)
+
+- **Resolved by separate Lead Developer dispositions:** Sprint 062 and Sprint 063 are each COMPLETE / APPROVED WITH RECORDED RESIDUALS; Sprint 064's dependency gate is satisfied. These do not imply integrated V0.10 acceptance.
+- **Unpassed full-suite residual:** Sprint 063's parallel root suite had two desktop data-editor polling timeouts; serial retry had one mapped-data diagnostic test timeout at 532 ms against the 500 ms polling window. Re-run and preserve the exact outcome; owner remains the existing test/runtime boundary unless a V0.10 reproduction proves otherwise. No unrelated fix is authorized.
+- Re-measure approved cross-surface visual tolerance across HTML/desktop/PDF using matched crops and the proposed SSIM >= 0.97 / plot-label bounds <= 2 CSS px where meaningful. If inapplicable or missed, submit raw evidence and an alternative/tolerance decision for Lead Developer review.
+- Carry explicit evidence gaps: no native Electrobun window/install/launch; other operating systems/architectures and browser engines not certified; no formal accessibility audit; no >5,000-point end-to-end bound; raw generated SVG IDs vary; product caps remain unchanged; no publication/release readiness.
+- Sprint 064 must test standalone/offline and actual preview security, accessible data/print, PDF raster/text/fonts/page flow, package worker scope, and bounded end-to-end output. Record each target/status separately; no cross-surface result is inferred from an adjacent surface's pass.
+- Current reporting docs, representative examples/output and bundled Help should describe only verified interactive HTML/desktop and static PDF behavior. Do not add language syntax, DOCX improvement claims, or platform guarantees.
+- Request a separate Lead Developer final V0.10 disposition after evidence review. Sprint 064 Builder completion does not self-accept or authorize publication.
+
 ## V0.10 Sprint 063 Lead Developer Closeout (2026-10-08)
 
 - **Resolved by Lead Developer disposition: COMPLETE / APPROVED WITH RECORDED RESIDUALS.** Sprint 063 is accepted and closed. Production static ECharts SSR, actual CLI PDF raster/font inspection, valid-chart failure/atomic preservation, desktop worker/RPC path, root build, and focused regressions are recorded in `planning/sprints/0063-v10-static-echarts-pdf-charts/builder-evidence.md`.

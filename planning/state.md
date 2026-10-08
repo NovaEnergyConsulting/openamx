@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.10 Sprint 064 Architect Preparation (2026-10-08)
+
+- Prepared the four Sprint 064 artifacts in `planning/sprints/0064-v10-cross-surface-acceptance-closeout/` for integrated HTML/desktop/PDF acceptance, current reporting documentation/help/examples, and final evidence submission.
+- Sprint 062 and Sprint 063 are each **COMPLETE / APPROVED WITH RECORDED RESIDUALS** by separate Lead Developer dispositions, satisfying Sprint 064's entry gate. Sprint 064 adds no product feature scope and does not authorize publication.
+- Preserve Sprint 063's unpassed full-suite desktop data-editor polling timeout (parallel 2 timeouts; serial 1 timeout at 532 ms against 500 ms) and the exact native/platform/formal accessibility residuals from Sprints 062/063. Do not represent focused PDF success as a green full suite.
+- Acceptance requires integrated cross-surface visual/security/offline/accessibility/print/package/data-bound evidence and a separate final Lead Developer V0.10 disposition. This preparation claims no new verification or final acceptance.
+
 ## V0.10 Sprint 063 Closeout (2026-10-08)
 
 - Replaced the PDF custom chart graphics/row adapter with static ECharts `6.1.0` Bun SSR SVG from Sprint 061 `createChartViewModel`. Preserved callback-bearing in-memory options, searchable full tables, A4 report flow, fonts, identity/footer, and atomic destinations. Added PDF-only axis/title/tooltip settings and chart heading/graphic grouping based on actual raster findings; HTML/desktop preview, DOCX source, chart semantics, limits, dependencies, and output worker behavior remain unchanged.

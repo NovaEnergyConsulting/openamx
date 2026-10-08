@@ -1,5 +1,14 @@
 # Planning Decisions
 
+## V0.10 Sprint 064 Architect Preparation (2026-10-08)
+
+- Sprint 062 and Sprint 063 satisfy Sprint 064's dependencies with separate **COMPLETE / APPROVED WITH RECORDED RESIDUALS** dispositions. Sprint 064 owns integrated acceptance and closeout only; it adds no product feature scope.
+- Preserve Sprint 063's desktop data-editor polling timeout as unpassed (parallel full suite: two timeouts; serial: one timeout at 532 ms versus a 500 ms poll). Do not alter unrelated data-editor code to force a pass absent a reproduced V0.10 defect and explicit direction.
+- Reconcile every chart result across the shared Sprint 061 model, Sprint 062 HTML/desktop path, and Sprint 063 static PDF path. Measure visual parity against the approved proposal (SSIM >= 0.97; plot/label bounds within 2 CSS px where meaningful), or submit an evidence-backed alternative for approval.
+- Retain the no-network HTML security result at its tested Chromium/Linux scope; verify the actual zero-request behavior in integrated output. Retain exact limits for native app launch, other hosts/browsers, formal accessibility, larger end-to-end data, and release/publication.
+- Update only current reporting docs, representative existing examples/output, and bundled Help to accurately describe verified behavior. Historical specs and DOCX behavior remain unchanged unless a specific approved correction is required.
+- Final V0.10 acceptance is a separate Lead Developer disposition after Builder evidence. Neither Sprint 064 completion nor prior sprint approvals imply V0.10 acceptance or publication authorization.
+
 ## V0.10 Sprint 063 Lead Developer Disposition (2026-10-08)
 
 - Production PDF rendering consumes only Sprint 061 `createChartViewModel(emission, report.identity)` and exact root ECharts `6.1.0`. The PDF destination option is a non-mutating shallow derivation retaining formatter callbacks; only static tooltip/title/axis presentation is adjusted. Full shared table rows/headings remain searchable. Each SSR chart instance is disposed in `finally`.
