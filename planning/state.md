@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.10 Sprint 063 Architect Preparation (2026-10-08)
+
+- Prepared the four Sprint 063 artifacts in `planning/sprints/0063-v10-static-echarts-pdf-charts/` for static ECharts SVG integration in the existing pdfmake report pipeline.
+- Sprint 061 is **COMPLETE / APPROVED WITH RECORDED RESIDUALS** and satisfies Sprint 063's dependency. Sprint 062 is separately **COMPLETE / APPROVED WITH RECORDED RESIDUALS**; its HTML/desktop implementation and remaining native/accessibility/visual/performance residuals are not PDF evidence.
+- Sprint 063 consumes `createChartViewModel` and exact root ECharts `6.1.0`, replaces only PDF's custom chart graphics, and preserves searchable tables, report structure and atomic writes. DOCX and Sprint 062 source remain out of scope.
+- Sprint 060's ECharts SVG ID byte variability and tested SVG-subset boundary remain explicit. This preparation claims no PDF integration, raster verification, test/build result, or V0.10 acceptance.
+
 ## V0.10 Sprint 062 Closeout (2026-10-08)
 
 - Implemented shared HTML chart rendering from Sprint 061 `createChartViewModel`, with embedded ECharts `6.1.0`, a fail-closed JSON projection/fixed trusted formatter bootstrap, full independent table/accessibility/print output, interaction controls, resize/disposal, and a shared `sanitize-html@2.17.0` Markdown allow-list. No chart meaning, measurement normalization, PDF implementation, DOCX code, output caps, or release scope changed.

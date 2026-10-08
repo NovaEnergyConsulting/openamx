@@ -1,5 +1,14 @@
 # Planning Questions (Sprint 002)
 
+## V0.10 Sprint 063 Preparation (2026-10-08)
+
+- **Resolved by prior Lead Developer dispositions:** Sprint 061 and Sprint 062 are COMPLETE / APPROVED WITH RECORDED RESIDUALS. Sprint 063 depends on Sprint 061 only and may proceed independently of Sprint 062; Sprint 064 still requires both integration sprints.
+- **Resolved by approved architecture:** use ECharts `6.1.0` Bun SSR SVG and the shared `createChartViewModel` in the existing pdfmake pipeline. Keep PDF static, searchable, offline, and atomic; no browser-PDF architecture or DOCX chart work.
+- Sprint 060's actual PDF feasibility was limited to five isolated SVG fixtures, pdfmake `0.3.11`, and Linux. Sprint 063 must inspect production model SVG and real rasterized reports, preserve the tested SVG-feature boundary, and record any unsupported construct rather than silently expanding renderer architecture.
+- ECharts-generated SVG IDs differ by render. Establish semantic and raster appearance stability; do not assert PDF byte identity or normalize XML with regex. If deterministic identifiers are required beyond this evidence, document a structural solution and obtain direction before broad serialization changes.
+- Sprint 060 did not expose a valid public chart-render failure seam/diagnostic. Sprint 063 should test a narrow failure path and atomic preservation; if a new public diagnostic contract is needed, record a minimal proposal and request Lead Developer direction instead of inventing a code.
+- Carry Sprint 062 residuals unchanged: no native Electrobun window/install/launch or other OS/browser certification, no formal accessibility audit, no cross-surface visual tolerance, no >5,000-point end-to-end bound, and valid chart-render failure injection remains unavailable unless Sprint 063 directly resolves its PDF-specific path.
+
 ## V0.10 Sprint 062 Preparation (2026-10-07)
 
 - **Resolved by Lead Developer disposition (2026-10-07):** Sprint 061 is COMPLETE / APPROVED WITH RECORDED RESIDUALS and closed. Sprint 062 may consume the shared `createChartViewModel` implementation and exact root ECharts `6.1.0` dependency. This is not browser, desktop, PDF, or V0.10 acceptance.

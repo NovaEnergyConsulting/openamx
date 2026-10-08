@@ -1,5 +1,13 @@
 # Planning Decisions
 
+## V0.10 Sprint 063 Architect Preparation (2026-10-08)
+
+- Sprint 063 depends on Sprint 061 only and may proceed independently of Sprint 062 per the master plan. Both Sprint 061 and Sprint 062 are **COMPLETE / APPROVED WITH RECORDED RESIDUALS** by separate Lead Developer dispositions.
+- Use the approved exact root `echarts@6.1.0` and `createChartViewModel` as the sole PDF chart meaning/theme/data source. Static Bun SSR SVG replaces only the custom chart graphic path in `reportPdf.ts`; existing pdfmake structure and CLI/worker destinations remain.
+- Preserve full searchable captured table data, report order/identity/page breaks, existing A4/page-flow constraints, Roboto/local-only resource policy, and atomic destination handling. PDF is static and never consumes HTML legend/zoom state.
+- Sprint 060 directly proved only a named ECharts SVG subset in pdfmake `0.3.11`. Inspect actual production SSR output and rasterized PDFs; do not infer appearance from successful serialization. SVG generated IDs cause raw byte variation; prefer semantic/raster stability evidence and avoid ad-hoc XML rewriting.
+- Keep Sprint 062 HTML/desktop/security implementation and DOCX renderer unchanged. Native desktop launch, other platforms, formal accessibility, cross-surface tolerance, larger end-to-end data limits, and valid chart-render failure injection remain separate residuals unless directly tested in scope.
+
 ## V0.10 Sprint 062 Lead Developer Disposition (2026-10-08)
 
 - **COMPLETE / APPROVED WITH RECORDED RESIDUALS.** The Lead Developer accepts the Sprint 062 Builder evidence and closes the sprint.
