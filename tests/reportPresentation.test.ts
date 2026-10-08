@@ -170,11 +170,12 @@ show nullChart
 
     const pdfPrepared = preparePdfReport(prepared);
     const pdf = await reportText(await serializePdfReport(pdfPrepared));
-    expect(pdf).not.toContain('No data');
+    expect(pdf.match(/No data/g)?.length).toBe(2);
     expect(pdf).not.toContain('(null)');
     expect(pdfPrepared.definition.content).toBeArray();
     const pdfContent = pdfPrepared.definition.content as Array<Record<string, unknown>>;
-    expect(pdfContent.filter(item => 'svg' in item)).toHaveLength(1);
+    const chartBlocks = pdfContent.filter(item => Array.isArray(item.stack));
+    expect(chartBlocks.flatMap(item => item.stack as Array<Record<string, unknown>>).filter(item => 'svg' in item)).toHaveLength(2);
 
     const docx = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
     const documentXml = await docx.file('word/document.xml')?.async('string');

@@ -1,9 +1,11 @@
+import * as echarts from 'echarts';
 import pdfmake from 'pdfmake';
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ChartViewEmission, TableViewEmission, ViewDataValue, ViewEmission } from '../runtime/environment';
+import { createChartViewModel, type ChartViewModel } from './chartModel';
 import type { PreparedReport } from './reportPreparation';
 
 export interface PreparedPdfReport {
@@ -26,8 +28,11 @@ pdfmake.setFonts({
   }
 });
 
-export function preparePdfReport(report: PreparedReport): PreparedPdfReport {
-  return preparePreparedPdfReport(report);
+export function preparePdfReport(
+  report: PreparedReport,
+  renderChart: (model: ChartViewModel) => string = renderStaticChart
+): PreparedPdfReport {
+  return preparePreparedPdfReport(report, renderChart);
 }
 
 export async function serializePdfReport(report: PreparedPdfReport): Promise<Uint8Array> {
@@ -36,7 +41,7 @@ export async function serializePdfReport(report: PreparedPdfReport): Promise<Uin
   return Uint8Array.from(buffer);
 }
 
-function preparePreparedPdfReport(report: PreparedReport): PreparedPdfReport {
+function preparePreparedPdfReport(report: PreparedReport, renderChart: (model: ChartViewModel) => string): PreparedPdfReport {
   const content: unknown[] = [];
   const identity = report.identity;
   const metadata = [
@@ -58,7 +63,7 @@ function preparePreparedPdfReport(report: PreparedReport): PreparedPdfReport {
   for (const item of report.items) {
     if (item.type === 'narrative') addNarrativeText(content, item.text);
     else if (item.type === 'source') content.push({ text: item.text, style: 'source' });
-    else addEmission(content, item.emission);
+    else addEmission(content, item.emission, identity, renderChart);
   }
   return {
     definition: {
@@ -102,9 +107,14 @@ function addNarrativeText(content: unknown[], narrative: string): void {
   flush();
 }
 
-function addEmission(content: unknown[], emission: ViewEmission): void {
+function addEmission(
+  content: unknown[],
+  emission: ViewEmission,
+  identity: PreparedReport['identity'],
+  renderChart: (model: ChartViewModel) => string
+): void {
   if (emission.kind === 'table') addTable(content, emission);
-  else addChart(content, emission);
+  else addChart(content, emission, identity, renderChart);
 }
 
 function addTable(content: unknown[], emission: TableViewEmission): void {
@@ -119,49 +129,85 @@ function addTable(content: unknown[], emission: TableViewEmission): void {
   content.push({ table: { headerRows: 1, keepWithHeaderRows: 1, widths: columns.map(() => '*'), body }, layout: 'lightHorizontalLines', fontSize: 8 });
 }
 
-function addChart(content: unknown[], emission: ChartViewEmission): void {
-  const title = emission.declaration.options.find(option => option.type === 'viewTitleOption');
-  const description = emission.declaration.options.find(option => option.type === 'viewDescriptionOption');
-  const caption = title?.type === 'viewTitleOption' ? title.value : emission.name;
-  const detail = description?.type === 'viewDescriptionOption' ? description.value : `${emission.kind} chart`;
-  const rows = chartRows(emission);
-  const headings = chartHeadings(emission);
-  content.push({ text: caption, style: 'heading' });
-  content.push({ text: detail, style: 'caption' });
-  if (rows.length > 0) content.push({ svg: chartSvg(rows), width: 470, height: 160 });
-  content.push({ table: { headerRows: 1, widths: headings.map(() => '*'), body: [headings, ...rows.map(row => row.map(valueToString))] }, layout: 'lightHorizontalLines', fontSize: 8 });
-}
-
-function chartRows(emission: ChartViewEmission): ViewDataValue[][] {
-  const options = emission.declaration.options;
-  const category = options.find(option => option.type === 'chartFieldOption' && option.role === 'category');
-  const x = options.find(option => option.type === 'chartFieldOption' && option.role === 'x');
-  const y = options.find(option => option.type === 'chartFieldOption' && option.role === 'y');
-  const group = options.find(option => option.type === 'chartFieldOption' && option.role === 'group');
-  const series = options.filter(option => option.type === 'chartSeriesOption');
-  const labels = emission.labels ?? emission.data.map((_value, index) => String(index + 1));
-  return emission.data.map((value, index) => {
-    if (isRecord(value)) {
-      if (emission.declaration.kind === 'scatter') return [value[x?.type === 'chartFieldOption' ? x.field : 'x'], value[y?.type === 'chartFieldOption' ? y.field : 'y'], group?.type === 'chartFieldOption' ? value[group.field] : ''];
-      return [category?.type === 'chartFieldOption' ? value[category.field] : labels[index], ...series.map(option => option.type === 'chartSeriesOption' && option.field ? value[option.field] : null)];
-    }
-    return [labels[index], value];
+function addChart(
+  content: unknown[],
+  emission: ChartViewEmission,
+  identity: PreparedReport['identity'],
+  renderChart: (model: ChartViewModel) => string
+): void {
+  const model = createChartViewModel(emission, identity);
+  content.push({
+    stack: [
+      { text: model.title, style: 'heading' },
+      { text: model.description, style: 'caption' },
+      { svg: renderChart(model), width: 470 }
+    ],
+    unbreakable: true
+  });
+  content.push({
+    table: {
+      headerRows: 1,
+      widths: model.table.headings.map(() => '*'),
+      body: [
+        model.table.headings.map(text => ({ text, bold: true, fillColor: '#e7eee8' })),
+        ...model.table.rows.map(row => row.values.map(valueToString))
+      ]
+    },
+    layout: 'lightHorizontalLines',
+    fontSize: 8
   });
 }
 
-function chartHeadings(emission: ChartViewEmission): string[] {
-  if (emission.headings) return [...emission.headings];
-  if (emission.declaration.kind === 'scatter') return ['x', 'y', 'group'];
-  return ['label', ...emission.declaration.options.filter(option => option.type === 'chartSeriesOption').map(option => option.label)];
+function renderStaticChart(model: ChartViewModel): string {
+  const chart = echarts.init(null, undefined, {
+    renderer: 'svg',
+    ssr: true,
+    width: model.dimensions.width,
+    height: model.dimensions.height
+  });
+  try {
+    const tooltip = model.option.tooltip;
+    chart.setOption({
+      ...model.option,
+      animation: false,
+      title: { ...model.option.title, show: false },
+      xAxis: centerNamedAxis(model.option.xAxis, model.emptyState !== undefined),
+      yAxis: centerNamedAxis(model.option.yAxis, model.emptyState !== undefined),
+      tooltip: Array.isArray(tooltip)
+        ? tooltip.map(item => ({ ...item, show: false }))
+        : { ...tooltip, show: false }
+    });
+    const svg = chart.renderToSVGString();
+    assertSupportedSvg(svg);
+    return svg;
+  } finally {
+    chart.dispose();
+  }
 }
 
-function chartSvg(rows: ViewDataValue[][]): string {
-  const values = rows.flatMap(row => row.slice(1)).filter((value): value is number => typeof value === 'number');
-  const max = Math.max(1, ...values.map(value => Math.abs(value)));
-  const bars = rows.flatMap((row, rowIndex) => row.slice(1).map((value, seriesIndex) => typeof value === 'number'
-    ? `<rect x="${40 + rowIndex * 560 / Math.max(1, rows.length) + seriesIndex * 14}" y="${145 - value / max * 105}" width="12" height="${Math.max(0, value / max * 105)}" fill="${['#146c94', '#d97706', '#15803d'][seriesIndex % 3]}"/>`
-    : '')).join('');
-  return `<svg width="600" height="160" viewBox="0 0 600 160"><line x1="40" y1="145" x2="580" y2="145" stroke="#58675d"/>${bars}</svg>`;
+function centerNamedAxis(axis: unknown, hide: boolean): unknown {
+  const adjust = (item: unknown) => {
+    if (item === null || typeof item !== 'object') return item;
+    const named = 'name' in item && typeof item.name === 'string'
+      ? { ...item, nameLocation: 'middle' }
+      : { ...item };
+    if (!hide) return named;
+    return {
+      ...named,
+      show: false,
+      axisLine: { ...('axisLine' in named && named.axisLine && typeof named.axisLine === 'object' ? named.axisLine : {}), show: false }
+    };
+  };
+  return Array.isArray(axis) ? axis.map(adjust) : adjust(axis);
+}
+
+function assertSupportedSvg(svg: string): void {
+  const supportedElements = new Set(['svg', 'g', 'path', 'rect', 'circle', 'text', 'defs', 'clipPath', 'style']);
+  const elements = [...svg.matchAll(/<([A-Za-z][A-Za-z0-9:-]*)\b/g)].map(match => match[1]);
+  const unsupported = [...new Set(elements.filter(element => !supportedElements.has(element)))];
+  if (!svg.startsWith('<svg') || unsupported.length > 0) {
+    throw new Error(`ECharts PDF SVG uses unsupported output${unsupported.length ? `: ${unsupported.join(', ')}` : ''}`);
+  }
 }
 
 function isRecord(value: ViewDataValue): value is { readonly [field: string]: ViewDataValue } {

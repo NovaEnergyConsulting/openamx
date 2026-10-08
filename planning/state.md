@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.10 Sprint 063 Closeout (2026-10-08)
+
+- Replaced the PDF custom chart graphics/row adapter with static ECharts `6.1.0` Bun SSR SVG from Sprint 061 `createChartViewModel`. Preserved callback-bearing in-memory options, searchable full tables, A4 report flow, fonts, identity/footer, and atomic destinations. Added PDF-only axis/title/tooltip settings and chart heading/graphic grouping based on actual raster findings; HTML/desktop preview, DOCX source, chart semantics, limits, dependencies, and output worker behavior remain unchanged.
+- Focused PDF/CLI/presentation/model/DOCX/desktop-worker set passes (28 tests, 169 expectations); root build, desktop typecheck, and desktop RPC contract check pass. Actual kitchen-sink CLI PDF (all chart kinds, 20 A4 pages) and measurement-report PDF (2 A4 pages) were rasterized and visually inspected. Roboto-Regular/Medium are embedded. Repeated chart page raster comparison reported zero differing pixels; raw PDF/SVG bytes are not asserted.
+- Full root suite direct parallel run: 399 passed, 2 Windows-only skips, 2 desktop data-editor polling timeouts. Serial run: 400 passed, 2 skips, 1 same-area polling timeout at 532 ms against its 500 ms window. This unrelated failure remains explicitly unpassed; no desktop data-editor changes were made.
+- Detailed commands, artifacts, SVG subset, PDF metadata/fonts, evidence boundaries, warnings, and residuals are in [Sprint 063 Builder evidence](sprints/0063-v10-static-echarts-pdf-charts/builder-evidence.md). **Lead Developer disposition (2026-10-08): COMPLETE / APPROVED WITH RECORDED RESIDUALS.** The Lead Developer accepted Sprint 063 and authorized closeout. The desktop data-editor timeout remains unpassed; native desktop launch, platform certification, Sprint 064/V0.10 integrated acceptance, release readiness, and publication are not claimed.
+
 ## V0.10 Sprint 063 Architect Preparation (2026-10-08)
 
 - Prepared the four Sprint 063 artifacts in `planning/sprints/0063-v10-static-echarts-pdf-charts/` for static ECharts SVG integration in the existing pdfmake report pipeline.

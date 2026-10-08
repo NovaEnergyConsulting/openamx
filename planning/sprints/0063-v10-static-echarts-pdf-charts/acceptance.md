@@ -16,7 +16,7 @@ Sprint 063 is complete when:
 - Existing PDF destination validation and atomic commit semantics remain intact. CLI and desktop worker/RPC PDF exports use the shared adapter and require no network.
 - Focused PDF/CLI/presentation/model regressions, root build and full tests are run as available; exact host, tool versions, commands, test totals/skips, warnings, screenshots/raster artifacts, PDF metadata/fonts, and residuals are recorded in `builder-evidence.md`.
 - Sprint 062's approved HTML/desktop output, sanitizer, sandbox, interactions, and preview behavior are untouched; DOCX implementation is untouched and only baseline regression tested.
-- Builder evidence requests separate Lead Developer disposition. Sprint 063 completion does not claim Sprint 064 cross-surface acceptance, V0.10 completion, platform certification, release readiness, or publication.
+- Separate Lead Developer disposition closes Sprint 063 with recorded residuals; this does not claim Sprint 064 cross-surface acceptance, V0.10 completion, platform certification, release readiness, or publication.
 
 ## Required Regression Set
 
@@ -28,3 +28,7 @@ Sprint 063 is complete when:
 6. Render/serialization failure diagnostics and existing destination atomicity.
 7. CLI and desktop worker/RPC PDF path; no external resource use.
 8. DOCX unchanged baseline and root build/full test results.
+
+## Lead Developer Disposition
+
+**COMPLETE / APPROVED WITH RECORDED RESIDUALS (2026-10-08).** The Lead Developer accepts Sprint 063 and closes it. The desktop data-editor timeout in the full root suite remains unpassed as recorded in `builder-evidence.md`. This closeout does not claim Sprint 064 integrated acceptance, V0.10 completion, native desktop launch, platform certification, release readiness, or publication.

@@ -1,5 +1,11 @@
 # Planning Questions (Sprint 002)
 
+## V0.10 Sprint 063 Lead Developer Closeout (2026-10-08)
+
+- **Resolved by Lead Developer disposition: COMPLETE / APPROVED WITH RECORDED RESIDUALS.** Sprint 063 is accepted and closed. Production static ECharts SSR, actual CLI PDF raster/font inspection, valid-chart failure/atomic preservation, desktop worker/RPC path, root build, and focused regressions are recorded in `planning/sprints/0063-v10-static-echarts-pdf-charts/builder-evidence.md`.
+- Preserve one unpassed full-suite residual: the desktop data-editor mapped-data diagnostic test exceeded its fixed 500 ms job-poll window (532 ms) in the serial suite; the parallel run had two similar timeout failures. Focused PDF/CLI/presentation/model/DOCX/worker regressions pass. This is unrelated and unchanged.
+- No new chart semantics, public diagnostic, engine, runtime dependency, or limit decision was made. Native desktop launch, other platforms, cross-surface tolerance, >5,000-point end-to-end behavior, and Sprint 064 integrated acceptance remain separate/unverified.
+
 ## V0.10 Sprint 063 Preparation (2026-10-08)
 
 - **Resolved by prior Lead Developer dispositions:** Sprint 061 and Sprint 062 are COMPLETE / APPROVED WITH RECORDED RESIDUALS. Sprint 063 depends on Sprint 061 only and may proceed independently of Sprint 062; Sprint 064 still requires both integration sprints.

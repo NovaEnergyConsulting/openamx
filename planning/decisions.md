@@ -1,5 +1,13 @@
 # Planning Decisions
 
+## V0.10 Sprint 063 Lead Developer Disposition (2026-10-08)
+
+- Production PDF rendering consumes only Sprint 061 `createChartViewModel(emission, report.identity)` and exact root ECharts `6.1.0`. The PDF destination option is a non-mutating shallow derivation retaining formatter callbacks; only static tooltip/title/axis presentation is adjusted. Full shared table rows/headings remain searchable. Each SSR chart instance is disposed in `finally`.
+- Empirical production output uses the Sprint 060 tested subset plus `<g>`. The `<g>` output was serialized by pdfmake `0.3.11` and visually inspected in actual CLI PDF rasters; no gradients, filters, patterns, or images appeared. The runtime rejects element tags outside the measured accepted set. Generated IDs remain variable; semantic and raster comparison is used instead of byte equality or regex normalization.
+- A valid-render fault seam proves surfaced failure before atomic write, preserving an existing file with no temp residue. No public diagnostic code was added. Chart captions/descriptions/graphics are a chart-only unbreakable stack; actual report-width measurement exposed and corrected clipped unit axis names and empty-state axes. These do not alter chart data/meaning.
+- DOCX and Sprint 062 source remain unchanged. Focused root/worker tests, desktop RPC, root build, desktop typecheck, actual PDF raster/font checks, and exact unpassed full-suite timing residuals are recorded in Sprint 063 Builder evidence.
+- **COMPLETE / APPROVED WITH RECORDED RESIDUALS.** The Lead Developer accepted Sprint 063 and closed the sprint. Preserve the desktop data-editor polling timeout as unpassed. This disposition does not claim native desktop launch, platform certification, Sprint 064 integrated acceptance, V0.10 completion, release readiness, or publication.
+
 ## V0.10 Sprint 063 Architect Preparation (2026-10-08)
 
 - Sprint 063 depends on Sprint 061 only and may proceed independently of Sprint 062 per the master plan. Both Sprint 061 and Sprint 062 are **COMPLETE / APPROVED WITH RECORDED RESIDUALS** by separate Lead Developer dispositions.
