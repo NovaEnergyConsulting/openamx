@@ -1,5 +1,13 @@
 # Planning Questions (Sprint 002)
 
+## V0.10 Sprint 062 Preparation (2026-10-07)
+
+- **Resolved by Lead Developer disposition (2026-10-07):** Sprint 061 is COMPLETE / APPROVED WITH RECORDED RESIDUALS and closed. Sprint 062 may consume the shared `createChartViewModel` implementation and exact root ECharts `6.1.0` dependency. This is not browser, desktop, PDF, or V0.10 acceptance.
+- **Open security gate carried from Sprint 060:** external link and meta-refresh content initiated navigations from an opaque script-enabled iframe despite CSP and `navigate-to 'none'`. Sprint 062 must eliminate the active navigation/resource paths and prove zero attempted requests in the actual HTML and both desktop preview frames before adding `allow-scripts`. Owner: Sprint 062 Builder; Lead Developer disposition required if containment needs scope/security changes.
+- The report content policy must explicitly handle raw HTML, anchors/URL protocols, meta/base/form/frame/object/embed, remote images/styles/fonts/media, CSS/SVG references, chart labels/tooltips, and safely encoded script payloads. Preserve visible text without active external navigation; use a maintained allow-list sanitizer or request direction if no suitable solution fits Bun.
+- Actual Electrobun package/resource resolution remains unavailable; a source bundle or dev preview is not package evidence. Verify the real packaged worker/resource path on available host(s), or record it blocked/unavailable.
+- Carry Sprint 060 residuals accurately: inaccurate default ARIA (use Sprint 061 metadata instead), generated SVG ID variation, cross-surface tolerance and >5,000-point end-to-end envelope unmeasured, pointer/keyboard/touch behavior unverified, and public chart-render failure injection unavailable. Sprint 062 may add evidence only for its own tested behavior; Sprint 063/064 retain their ownership.
+
 ## V0.10 Sprint 061 Preparation (2026-10-07)
 
 - **Resolved by Lead Developer authorization (2026-10-07):** add a narrowly scoped immutable unit/dimension metadata field to chart emissions; Sprint 061 may edit the runtime snapshot boundary and focused tests. Preserve existing normalized values and do not redo normalization. Implementation evidence is in `planning/sprints/0061-v10-shared-chart-model-openamx-theme/builder-evidence.md`.

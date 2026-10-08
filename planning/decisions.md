@@ -1,5 +1,13 @@
 # Planning Decisions
 
+## V0.10 Sprint 062 Architect Preparation (2026-10-07)
+
+- Sprint 061 is **COMPLETE / APPROVED WITH RECORDED RESIDUALS**. Consume its exact `echarts@6.1.0` root dependency, pure `createChartViewModel` API, immutable captured measurement descriptors, complete ordered table data, tooltip/accessibility inputs, and shared theme. Do not duplicate the model or re-normalize units.
+- Sprint 062 owns only interactive HTML/desktop preview integration. CLI HTML, desktop preview and desktop HTML export use the shared rendering path; static PDF remains Sprint 063 and DOCX remains unchanged.
+- The Sprint 060 link/meta-refresh escape is a failed security gate. Report-authored content needs an allow-list policy and zero attempted external navigations/requests. A blocked response/DNS error, CSP `navigate-to`, or opaque origin alone does not prove containment.
+- Keep both preview sandbox attributes empty until hostile-content tests pass. Then permit only `allow-scripts`; never combine with `allow-same-origin` or grant navigation, forms, popups, downloads, or bridge/application privileges.
+- Preserve Sprint 061 chart semantics and all named Sprint 060 residual statuses, including unavailable actual Electrobun packaging, generated SVG ID variance, unmeasured visual tolerance/large-data behavior, untested input methods, and render-failure diagnostics. No cap increase or architecture substitution is authorized.
+
 ## V0.10 Sprint 061 Builder Finding (2026-10-07)
 
 - The approved requirement to preserve normalized measurement values and dimensional metadata cannot currently be met by a downstream-only adapter: `normalizeChartMeasurements` turns each measurement into a number and writes only `unit.text` into headings; `ChartViewEmission` exposes only those values/headings, not unit identity or dimension vectors.

@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.10 Sprint 062 Architect Preparation (2026-10-07)
+
+- Prepared the four Sprint 062 artifacts in `planning/sprints/0062-v10-offline-interactive-html-desktop-preview/` for offline interactive HTML charts and desktop live-preview integration.
+- Sprint 061 is **COMPLETE / APPROVED WITH RECORDED RESIDUALS** by separate Lead Developer disposition. Sprint 062 consumes `echarts@6.1.0` and `createChartViewModel` with captured immutable unit descriptors; the shared model is implemented but no destination renderer has yet been wired.
+- Sprint 062 owns standalone HTML runtime embedding, chart interactions/lifecycle, report-content sanitization, and both desktop preview iframes. The Sprint 060 external-link/meta-refresh navigation escape remains a failed security finding: keep scripts disabled until adversarial tests prove containment, then add only `allow-scripts` while retaining opaque origin.
+- Actual Electrobun package/resource validation and other Sprint 060 evidence residuals remain unpassed unless directly verified in Sprint 062. Preparation claims no implementation or test result.
+
 ## V0.10 Sprint 061 Closeout (2026-10-07)
 
 - **COMPLETE / APPROVED WITH RECORDED RESIDUALS** by Lead Developer disposition on 2026-10-07. The Lead Developer accepted Builder evidence and authorized closeout. The narrowly scoped additive immutable chart-emission unit/dimension metadata field and runtime snapshot tests were authorized and implemented.
