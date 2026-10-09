@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { CircleHelp, Database, Download, ExternalLink, Eye, FolderOpen, Pause, Play, RefreshCw, Settings, SlidersHorizontal } from "@lucide/vue";
+import packageMetadata from "../../package.json";
 import type { DataInputSchema, DataOutputSchema, DesktopExportAction, DesktopJobOperation, DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
-import { Button } from "@/components/ui/button";
 import CodeEditor from "./CodeEditor.vue";
 import CommandPalette from "./components/CommandPalette.vue";
 import DataEditorPane from "./components/DataEditorPane.vue";
@@ -1122,68 +1122,10 @@ function displayDiagnostic(item: TextDiagnostic): string {
 }
 </script>
 
-<!-- Legacy Sprint 036 surface retained only as source context during the shell migration.
-	<main>
-		<header><span class="wordmark">OpenAMX</span><span class="eyebrow">WORKBENCH</span><Button type="button" @click="showPalette">Commands…</Button></header>
-		<section class="toolbar" aria-label="Project controls">
-			<Button type="button" @click="openProject">Open project</Button>
-			<Button type="button" :disabled="!projectRoot" @click="openDocument()">Open file</Button>
-			<span class="project-label">{{ projectRoot || "No project" }}</span>
-			<select v-if="recents.length" aria-label="Recent projects" @change="restore(($event.target as HTMLSelectElement).value)"><option value="">Recent projects</option><option v-for="recent in recents" :key="recent.root" :value="recent.root">{{ recent.root }}</option></select>
-			<Button v-if="recents.length" type="button" @click="clearRecents">Clear history</Button>
-			<span class="project-feedback" role="status" aria-live="polite">{{ status }}</span>
-		</section>
-		<div class="panel-controls" aria-label="Workbench layout">
-			<button v-for="panel in ['explorer', 'inputs', 'export'] as const" :key="panel" :aria-pressed="sidePanel === panel" @click="sidePanel = panel">{{ panel }}</button>
-			<button v-for="panel in ['preview', 'diagnostics', 'results'] as const" :key="panel" :aria-pressed="detailPanel === panel" @click="detailPanel = panel">{{ panel }}</button>
-			<button :aria-pressed="focusMode === 'editor'" @click="setFocusMode('editor')">Focus editor</button>
-			<button :aria-pressed="focusMode === 'preview'" @click="setFocusMode('preview')">Focus preview</button>
-			<button title="Narrow explorer" aria-label="Narrow explorer" @click="resizeExplorer(-24)">−</button><button title="Widen explorer" aria-label="Widen explorer" @click="resizeExplorer(24)">+</button>
-			<button title="Narrow preview" aria-label="Narrow preview" @click="resizePreview(-5)">−</button><button title="Widen preview" aria-label="Widen preview" @click="resizePreview(5)">+</button>
-		</div>
-		<section class="workflow" :class="{ 'mobile-hidden': sidePanel !== 'inputs' && sidePanel !== 'export' }" aria-label="Analysis workflow">
-			<div class="workflow-grid" :class="{ 'mobile-hidden': sidePanel === 'export' }">
-				<label class="mapping-control">Per-run input paths <span>one name=path mapping per line</span><textarea v-model="inputOverrides" :disabled="!document" aria-label="Per-run input mappings" spellcheck="false" placeholder="assets=data/assets.json" @input="inputMappingsChanged" @change="refresh"></textarea></label>
-				<div class="run-controls">
-					<label>Validation <select v-model="validation" :disabled="!document" @change="validationChanged"><option value="aggregate">Aggregate</option><option value="fail-fast">Fail fast</option></select></label>
-					<div class="button-row"><Button :disabled="!document || runState === 'running'" type="button" @click="runAnalysis">{{ runState === "running" ? "Running…" : "Run analysis" }}</Button><Button :disabled="!document || pending" type="button" @click="refresh">Refresh preview</Button></div>
-					<p class="workflow-status">{{ status }}<span v-if="jobStage"> · {{ jobStage }}</span></p>
-					<Button v-if="activeJobId !== null" type="button" @click="cancelActiveJob">Cancel current job</Button>
-				</div>
-				<div class="configuration" aria-label="Input configuration sources">
-					<strong>INPUT SOURCES</strong>
-					<p v-for="input in inputConfiguration.inputs" :key="input.name"><code>{{ input.name }}</code><span>{{ input.source }}</span></p>
-					<p v-if="!inputConfiguration.inputs.length" class="muted">No declared inputs.</p>
-				</div>
-			</div>
-			<div class="export-row" :class="{ 'mobile-hidden': sidePanel !== 'export' }">
-				<span class="export-status" aria-live="polite">{{ exportStatus }}</span>
-			</div>
-		</section>
-		<div class="workbench" :class="`focus-${focusMode}`" :style="{ '--explorer-width': `${explorerWidth}px`, '--preview-width': `${previewWidth}%` }">
-			<aside :class="{ 'mobile-hidden': sidePanel !== 'explorer' }"><p class="kicker">PROJECT FILES</p><input id="project-search" v-model="search" aria-label="Search project files" placeholder="Search files"><div v-for="[folder, entries] in groupedFiles" :key="folder"><p class="folder">{{ folder }}</p><button v-for="file in entries" :key="file" class="file" :class="{ selected: workbench.active?.endsWith(file) }" @click="openDocument(file)">{{ file.split('/').pop() }}</button></div><p v-if="!files.length" class="muted">No project files.</p><p v-else-if="!visibleFiles.length" class="muted">No matching files.</p></aside>
-			<section class="editor-pane" aria-label="AMX editor">
-				<nav class="tabs" aria-label="Open tabs"><div v-for="tab in workbench.tabs" :key="tab.path" class="tab"><button :aria-current="workbench.active === tab.path ? 'page' : undefined" @click="selectTab(tab.path)">{{ tab.path.split(/[\\/]/).pop() }} <span v-if="workbench.active === tab.path">Active</span><span v-if="tab.dirty">*</span><span v-if="tab.conflict">!</span></button><button title="Close tab" :aria-label="`Close ${tab.path}`" @click="closeTab(tab.path)">×</button></div></nav>
-				<div class="pane-header"><strong>{{ document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><Button :disabled="!document" type="button" @click="editorElement?.openSearch()">Find</Button><Button :disabled="!document || pending" type="button" @click="format">Format</Button><Button :disabled="!document || !document.dirty" type="button" @click="save">Save</Button></span></div>
-				<div v-if="document" class="entry-actions"><Button @click="reload">Reload…</Button></div>
-				<CodeEditor v-if="document" ref="editorElement" :path="document.path" :text="document.text" :revision="document.revision" :highlights="staticAnalysis.highlights" :diagnostics="staticAnalysis.diagnostics" :symbols="staticAnalysis.symbols" :actions="staticAnalysis.actions" :complete="requestCompletions" :rename="renameSymbol" @change="updateText" @navigate="navigateSymbol" @references="showReferences" />
-				<div class="diagnostics" :class="{ 'mobile-hidden': detailPanel !== 'diagnostics' }" aria-live="polite"><p v-for="(item, index) in staticAnalysis.diagnostics" :key="`static-${item.code}-${item.line}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Static · {{ item.code }} {{ item.file?.split(/[\\/]/).pop() }} ({{ item.line }}:{{ item.column }}) {{ displayDiagnostic(item) }}</button></p><p v-for="(item, index) in [...analysis.diagnostics, ...inputConfiguration.diagnostics]" :key="`${item.code}-${item.line}-${index}`"><strong>Run · {{ item.code }}</strong> {{ displayDiagnostic(item) }} <span v-if="item.line">({{ item.line }}:{{ item.column }})</span></p><p v-if="![...staticAnalysis.diagnostics, ...analysis.diagnostics, ...inputConfiguration.diagnostics].length" class="muted">No current diagnostics.</p></div>
-			</section>
-			<section class="preview-pane" :class="{ 'mobile-hidden': detailPanel !== 'preview' }" aria-label="Live HTML preview"><div class="pane-header"><strong>ACTIVE DOCUMENT PREVIEW · {{ workbench.active?.split(/[\\/]/).pop() ?? 'No document' }}</strong><span class="state" :class="`state-${previewState}`">{{ previewState }}</span></div><iframe :srcdoc="preview" sandbox="allow-scripts" title="OpenAMX live HTML preview"></iframe></section>
-		</div>
-		<section class="result-strip" :class="{ 'mobile-hidden': detailPanel !== 'results' }" aria-label="Analysis result">
-			<div><strong>RUN RESULT</strong><span class="state" :class="`state-${runState}`">{{ runState }}</span></div>
-			<p v-for="item in summary.values" :key="item.name"><code>{{ item.name }}</code><span>{{ item.value }}</span></p>
-			<p v-if="!summary.values.length" class="muted">No current result values.</p>
-		</section>
-		<div v-if="palette" class="palette-backdrop" @click.self="dismissPalette"><section class="palette" role="dialog" aria-modal="true" aria-label="Commands"><input id="command-search" v-model="paletteQuery" aria-label="Search commands" placeholder="Find a command"><div v-for="command in matchingCommands" :key="command.name"><button :disabled="!command.enabled" :title="command.enabled ? command.shortcut : command.reason" @click="dismissPalette(); command.run()">{{ command.name }} <small>{{ command.enabled ? command.shortcut : command.reason }}</small></button></div><p v-if="!matchingCommands.length">No matching commands.</p><button @click="dismissPalette">Close</button></section></div>
-	</main>
--->
-
 <template>
 	<main :class="`theme-${theme}`">
 		<header class="app-header">
-			<span class="wordmark">OpenAMX</span><span class="project-label">{{ projectRoot || "Welcome" }}</span><span class="header-spacer"></span>
+			<span class="wordmark">OpenAMX - V{{ packageMetadata.version }}</span><span class="project-label">{{ projectRoot || "Welcome" }}</span><span class="header-spacer"></span>
 			<button type="button" aria-label="Help and shortcuts" title="Help and shortcuts" @click="openHelp('getting-started')"><CircleHelp :size="16" /></button>
 			<button type="button" aria-label="Preferences" title="Preferences" @click="preferencesOpen = true"><Settings :size="16" /></button>
 			<button type="button" @click="showPalette">Commands</button>
