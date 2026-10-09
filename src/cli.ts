@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * OpenAMX CLI entry point (Sprint 006).
  *
@@ -9,6 +9,7 @@
  */
 
 import { cac } from "cac";
+import { readFileSync } from "node:fs";
 import { basename, relative, resolve, sep } from "node:path";
 import { renderPreparedHtml } from "./renderer/renderHtml";
 import { AmxDiagnostic, AmxError } from "./diagnostics/errors";
@@ -174,6 +175,7 @@ cli
   });
 
 cli.help();
-cli.version("0.4.0");
+// src/ and dist/ both sit one level below the package manifest.
+cli.version((JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }).version);
 
 cli.parse();

@@ -16,6 +16,7 @@ import type { ReleaseVerification } from "../scripts/release/assembly";
 import { createGitHubReleaseClient, publishRelease, type GitHubReleaseClient } from "../scripts/release/publish";
 import { spawnReleaseCommand } from "../scripts/release/process";
 import { inspectTarZstdMembers } from "../scripts/release/archive";
+import { CLI_PACKAGE_NAME, createCliPackageManifest, inspectCliTarball, publishCliTarball, type NpmRunner } from "../scripts/release/cli";
 
 const temporaryDirectories: string[] = [];
 
@@ -157,7 +158,7 @@ describe("release preflight", () => {
 		const executable = path.join(directory, process.platform === "win32" ? "tool.exe" : "tool");
 		await cp(process.execPath, executable);
 		const result = await inspectRelease(directory, { findExecutable: () => executable });
-		expect(result.prerequisites.map((tool) => tool.status)).toEqual(["available", "available", "available", "available"]);
+		expect(result.prerequisites.map((tool) => tool.status)).toEqual(["available", "available", "available", "available", "available"]);
 		expect(result.prerequisites.every((tool) => tool.version === Bun.version)).toBe(true);
 	});
 
@@ -167,7 +168,7 @@ describe("release preflight", () => {
 			const executable = path.join(directory, `tool.${extension}`);
 			await writeFile(executable, "@echo off\r\nif not \"%~1\"==\"--version\" exit /b 2\r\necho test-version\r\n");
 			const result = await inspectRelease(directory, { findExecutable: () => executable });
-			expect(result.prerequisites.map((tool) => tool.status)).toEqual(["available", "available", "available", "available"]);
+			expect(result.prerequisites.map((tool) => tool.status)).toEqual(["available", "available", "available", "available", "available"]);
 			expect(result.prerequisites.every((tool) => tool.version === "test-version")).toBe(true);
 		}
 	});
@@ -198,7 +199,7 @@ describe("release preflight", () => {
 		});
 		expect(result.host.status).toBe("unsupported");
 		expect(result.targets.every((target) => target.status === "unverified")).toBe(true);
-		expect(result.prerequisites.map((tool) => tool.status)).toEqual(["unavailable", "unavailable", "unavailable", "unavailable"]);
+		expect(result.prerequisites.map((tool) => tool.status)).toEqual(["unavailable", "unavailable", "unavailable", "unavailable", "unavailable"]);
 		expect(result.prerequisites[0].action).toContain("Install bun");
 	});
 
@@ -217,7 +218,7 @@ describe("release preflight", () => {
 		expect(result.versions.status).toBe("inconsistent");
 		expect(result.host.status).toBe("available");
 		expect(result.targets.find((target) => target.os === "linux" && target.architecture === "x64")?.status).toBe("unverified");
-		expect(invocations).toEqual(["bun", "hutch", "node", "vsce"].map((name) => ({ executable: `/tools with spaces/${name}`, args: ["--version"] })));
+		expect(invocations).toEqual(["bun", "hutch", "node", "npm", "vsce"].map((name) => ({ executable: `/tools with spaces/${name}`, args: ["--version"] })));
 	});
 
 	test("preflight leaves all source manifests unchanged", async () => {
@@ -994,5 +995,86 @@ describe("explicit GitHub release publication", () => {
 		});
 		expect(result.status).toBe(1);
 		expect(result.stderr).toContain("GitHub authentication is unavailable");
+	});
+});
+
+describe("CLI npm package", () => {
+	const cliManifest = () => createCliPackageManifest({ version: "1.2.3", description: "d", dependencies: { cac: "^6.7.14" }, engines: { bun: ">=1.0.0" } });
+	const cliTarball = (overrides: { files?: Record<string, string>; manifest?: Record<string, unknown> } = {}) => {
+		const files: Record<string, string> = {
+			"package/package.json": JSON.stringify({ ...cliManifest(), ...overrides.manifest }),
+			"package/dist/cli.js": "#!/usr/bin/env bun\nconsole.log('ok');\n",
+			"package/dist/runtime/evaluator.js": "export {};\n",
+			"package/README.md": "readme",
+			"package/LICENSE.md": "license",
+			"package/COMMERCIAL-LICENSE.md": "commercial",
+			...overrides.files,
+		};
+		return gzipSync(tarArchive(Object.entries(files).filter(([, data]) => data !== "").map(([name, data]) => ({ name, data }))));
+	};
+
+	test("generates a scoped, script-free manifest from the root-authoritative version", () => {
+		const manifest = cliManifest();
+		expect(manifest.name).toBe(CLI_PACKAGE_NAME);
+		expect(manifest.version).toBe("1.2.3");
+		expect(manifest.bin).toEqual({ openamx: "./dist/cli.js" });
+		expect(manifest.engines).toEqual({ bun: ">=1.0.0" });
+		expect(manifest.publishConfig).toEqual({ access: "public" });
+		expect(manifest).not.toHaveProperty("scripts");
+		expect(manifest).not.toHaveProperty("devDependencies");
+		expect(() => createCliPackageManifest({ version: "1.2.3-rc.1" })).toThrow("stable");
+	});
+
+	test("accepts a well-formed tarball and records its hash", () => {
+		const bytes = cliTarball();
+		const inspection = inspectCliTarball(bytes, { version: "1.2.3" });
+		expect(inspection.name).toBe(CLI_PACKAGE_NAME);
+		expect(inspection.sha256).toBe(createHash("sha256").update(bytes).digest("hex"));
+		expect(inspection.files.map((entry) => entry.file)).toContain("package/dist/cli.js");
+	});
+
+	test("rejects undeclared, missing, or unsafe package contents", () => {
+		expect(() => inspectCliTarball(cliTarball({ files: { "package/planning/state.md": "x" } }), { version: "1.2.3" })).toThrow("undeclared");
+		expect(() => inspectCliTarball(cliTarball({ files: { "package/.env": "SECRET=1" } }), { version: "1.2.3" })).toThrow("undeclared");
+		expect(() => inspectCliTarball(cliTarball({ files: { "package/dist/cli.test.js": "x" } }), { version: "1.2.3" })).toThrow("undeclared");
+		expect(() => inspectCliTarball(cliTarball({ files: { "package/LICENSE.md": "" } }), { version: "1.2.3" })).toThrow("missing required");
+		expect(() => inspectCliTarball(cliTarball({ files: { "package/../escape.js": "x" } }), { version: "1.2.3" })).toThrow("unsafe");
+	});
+
+	test("rejects a Node shebang, wrong identity, or lifecycle scripts", () => {
+		expect(() => inspectCliTarball(cliTarball({ files: { "package/dist/cli.js": "#!/usr/bin/env node\n" } }), { version: "1.2.3" })).toThrow("#!/usr/bin/env bun");
+		expect(() => inspectCliTarball(cliTarball(), { version: "1.2.4" })).toThrow("identity");
+		expect(() => inspectCliTarball(cliTarball({ manifest: { name: "openamx" } }), { version: "1.2.3" })).toThrow("identity");
+		expect(() => inspectCliTarball(cliTarball({ manifest: { scripts: { postinstall: "x" } } }), { version: "1.2.3" })).toThrow("lifecycle");
+	});
+
+	test("defaults to an npm dry run and never contacts the registry otherwise", () => {
+		const calls: string[][] = [];
+		const runNpm: NpmRunner = (args) => { calls.push(args); return { status: 0, stdout: "", stderr: "" }; };
+		expect(publishCliTarball({ tarballPath: "/t.tgz", version: "1.2.3", publish: false, cwd: "/", runNpm })).toBe("dry-run");
+		expect(calls).toEqual([["publish", "/t.tgz", "--dry-run", "--access", "public"]]);
+	});
+
+	test("publishes only an unpublished version with an authenticated account", () => {
+		const scenario = (responses: Record<string, { status: number; stdout?: string; stderr?: string }>) => {
+			const calls: string[][] = [];
+			const runNpm: NpmRunner = (args) => {
+				calls.push(args);
+				const response = responses[args[0]!] ?? { status: 0 };
+				return { status: response.status, stdout: response.stdout ?? "", stderr: response.stderr ?? "" };
+			};
+			return { calls, run: () => publishCliTarball({ tarballPath: "/t.tgz", version: "1.2.3", publish: true, cwd: "/", runNpm }) };
+		};
+		const unauthenticated = scenario({ whoami: { status: 1 } });
+		expect(unauthenticated.run).toThrow("npm authentication");
+		expect(unauthenticated.calls.some((args) => args[0] === "publish")).toBe(false);
+		const republish = scenario({ view: { status: 0, stdout: "1.2.3\n" } });
+		expect(republish.run).toThrow("already published");
+		expect(republish.calls.some((args) => args[0] === "publish")).toBe(false);
+		const unknownRegistryState = scenario({ view: { status: 1, stderr: "ETIMEDOUT" } });
+		expect(unknownRegistryState.run).toThrow("Could not confirm");
+		const fresh = scenario({ view: { status: 1, stderr: "npm error code E404" } });
+		expect(fresh.run()).toBe("published");
+		expect(fresh.calls.at(-1)).toEqual(["publish", "/t.tgz", "--access", "public"]);
 	});
 });

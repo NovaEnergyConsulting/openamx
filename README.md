@@ -43,6 +43,86 @@ Only exact, case-sensitive `amx` fenced blocks execute. Markdown remains
 narrative, and inline expressions resolve using the document's evaluated
 results.
 
+## Installation
+
+OpenAMX has three independent components. Install whichever you need; release
+downloads are on the [GitHub releases page](https://github.com/NovaEnergyConsulting/openamx/releases).
+Release builds are unsigned, so your operating system may show a warning before
+installing them.
+
+### Command-line tool (CLI)
+
+The CLI is published to npm as `@nova-energy/openamx` and runs on
+[Bun](https://bun.sh/) 1.0 or newer. Node.js and Deno are not supported.
+
+1. Install Bun by following the instructions at [bun.sh](https://bun.sh/).
+2. Install the CLI globally:
+
+   ```sh
+   bun add -g @nova-energy/openamx
+   ```
+
+3. Check the installation:
+
+   ```sh
+   openamx --version
+   openamx --help
+   ```
+
+To run it once without installing, use
+`bunx @nova-energy/openamx render analysis.amx`. Installing with
+`npm install -g @nova-energy/openamx` also works, provided Bun is on your
+`PATH`. To remove it, run `bun remove -g @nova-energy/openamx`.
+
+### Desktop application
+
+Download the installer for your platform from the
+[releases page](https://github.com/NovaEnergyConsulting/openamx/releases). The
+installed application includes its own runtime; you do not need Bun or Node.js.
+
+- **Linux (x64):** download `OpenAMX-Desktop-<version>-linux-x64.tar.gz`, then
+  extract it and run the installer:
+
+  ```sh
+  mkdir openamx-setup
+  tar -xzf OpenAMX-Desktop-<version>-linux-x64.tar.gz -C openamx-setup
+  cd openamx-setup && ./installer
+  ```
+
+  The application uses your system's WebKitGTK 4.1 and GTK libraries; install
+  them with your distribution's package manager if they are missing. To
+  uninstall, run `uninstall --quiet` from the application's data directory
+  (`~/.local/share/dev.openamx.desktop/stable/`). Your project documents are
+  not removed.
+- **Windows:** download the Setup `.zip`, extract it, and run the Setup
+  program it contains.
+- **macOS:** download the `.dmg`, open it, and follow the installer.
+
+Windows and macOS builds have not yet been formally verified. See the
+[desktop guide](desktop-app/README.md) for details.
+
+### VS Code extension
+
+The extension requires VS Code 1.85.0 or newer. It is not yet on the Visual
+Studio Marketplace, so install it from the VSIX file:
+
+1. Download `openamx-vscode-<version>.vsix` from the
+   [releases page](https://github.com/NovaEnergyConsulting/openamx/releases).
+2. Install it from a terminal:
+
+   ```sh
+   code --install-extension openamx-vscode-<version>.vsix
+   ```
+
+   Or, in VS Code, open the Extensions view, choose **...** >
+   **Install from VSIX...**, and select the downloaded file.
+3. Open any `.amx` file to activate syntax highlighting, formatting,
+   completion and diagnostics.
+
+To build any component from source instead, see [Get Started](#get-started)
+and the [desktop](desktop-app/README.md) and [extension](vscode-extension/README.md)
+guides.
+
 ## Get Started
 
 Install [Bun](https://bun.sh/), then install dependencies and build from the

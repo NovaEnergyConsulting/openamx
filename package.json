@@ -1,7 +1,8 @@
 {
   "name": "openamx",
   "version": "0.10.0",
-  "description": "OpenAMX is an open-source, text-based, computable document format for Asset Management knowledge.",
+  "description": "OpenAMX is an open-source, text-based, computable document format for engineering knowledge.",
+  "license": "SEE LICENSE IN LICENSE.md",
   "type": "module",
   "bin": {
     "openamx": "./dist/cli.js"
@@ -13,6 +14,7 @@
     "release:check": "bun run scripts/release.ts check",
     "release:desktop": "bun run scripts/release.ts desktop",
     "release:extension": "bun run scripts/release.ts extension",
+    "release:cli": "bun run scripts/release.ts cli",
     "release:collect": "bun run scripts/release.ts collect",
     "release:verify": "bun run scripts/release.ts verify",
     "release:publish": "bun run scripts/release.ts publish",

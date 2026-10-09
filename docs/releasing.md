@@ -120,6 +120,26 @@ Use `--repo=OWNER/REPOSITORY` only when the release owner selects another reposi
 
 Automated tests inject in-memory GitHub clients or fake HTTP responses. They must not use public GitHub endpoints or publish fixture releases. A real release is a separate operator action and needs its own explicit authorization.
 
+## Publish the CLI to npm
+
+The command-line tool is published to npm as `@nova-energy/openamx`. It requires Bun at runtime (`bunx @nova-energy/openamx` or a global `bun add -g`); Node and Deno are not supported. JSR publication is deferred until the CLI no longer depends on Bun-only APIs.
+
+From a clean committed tree at the prepared version:
+
+```sh
+bun run release:cli
+```
+
+This compiles the CLI into `releases/.staging/`, generates a scoped package manifest without lifecycle scripts or development dependencies, runs `npm pack`, and rejects tarballs with undeclared files, a missing license, a non-Bun entry point, or a mismatched name/version. It then installs the tarball into a temporary project with Bun and checks `--version`, `run`, `render`, and PDF/DOCX export of `examples/hello-world.amx`. The accepted bundle is written to `releases/<version>/cli/` with `manifest.json`, `evidence.json`, `SHA256SUMS`, and `COMPLETE`, and is never overwritten. Finally it runs `npm publish --dry-run`; nothing is uploaded.
+
+After reviewing the dry-run file list and obtaining release authorization, run `npm login` with an account that can publish to the `@nova-energy` scope, then:
+
+```sh
+bun run release:cli --publish
+```
+
+Publication reuses the existing bundle for the current commit, re-checks its hash and contents, refuses if the version already exists on npm, and uploads that exact tarball. Supply a one-time password through `NPM_CONFIG_OTP` or the interactive prompt; never put credentials in source or evidence. The license/notices gate described above applies to the npm package as well; the package metadata uses `SEE LICENSE IN LICENSE.md`.
+
 ## Recovery and Retention
 
 - If preflight reports inconsistent versions or missing tools, install/repair prerequisites or explicitly prepare and review an authorized version; `release:check` does not repair files.

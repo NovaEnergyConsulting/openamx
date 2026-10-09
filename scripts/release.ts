@@ -181,7 +181,7 @@ export async function inspectRelease(
 		return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr || result.error?.message || "" };
 	});
 	const prerequisites: ToolProbe[] = [];
-	for (const name of ["bun", "hutch", "node", "vsce"]) {
+	for (const name of ["bun", "hutch", "node", "npm", "vsce"]) {
 		const localVsce = path.join(rootDirectory, "vscode-extension", "node_modules", ".bin", process.platform === "win32" ? "vsce.cmd" : "vsce");
 		const executable = name === "vsce" && existsSync(localVsce) ? localVsce : findExecutable(name);
 		if (!executable) {
@@ -264,6 +264,11 @@ async function main(args: string[]): Promise<void> {
 		await runExtensionRelease(process.cwd());
 		return;
 	}
+	if (command === "cli" && parameters.every((parameter) => parameter === "--publish") && parameters.length <= 1) {
+		const { runCliRelease } = await import("./release/cli");
+		await runCliRelease(process.cwd(), { publish: parameters.length === 1 });
+		return;
+	}
 	if (command === "collect") {
 		const addition = parameters.includes("--addition");
 		const bundles = parameters.filter((parameter) => parameter !== "--addition");
@@ -309,7 +314,7 @@ async function main(args: string[]): Promise<void> {
 		if (result.partialTargets.length) console.log(`Partial targets acknowledged: ${result.partialTargets.join(", ")}`);
 		return;
 	}
-	console.error("Usage: bun run scripts/release.ts prepare <version> | check | desktop | extension | collect [--addition] <bundle> <bundle...> | verify [version] | publish [--version=<version>] [--assembly=<path>] [--repo=OWNER/REPO] [--allow-partial]");
+	console.error("Usage: bun run scripts/release.ts prepare <version> | check | desktop | extension | cli [--publish] | collect [--addition] <bundle> <bundle...> | verify [version] | publish [--version=<version>] [--assembly=<path>] [--repo=OWNER/REPO] [--allow-partial]");
 	process.exitCode = 2;
 }
 
