@@ -1,5 +1,5 @@
-import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from 'node:fs';
-import { relative, resolve, sep } from 'node:path';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import sharp from 'sharp';
 import type { OpenAmxDocument } from '../ast/types';
 import { AmxError } from '../diagnostics/errors';
@@ -8,6 +8,8 @@ import { parseExpression } from '../parser/parseExpression';
 import { evaluateExpression } from '../runtime/evaluateExpression';
 import type { Environment, ViewEmission } from '../runtime/environment';
 import { isMeasurement } from '../runtime/measurement';
+import { prepareNarratives, type NarrativeBlock, type NarrativeDiagnostic } from './narrativeModel';
+import { canonicalDirectory, hasSymlink, isContained } from './reportPaths';
 
 const REPORT_FIELDS = new Set(['organization', 'logo', 'logoAlt', 'accent', 'author', 'status', 'classification', 'footer', 'sourceVisible']);
 const TEXT_LIMITS: Record<string, number> = { organization: 120, logoAlt: 120, author: 120, status: 80, classification: 80, footer: 300 };
@@ -30,7 +32,7 @@ export interface ResolvedReportIdentity {
 }
 
 export type PreparedReportItem =
-  | { readonly type: 'narrative'; readonly text: string }
+  | { readonly type: 'narrative'; readonly text: string; readonly markdown: readonly NarrativeBlock[]; readonly diagnostics: readonly NarrativeDiagnostic[] }
   | { readonly type: 'source'; readonly text: string }
   | { readonly type: 'view'; readonly emission: ViewEmission };
 
@@ -51,6 +53,17 @@ export async function prepareReport(doc: OpenAmxDocument, env: Environment, opti
   validateReport(projectReport, '.openamx/project.json', options.projectRoot);
   validateReport(frontMatter, 'frontmatter', options.file);
   const identity = await resolveIdentity(projectReport, frontMatter, options);
+  const narrativeSources = doc.nodes.flatMap(node => node.type === 'narrative'
+    ? [{ content: node.content, line: node.source?.line }]
+    : []);
+  const narratives = await prepareNarratives(narrativeSources, {
+    file: options.file,
+    projectRoot: options.projectRoot,
+    interpolate: (expression, line) => {
+      const value = evaluateExpression(parseExpression(expression, line === undefined ? undefined : { line, column: 1 }), env, options.file);
+      return valueToString(value);
+    }
+  });
   const emissionsByNode = new Map<number, ViewEmission[]>();
   for (const emission of env.viewEmissions) {
     const emissions = emissionsByNode.get(emission.documentNodeIndex) ?? [];
@@ -59,9 +72,17 @@ export async function prepareReport(doc: OpenAmxDocument, env: Environment, opti
   }
 
   const items: PreparedReportItem[] = [];
+  let narrativeIndex = 0;
   for (const [index, node] of doc.nodes.entries()) {
     if (node.type === 'narrative') {
-      items.push(Object.freeze({ type: 'narrative', text: substituteInlines(node.content, env, options.file, node.source?.line) }));
+      const narrative = narratives[narrativeIndex++];
+      if (!narrative) throw new Error('Prepared narrative order does not match the source document');
+      items.push(Object.freeze({
+        type: 'narrative',
+        text: narrative.text,
+        markdown: narrative.blocks,
+        diagnostics: narrative.diagnostics
+      }));
       continue;
     }
     if (node.type !== 'executableCodeBlock') continue;
@@ -156,13 +177,6 @@ async function prepareLogo(path: string, alt: string, projectRoot: string | unde
   }
 }
 
-function substituteInlines(content: string, env: Environment, file?: string, line?: number): string {
-  return content.replace(/\{\{\s*([\s\S]*?)\s*\}\}/g, (_full, expression: string) => {
-    if (!expression.trim()) return '';
-    return valueToString(evaluateExpression(parseExpression(expression.trim(), line === undefined ? undefined : { line, column: 1 }), env, file));
-  });
-}
-
 function valueToString(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (Array.isArray(value)) return value.map(valueToString).join(', ');
@@ -189,32 +203,6 @@ export function effectiveReportAccent(accent: string): string {
   const luminance = channels.map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
     .reduce((total, value, index) => total + value * [0.2126, 0.7152, 0.0722][index], 0);
   return (1.05 / (luminance + 0.05)) >= 4.5 ? accent : '#146C94';
-}
-
-function canonicalDirectory(path: string): string {
-  try {
-    const canonical = realpathSync(path);
-    if (!statSync(canonical).isDirectory()) fail('AMX6001', 'Project root must be an existing directory', path);
-    return canonical;
-  } catch (error) {
-    if (error instanceof AmxError) throw error;
-    fail('AMX6001', 'Project root must be an existing directory', path);
-  }
-}
-
-function isContained(root: string, candidate: string): boolean {
-  const relation = relative(root, candidate);
-  return relation !== '..' && !relation.startsWith(`..${sep}`) && relation !== '';
-}
-
-function hasSymlink(root: string, candidate: string): boolean {
-  const relation = relative(root, candidate);
-  let current = root;
-  for (const segment of relation.split(sep)) {
-    current = resolve(current, segment);
-    if (existsSync(current) && lstatSync(current).isSymbolicLink()) return true;
-  }
-  return false;
 }
 
 function fail(code: 'AMX6001' | 'AMX6002', message: string, file?: string): never {

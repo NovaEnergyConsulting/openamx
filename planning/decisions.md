@@ -36,6 +36,17 @@
 - The opaque target-ID, active-frame/revision, host revalidation, allowlist and confirmation protocol is approved as design direction for Sprint 070. No RPC, preview, or iframe permission change is approved for Sprint 066.
 - No release, publication, platform certification, or V0.11 completion is implied.
 
+## V0.11 Sprint 066 Builder Decisions (2026-10-09)
+
+- The user selected the 4,000,000 decoded-pixel per-image limit and the proposed local-file hyperlink allowlist: `.pdf`, `.png`, `.jpg`, `.jpeg`, `.txt`, `.csv`, and `.json`. The Lead Developer subsequently accepted and closed Sprint 066 on 2026-10-09 with these implementation choices recorded. The previously accepted 4 MiB input and sanitized-output bounds remain in force; aggregate worker caps are unchanged.
+- Heading IDs use visible heading text after text-only interpolation and inline formatting flattening; normalize with Unicode NFKD, remove combining marks, lowercase, replace runs of non-letter/digit characters with `-`, and trim hyphens. Empty headings use `section`; duplicate IDs receive `-2`, `-3`, and the next unused suffix. Only generated IDs are valid internal targets; unresolved fragments become non-links.
+- The shared model recognizes Markdown with GFM tables and visible soft/hard line breaks. It normalizes CRLF to LF in the model, preserves fenced and inline code whitespace, treats raw HTML as literal text, and recognizes only a standalone exact `<!-- page-break -->` block outside code.
+- Interpolation values are tokenized through opaque markers and restored only into text and alt-text nodes after Markdown lexing. Code and link/image destinations retain their authored interpolation syntax; values are never recursively parsed as Markdown or HTML. Legacy `PreparedReportItem.text` remains available unchanged to current destination consumers.
+- Source-relative local targets are canonicalized and contained for validation; the serializable model keeps only a relative path and a `document-directory` base marker. Final-output-relative URI generation remains destination work; invalid or disallowed links are non-links with a structured preparation diagnostic.
+- Narrative PNG/JPEG inputs are limited to 4 MiB and 4,000,000 decoded pixels; re-encoded output is limited to 4 MiB. JPEG assets are re-encoded at quality 90, metadata is stripped, and output dimensions account for EXIF rotation. No renderer embeds these assets in Sprint 066.
+- Word desktop evidence covers only a disposable relative-TXT probe. Word for the Web did not expose a formal app build/channel, and its probe hyperlink resolved to `https://./sprint066-companion.txt`; it was not clicked. Do not generalize these observations to other target types or destinations.
+- **Lead Developer disposition (2026-10-09): ACCEPTED / CLOSED.** Sprint 066 is closed. This decision does not imply V0.11 completion, release, publication, or authorization beyond the master-plan dependencies.
+
 ## V0.10 Final Implementation Disposition (2026-10-08)
 
 - **ACCEPTED / CLOSED WITH RECORDED RESIDUALS.** The Lead Developer accepts the V0.10 implementation and closes its implementation work.

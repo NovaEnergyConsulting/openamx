@@ -28,6 +28,16 @@
 - Relative URI package/annotation and companion-layout probes passed; Chromium refused the relocated local PDF because its folder was not trusted. Generated image probes established path/content rejection examples and proposed bounds; no production cap or renderer changed. The supplied kitchen-sink PDF was preserved, checksummed, captured, and page 1 inspected.
 - The Lead Developer disposition above closes Sprint 065 with recorded residuals and authorizes Sprint 066 only within its assigned scope.
 
+## V0.11 Sprint 066 Builder Execution (2026-10-09)
+
+- Implemented the immutable destination-neutral Markdown model in `src/renderer/narrativeModel.ts` and wired it into shared report preparation without changing renderer adapters. It preserves ordered narrative/source/view items and legacy narrative text for current consumers.
+- Added Markdown structure, text-only interpolation, inert raw HTML, LF/CRLF normalization, visible prose breaks, whitespace-preserving code, the standalone page-break directive, document-wide stable heading IDs, valid/missing internal anchors, typed HTTP/HTTPS/local links, canonical source-relative target checks, PNG/JPEG sanitization, and no-upscale image sizing.
+- The user selected a 4,000,000-pixel limit and the proposed local target extension allowlist during Builder execution. The Lead Developer accepted and closed Sprint 066 on 2026-10-09; aggregate worker caps remain unchanged.
+- Windows evidence is recorded in Sprint 066 Builder evidence: Windows 11 Home 10.0.26300 x64; Word desktop 16.0.20430.20092 and Click-to-Run channel ID `492350f6-3a01-4f97-b9c0-c7c6ddf67d60`; the user reviewed a disposable relative-TXT link in desktop Word. Word for the Web opened the probe but did not expose a formal app build/channel and mapped the relative link to `https://./sprint066-companion.txt`; it was not clicked.
+- Focused renderer, preparation, presentation, PDF, and DOCX tests passed: 36 tests; root `bun run build` passed. Exact commands and environment are in `planning/sprints/0066-v11-shared-markdown-assets-links/builder-evidence.md`.
+- No PDF/DOCX/HTML renderer, CLI/destination, desktop worker/service, chart model, preview/RPC, iframe permission, dependency/lockfile, aggregate cap, supplied PDF, or unrelated feature was changed. Sprint 065 chart residuals remain; later renderer work is not authorized by Builder completion.
+- **Lead Developer disposition (2026-10-09): ACCEPTED / CLOSED.** This closes Sprint 066 only. No V0.11 completion, release, publication, or additional downstream authorization is implied.
+
 ## V0.10 Final Implementation Disposition (2026-10-08)
 
 - **ACCEPTED / CLOSED WITH RECORDED RESIDUALS.** The Lead Developer accepts the V0.10 implementation and closes its implementation work.
