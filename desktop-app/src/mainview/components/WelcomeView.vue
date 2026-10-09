@@ -32,8 +32,8 @@ const emit = defineEmits<{ openProject: []; createProject: []; restore: [root: s
 			</div>
 		</div>
 		<div class="welcome-actions">
-			<button type="button" @click="emit('openHelp', 'getting-started')">Guided first
-				project</button>
+			<!-- <button type="button" @click="emit('openHelp', 'getting-started')">Guided first
+				project</button> -->
 			<button type="button" @click="emit('openHelp')">Help and shortcuts</button>
 			<button type="button" @click="emit('openHelp', 'release-notes')">Release
 				notes</button>

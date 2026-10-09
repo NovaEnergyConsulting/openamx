@@ -36,19 +36,6 @@
       ]
     },
     {
-      "id": "language-v0.9",
-      "title": "V0.9 language and migration",
-      "summary": "Use V0.9 records, strings, lists, dimensions, units, and measurements.",
-      "terms": "v0.9 migration record constructor equals = colon annotation string escape interpolation list index dimension unit measurement conversion JSON CSV",
-      "steps": [
-        "Record constructor fields use =; colons remain in type fields and annotations.",
-        "Strings decode the approved escapes. Double-quoted strings support ${expression}; single-quoted strings do not.",
-        "List indexes are 1-based. Dimensions and units are explicit declarations and imports; measurements use visible units and explicit conversion.",
-        "Every document is statically checked. Formatting does not repair invalid source, and projects are not migrated automatically.",
-        "Migration guidance covers these three compatibility changes only; it does not promise automatic migration or formatter repair."
-      ]
-    },
-    {
       "id": "documents",
       "title": "Documents and imports",
       "summary": "Work with the active report and unsaved modules.",
@@ -111,13 +98,13 @@
     {
       "id": "release-notes",
       "title": "Release notes",
-      "summary": "V0.6 workbench capabilities and evidence limits.",
+      "summary": "V0.10.0 - First public release",
       "terms": "version changes release notes feature",
       "steps": [
-        "The workbench now centers the active document with live preview and explicit Run.",
-        "Project lifecycle includes conflict-aware autosave, trash, and local recovery.",
-        "AMX intelligence, CSV/JSON editing, logical inputs, settings, and five-format export are available.",
-        "This feature milestone does not certify native platform releases, packaging, broad Office, Marketplace, or formal accessibility."
+        "The first public release includes a cross-platform desktop workbench, a command-line interface, and a VS Code extension.",
+        "Write computable documents with Markdown narrative, executable calculations, typed records and functions, local modules, and units of measure.",
+        "Create tables and charts, map and validate JSON or CSV inputs, and export results as HTML, PDF, DOCX, JSON, or CSV.",
+        "The desktop workbench includes live preview, explicit Run, conflict-aware autosave, local recovery, structured data editing, and report export."
       ]
     }
   ],
@@ -135,10 +122,11 @@
     "diagnosticExportAction": "Download diagnostic summary",
     "shortcutsTitle": "Keyboard shortcuts",
     "noMatchingShortcuts": "No matching shortcuts.",
-    "releaseNotesTitle": "Release notes · V0.6",
+    "releaseNotesTitle": "Release notes · V0.10",
     "releaseNotes": [
-      "Active-document preview, project recovery, AMX intelligence, structured CSV/JSON editing, and unified five-format export.",
-      "Feature acceptance is distinct from native platform, packaging, Office, licensing, Marketplace, and formal accessibility certification."
+      "First public release: cross-platform desktop workbench, command-line interface, and VS Code extension.",
+      "Computable documents support typed records and functions, local modules, units of measure, tables, charts, and validated JSON/CSV inputs.",
+      "Preview and export reports as HTML, PDF, or DOCX; export eligible data as JSON or CSV."
     ],
     "footerNote": "Search is local. No telemetry is sent.",
     "closeButton": "Close"
