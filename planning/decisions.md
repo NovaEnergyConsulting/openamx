@@ -1,5 +1,15 @@
 # Planning Decisions
 
+## V0.11 Sprint 065 Architect Preparation (2026-10-09)
+
+- The V0.11 master plan is the scope authority. Sprint 065 is a no-dependency contract/feasibility gate; Sprint 066 depends on its separate Lead Developer approval.
+- Preserve all existing language/evaluation, report identity/order, interpolation, show-time snapshot, measurement, emitted-table, working PDF, and atomic export behavior. No production code, dependency/lockfile, cap, iframe, or UX changes are authorized during Sprint 065.
+- Required outcomes include destination-neutral Markdown behavior; visible authored prose newlines and whitespace-preserving code; inert raw HTML; stable headings; canonical local image containment; final-output-relative file links; and faithful editable native Word charts for all four existing chart kinds.
+- Word desktop editing/save/reopen and Word web save/download preservation are application-level gates. OOXML/API success is not a substitute. If actual application access is unavailable, the gate remains blocked rather than passing by inference.
+- A required chart case that cannot be represented faithfully as an editable native chart requires an explicit Lead Developer product decision. No coercion, axis-semantic change, chart-kind substitution, or static-image fallback is approved.
+- The desktop preview protocol remains a proposal: click-only opaque target IDs, active frame/revision binding, host mapping/revalidation, allowlists and confirmation, retaining opaque-origin isolation and denying raw URLs/paths and privileged access. No protocol implementation or permission change is authorized yet.
+- This entry records Architect preparation only; contract proposals, probe outcomes, Sprint 066 authorization, release readiness, and V0.11 acceptance remain pending.
+
 ## V0.10 Final Implementation Disposition (2026-10-08)
 
 - **ACCEPTED / CLOSED WITH RECORDED RESIDUALS.** The Lead Developer accepts the V0.10 implementation and closes its implementation work.

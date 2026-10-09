@@ -1,5 +1,14 @@
 # Planning Questions (Sprint 002)
 
+## V0.11 Sprint 065 Preparation (2026-10-09)
+
+- No new product-scope question is opened by preparation. Follow `planning/plan-openamxV11MasterSprintPlan.md`; implementation-facing details and feasibility evidence are owned by Sprint 065.
+- **Blocking evidence dependency:** Is Microsoft Word desktop available for a reviewer to open each representative native chart, edit data/series, save, close, and reopen? Record reviewer, exact Word version/channel, OS, and review date. If unavailable, report blocked; package/XML evidence does not close this criterion.
+- **Blocking evidence dependency:** Is Microsoft Word web available to display the charts, save/download the document, and verify in desktop Word that native chart objects remain editable? Record exact service/app version and reviewer. If unavailable, report blocked; do not authorize Sprint 066 on assumed compatibility.
+- For both checks, preserve actual viewer prompts and policy restrictions. Do not bypass them. Identify any unsupported host/version separately from an unrun or unavailable test.
+- Builder must request explicit Lead Developer decisions for any native-chart semantic mismatch, unrepresentable required case, local-link viewer limitation that affects the contract, image-bound proposal, or preview message/allowlist detail requiring an architecture or product choice.
+- Sprint 066 remains blocked until the Lead Developer explicitly disposes the Sprint 065 evidence and authorizes the next phase. No test result or approval is recorded by this preparation entry.
+
 ## V0.10 Sprint 064 Closeout (2026-10-08)
 
 - **Resolved for Sprint 064 by Lead Developer disposition:** COMPLETE / APPROVED WITH RECORDED RESIDUALS. The measured SSIM miss remains below target, the 2 CSS px bounds remain unmeasured, and the data-editor polling timeouts remain unpassed; approval records these as residuals and does not waive or reclassify them.
