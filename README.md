@@ -1,5 +1,7 @@
 # OpenAMX
 
+!![OpenAMX](./docs/images/open_amx_screenshot.png)
+
 OpenAMX is a text-based format and toolset for **computable documents**. It
 combines Markdown narrative with executable `amx` code blocks and inline
 `{{ expressions }}` so a document can explain an analysis and calculate its
