@@ -1,5 +1,14 @@
 # Planning Decisions
 
+## V0.11 Sprint 068 Architect Preparation (2026-10-09)
+
+- The V0.11 master plan remains the scope authority. Sprint 068 owns native DOCX narrative integration only; native charts remain Sprint 069, PDF remains Sprint 067, and HTML/preview remains Sprint 070.
+- DOCX local links must be materialized relative to the final validated `.docx` destination using the shared model's validated source-relative target. The CLI and desktop worker must use the final path, never an atomic temporary path; desktop context comes from the host-validated request.
+- Preserve the Sprint 066 local-link allowlist and sanitized image model. Do not copy companions, emit absolute paths, or convert local links to remote schemes. Record the known Word for the Web relative-link rewrite without treating it as successful support.
+- Preserve the existing chart image/table adapter, emissions, source visibility, metadata/footer, report order, and atomic writer. No chart semantic decision or new author behavior is made in this preparation.
+- Sprint 067's known suite failures and missing visual/viewer evidence remain residuals. This preparation does not authorize their repair or imply downstream implementation approval.
+- Sprint 067 disposition did not authorize Sprint 068. Explicit Lead Developer authorization and the repository code-gate approval are required before source/test edits.
+
 ## V0.11 Sprint 067 Architect Preparation (2026-10-09)
 
 - The V0.11 master plan remains the scope authority. Sprint 067 owns PDF integration of the Sprint 066 shared narrative model; DOCX, HTML/preview, and native chart work remain assigned to Sprints 068, 070, and 069.

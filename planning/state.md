@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.11 Sprint 068 Architect Preparation (2026-10-09)
+
+- Prepared the Sprint 068 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0068-v11-docx-narrative-tables-code/`.
+- Sprint 068 follows the master-plan dependency on Sprint 066, which is ACCEPTED / CLOSED. Sprint 067 is also ACCEPTED / CLOSED WITH RECORDED RESIDUALS but explicitly does not authorize downstream work.
+- Scope is native DOCX rendering of the shared narrative model, including editable tables/code and relative link materialization from the validated final `.docx` destination through CLI and desktop exports. Existing charts remain unchanged for Sprint 069.
+- Sprint 067's root `editor.test.ts` / `examples.test.ts` failures, desktop sandbox-count contract failure, and missing PDF visual/viewer evidence remain recorded residuals. Sprint 068 must not repair unrelated failures or imply those checks passed.
+- Explicit Sprint 068 implementation authorization and the repository code-gate approval remain prerequisites. This preparation does not authorize source changes, Sprint 069, V0.11 completion, release, or publication.
+
 ## V0.11 Sprint 067 Architect Preparation (2026-10-09)
 
 - Prepared the Sprint 067 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0067-v11-pdf-markdown-fidelity/`.

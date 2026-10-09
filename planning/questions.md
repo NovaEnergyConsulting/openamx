@@ -1,5 +1,15 @@
 # Planning Questions (Sprint 002)
 
+## V0.11 Sprint 068 Preparation (2026-10-09)
+
+- **Resolved for planning:** Sprint 068 is the master-plan Native DOCX Narrative, Tables, and Code sprint. Its formal upstream sprint dependency is Sprint 066, ACCEPTED / CLOSED. Sprint 067 is now also ACCEPTED / CLOSED WITH RECORDED RESIDUALS, but its closeout expressly withholds downstream authorization.
+- **Implementation gate remains open:** obtain explicit Lead Developer authorization for Sprint 068 and approval of the concrete file-by-file code plan before source/test edits. Owner: Lead Developer.
+- **Carried root-suite residuals:** Sprint 067's `tests/editor.test.ts:73` imported `Length` declaration fact and `tests/examples.test.ts:43` V0.9 help-topic terms assertion failed, including isolated reproductions. Do not repair unless Sprint 068 changes cause a regression. Owners: Lead Developer / editor and help test maintainers.
+- **Carried desktop residual:** Sprint 067's `desktop-app/tests/rpc-contract-check.ts:74` sandbox-count assertion expected two `allow-scripts` occurrences and found one. Do not alter the preview or contract test in this sprint unless a DOCX change demonstrably causes the failure. Owner: desktop contract-test maintainer.
+- **DOCX link evidence to resolve or carry accurately:** Word desktop opened one relative TXT target without a prompt during Sprint 066; Word for the Web showed `https://./sprint066-companion.txt` and it was not clicked. Sprint 068 must verify package targets and actual Word behavior where available, preserve viewer restrictions, and seek a Lead Developer disposition if the behavior conflicts with the supported local-link contract. Owner: Sprint 068 Builder / Lead Developer.
+- **Carry forward:** Sprint 067 did not perform PDF raster review or actual local-link opening in a viewer. This remains a closeout evidence residual, not a Sprint 068 feature. Owner: Lead Developer / Sprint 071 reviewer.
+- **Chart gate:** Sprint 069 remains blocked on faithful Word chart semantics/application evidence or a specific Lead Developer decision. Sprint 068 must not make chart changes or treat its completion as chart authorization.
+
 ## V0.11 Sprint 067 Preparation (2026-10-09)
 
 - **Resolved for planning:** Sprint 067 is the V0.11 PDF Markdown Fidelity sprint from the master plan and depends on Sprint 066, which was ACCEPTED / CLOSED on 2026-10-09.
