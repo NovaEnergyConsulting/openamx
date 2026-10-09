@@ -30,6 +30,7 @@ try {
   }
   await cp(path.join(extensionDirectory, 'dist/extension.js'), path.join(stage, 'dist/extension.js'));
   await cp(path.join(rootDirectory, 'LICENSE.md'), path.join(stage, 'LICENSE.md'));
+  await cp(path.join(extensionDirectory, 'icon.png'), path.join(stage, 'icon.png'));
   run(process.execPath, [vsce, 'package', '--no-dependencies', '--out', output], stage);
 } finally {
   await rm(stage, { recursive: true, force: true });
