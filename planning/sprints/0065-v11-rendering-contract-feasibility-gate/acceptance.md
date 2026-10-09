@@ -27,3 +27,12 @@ Sprint 065 is complete only when the Builder has submitted the following evidenc
 - No production source, runtime dependency/manifest/lockfile, output limit, iframe permission, or user-visible behavior was changed. Disposable probes and their cleanup are accounted for without deleting pre-existing files.
 - Any mandatory Word application access that is unavailable remains a blocking residual; package/XML tests do not substitute. No Sprint 066 implementation handoff is authorized until Lead Developer explicitly accepts or revises the gate.
 - Lead Developer disposition names accepted contract decisions, failed/unavailable checks, any required follow-up, whether Sprint 066 is authorized, and that no release/publication or final V0.11 acceptance is implied.
+
+## Lead Developer Disposition (2026-10-09)
+
+- **COMPLETE / APPROVED WITH RECORDED RESIDUALS. Sprint 066 is authorized** for the shared Markdown/assets/link model only.
+- Sprint 066 must use the Windows development host with Word desktop and web access. Record exact applications, versions, reviewer, date, actions and prompts. Word desktop edit/save/close/reopen was unavailable in Sprint 065 and remains unverified until run on that host.
+- Word output must remain consistent with established OpenAMX semantics and HTML/PDF behavior. The numeric-line mismatch and other native chart mapping cases are not waived. If unresolved by direct Windows Word evidence, return with a concrete case for Lead Developer decision before Sprint 069 implementation.
+- The 4 MiB input and 4 MiB sanitized image byte bounds are accepted. The 4,000,000-pixel bound is not explicitly dispositioned; resolve it before image decoding/embedding. No existing worker caps are changed.
+- The preview navigation protocol proposal is approved as design direction for Sprint 070; no preview/RPC/iframe implementation is authorized in Sprint 066. Recheck local viewer restrictions on Windows and never bypass prompts.
+- No V0.11 completion, release, publication, platform certification, or authorization beyond Sprint 066's assigned scope is implied.

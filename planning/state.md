@@ -1,11 +1,32 @@
 # Planning State
 
-## V0.11 Sprint 065 Architect Preparation (2026-10-09)
+## V0.11 Sprint 065 Disposition and Sprint 066 Entry (2026-10-09)
 
 - Prepared the Sprint 065 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0065-v11-rendering-contract-feasibility-gate/` from the V0.11 master plan.
 - Sprint 065 has no sprint dependency and owns the rendering contract/feasibility gate only: shared Markdown/newline/anchor behavior, contained local assets and portable links, native editable DOCX chart feasibility, and a host-validated desktop preview navigation protocol proposal.
-- No production behavior, dependency, manifest, lockfile, output limit, renderer, or iframe permission is changed or authorized by this preparation. Builder evidence and actual Word desktop/web checks remain pending.
-- Sprint 066 remains blocked pending a separate Lead Developer disposition. This preparation claims no feasibility result, implementation, V0.11 acceptance, release readiness, or publication.
+- No production behavior, dependency, manifest, lockfile, output limit, renderer, RPC, or iframe permission was changed or authorized during Builder evidence collection.
+- **Lead Developer disposition (2026-10-09): COMPLETE / APPROVED WITH RECORDED RESIDUALS. Sprint 066 is authorized** for the shared Markdown/assets/link model in the master plan.
+- Builder evidence and disposition are recorded in `planning/sprints/0065-v11-rendering-contract-feasibility-gate/builder-evidence.md`. Native package/worker probes and Word web save/download were observed; Word desktop chart editing and downloaded-copy confirmation remain for the Windows Sprint 066 host.
+- Word charts must match existing OpenAMX and HTML/PDF semantics. Numeric-line, multi-axis, null and empty mapping residuals are not waived; escalate any mismatch that cannot be resolved faithfully before Sprint 069 implementation. No coercion or static-image fallback is authorized.
+- The 4 MiB image input/output byte bounds are accepted. The 4,000,000-pixel proposal remains unconfirmed before image decoding/embedding. Reassess local viewer restrictions on Windows without bypassing prompts. Preview protocol is approved as design direction for Sprint 070; iframe/RPC behavior remains unchanged in Sprint 066.
+- No release, publication, platform certification, or V0.11 completion is implied.
+
+## V0.11 Sprint 065 Builder Evidence (2026-10-09)
+- The Lead Developer disposition above closes Sprint 065 with residuals and authorizes Sprint 066 only within its assigned scope.
+
+## V0.11 Sprint 066 Architect Preparation (2026-10-09)
+
+- Sprint 065 is **COMPLETE / APPROVED WITH RECORDED RESIDUALS**. Sprint 066 is authorized for the shared Markdown/assets/link model in `planning/sprints/0066-v11-shared-markdown-assets-links/`.
+- Sprint 066 is a shared model/preparation sprint only. PDF/DOCX/HTML renderer integrations remain Sprints 067/068/070; preview RPC/event behavior remains Sprint 070; native chart integration remains Sprint 069.
+- Execute on the designated Windows host with Word desktop/web available and record exact app/OS versions, reviewer, actions, and prompts. Reassess local-link restrictions without bypassing trust policies.
+- The 4 MiB input and 4 MiB sanitized image-byte bounds are accepted. The 4,000,000 decoded-pixel bound is unresolved and blocks image decoding/embedding until the Lead Developer confirms it. Existing aggregate worker caps remain unchanged.
+- Preserve the Sprint 065 chart residuals. If Windows Word cannot match existing OpenAMX and HTML/PDF chart meaning, stop and request a specific decision before Sprint 069; no coercion or static-image fallback is approved.
+- Sprint 066 requires its own Builder evidence and separate Lead Developer disposition before dependent destination sprints are treated as authorized. No release, publication, or V0.11 completion is implied.
+
+- A destination behavior matrix and pending contract proposal are in the Sprint 065 `blueprint.md`. Current PDF/DOCX narrative adapters are line-based; the HTML fixture exposed inert-HTML/interpolation/page-break mismatches. LF/CRLF output matched in the tested HTML fixture.
+- Disposable `docx@9.8.1` probes serialized all four chart kinds with embedded workbooks. Numeric line x values became equally spaced categories in OOXML and actual Word web; Word web autosaved/downloaded a document retaining six chart parts and workbooks. Word desktop is not installed, so edit/save/reopen and desktop confirmation of the web download remain blocked.
+- Relative URI package/annotation and companion-layout probes passed; Chromium refused the relocated local PDF because its folder was not trusted. Generated image probes established path/content rejection examples and proposed bounds; no production cap or renderer changed. The supplied kitchen-sink PDF was preserved, checksummed, captured, and page 1 inspected.
+- The Lead Developer disposition above closes Sprint 065 with recorded residuals and authorizes Sprint 066 only within its assigned scope.
 
 ## V0.10 Final Implementation Disposition (2026-10-08)
 

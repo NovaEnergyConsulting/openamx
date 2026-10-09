@@ -2,13 +2,39 @@
 
 ## V0.11 Sprint 065 Architect Preparation (2026-10-09)
 
-- The V0.11 master plan is the scope authority. Sprint 065 is a no-dependency contract/feasibility gate; Sprint 066 depends on its separate Lead Developer approval.
+- The V0.11 master plan is the scope authority. Sprint 065 was a no-dependency contract/feasibility gate. **Lead Developer disposition (2026-10-09): COMPLETE / APPROVED WITH RECORDED RESIDUALS; Sprint 066 is authorized** for its assigned shared Markdown/assets/link model.
 - Preserve all existing language/evaluation, report identity/order, interpolation, show-time snapshot, measurement, emitted-table, working PDF, and atomic export behavior. No production code, dependency/lockfile, cap, iframe, or UX changes are authorized during Sprint 065.
 - Required outcomes include destination-neutral Markdown behavior; visible authored prose newlines and whitespace-preserving code; inert raw HTML; stable headings; canonical local image containment; final-output-relative file links; and faithful editable native Word charts for all four existing chart kinds.
 - Word desktop editing/save/reopen and Word web save/download preservation are application-level gates. OOXML/API success is not a substitute. If actual application access is unavailable, the gate remains blocked rather than passing by inference.
 - A required chart case that cannot be represented faithfully as an editable native chart requires an explicit Lead Developer product decision. No coercion, axis-semantic change, chart-kind substitution, or static-image fallback is approved.
 - The desktop preview protocol remains a proposal: click-only opaque target IDs, active frame/revision binding, host mapping/revalidation, allowlists and confirmation, retaining opaque-origin isolation and denying raw URLs/paths and privileged access. No protocol implementation or permission change is authorized yet.
-- This entry records Architect preparation only; contract proposals, probe outcomes, Sprint 066 authorization, release readiness, and V0.11 acceptance remain pending.
+- Builder proposals are not approved product decisions except where explicitly accepted in the disposition below. Sprint 066 authorization does not imply V0.11 acceptance, release readiness, or publication.
+
+## V0.11 Sprint 065 Lead Developer Disposition (2026-10-09)
+- No release, publication, platform certification, or V0.11 completion is implied.
+
+## V0.11 Sprint 066 Architect Preparation (2026-10-09)
+
+- Sprint 065 is COMPLETE / APPROVED WITH RECORDED RESIDUALS; Sprint 066 is explicitly authorized for the shared Markdown/assets/link model only.
+- Run Sprint 066 on the Windows development host with Word desktop and web available. Record exact OS/app versions and viewer prompts. Local-link trust restrictions must be observed, not bypassed.
+- The Lead Developer accepts 4 MiB source and 4 MiB sanitized-output image bounds per image. The 4,000,000-pixel image bound is unresolved; do not decode/embed image data until it is explicitly confirmed. Do not alter aggregate worker caps.
+- Implement shared narrative and source-relative validated target models without wiring destination renderers. Keep final-output-relative URI materialization for Sprints 067/068/070. Do not copy linked companion files.
+- Sprint 069 remains gated on Word evidence and a specific decision if native charts cannot preserve existing cross-surface meaning. Sprint 066 approval does not authorize chart coercion or a static-image fallback.
+- The preview navigation protocol is approved as Sprint 070 design direction only. No Sprint 066 RPC, preview behavior, or iframe permission change is approved.
+
+- `docx@9.8.1` `ChartRun` probes emitted native bar, column, line, and scatter parts with embedded workbooks. This package result is not Word desktop compatibility evidence.
+- A required numeric `line` with x values `10, 30, 30, 11` emitted a category axis and Word web displayed equally spaced points. The accepted continuous numeric meaning is not preserved. Do not authorize implementation by silently treating numeric x as categories, sorting/reordering, changing chart kind, or using a static image. Lead Developer must decide scope/architecture before Sprint 066.
+- The chart API provides primary/secondary value-axis assignment only; faithful mapping beyond two independent value axes is not established. `ChartRun` rejects empty scatter series and null-coordinate points; the tested separate source table retained a null point omitted from the plot. All-null line data serialized without fabricated values. Disposition is requested for these cases.
+- Word web was authenticated and directly used to display, autosave, and download the generated pilot. Its downloaded package retained chart parts/workbooks. Its formal release/channel was not exposed by the UI; the observed client resource path contained `1.0.2610.6002`. No Microsoft Word desktop app was installed. LibreOffice was not substituted. Desktop edit/save/close/reopen and desktop confirmation of the web download remain blocked.
+- Provisional image bounds are 4 MiB source, 4,000,000 decoded pixels, and 4 MiB sanitized output per image. A 4 MP high-entropy JPEG measured 11,677,897 bytes, so the source-byte proposal rejects some valid large photographs; approve/revise this tradeoff. Existing worker caps remain unchanged.
+- Relative PDF/DOCX URIs survived atomic output creation and copying into a second bundle with companions. Chromium's actual local PDF viewer returned `Forbidden. File does not reside within a trusted folder.` This viewer restriction was not bypassed; Word local-link behavior is untested. Output-relative worker context and final-dir URI construction require an implementation design decision.
+- Preview navigation remains a proposal only. Current `allow-scripts` without `allow-same-origin` is unchanged. Exact target allowlist, confirmation, frame/revision proof, and approved native external-open action require review; no preview/RPC code was changed.
+- Word chart outputs must preserve existing OpenAMX semantics and match HTML/PDF meaning. If native Word behavior cannot do so for numeric axes, multiple units/axes, nulls, or empty data, the Builder must stop and request a specific decision. The Sprint 065 numeric category-axis result is not accepted as a semantic change; verify again on Windows before Sprint 069 implementation.
+- Sprint 066 must run on a Windows host where the Builder has Word desktop and Word web access. Record exact app/channel/OS, reviewer, date, actions and prompts. Word desktop chart edit/save/reopen and desktop confirmation of the web download remain residual evidence, not passed in Sprint 065.
+- The 4 MiB source-image and 4 MiB sanitized-output bounds are accepted; the proposed 4,000,000 decoded-pixel limit is not explicitly resolved and must be confirmed before implementation relies on it. Existing worker caps remain unchanged.
+- Reassess local-file viewer restrictions on Windows. Do not bypass prompts or trust restrictions. Preserve source-relative resolution and final-output-relative export links, with no absolute path leakage or companion copying.
+- The opaque target-ID, active-frame/revision, host revalidation, allowlist and confirmation protocol is approved as design direction for Sprint 070. No RPC, preview, or iframe permission change is approved for Sprint 066.
+- No release, publication, platform certification, or V0.11 completion is implied.
 
 ## V0.10 Final Implementation Disposition (2026-10-08)
 

@@ -1,13 +1,25 @@
 # Planning Questions (Sprint 002)
 
-## V0.11 Sprint 065 Preparation (2026-10-09)
+## V0.11 Sprint 065 Disposition and Sprint 066 Entry (2026-10-09)
+- Kitchen-sink PDF baseline is preserved and recorded in Sprint 065 Builder evidence. No release, publication, platform certification, or V0.11 completion is implied.
+
+## V0.11 Sprint 066 Entry Questions (2026-10-09)
+
+- **Resolved:** Sprint 065 is COMPLETE / APPROVED WITH RECORDED RESIDUALS; Sprint 066 is authorized for the master-plan shared Markdown/assets/link model.
+- **Blocking before image decoding/embedding:** confirm whether the 4,000,000-pixel bound is accepted. The Lead Developer accepted 4 MiB input and 4 MiB sanitized-output bounds per image; aggregate worker caps remain unchanged. Owner: Lead Developer.
+- **Windows evidence requirement:** run on the designated Windows host with Word desktop and web. Capture exact application/OS versions, reviewer, date, steps, chart edit/save/reopen evidence as applicable, local-link behavior, and prompts. Do not infer desktop behavior from OOXML or Word web; do not bypass viewer restrictions. Owner: Sprint 066 Builder for local-link evidence; Sprint 069 Builder for native-chart review.
+- **Chart residual carried forward:** preserve existing OpenAMX semantics and HTML/PDF meaning. The numeric-line category-spacing mismatch, more than two unit axes, null/empty cases, and Word persistence remain unresolved until direct Windows Word testing. If still irreconcilable, obtain a specific Lead Developer decision before Sprint 069; no silent coercion or image fallback.
+- **Preview design resolved for Sprint 070 only:** opaque target ID plus active frame/revision binding, host mapping/revalidation, allowlist, confirmation, and stale/forged/raw-path rejection are approved as design direction. No Sprint 066 RPC/iframe change.
+- Sprint 066 must request its own disposition before downstream renderer integration is treated as authorized. No release, publication, platform certification, or V0.11 completion is implied.
 
 - No new product-scope question is opened by preparation. Follow `planning/plan-openamxV11MasterSprintPlan.md`; implementation-facing details and feasibility evidence are owned by Sprint 065.
-- **Blocking evidence dependency:** Is Microsoft Word desktop available for a reviewer to open each representative native chart, edit data/series, save, close, and reopen? Record reviewer, exact Word version/channel, OS, and review date. If unavailable, report blocked; package/XML evidence does not close this criterion.
-- **Blocking evidence dependency:** Is Microsoft Word web available to display the charts, save/download the document, and verify in desktop Word that native chart objects remain editable? Record exact service/app version and reviewer. If unavailable, report blocked; do not authorize Sprint 066 on assumed compatibility.
-- For both checks, preserve actual viewer prompts and policy restrictions. Do not bypass them. Identify any unsupported host/version separately from an unrun or unavailable test.
-- Builder must request explicit Lead Developer decisions for any native-chart semantic mismatch, unrepresentable required case, local-link viewer limitation that affects the contract, image-bound proposal, or preview message/allowlist detail requiring an architecture or product choice.
-- Sprint 066 remains blocked until the Lead Developer explicitly disposes the Sprint 065 evidence and authorizes the next phase. No test result or approval is recorded by this preparation entry.
+- **Resolved:** Sprint 065 is COMPLETE / APPROVED WITH RECORDED RESIDUALS by Lead Developer disposition (2026-10-09). Sprint 066 is authorized for the master-plan shared Markdown/assets/link model.
+- **Windows host requirement:** Sprint 066 development moves to Windows with Word desktop and web available to the Builder. Record exact app/channel/OS versions, reviewer, date, actions, and prompts. Sprint 065's desktop edit/save/reopen was unavailable and is not retroactively counted as passed.
+- **Cross-surface chart residual:** Native chart behavior must match established OpenAMX semantics and HTML/PDF meaning. Recheck on Windows. If numeric axes, multiple unit axes, null/empty data, order, or grouping cannot be represented faithfully, stop and return a concrete case for Lead Developer decision before Sprint 069 implementation. No coercion or static-image fallback is approved.
+- **Resolved image byte bounds:** 4 MiB source and 4 MiB sanitized-output bounds accepted. **Still open:** confirm the 4,000,000 decoded-pixel proposal before image decoding/embedding relies on it. No worker-cap change.
+- **Windows local-link follow-up:** Reassess Chromium/Word local-file restrictions and the final-output-relative link path on the Windows host. Preserve prompts/restrictions; do not bypass trust policies, leak absolute paths, or copy companions.
+- **Resolved preview design:** The opaque target ID/current frame+revision/host validation/allowlist/confirmation protocol is approved as design direction for Sprint 070. Sprint 066 must not change RPC, preview behavior, or iframe permissions.
+- Kitchen-sink PDF baseline is preserved and recorded in Sprint 065 Builder evidence. No release, publication, platform certification, or V0.11 completion is implied.
 
 ## V0.10 Sprint 064 Closeout (2026-10-08)
 
