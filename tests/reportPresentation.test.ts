@@ -73,7 +73,9 @@ let value = 7
     const root = await mkdtemp(join(tmpdir(), 'openamx-measurement-report-'));
     directories.push(root);
     const input = join(root, 'report.amx');
-    await writeFile(input, `\`\`\`amx
+    await writeFile(input, `Narrative before captured emissions.
+
+\`\`\`amx
 dimension Length
 unit meter: Length
 unit kilometer = 1000 * meter
@@ -98,7 +100,10 @@ chart amounts = line(values) {
 }
 show register
 show amounts
-\`\`\``);
+\`\`\`
+
+Narrative after captured emissions.
+`);
     const loaded = await loadEntryModule(input);
     const prepared = await prepareReport(loaded.doc, loaded.env, { file: input, projectRoot: root });
     const html = renderPreparedHtml(prepared);
@@ -112,6 +117,9 @@ show amounts
     expect(pdf).toContain('500 meter');
     expect(pdf).toContain('Distance (kilometer)');
     expect(pdf).toContain('0.5');
+    expect(pdf.indexOf('Narrative before captured emissions')).toBeLessThan(pdf.indexOf('Distances'));
+    expect(pdf.indexOf('Distances')).toBeLessThan(pdf.indexOf('Distance trend'));
+    expect(pdf.indexOf('Distance trend')).toBeLessThan(pdf.indexOf('Narrative after captured emissions'));
 
     const archive = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
     const documentXml = await archive.file('word/document.xml')?.async('string');

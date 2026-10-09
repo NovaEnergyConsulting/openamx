@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 const directories: string[] = [];
 
@@ -35,6 +36,42 @@ describe('export pdf CLI', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Exported PDF');
     expect((await Bun.file(output).arrayBuffer()).byteLength).toBeGreaterThan(1000);
+  });
+
+  it('materializes local PDF links relative to the validated final output directory', async () => {
+    const directory = await fixtureDirectory();
+    const sourceDirectory = join(directory, 'source');
+    const outputDirectory = join(directory, 'output');
+    const companionDirectory = join(sourceDirectory, 'companions');
+    await Promise.all([
+      mkdir(sourceDirectory, { recursive: true }),
+      mkdir(outputDirectory, { recursive: true }),
+      mkdir(companionDirectory, { recursive: true })
+    ]);
+    await Promise.all([
+      writeFile(join(sourceDirectory, 'report.amx'), '# Report\n\n[Companion](./companions/asset%20one.txt)\n'),
+      writeFile(join(companionDirectory, 'asset one.txt'), 'portable companion')
+    ]);
+    const input = join(sourceDirectory, 'report.amx');
+    const output = join(outputDirectory, 'report.pdf');
+    const result = await runCli('export', 'pdf', input, '--out', output);
+    expect(result.exitCode).toBe(0);
+    const pdf = await getDocument({
+      data: new Uint8Array(await Bun.file(output).arrayBuffer()),
+      useSystemFonts: true,
+      disableFontFace: true
+    }).promise;
+    const annotations: { url?: string; unsafeUrl?: string }[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      annotations.push(...await (await pdf.getPage(pageNumber)).getAnnotations());
+    }
+    const urls = annotations
+      .flatMap(annotation => [annotation.url, annotation.unsafeUrl])
+      .filter((url): url is string => typeof url === 'string');
+    expect(urls).toContain('../source/companions/asset%20one.txt');
+    expect(urls.every(url => !url.includes(directory) && !url.startsWith('file:') && !url.includes('.tmp'))).toBe(true);
+    expect(await Bun.file(join(outputDirectory, 'companions', 'asset one.txt')).exists()).toBe(false);
+    expect(await Bun.file(join(companionDirectory, 'asset one.txt')).exists()).toBe(true);
   });
 
   it('rejects unsupported destinations before analysis and writing', async () => {

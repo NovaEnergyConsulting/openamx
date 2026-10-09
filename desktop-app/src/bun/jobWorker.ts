@@ -1,4 +1,5 @@
 /// <reference types="bun" />
+import { isAbsolute } from "node:path";
 import { AmxError, type AmxDiagnostic } from "../../../src/diagnostics/errors";
 import { loadEntryModule } from "../../../src/runtime/moduleLoader";
 import { prepareReport } from "../../../src/renderer/reportPreparation";
@@ -57,6 +58,12 @@ function validateRequest(request: WorkerJobRequest): void {
 	if (!Number.isSafeInteger(request.jobId) || request.jobId < 1) throw new Error("Invalid worker job identity.");
 	if (request.entryText.length > MAX_TEXT || request.sourceOverlay.length > MAX_OVERLAY_MODULES || request.inputMappings.length > 100)
 		throw new Error("Worker request exceeds its item or document limit.");
+	if (request.operation === "pdf") {
+		if (!request.pdfDestinationPath || request.pdfDestinationPath.length > 4096 || !isAbsolute(request.pdfDestinationPath))
+			throw new Error("PDF worker request requires a validated final destination path.");
+	} else if (request.pdfDestinationPath !== undefined) {
+		throw new Error("A PDF destination is valid only for a PDF export job.");
+	}
 	let overlayTextLength = 0;
 	for (const [path, text] of request.sourceOverlay) {
 		if (path.length > 4096 || text.length > MAX_TEXT) throw new Error("Worker overlay item exceeds its limit.");
@@ -184,9 +191,17 @@ async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
 	}
 
 	send({ kind: "progress", jobId: request.jobId, stage: "serializing" });
-	const bytes = request.operation === "pdf"
-		? await serializePdfReport(preparePdfReport(prepared))
-		: await serializeDocxReport(prepareDocxReport(prepared));
+	let bytes: Uint8Array;
+	if (request.operation === "pdf") {
+		const destinationPath = request.pdfDestinationPath;
+		if (!destinationPath) throw new Error("PDF worker request requires a validated final destination path.");
+		bytes = await serializePdfReport(preparePdfReport(prepared, {
+			sourceDocumentPath: request.entryPath,
+			destinationPath
+		}));
+	} else {
+		bytes = await serializeDocxReport(prepareDocxReport(prepared));
+	}
 	if (bytes.length > MAX_BINARY_EXPORT) throw new Error(`Report output exceeds the ${MAX_BINARY_EXPORT}-byte limit.`);
 	const data = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 	return { kind: "export", format: request.operation, data, bytes: bytes.length };

@@ -8,6 +8,17 @@
 - Sprint 066 closure did not authorize downstream implementation. Sprint 067 implementation authorization and the repository's code-gate approval remain separate prerequisites; no source changes are authorized by this preparation.
 - No release, publication, V0.11 completion, or authorization of Sprints 068-071 is implied.
 
+## V0.11 Sprint 067 Builder Execution and Disposition (2026-10-09)
+
+- The Lead Developer explicitly authorized Sprint 067 and approved the concrete file-by-file code plan before source/test edits. **Lead Developer disposition (2026-10-09): ACCEPTED / CLOSED WITH RECORDED RESIDUALS.** This closes Sprint 067 only; downstream authorization remains a separate decision.
+- Replaced line-based PDF narrative conversion with an adapter over the accepted `PreparedReportItem.markdown` AST. PDF local links are materialized relative to the validated final destination for CLI and desktop exports; desktop carries the host-validated destination through its worker request. Source/view emissions, chart rendering, destination validation, and atomic commit remain on their existing paths.
+- Focused PDF/CLI/presentation tests cover AST structure, safe relative annotations, sanitized image embedding/fitting, searchable content, pages/tables, and compatibility. PDF.js inspection found relative local targets under `unsafeUrl`; this is annotation evidence only, not proof a viewer opens the companion.
+- `bun run build` passed. The required focused command ran 20 tests: 20 passed, 1 failed in the unrelated V0.9 help-term assertion at `tests/examples.test.ts:43`. The full root suite ran 417 tests: 415 passed, 2 failed; the other failure is the imported dimension identity assertion at `tests/editor.test.ts:73`. Both failures reproduced when those files ran in isolation and were not changed.
+- Desktop worker/service PDF tests passed (5 tests); desktop `bun run typecheck` passed. Desktop `bun run test` remains red at `desktop-app/tests/rpc-contract-check.ts:74` because it expects two `sandbox="allow-scripts"` occurrences while `App.vue` currently has one. Neither the test nor `App.vue` was changed.
+- Generated PDF structure, searchable text, links, page flow, image dimensions, and chart/table retention were verified through pdfmake structures and PDF.js. No visual screenshot or actual viewer-open test was performed. Sprint 065's recorded Chromium untrusted-folder refusal remains in force; no trust restriction was bypassed.
+- `examples/kitchen-sink.pdf` remained read-only; SHA-256 before and after is `9ADD5C76030F9D6248A8126EFA0D96F2E1FC2168A654DA1F07E2B6953E3BE778`.
+- Residual owners: Lead Developer / relevant maintainers for the unrelated root and desktop contract failures; Lead Developer / reviewer for any permitted visual and actual-viewer evidence. No release, publication, V0.11 completion, or authorization of Sprints 068-071 is implied.
+
 ## V0.11 Sprint 065 Disposition and Sprint 066 Entry (2026-10-09)
 
 - Prepared the Sprint 065 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0065-v11-rendering-contract-feasibility-gate/` from the V0.11 master plan.

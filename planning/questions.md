@@ -3,9 +3,17 @@
 ## V0.11 Sprint 067 Preparation (2026-10-09)
 
 - **Resolved for planning:** Sprint 067 is the V0.11 PDF Markdown Fidelity sprint from the master plan and depends on Sprint 066, which was ACCEPTED / CLOSED on 2026-10-09.
-- **Implementation gate remains open:** Sprint 066's disposition does not authorize downstream implementation. The Lead Developer must explicitly authorize Sprint 067 and approve the Builder's concrete file-by-file code plan before source/test edits. Owner: Lead Developer.
+- **Resolved (2026-10-09):** the Lead Developer explicitly authorized Sprint 067 and approved the concrete file-by-file code plan before source/test edits. The separate disposition is recorded below.
+- **Resolved (2026-10-09):** the Lead Developer accepted and closed Sprint 067 with the recorded verification and viewer residuals. This does not authorize Sprints 068-071; downstream authorization remains a separate Lead Developer decision.
 - **Carried evidence caution:** Sprint 065's Chromium PDF viewer refused a relocated local PDF because its directory was not trusted. Sprint 067 may verify relative URI annotations and bundle relocation without bypassing viewer policy; actual link opening must be reported only if directly observed in an allowed viewer. Owner: Sprint 067 Builder / Lead Developer disposition.
 - No new product-scope decision is required to prepare this pack. Keep the Sprint 065 native Word chart residuals with Sprint 069; do not reinterpret or resolve them in the PDF adapter.
+
+## V0.11 Sprint 067 Builder Closeout Residuals (2026-10-09)
+
+- **Root test residuals:** `tests/editor.test.ts:73` fails because the imported `Length` declaration fact is absent; `tests/examples.test.ts:43` fails while checking V0.9 help-topic terms. Both reproduce in isolated runs, are outside the changed files, and were not repaired. Owner: Lead Developer / the respective editor and help test maintainers.
+- **Desktop contract residual:** `desktop-app/tests/rpc-contract-check.ts:74` expects two `sandbox="allow-scripts"` occurrences but finds one in `desktop-app/src/mainview/App.vue`. This was not changed. Owner: Lead Developer / desktop contract-test maintainer.
+- **Visual/viewer evidence:** no raster screenshot or actual viewer-open test was performed. PDF.js reports relative local annotations as `unsafeUrl`; it does not establish successful local-file opening. The previously observed Chromium untrusted-folder restriction was not bypassed. Owner: Lead Developer / reviewer on an approved viewer.
+- **Disposition:** Sprint 067 is ACCEPTED / CLOSED WITH RECORDED RESIDUALS. Any downstream authorization remains separate. Owner: Lead Developer.
 
 ## V0.11 Sprint 065 Disposition and Sprint 066 Entry (2026-10-09)
 - Kitchen-sink PDF baseline is preserved and recorded in Sprint 065 Builder evidence. No release, publication, platform certification, or V0.11 completion is implied.

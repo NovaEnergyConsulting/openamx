@@ -13,6 +13,7 @@ export interface WorkerJobRequest {
 	sourceOverlay: Array<[string, string]>;
 	inputMappings: string[];
 	validation: "aggregate" | "fail-fast";
+	pdfDestinationPath?: string;
 	inputInspection?: { name: string; format: "json" | "csv"; text: string };
 	dataOutput?: { name: string; format: "json" | "csv" };
 }

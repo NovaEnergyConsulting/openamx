@@ -666,7 +666,9 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			const request: WorkerJobRequest = {
 				kind: "start", jobId, operation, entryPath: entryDocument.path, entryText: entryDocument.text,
 				projectRoot: job.projectRoot, sourceOverlay: [...sourceOverlay],
-				inputMappings: resolved.mappings, validation: activeValidation, inputInspection: jobInputInspection, dataOutput
+				inputMappings: resolved.mappings, validation: activeValidation,
+				...(operation === "pdf" ? { pdfDestinationPath: job.destination } : {}),
+				inputInspection: jobInputInspection, dataOutput
 			};
 			worker.postMessage(request);
 			return { ok: true, job: snapshotJob(job) };

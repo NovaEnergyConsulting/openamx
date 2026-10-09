@@ -101,7 +101,10 @@ cli
         validation: options.validation as "aggregate" | "fail-fast" | undefined
       });
       const report = await prepareReport(doc, env, { file: input, projectRoot: options.projectRoot });
-      const bytes = await serializePdfReport(preparePdfReport(report));
+      const bytes = await serializePdfReport(preparePdfReport(report, {
+        sourceDocumentPath: input,
+        destinationPath: destination.path
+      }));
       await writePdfAtomically(destination, bytes);
       console.log(`Exported PDF to ${destination.path}`);
     } catch (err: any) {

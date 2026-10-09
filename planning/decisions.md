@@ -7,6 +7,16 @@
 - Preserve the shared model's link/image validation, current chart and emission semantics, report identity/order, and atomic destination handling. No new product behavior or viewer-policy exception is approved here.
 - This preparation is not implementation authorization. Sprint 066's accepted closeout did not grant downstream authority; separate Sprint 067 authorization and the repository code gate are required before source/test edits.
 
+## V0.11 Sprint 067 Builder Decisions and Disposition (2026-10-09)
+
+- **Lead Developer authorization and code-gate approval:** explicitly received before source/test edits for the file-by-file plan recorded in the Builder handoff conversation.
+- **Lead Developer disposition (2026-10-09): ACCEPTED / CLOSED WITH RECORDED RESIDUALS.** Acceptance closes Sprint 067 only; authorization of Sprints 068-071 remains separate.
+- PDF now consumes only the prepared narrative AST. Source-document context resolves its already-validated relative local targets; the validated final destination determines the serialized relative URI. Absolute paths and atomic temporary paths are not serialized, and companion files are not copied.
+- CLI uses `preparePdfDestination(...).path`; the desktop worker receives only the destination already validated by the host service. Existing overwrite snapshots, commit checks, and atomic output writers remain unchanged.
+- Images are embedded only from the shared model's sanitized data URI. `pdfmake` URL access remains disabled and local file access remains font-root-only. No remote resources are fetched.
+- The desktop and root suite failures documented in Sprint 067 evidence are outside this sprint's touched files; they are retained as residuals, not waived or fixed here. PDF.js `unsafeUrl` observations are annotation evidence, not viewer-open evidence.
+- No changes to the shared model, DOCX, HTML/preview, chart semantics/rendering, emissions, output caps, dependencies, lockfiles, fonts, or supplied PDF are approved or implied.
+
 ## V0.11 Sprint 065 Architect Preparation (2026-10-09)
 
 - The V0.11 master plan is the scope authority. Sprint 065 was a no-dependency contract/feasibility gate. **Lead Developer disposition (2026-10-09): COMPLETE / APPROVED WITH RECORDED RESIDUALS; Sprint 066 is authorized** for its assigned shared Markdown/assets/link model.

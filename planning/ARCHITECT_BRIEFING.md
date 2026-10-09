@@ -1,3 +1,49 @@
+# ARCHITECT BRIEFING — Sprint 067 Builder Closeout
+
+## Where things stand
+Sprint 067 is accepted and closed with recorded residuals. PDF export now renders the accepted shared Markdown model in both CLI and desktop exports while retaining existing report, chart, emission, and atomic-write paths. Root/desktop test failures and missing visual/viewer evidence remain recorded; downstream sprint authorization is still separate.
+
+## Executive summary
+**Business outcome**: PDF reports now render the shared Markdown narrative structure and produce local-link annotations relative to the final PDF destination through both export paths.
+
+**Current focus**: Sprint 067 is closed with residuals; downstream authorization remains a separate Lead Developer decision.
+
+**What is proven**: AST-backed PDF structure, searchable narrative, relative CLI and desktop local-link annotations, internal/external links, sanitized image fitting, multi-page Markdown tables, chart/emission compatibility, and unchanged atomic destination behavior by focused tests and PDF.js inspection.
+
+**What is not live**: Actual local-file opening in a PDF viewer, visual screenshot review, clean root/desktop full verification, later V0.11 renderer integrations, release, or publication.
+
+## Readiness signals
+
+| Signal | Status | Evidence |
+|---|---|---|
+| PDF AST rendering and CLI/desktop link integration | passed | Focused PDF tests and desktop worker/service integration tests |
+| Root build and desktop typecheck | passed | `bun run build`; desktop `bun run typecheck` |
+| Root and desktop contract suites | attention | Two unrelated root failures and one sandbox-count contract failure remain |
+| Visual and actual viewer evidence | attention | PDF.js evidence only; no viewer policy bypass or local-link-open claim |
+
+## Recommended next Architect action
+**Do**: Decide separately whether to authorize downstream sprints and how to handle the recorded verification/viewer residuals.
+**Owner**: Lead Developer.
+**Decision**: Sprint 067 is accepted/closed with residuals; downstream authorization is not implied.
+
+## Evidence
+- Root focused PDF/CLI/presentation tests: 13 passed, 0 failed.
+- Required focused command: 20 passed, 1 unrelated help-topic test failed.
+- Root full suite: 415 passed, 2 unrelated tests failed; both reproduced in isolation.
+- Desktop worker/service PDF tests: 5 passed, 0 failed; desktop typecheck passed.
+- Desktop `bun run test`: one unrelated sandbox-count assertion failed.
+- The supplied kitchen-sink PDF checksum is unchanged. PDF.js inspection does not prove local-link opening in a viewer.
+
+## Validation / test status
+**Tests:** 415 passing, 2 failing (root full suite); desktop RPC contract check has one failing assertion.
+
+Exact commands and residual details are in `planning/sprints/0067-v11-pdf-markdown-fidelity/builder-evidence.md`.
+
+## Plan corrections
+- No scope or architecture change. PDF.js surfaced generated local annotations through `unsafeUrl`; tests account for that API distinction without treating it as successful viewer opening.
+
+---
+
 # ARCHITECT BRIEFING — Sprint 005 Close
 
 ## Where things stand

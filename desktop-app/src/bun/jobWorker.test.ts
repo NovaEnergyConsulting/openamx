@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
@@ -118,7 +118,9 @@ test("trusted worker rejects an invalid untyped program before returning a run r
 test("trusted worker exports shared-model chart SVG in searchable PDF output", async () => {
 	const root = mkdtempSync(join(tmpdir(), "openamx-worker-pdf-chart-"));
 	const entryPath = join(root, "report.amx");
-	const source = `# Worker chart report\n\n\`\`\`amx\ntype Row {\n  label: String\n  value: Number\n}\nlet rows: Row[] = [Row { label = "First", value = -2 }, Row { label = "Second", value = 0 }]\nchart scores = bar(rows) {\n  title: "Static PDF chart"\n  description: "Shared model worker export"\n  category: label\n  series value as "Score"\n}\nshow scores\n\`\`\``;
+	mkdirSync(join(root, "companions"));
+	writeFileSync(join(root, "companions", "asset one.txt"), "portable companion");
+	const source = `# Worker chart report\n\n[companion](./companions/asset%20one.txt)\n\n\`\`\`amx\ntype Row {\n  label: String\n  value: Number\n}\nlet rows: Row[] = [Row { label = "First", value = -2 }, Row { label = "Second", value = 0 }]\nchart scores = bar(rows) {\n  title: "Static PDF chart"\n  description: "Shared model worker export"\n  category: label\n  series value as "Score"\n}\nshow scores\n\`\`\``;
 	writeFileSync(entryPath, source);
 	const worker = new Worker(new URL("./jobWorker.ts", import.meta.url).href);
 	try {
@@ -132,7 +134,8 @@ test("trusted worker exports shared-model chart SVG in searchable PDF output", a
 		});
 		const request: WorkerJobRequest = {
 			kind: "start", jobId: 44, operation: "pdf", entryPath, entryText: source,
-			projectRoot: root, sourceOverlay: [], inputMappings: [], validation: "aggregate"
+			projectRoot: root, sourceOverlay: [], inputMappings: [], validation: "aggregate",
+			pdfDestinationPath: join(root, "output", "report.pdf")
 		};
 		worker.postMessage(request);
 		const result = await Promise.race([
@@ -157,6 +160,12 @@ test("trusted worker exports shared-model chart SVG in searchable PDF output", a
 		expect(text).toContain("First");
 		expect(text).toContain("Second");
 		expect(text).toContain("Score");
+		const annotations: { url?: string; unsafeUrl?: string }[] = [];
+		for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+			annotations.push(...await (await pdf.getPage(pageNumber)).getAnnotations());
+		}
+		expect(annotations.some(annotation => annotation.url === "../companions/asset%20one.txt"
+			|| annotation.unsafeUrl === "../companions/asset%20one.txt")).toBe(true);
 	} finally {
 		worker.terminate();
 		rmSync(root, { recursive: true, force: true });

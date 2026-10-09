@@ -1,16 +1,24 @@
 import * as echarts from 'echarts';
 import pdfmake from 'pdfmake';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, resolve } from 'node:path';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ChartViewEmission, TableViewEmission, ViewDataValue, ViewEmission } from '../runtime/environment';
 import { createChartViewModel, type ChartViewModel } from './chartModel';
+import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeInline, type NarrativeLink } from './narrativeModel';
 import type { PreparedReport } from './reportPreparation';
 
 export interface PreparedPdfReport {
   definition: Record<string, unknown>;
 }
+
+export interface PdfExportContext {
+  sourceDocumentPath: string;
+  destinationPath: string;
+}
+
+type ChartRenderer = (model: ChartViewModel) => string;
 
 const packagedFontRoot = fileURLToPath(new URL('./pdfmake-fonts/', import.meta.url));
 const fontRoot = existsSync(resolve(packagedFontRoot, 'Roboto-Regular.ttf'))
@@ -30,9 +38,12 @@ pdfmake.setFonts({
 
 export function preparePdfReport(
   report: PreparedReport,
-  renderChart: (model: ChartViewModel) => string = renderStaticChart
+  renderChartOrContext: ChartRenderer | PdfExportContext = renderStaticChart,
+  context?: PdfExportContext
 ): PreparedPdfReport {
-  return preparePreparedPdfReport(report, renderChart);
+  const renderChart = typeof renderChartOrContext === 'function' ? renderChartOrContext : renderStaticChart;
+  const exportContext = typeof renderChartOrContext === 'function' ? context : renderChartOrContext;
+  return preparePreparedPdfReport(report, renderChart, exportContext);
 }
 
 export async function serializePdfReport(report: PreparedPdfReport): Promise<Uint8Array> {
@@ -41,7 +52,11 @@ export async function serializePdfReport(report: PreparedPdfReport): Promise<Uin
   return Uint8Array.from(buffer);
 }
 
-function preparePreparedPdfReport(report: PreparedReport, renderChart: (model: ChartViewModel) => string): PreparedPdfReport {
+function preparePreparedPdfReport(
+  report: PreparedReport,
+  renderChart: ChartRenderer,
+  context?: PdfExportContext
+): PreparedPdfReport {
   const content: unknown[] = [];
   const identity = report.identity;
   const metadata = [
@@ -61,7 +76,7 @@ function preparePreparedPdfReport(report: PreparedReport, renderChart: (model: C
     });
   }
   for (const item of report.items) {
-    if (item.type === 'narrative') addNarrativeText(content, item.text);
+    if (item.type === 'narrative') addNarrativeBlocks(content, item.markdown, context);
     else if (item.type === 'source') content.push({ text: item.text, style: 'source' });
     else addEmission(content, item.emission, identity, renderChart);
   }
@@ -77,6 +92,8 @@ function preparePreparedPdfReport(report: PreparedReport, renderChart: (model: C
         heading: { fontSize: 14, bold: true, color: identity.accent, margin: [0, 14, 0, 6] },
         source: { font: 'Roboto', fontSize: 8, color: '#405459', margin: [0, 5, 0, 10] },
         caption: { fontSize: 8, color: '#405459', margin: [0, 3, 0, 6] },
+        code: { font: 'Roboto', fontSize: 8, background: '#f1f4f5', margin: [0, 3, 0, 8] },
+        blockquote: { color: '#405459', margin: [12, 2, 0, 8] },
         metadata: { fontSize: 9, color: '#18282D', margin: [0, 0, 0, 2] }
       },
       content
@@ -84,27 +101,143 @@ function preparePreparedPdfReport(report: PreparedReport, renderChart: (model: C
   };
 }
 
-function addNarrativeText(content: unknown[], narrative: string): void {
-  const lines = narrative.split(/\r?\n/);
-  let paragraph: string[] = [];
-  const flush = () => {
-    if (paragraph.length > 0) content.push({ text: paragraph.join(' '), margin: [0, 0, 0, 7] });
-    paragraph = [];
-  };
-  for (const line of lines) {
-    if (line.trim() === '<!-- page-break -->') {
-      flush();
-      content.push({ text: '', pageBreak: 'before' });
-    } else if (/^#{1,6}\s+/.test(line)) {
-      flush();
-      content.push({ text: line.replace(/^#{1,6}\s+/, ''), style: line.startsWith('# ') ? 'title' : 'heading' });
-    } else if (line.trim() === '') {
-      flush();
+function addNarrativeBlocks(content: unknown[], blocks: readonly NarrativeBlock[], context?: PdfExportContext): void {
+  for (const block of blocks) {
+    if (block.type === 'heading') {
+      content.push({
+        text: inlineRuns(block.children, context),
+        style: block.depth === 1 ? 'title' : 'heading',
+        ...(block.depth > 1 ? { fontSize: Math.max(9, 16 - block.depth) } : {}),
+        id: block.id
+      });
+    } else if (block.type === 'paragraph') {
+      content.push({ text: inlineRuns(block.children, context), margin: [0, 0, 0, 7] });
+    } else if (block.type === 'code') {
+      content.push({ text: block.text, style: 'code', preserveLeadingSpaces: true });
+    } else if (block.type === 'list') {
+      const items = block.items.map(item => {
+        const children: unknown[] = [];
+        addNarrativeBlocks(children, item.blocks, context);
+        if (item.checked !== undefined && children.length > 0) {
+          const first = children[0];
+          if (isPlainRecord(first) && Array.isArray(first.text)) {
+            first.text = [{ text: item.checked ? '[x] ' : '[ ] ' }, ...first.text];
+          } else if (isPlainRecord(first) && typeof first.text === 'string') {
+            first.text = `${item.checked ? '[x] ' : '[ ] '}${first.text}`;
+          }
+        }
+        return children.length === 1 ? children[0] : children;
+      });
+      content.push(block.ordered
+        ? { ol: items, ...(block.start === undefined ? {} : { start: block.start }), margin: [0, 0, 0, 7] }
+        : { ul: items, margin: [0, 0, 0, 7] });
+    } else if (block.type === 'blockquote') {
+      const quoted: unknown[] = [];
+      addNarrativeBlocks(quoted, block.blocks, context);
+      content.push({ stack: quoted, style: 'blockquote' });
+    } else if (block.type === 'table') {
+      const cell = (children: readonly NarrativeInline[], header: boolean, alignment: string | null) => ({
+        text: inlineRuns(children, context),
+        ...(header ? { bold: true, fillColor: '#e7eee8' } : {}),
+        ...(alignment ? { alignment } : {})
+      });
+      content.push({
+        table: {
+          headerRows: 1,
+          keepWithHeaderRows: 1,
+          widths: block.header.map(() => '*'),
+          body: [
+            block.header.map((children, index) => cell(children, true, block.align[index])),
+            ...block.rows.map(row => row.map((children, index) => cell(children, false, block.align[index])))
+          ]
+        },
+        layout: 'lightHorizontalLines',
+        fontSize: 8
+      });
+    } else if (block.type === 'horizontalRule') {
+      content.push({
+        canvas: [{ type: 'line', x1: 0, y1: 2, x2: 493, y2: 2, lineWidth: 0.5, lineColor: '#9AA8AC' }],
+        margin: [0, 6, 0, 6]
+      });
     } else {
-      paragraph.push(line.trim());
+      content.push({ text: '', pageBreak: 'before' });
     }
   }
-  flush();
+}
+
+interface InlineStyle {
+  bold?: boolean;
+  italics?: boolean;
+  decoration?: string;
+  background?: string;
+  font?: string;
+  link?: string;
+  linkToDestination?: string;
+}
+
+function inlineRuns(
+  inlines: readonly NarrativeInline[],
+  context?: PdfExportContext,
+  style: InlineStyle = {}
+): unknown[] {
+  const runs: unknown[] = [];
+  for (const inline of inlines) {
+    if (inline.type === 'text') {
+      runs.push({ text: inline.text, ...style });
+    } else if (inline.type === 'lineBreak') {
+      runs.push({ text: '\n', ...style });
+    } else if (inline.type === 'inlineCode') {
+      runs.push({ text: inline.text, font: 'Roboto', background: '#f1f4f5', ...style });
+    } else if (inline.type === 'strong' || inline.type === 'emphasis' || inline.type === 'delete') {
+      const nestedStyle = inline.type === 'strong'
+        ? { ...style, bold: true }
+        : inline.type === 'emphasis'
+          ? { ...style, italics: true }
+          : { ...style, decoration: 'lineThrough' };
+      runs.push(...inlineRuns(inline.children, context, nestedStyle));
+    } else if (inline.type === 'link') {
+      const linkStyle: InlineStyle = {
+        ...style,
+        ...(inline.link.type === 'external' ? { link: inline.link.href } : {}),
+        ...(inline.link.type === 'internal' ? { linkToDestination: inline.link.targetId } : {}),
+        ...(inline.link.type === 'local' ? { link: localLinkUri(inline.link, context) } : {})
+      };
+      runs.push(...inlineRuns(inline.children, context, linkStyle));
+    } else if (inline.type === 'image') {
+      runs.push(imageRun(inline.image, style));
+    }
+  }
+  return runs;
+}
+
+function imageRun(image: NarrativeImage, style: InlineStyle): Record<string, unknown> {
+  const dimensions = fitNarrativeImage(image, { maxWidth: 493, maxHeight: 739 });
+  return {
+    image: image.dataUri,
+    width: dimensions.width,
+    height: dimensions.height,
+    alt: image.alt,
+    ...style
+  };
+}
+
+function localLinkUri(
+  link: Extract<NarrativeLink, { type: 'local' }>,
+  context?: PdfExportContext
+): string {
+  if (!context) throw new Error('PDF local links require validated source-document and final-destination context.');
+  if (link.sourceBase !== 'document-directory') throw new Error('PDF local link has an unsupported source base.');
+  const sourceDirectory = realpathSync(dirname(resolve(context.sourceDocumentPath)));
+  const outputDirectory = dirname(resolve(context.destinationPath));
+  const sourceTarget = resolve(sourceDirectory, ...link.path.split('/'));
+  const relativePath = relative(outputDirectory, sourceTarget);
+  if (!relativePath || isAbsolute(relativePath)) throw new Error('PDF local link target cannot be represented relative to the final PDF destination.');
+  const encodedPath = relativePath.split(sep).map(segment => encodeURIComponent(segment)).join('/');
+  return `${encodedPath}${link.query === undefined ? '' : `?${link.query}`}${link.fragment === undefined ? '' : `#${link.fragment}`}`;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function addEmission(
