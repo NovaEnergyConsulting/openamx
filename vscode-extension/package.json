@@ -5,6 +5,7 @@
   "version": "0.10.0",
   "publisher": "EngineersTools",
   "license": "SEE LICENSE IN LICENSE.md",
+  "icon": "../desktop-app/assets/images/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/NovaEnergyConsulting/openamx.git",
