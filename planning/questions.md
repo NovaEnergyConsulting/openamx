@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.11 Sprint 067 Preparation (2026-10-09)
+
+- **Resolved for planning:** Sprint 067 is the V0.11 PDF Markdown Fidelity sprint from the master plan and depends on Sprint 066, which was ACCEPTED / CLOSED on 2026-10-09.
+- **Implementation gate remains open:** Sprint 066's disposition does not authorize downstream implementation. The Lead Developer must explicitly authorize Sprint 067 and approve the Builder's concrete file-by-file code plan before source/test edits. Owner: Lead Developer.
+- **Carried evidence caution:** Sprint 065's Chromium PDF viewer refused a relocated local PDF because its directory was not trusted. Sprint 067 may verify relative URI annotations and bundle relocation without bypassing viewer policy; actual link opening must be reported only if directly observed in an allowed viewer. Owner: Sprint 067 Builder / Lead Developer disposition.
+- No new product-scope decision is required to prepare this pack. Keep the Sprint 065 native Word chart residuals with Sprint 069; do not reinterpret or resolve them in the PDF adapter.
+
 ## V0.11 Sprint 065 Disposition and Sprint 066 Entry (2026-10-09)
 - Kitchen-sink PDF baseline is preserved and recorded in Sprint 065 Builder evidence. No release, publication, platform certification, or V0.11 completion is implied.
 

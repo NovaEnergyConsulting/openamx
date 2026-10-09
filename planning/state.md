@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.11 Sprint 067 Architect Preparation (2026-10-09)
+
+- Prepared the Sprint 067 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0067-v11-pdf-markdown-fidelity/`.
+- Sprint 067 implements the PDF Markdown adapter over Sprint 066's accepted shared narrative model. Its only upstream sprint dependency is Sprint 066, which was ACCEPTED / CLOSED on 2026-10-09.
+- The pack requires final-output-relative PDF link annotations and validated final destination context through both CLI and desktop export paths. It preserves chart output, emitted values, report order/identity, and atomic writes.
+- Sprint 066 closure did not authorize downstream implementation. Sprint 067 implementation authorization and the repository's code-gate approval remain separate prerequisites; no source changes are authorized by this preparation.
+- No release, publication, V0.11 completion, or authorization of Sprints 068-071 is implied.
+
 ## V0.11 Sprint 065 Disposition and Sprint 066 Entry (2026-10-09)
 
 - Prepared the Sprint 065 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0065-v11-rendering-contract-feasibility-gate/` from the V0.11 master plan.

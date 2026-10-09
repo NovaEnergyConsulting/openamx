@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.11 Sprint 067 Architect Preparation (2026-10-09)
+
+- The V0.11 master plan remains the scope authority. Sprint 067 owns PDF integration of the Sprint 066 shared narrative model; DOCX, HTML/preview, and native chart work remain assigned to Sprints 068, 070, and 069.
+- PDF local-link annotations must be materialized relative to the final validated PDF destination, not the source document base or an atomic temporary path. The desktop path must carry only host-validated destination context into PDF serialization.
+- Preserve the shared model's link/image validation, current chart and emission semantics, report identity/order, and atomic destination handling. No new product behavior or viewer-policy exception is approved here.
+- This preparation is not implementation authorization. Sprint 066's accepted closeout did not grant downstream authority; separate Sprint 067 authorization and the repository code gate are required before source/test edits.
+
 ## V0.11 Sprint 065 Architect Preparation (2026-10-09)
 
 - The V0.11 master plan is the scope authority. Sprint 065 was a no-dependency contract/feasibility gate. **Lead Developer disposition (2026-10-09): COMPLETE / APPROVED WITH RECORDED RESIDUALS; Sprint 066 is authorized** for its assigned shared Markdown/assets/link model.
