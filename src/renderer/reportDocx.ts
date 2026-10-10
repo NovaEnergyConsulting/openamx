@@ -61,6 +61,8 @@ type NarrativeRunStyle = Pick<IRunOptions, 'bold' | 'italics' | 'strike' | 'font
 type DocxContent = Paragraph | Table;
 
 const TABLE_WIDTH_TWIPS = 9_026;
+// ChartRun uses 15 twips per CSS pixel; leave one pixel of page-width clearance.
+const DOCX_CHART_WIDTH_PIXELS = Math.floor(TABLE_WIDTH_TWIPS / 15) - 1;
 const IMAGE_WIDTH_PIXELS = 601;
 const IMAGE_HEIGHT_PIXELS = 864;
 const MAX_BOOKMARK_NAME_LENGTH = 40;
@@ -459,7 +461,7 @@ function addChart(
       legend: chartSeries.length > 1 ? {} : false,
       xAxis: chartValueAxis(model.axes.find(axis => axis.role === 'x')),
       yAxis: chartValueAxis(model.axes.find(axis => axis.role === 'y')),
-      transformation: model.dimensions
+      transformation: docxChartDimensions(model)
     });
     children.push(new Paragraph({ children: [run] }));
     addChartTable(children, model);
@@ -493,7 +495,7 @@ function addChart(
         : false,
       xAxis: chartValueAxis(model.axes.find(axis => axis.role === 'x')),
       yAxis: chartValueAxis(valueAxes[0]),
-      transformation: model.dimensions
+      transformation: docxChartDimensions(model)
     });
     children.push(new Paragraph({ children: [run] }));
     if (plotted.omittedSeries.length > 0) {
@@ -525,7 +527,7 @@ function addChart(
       legend: model.series.length > 1 ? { hiddenEntries: plotted.hiddenLegendEntries } : false,
       valueAxis: chartValueAxis(valueAxes[0]),
       ...(valueAxes.length > 1 ? { secondaryValueAxis: chartValueAxis(valueAxes[1]) } : {}),
-      transformation: model.dimensions
+      transformation: docxChartDimensions(model)
     });
     children.push(new Paragraph({ children: [run] }));
     addChartTable(children, model);
@@ -561,10 +563,18 @@ function addChart(
     ...(model.kind === 'line' ? { emptyValues: 'gap' as const } : {}),
     valueAxis: chartValueAxis(valueAxes[0]),
     ...(valueAxes.length > 1 ? { secondaryValueAxis: chartValueAxis(valueAxes[1]) } : {}),
-    transformation: model.dimensions
+    transformation: docxChartDimensions(model)
   });
   children.push(new Paragraph({ children: [run] }));
   addChartTable(children, model);
+}
+
+function docxChartDimensions(model: ChartViewModel): { width: number; height: number } {
+  const width = Math.min(model.dimensions.width, DOCX_CHART_WIDTH_PIXELS);
+  return {
+    width,
+    height: Math.round(model.dimensions.height * width / model.dimensions.width)
+  };
 }
 
 function addNoChartAlternative(

@@ -153,9 +153,15 @@ show scatter
     const workbooks = names.filter(name => name.startsWith('word/embeddings/') && name.endsWith('.xlsx'));
     const documentXml = await archive.file('word/document.xml')?.async('string') ?? '';
     const relationships = await archive.file('word/_rels/document.xml.rels')?.async('string') ?? '';
+    const chartExtents = [...documentXml.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/g)];
     expect(chartNames).toHaveLength(5);
     expect(workbooks).toHaveLength(5);
     expect(documentXml.match(/<w:tbl>/g)).toHaveLength(5);
+    expect(chartExtents).toHaveLength(chartNames.length);
+    for (const [, width, height] of chartExtents) {
+      expect(Number(width)).toBeLessThanOrEqual(9_026 * 635);
+      expect(Number(width) / Number(height)).toBeCloseTo(2, 4);
+    }
     expect(documentXml).toContain('Continuous numeric x values');
     expect(documentXml).toContain('Series &quot;Absent&quot; has no plottable coordinates');
     expect(documentXml).toContain('Date line');

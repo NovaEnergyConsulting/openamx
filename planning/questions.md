@@ -1,5 +1,18 @@
 # Planning Questions (Sprint 002)
 
+## V0.11 Sprint 071 Builder Disposition Request (2026-10-10)
+
+- **Resolved by explicit Lead Developer disposition (user, 2026-10-10): ACCEPTED / CLOSED; V0.11 FINISHED.** The named residuals below remain recorded as unpassed evidence, not inferred passes; the Lead Developer accepts them for this closeout.
+- **User-selected next action (2026-10-10): request additional evidence or remediation before disposition.** At that point it was not an acceptance decision. The separately authorized DOCX chart-width fix and desktop-PDF raster review have since been completed; the later Lead Developer disposition accepts the remaining named evidence residuals for closeout.
+- **Separate chart-width follow-up authorized and implemented (2026-10-10):** the user approved the file-by-file code plan before edits. All nine chart frames now fit the tested Word desktop content width, with root and desktop regression coverage; see the follow-up evidence. This resolves the chart-width failure only.
+- **Resolved by separate authorized follow-up - Word desktop chart layout:** the pre-fix build had 540 pt chart frames against a 451.3 pt text area. The post-fix Word desktop build measured all nine at 450 pt, and the numeric-X chart's full axis rendered. The original screenshot/failure remains as historical evidence.
+- **BLOCKED - Word for the Web:** direct sign-in was unavailable. The numeric-X null-gap visual, save/download, and reopened-copy checks remain unverified. Owner: Lead Developer / Word reviewer. Do not claim local companion-file support there.
+- **BLOCKED - accessibility:** no formal screen-reader review was performed. Owner: Lead Developer / accessibility reviewer.
+- **BLOCKED - native desktop preview host:** the app restored an unrelated existing project, so the Builder stopped without interacting with it. `Utils.showMessageBox`, `Utils.openExternal`, `Utils.openPath`, native Open/Cancel ordering, and same-input preview in the actual app remain unverified. Owner: Lead Developer / Windows desktop reviewer.
+- **Resolved - desktop PDF raster:** Acrobat 26.2.21931.0 directly inspected the desktop-service PDF narrative page and bar chart/table page; see the Sprint 071 evidence artifacts.
+- Current verification retains inherited root `tests/editor.test.ts:73` and `tests/examples.test.ts:43` failures and the desktop RPC sandbox-count assertion (`expected 2, found 1`). A Word `ExportAsFixedFormat` attempt timed out without producing a PDF; direct Word UI and chart edit/save/reopen checks are separately recorded.
+- No unpassed criterion is relabeled as passed. The Lead Developer explicitly declared V0.11 finished; this does not imply release, publication, or platform certification.
+
 ## V0.11 Sprint 071 Preparation (2026-10-10)
 
 - **Resolved for planning:** Sprint 071 is the master-plan integrated acceptance/V0.11 closeout with formal dependencies on Sprints 067, 069, and 070. Those sprints are closed with recorded residuals, but do not authorize Sprint 071.

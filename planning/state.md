@@ -1,5 +1,18 @@
 # Planning State
 
+## V0.11 Sprint 071 Builder Execution (2026-10-10)
+
+- The user explicitly authorized Sprint 071 and approved the file-by-file documentation/evidence plan before its closeout edits. The separately authorized chart-width follow-up is recorded below; dependencies, language specifications, security boundaries, and the supplied PDF were not changed.
+- After reviewing the initial chart-width FAIL, the user separately approved and authorized a DOCX chart-width follow-up. `src/renderer/reportDocx.ts` now constrains DOCX chart frames; regression coverage was added in `tests/reportDocx.test.ts` and `desktop-app/src/bun/desktopDocxExport.test.ts`. Shared chart semantics and non-DOCX renderers remain unchanged.
+- Updated stale DOCX chart guidance in `README.md`, desktop Help, and `examples/kitchen-sink.amx`. Created the cross-surface matrix and recorded evidence in `planning/sprints/0071-v11-integrated-acceptance-closeout/builder-evidence.md`.
+- Generated CLI PDF/DOCX/HTML and desktop-service PDF/DOCX/preview from the same finalized kitchen-sink source. CLI and desktop PDF text matched page-by-page; CLI and desktop DOCX document text matched exactly. Browser inspection found 10 charts, 199 visible breaks, and no remote requests in each HTML rendering.
+- Root focused reporting tests: 65 passed / 0 failed / 513 expectations; post-fix DOCX/presentation tests: 12 passed / 0 failed / 196 expectations. Root build passed. Full root suite after the sizing fix: 429 passed / 2 failed / 2,374 expectations; only inherited `tests/editor.test.ts:73` and `tests/examples.test.ts:43` failures. The focused example run retains only the inherited help-term failure.
+- Desktop focused worker/export/navigation tests: 10 passed / 0 failed / 87 expectations. Typecheck and web build passed. The desktop RPC contract suite retains its inherited sandbox-count failure (`expected 2, found 1`). All four required Playwright tests passed after starting the same Vite harness with `bun run vite` because its configured Unix launcher is not recognized on Windows.
+- Acrobat 26.2.21931.0 visually inspected CLI PDF narrative/table and numeric-X chart pages plus desktop-service PDF narrative and bar chart/table pages. A safe relative TXT probe opened in Acrobat without a trust prompt. Word desktop 16.0.20430.20146 opened the generated DOCX and preserved edits to representative native charts across save/close/reopen.
+- The initial Word desktop inspection found 540 pt chart frames against a 451.3 pt text area. After the separate fix, all 9 charts measured 450 pt and the numeric-X chart rendered through the final axis tick. Word Web was unavailable without sign-in; the formal screen-reader review was not performed. The actual Electrobun app restored an unrelated project and was stopped without modification, so its native confirmation dialog and OS opener remain BLOCKED.
+- On 2026-10-10, the Lead Developer explicitly accepted and closed Sprint 071 and declared V0.11 finished. The evidence matrix retains the actual PASS/FAIL/BLOCKED/NOT RUN statuses; this disposition does not retroactively relabel unpassed checks. No release, publication, or platform certification is inferred.
+- The user first requested additional evidence or remediation, then separately authorized the chart-width fix plan before implementation. The subsequent Lead Developer disposition recorded above closes Sprint 071 and declares V0.11 finished; other BLOCKED/NOT RUN evidence statuses remain unchanged.
+
 ## V0.11 Sprint 071 Architect Preparation (2026-10-10)
 
 - Prepared Sprint 071 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0071-v11-integrated-acceptance-closeout/`.

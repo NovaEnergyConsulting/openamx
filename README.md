@@ -151,7 +151,9 @@ the available commands and options.
 
 Charts are interactive in standalone HTML and the desktop live preview; their
 runtime is bundled, so reports work offline. PDF charts are static, and the
-complete chart data remains in report tables. DOCX chart behavior is unchanged.
+complete chart data remains in report tables. DOCX charts are native and editable
+with embedded data when representable; approved deferrals use a clear notice and
+complete data table rather than a static-image substitute.
 
 Run the test suite with:
 
@@ -346,9 +348,26 @@ bun run dist/cli.js export docx examples/typed-asset-analysis.amx --out out/anal
   --input reviewedAt=examples/typed-reviewed-at.json
 ```
 
-DOCX contains editable semantic headings, paragraphs, lists, tables, and
-static chart images. Interactive charts, editable chart data, pixel parity,
-and broad native Office compatibility are not promised.
+DOCX contains editable semantic headings, paragraphs, lists, tables, and native
+charts with embedded data for representable cases. Numeric-X line charts use
+straight-line XY scatter. Unsupported axis counts, charts with no plottable
+points, and mixed-group scatter with a null-only group are omitted with a notice
+and complete table; a numeric-X line series with no plottable pairs is omitted
+from the chart, disclosed, and retained in the table. These mappings do not
+promise pixel parity or broad native Office compatibility.
+
+Report narratives support headings, formatted paragraphs, lists, blockquotes,
+tables, code, rules, and visible source line breaks; authored raw HTML remains
+inert text. Narrative images must be project-contained PNG or JPEG files with
+nonempty alternative text, no more than 4 MiB and 4,000,000 decoded pixels per
+image. They are sanitized and embedded, so reports do not fetch remote images.
+External links are limited to HTTP(S); local links are limited to PDF, PNG,
+JPEG, TXT, CSV, and JSON targets contained by the project. Local links are
+relative to the final report location, and companion files are not copied; keep
+them at the corresponding relative paths when moving a report. Desktop preview
+routes activated external/local links through host confirmation. Viewer behavior
+varies: Word for the Web rewrote tested relative DOCX links as HTTPS targets, so
+local companion-file opening there is not claimed.
 
 Run the V0.5 typed example with its local imports, JSON/CSV inputs, table and
 chart. Copy the sample project config into a temporary project because the CLI
@@ -425,8 +444,12 @@ known core parser limitation and is not claimed as supported. Editor
 diagnostics cover parsing, static checks, and local module links, not CSV/JSON
 runtime validation. Modules and data files are local and entry-root-contained;
 there are no remote packages, units/currency, or broad multi-file workflows.
-DOCX/PDF exports are local and offline; DOCX charts are static images and
-office compatibility beyond package inspection remains open. The Asset
+PDF and DOCX exports are local and offline. DOCX charts are editable native
+objects with embedded data for representable cases; explicit no-chart notices
+and complete tables cover the approved deferrals. Word desktop open and
+chart-edit persistence have been exercised on the build recorded in the sprint
+evidence, but broad Office compatibility, the Word for the Web numeric-X
+null-gap visual, and a formal screen-reader review are not claimed. The Asset
 Management library remains provisional pending domain review.
 
 ---

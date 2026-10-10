@@ -1,5 +1,16 @@
 # Planning Decisions
 
+## V0.11 Sprint 071 Builder Execution (2026-10-10)
+
+- The user authorized Sprint 071 and approved its concrete file-by-file documentation/evidence plan before edits. Sprint 071 itself added no product feature.
+- After the initial Word width failure, the user separately approved and authorized a narrow DOCX chart-sizing follow-up covering `src/renderer/reportDocx.ts`, `tests/reportDocx.test.ts`, and `desktop-app/src/bun/desktopDocxExport.test.ts`. It scales only DOCX chart extents to the existing content width; shared chart semantics and PDF/HTML/preview behavior are unchanged.
+- The follow-up verifies all nine Word chart frames at 450 pt inside the 451.3 pt usable width, preserves the 2:1 ratio, and retains native chart edit/save/close/reopen behavior for five representative kinds. The pre-fix FAIL remains in evidence as historical context; the current tested layout passes.
+- Documentation describes native editable DOCX charts with embedded data for representable cases and the approved no-chart/table deferrals. The temporary chart-width warning has been removed after direct post-fix Word verification.
+- Direct matched-source evidence covers CLI PDF/DOCX/HTML and desktop-service PDF/DOCX/preview. Output text and chart/workbook package evidence are recorded in the Sprint 071 matrix. Acrobat opened one safe relative TXT target without bypassing trust restrictions.
+- The Word desktop chart-width overflow was separately remediated and visually rechecked. Word Web null-gap visual/save/download, formal screen-reader review, desktop-PDF raster, and actual Electrobun native dialog/OS opener remain BLOCKED/NOT RUN. Builder must not reclassify these residuals as passed.
+- The user explicitly authorized the separate DOCX chart-width follow-up after approving its file-by-file plan (2026-10-10). This does not change the separate Lead Developer disposition gate for Sprint 071/V0.11.
+- **Lead Developer disposition (user, 2026-10-10): ACCEPTED / CLOSED; V0.11 FINISHED.** This explicitly closes Sprint 071 and accepts the milestone despite the named evidence residuals. The evidence matrix retains its actual PASS/FAIL/BLOCKED/NOT RUN statuses; no check is retroactively relabeled. This disposition does not authorize release, publication, or compatibility certification.
+
 ## V0.11 Sprint 071 Architect Preparation (2026-10-10)
 
 - The master plan remains the scope authority. Sprint 071 adds no product feature; it owns integrated evidence, narrowly scoped reporting documentation/example corrections, and closeout.

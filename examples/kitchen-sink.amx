@@ -42,7 +42,11 @@ bun run src/cli.ts run examples/kitchen-sink.amx --output summary=/tmp/kitchen-s
 
 The HTML report and desktop preview render interactive offline charts. PDF
 charts are static, but preserve the chart data in their tables, including the
-shown empty state; DOCX chart behavior is unchanged.
+shown empty state. DOCX uses native editable charts with embedded data when
+representable. Numeric-X lines use straight-line XY scatter; unsupported axes,
+charts without plottable points, and mixed-group scatter with a null-only group
+show a notice and complete table. A numeric-X series with no plottable pairs is
+disclosed and retained in the table even when omitted from the chart.
 
 ## 2. Document Structure and Module Imports
 

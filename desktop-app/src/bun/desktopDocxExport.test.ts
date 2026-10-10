@@ -106,8 +106,13 @@ show scores
 		const archive = await JSZip.loadAsync(await Bun.file(output).arrayBuffer());
 		const chartNames = Object.keys(archive.files).filter(name => /^word\/charts\/chart\d+\.xml$/.test(name));
 		const workbookNames = Object.keys(archive.files).filter(name => name.startsWith("word/embeddings/") && name.endsWith(".xlsx"));
+		const documentXml = await archive.file("word/document.xml")?.async("string") ?? "";
+		const chartExtents = [...documentXml.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/g)];
 		expect(chartNames).toHaveLength(1);
 		expect(workbookNames).toHaveLength(1);
+		expect(chartExtents).toHaveLength(1);
+		expect(Number(chartExtents[0]![1])).toBeLessThanOrEqual(9_026 * 635);
+		expect(Number(chartExtents[0]![1]) / Number(chartExtents[0]![2])).toBeCloseTo(2, 4);
 		const chartXml = await archive.file(chartNames[0]!)?.async("string");
 		expect(chartXml).toContain("<c:barDir val=\"col\"/>");
 		const chartRelsName = chartNames[0]!.replace("word/charts/", "word/charts/_rels/").replace(".xml", ".xml.rels");
