@@ -29,10 +29,6 @@ function workerThatReturnsThenCloses(): Worker {
 	} as unknown as Worker;
 }
 
-function normalizeHtmlNonce(html: string): string {
-	return html.replace(/nonce-[^'\"]+/g, "nonce-[nonce]").replace(/nonce="[^"]+"/g, 'nonce="[nonce]"');
-}
-
 function delayedPreviewWorkerFactory() {
 	let releaseResult!: () => void;
 	let signalResultCaptured!: () => void;
@@ -57,7 +53,7 @@ function delayedPreviewWorkerFactory() {
 				emit("message", new MessageEvent("message", { data: { kind: "progress", jobId: message.jobId, stage: "loading-inputs" } }));
 				capturedResult = {
 					kind: "complete", jobId: message.jobId,
-					result: { kind: "preview", html: `<!doctype html><html><body><p>${source[1]}</p></body></html>`, diagnostics: [] }
+					result: { kind: "preview", html: `<!doctype html><html><body><p>${source[1]}</p></body></html>`, previewToken: "0".repeat(64), targets: {}, diagnostics: [] }
 				};
 				signalResultCaptured();
 			},
@@ -122,6 +118,8 @@ assert.equal(previewFreshnessJob.status, "succeeded", `current preview was rejec
 assert.equal(previewFreshnessJob.result?.kind, "preview");
 if (previewFreshnessJob.result?.kind !== "preview") throw new Error("Expected a current preview result.");
 assert.match(previewFreshnessJob.result.html, /42/);
+assert.equal(previewFreshnessJob.result.previewToken, "0".repeat(64));
+assert.equal("targets" in previewFreshnessJob.result, false, "host target maps must not appear in public job results");
 console.log("Delayed source-dependent preview remains current after autosave");
 
 const workerCloseRaceRoot = mkdtempSync(join(tmpdir(), "openamx-worker-close-race-"));
@@ -1387,7 +1385,13 @@ assert.equal(htmlSave.job.result?.kind, "export");
 if (htmlSave.job.result?.kind !== "export") throw new Error("Expected HTML export result.");
 assert.equal(htmlSave.job.result.fileName, "analysis.html");
 assert.equal(htmlSave.job.result.path, undefined);
-assert.equal(normalizeHtmlNonce(readFileSync(htmlPath, "utf8")), normalizeHtmlNonce(previewWithInputs.html));
+const standaloneHtml = readFileSync(htmlPath, "utf8");
+assert.doesNotMatch(standaloneHtml, /openamx-preview-init/);
+assert.match(previewWithInputs.html, /openamx-preview-init/);
+assert.match(previewWithInputs.previewToken ?? "", /^[a-f0-9]{64}$/);
+const chartModels = (html: string) => [...html.matchAll(/<script type="application\/json" data-chart-model>([\s\S]*?)<\/script>/g)].map(match => match[1]);
+assert.deepEqual(chartModels(standaloneHtml), chartModels(previewWithInputs.html), "HTML modes must preserve shared chart data");
+assert.equal((standaloneHtml.match(/class="openamx-table"/g) ?? []).length, (previewWithInputs.html.match(/class="openamx-table"/g) ?? []).length);
 const pdfPath = join(reportDirectory, "analysis.pdf");
 const pdfStartedAt = performance.now();
 const pdfExport = await selectedExport(pdfPath, "pdf");

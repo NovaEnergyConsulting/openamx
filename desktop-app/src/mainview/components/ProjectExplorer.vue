@@ -6,13 +6,24 @@ const props = defineProps<{ files: ProjectFile[]; folders: string[]; workbench: 
 const emit = defineEmits<{ open: [path: string]; createAmx: []; createFolder: []; moveActive: [] }>();
 const search = ref("");
 const visibleFiles = computed(() => props.files.filter(file => file.path.toLowerCase().includes(search.value.toLowerCase())));
+function normalizePath(path: string): string {
+	return path.replaceAll("\\", "/");
+}
+
+function fileName(path: string): string {
+	return normalizePath(path).split("/").pop() ?? path;
+}
+
 const groupedFiles = computed(() => {
 	const groups = new Map<string, ProjectFile[]>();
 	for (const file of visibleFiles.value) {
-		const folder = file.path.includes("/") ? file.path.slice(0, file.path.lastIndexOf("/")) : ".";
+		const path = normalizePath(file.path);
+		const separator = path.lastIndexOf("/");
+		const folder = separator === -1 ? "." : path.slice(0, separator);
 		groups.set(folder, [...(groups.get(folder) ?? []), file]);
 	}
-	for (const folder of props.folders) {
+	for (const folderPath of props.folders) {
+		const folder = normalizePath(folderPath);
 		if (folder.toLowerCase().includes(search.value.toLowerCase())) groups.set(folder, groups.get(folder) ?? []);
 	}
 	return [...groups].sort(([left], [right]) => left.localeCompare(right));
@@ -27,7 +38,7 @@ const groupedFiles = computed(() => {
 		<div v-for="[folder, entries] in groupedFiles" :key="folder">
 			<p class="folder">{{ folder === '.' ? 'Root Folder' : folder }}</p>
 			<button v-for="file in entries" :key="file.path" class="file" :class="{ selected: workbench.active?.endsWith(file.path) }" :aria-current="workbench.active?.endsWith(file.path) ? 'page' : undefined" @click="emit('open', file.path)">
-				<span>{{ file.path.split('/').pop() }}</span><small>{{ file.kind }}</small>
+				<span>{{ fileName(file.path) }}</span><small>{{ file.kind }}</small>
 			</button>
 		</div>
 		<p v-if="!files.length && !folders.length" class="muted">No supported project files yet.</p>

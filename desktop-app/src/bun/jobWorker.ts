@@ -70,6 +70,12 @@ function validateRequest(request: WorkerJobRequest): void {
 	} else if (request.docxDestinationPath !== undefined) {
 		throw new Error("A DOCX destination is valid only for a DOCX export job.");
 	}
+	if (request.operation === "html") {
+		if (!request.htmlDestinationPath || request.htmlDestinationPath.length > 4096 || !isAbsolute(request.htmlDestinationPath))
+			throw new Error("HTML worker request requires a validated final destination path.");
+	} else if (request.htmlDestinationPath !== undefined) {
+		throw new Error("An HTML destination is valid only for an HTML export job.");
+	}
 	let overlayTextLength = 0;
 	for (const [path, text] of request.sourceOverlay) {
 		if (path.length > 4096 || text.length > MAX_TEXT) throw new Error("Worker overlay item exceeds its limit.");
@@ -188,12 +194,20 @@ async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
 
 	send({ kind: "progress", jobId: request.jobId, stage: "preparing-report" });
 	const prepared = await prepareReport(loaded.doc, loaded.env, { file: request.entryPath, projectRoot: request.projectRoot });
-	if (request.operation === "preview" || request.operation === "html") {
-		const html = renderPreparedHtml(prepared);
+	if (request.operation === "preview") {
+		const rendered = renderPreparedHtml(prepared, { mode: "preview" });
+		if (rendered.html.length > MAX_HTML) throw new Error(`HTML output exceeds the ${MAX_HTML}-character limit.`);
+		return { kind: "preview", html: rendered.html, previewToken: rendered.previewToken, targets: rendered.targets, diagnostics: [] };
+	}
+	if (request.operation === "html") {
+		const html = renderPreparedHtml(prepared, {
+			mode: "standalone",
+			sourceDocumentPath: request.entryPath,
+			projectRoot: request.projectRoot,
+			outputPath: request.htmlDestinationPath
+		});
 		if (html.length > MAX_HTML) throw new Error(`HTML output exceeds the ${MAX_HTML}-character limit.`);
-		return request.operation === "preview"
-			? { kind: "preview", html, diagnostics: [] }
-			: { kind: "export", format: "html", data: html, bytes: Buffer.byteLength(html) };
+		return { kind: "export", format: "html", data: html, bytes: Buffer.byteLength(html) };
 	}
 
 	send({ kind: "progress", jobId: request.jobId, stage: "serializing" });

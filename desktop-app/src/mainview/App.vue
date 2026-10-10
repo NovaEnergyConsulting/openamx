@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { CircleHelp, Database, Download, ExternalLink, Eye, FolderOpen, Pause, Play, RefreshCw, Settings, SlidersHorizontal } from "@lucide/vue";
 import packageMetadata from "../../package.json";
-import type { DataInputSchema, DataOutputSchema, DesktopExportAction, DesktopJobOperation, DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
+import type { ActiveDocumentRequestIdentity, DataInputSchema, DataOutputSchema, DesktopExportAction, DesktopJobOperation, DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
 import CodeEditor from "./CodeEditor.vue";
 import CommandPalette from "./components/CommandPalette.vue";
 import DataEditorPane from "./components/DataEditorPane.vue";
@@ -42,6 +42,8 @@ let invoker: HTMLElement | null = null;
 let focusInvoker: HTMLElement | null = null;
 let settingsInvoker: HTMLElement | null = null;
 const preview = ref("");
+const previewToken = ref("");
+const previewFrame = ref<HTMLIFrameElement | null>(null);
 const previewPaused = ref(false);
 const analysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
 const staticAnalysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
@@ -88,7 +90,75 @@ let pendingEdit: Promise<void> = Promise.resolve();
 let pendingInputSettings: Promise<void> = Promise.resolve();
 let dataValidationTimer: ReturnType<typeof setTimeout> | undefined;
 let previewTimer: ReturnType<typeof setTimeout> | undefined;
-const lastGoodPreviews = new Map<string, { html: string; revision: number; projectGeneration: number; settingsRevision: number; stale: boolean }>();
+let previewPort: MessagePort | undefined;
+let previewPortFrame: HTMLIFrameElement | undefined;
+let previewPortToken: string | undefined;
+let previewPortIdentity: ActiveDocumentRequestIdentity | undefined;
+const lastGoodPreviews = new Map<string, { html: string; previewToken: string; revision: number; projectGeneration: number; settingsRevision: number; stale: boolean }>();
+
+watch(previewFrame, (frame, previous) => {
+	if (previous && previous !== frame) closePreviewPort(true);
+}, { flush: "sync" });
+
+function samePreviewIdentity(left: ActiveDocumentRequestIdentity | undefined, right: ActiveDocumentRequestIdentity | undefined): boolean {
+	return !!left && !!right
+		&& left.canonicalActiveUri === right.canonicalActiveUri
+		&& left.projectGeneration === right.projectGeneration
+		&& left.documentRevision === right.documentRevision
+		&& left.inputSettingsRevision === right.inputSettingsRevision;
+}
+
+function closePreviewPort(invalidate: boolean) {
+	const token = previewPortToken;
+	const identity = previewPortIdentity;
+	previewPort?.close();
+	previewPort = undefined;
+	previewPortFrame = undefined;
+	previewPortToken = undefined;
+	previewPortIdentity = undefined;
+	if (invalidate && token && identity) {
+		void props.rpc.request.invalidatePreviewTargets({ previewToken: token, identity }).then(result => {
+			if (!result.ok) status.value = result.error.message;
+		}).catch(error => { status.value = error instanceof Error ? error.message : "Preview target invalidation failed."; });
+	}
+}
+
+function isPreviewNavigationMessage(value: unknown): value is { version: 1; type: "navigate"; previewToken: string; targetId: string } {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+	const data = value as Record<string, unknown>;
+	return Object.keys(data).length === 4
+		&& data.version === 1
+		&& data.type === "navigate"
+		&& typeof data.previewToken === "string" && /^[a-f0-9]{64}$/.test(data.previewToken)
+		&& typeof data.targetId === "string" && /^[a-f0-9]{32}$/.test(data.targetId);
+}
+
+function bindPreviewFrame() {
+	const frame = previewFrame.value;
+	const identity = workbench.value.requestIdentity;
+	const token = previewToken.value;
+	if (!frame?.contentWindow || !identity || !token) return;
+	if (previewPort) closePreviewPort(previewPortToken !== token);
+	const channel = new MessageChannel();
+	previewPort = channel.port1;
+	previewPortFrame = frame;
+	previewPortToken = token;
+	previewPortIdentity = { ...identity };
+	channel.port1.onmessage = event => {
+		if (!isPreviewNavigationMessage(event.data)
+			|| event.data.previewToken !== token
+			|| previewFrame.value !== frame || !frame.isConnected
+			|| previewPortFrame !== frame || previewPortToken !== token
+			|| token !== previewToken.value
+			|| !samePreviewIdentity(workbench.value.requestIdentity, identity)) return;
+		void props.rpc.request.openPreviewTarget({ targetId: event.data.targetId, previewToken: token, identity }).then(result => {
+			if (!result.ok) status.value = result.error.message;
+			else if (result.opened) status.value = "Opened the confirmed preview link.";
+		}).catch(error => { status.value = error instanceof Error ? error.message : "Preview navigation request failed."; });
+	};
+	channel.port1.start();
+	frame.contentWindow.postMessage({ type: "openamx-preview-init", previewToken: token }, "*", [channel.port2]);
+}
 
 function mappings(): string[] { return inputOverrides.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean); }
 function syncInputSettings(): Promise<void> {
@@ -631,6 +701,7 @@ onMounted(() => { setTheme(theme.value); setDrawerDock(drawerDock.value); void p
 onUnmounted(() => {
 	window.removeEventListener("keydown", onKeydown);
 	if (previewTimer) clearTimeout(previewTimer);
+	closePreviewPort(true);
 	cancelActiveJob();
 });
 
@@ -643,6 +714,7 @@ function clearView() {
 	previewRequest++;
 	staticRequest++;
 	preview.value = "";
+	previewToken.value = "";
 	previewState.value = "idle";
 	analysis.value = { diagnostics: [], completions: [] };
 	staticAnalysis.value = { diagnostics: [], completions: [] };
@@ -716,6 +788,7 @@ async function activate(result: Awaited<ReturnType<typeof props.rpc.request.open
 	if (result.document.kind === "amx") {
 		const cached = lastGoodPreviews.get(result.document.path);
 		preview.value = cached?.html ?? "";
+		previewToken.value = cached?.previewToken ?? "";
 		const identity = workbench.value.requestIdentity;
 		const matches = !!cached && !cached.stale && cached.revision === result.document.revision
 			&& cached.projectGeneration === workbench.value.generation
@@ -725,6 +798,7 @@ async function activate(result: Awaited<ReturnType<typeof props.rpc.request.open
 		schedulePreview();
 	} else {
 		preview.value = "";
+		previewToken.value = "";
 		if (["csv", "json", "external-data"].includes(result.document.kind)) void validateMappedData(result.document.path, result.document.revision);
 	}
 	void syncInputConfiguration();
@@ -960,9 +1034,16 @@ async function refresh() {
 		return;
 	}
 	if (rendered.status === "succeeded" && rendered.result?.kind === "preview") {
+		if (!rendered.result.previewToken) {
+			previewState.value = preview.value ? "stale" : "failure";
+			status.value = "Preview did not return a valid navigation identity.";
+			pending.value = false;
+			return;
+		}
 		preview.value = rendered.result.html ?? "";
+		previewToken.value = rendered.result.previewToken;
 		lastGoodPreviews.set(document.value.path, {
-			html: preview.value, revision: document.value.revision,
+			html: preview.value, previewToken: previewToken.value, revision: document.value.revision,
 			projectGeneration: workbench.value.generation, settingsRevision: workbench.value.inputSettingsRevision, stale: false
 		});
 		while (lastGoodPreviews.size > 10) lastGoodPreviews.delete(lastGoodPreviews.keys().next().value!);
@@ -1205,7 +1286,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 					<button v-for="(diagnostic, index) in dataEditorContexts.get(document.path)?.diagnostics" :key="`${diagnostic.code}-${index}`" type="button" class="data-inspector-diagnostic" :disabled="!diagnostic.dataLine" @click="navigateDataDiagnostic(document.path, diagnostic)">{{ diagnostic.code }} · {{ diagnostic.message }}<small v-if="diagnostic.dataPath || diagnostic.dataLine">{{ diagnostic.dataPath }}<template v-if="diagnostic.dataLine"> ({{ diagnostic.dataLine }}:{{ diagnostic.dataColumn ?? 1 }})</template></small></button>
 				</section>
 				<template v-else>
-					<iframe v-if="document?.kind === 'amx'" :srcdoc="preview" sandbox="allow-scripts" title="OpenAMX live HTML preview"></iframe>
+					<iframe v-if="document?.kind === 'amx'" :key="previewToken" ref="previewFrame" :srcdoc="preview" sandbox="allow-scripts" title="OpenAMX live HTML preview" @load="bindPreviewFrame"></iframe>
 					<div v-else class="file-kind-shell"><strong>Context</strong><p>Select an AMX document to show its live report preview.</p></div>
 				</template>
 			</section>

@@ -8,15 +8,25 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 test.use({ hasTouch: true });
 
 const repositoryRoot = resolve(import.meta.dirname, "../../..");
-const hostileNarrative = `[visible external link](https://openamx-sprint062.invalid/link)\n\n[relative destination](../outside.html) [data HTML](data:text/html,%3Cscript%3Ealert(1)%3C/script%3E)\n\n<a href="javascript:alert(1)" target="_top" onclick="window.__authoredScript=1">raw link text</a>\n\n<meta http-equiv="refresh" content="0;url=https://openamx-sprint062.invalid/refresh">\n<script>window.__authoredScript=2</script>\n<style>@import url(https://openamx-sprint062.invalid/style.css)</style>\n<img src="https://openamx-sprint062.invalid/image.png" alt="remote image">\n<form action="https://openamx-sprint062.invalid/submit"><button>form text</button></form>\n<iframe src="https://openamx-sprint062.invalid/frame">frame text</iframe><object data="https://openamx-sprint062.invalid/object">object text</object><embed src="https://openamx-sprint062.invalid/embed">\n<svg><use href="https://openamx-sprint062.invalid/icon.svg#icon"></use></svg>`;
+const hostileNarrative = `![offline narrative image](./offline.png)\n\n[visible external link](https://openamx-sprint062.invalid/link)\n\n[local destination](./offline.png) [relative destination](../outside.html) [data HTML](data:text/html,%3Cscript%3Ealert(1)%3C/script%3E)\n\n<a href="javascript:alert(1)" target="_top" onclick="window.__authoredScript=1">raw link text</a>\n\n<meta http-equiv="refresh" content="0;url=https://openamx-sprint062.invalid/refresh">\n<script>window.__authoredScript=2</script>\n<style>@import url(https://openamx-sprint062.invalid/style.css)</style>\n<img src="https://openamx-sprint062.invalid/image.png" alt="remote image">\n<form action="https://openamx-sprint062.invalid/submit"><button>form text</button></form>\n<iframe src="https://openamx-sprint062.invalid/frame">frame text</iframe><object data="https://openamx-sprint062.invalid/object">object text</object><embed src="https://openamx-sprint062.invalid/embed">\n<svg><use href="https://openamx-sprint062.invalid/icon.svg#icon"></use></svg>`;
 
 function createRenderedFixture(directory: string): string {
 	const sourcePath = resolve(repositoryRoot, "examples/kitchen-sink.amx");
 	const outputPath = resolve(directory, "report.html");
+	const previewPath = resolve(directory, "preview.html");
+	const previewTokenPath = resolve(directory, "preview-token.txt");
+	const navigationPath = resolve(directory, "navigation-preview.html");
+	const navigationTokenPath = resolve(directory, "navigation-preview-token.txt");
 	const hostileChartText = "</script><img src=x onerror=window.__chartAttack=1>";
-	const code = `import { readFileSync, writeFileSync } from "node:fs"; import { loadEntryModule } from "./src/runtime/moduleLoader.ts"; import { prepareReport } from "./src/renderer/reportPreparation.ts"; import { renderPreparedHtml } from "./src/renderer/renderHtml.ts"; const source=readFileSync(${JSON.stringify(sourcePath)},"utf8").replace("Record bar chart",${JSON.stringify(hostileChartText)}).replace('series score as "Score"',${JSON.stringify(`series score as "${hostileChartText}"`)}); const loaded=await loadEntryModule(${JSON.stringify(sourcePath)},{entryText:source}); loaded.doc.nodes.push({type:"narrative",content:${JSON.stringify(hostileNarrative)}}); writeFileSync(${JSON.stringify(outputPath)},renderPreparedHtml(await prepareReport(loaded.doc,loaded.env,{file:${JSON.stringify(sourcePath)},projectRoot:${JSON.stringify(repositoryRoot)}})));`;
+	const code = `import { readFileSync, writeFileSync } from "node:fs"; import { resolve } from "node:path"; import { parseDocumentText } from "./src/parser/parseDocument.ts"; import { evaluateDocumentEnvironment } from "./src/runtime/evaluateDocument.ts"; import { loadEntryModule } from "./src/runtime/moduleLoader.ts"; import { prepareReport } from "./src/renderer/reportPreparation.ts"; import { renderPreparedHtml } from "./src/renderer/renderHtml.ts"; const source=readFileSync(${JSON.stringify(sourcePath)},"utf8").replace("Record bar chart",${JSON.stringify(hostileChartText)}).replace('series score as "Score"',${JSON.stringify(`series score as "${hostileChartText}"`)}); const loaded=await loadEntryModule(${JSON.stringify(sourcePath)},{entryText:source}); const preparedSourcePath=resolve(${JSON.stringify(directory)},"report.amx"); writeFileSync(resolve(${JSON.stringify(directory)},"offline.png"),Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=","base64")); loaded.doc.nodes.push({type:"narrative",content:${JSON.stringify(hostileNarrative)}}); const prepared=await prepareReport(loaded.doc,loaded.env,{file:preparedSourcePath,projectRoot:${JSON.stringify(directory)}}); writeFileSync(${JSON.stringify(outputPath)},renderPreparedHtml(prepared,{mode:"standalone",sourceDocumentPath:preparedSourcePath,projectRoot:${JSON.stringify(directory)},outputPath:${JSON.stringify(outputPath)}})); const preview=renderPreparedHtml(prepared,{mode:"preview"}); writeFileSync(${JSON.stringify(previewPath)},preview.html); writeFileSync(${JSON.stringify(previewTokenPath)},preview.previewToken); const navigationDocument=parseDocumentText(${JSON.stringify(`# Navigation-only preview
+
+[Safe external](https://generated-only.invalid/safe) [Local file](./offline.png) [Internal anchor](#anchor)
+
+![Offline image](./offline.png)
+
+## Anchor`)}); const navigationReport=await prepareReport(navigationDocument,evaluateDocumentEnvironment(navigationDocument),{file:preparedSourcePath,projectRoot:${JSON.stringify(directory)}}); const navigation=renderPreparedHtml(navigationReport,{mode:"preview"}); writeFileSync(${JSON.stringify(navigationPath)},navigation.html); writeFileSync(${JSON.stringify(navigationTokenPath)},navigation.previewToken);`;
 	execFileSync("bun", ["-e", code], { cwd: repositoryRoot, stdio: "pipe" });
-	return outputPath;
+	return { previewPath, previewTokenPath, navigationPath, navigationTokenPath };
 }
 
 async function outboundRequests(page: Page, action: () => Promise<void>): Promise<string[]> {
@@ -38,8 +48,13 @@ async function capture(page: Page, testInfo: TestInfo, name: string) {
 test("standalone and desktop preview render offline charts without authored navigation", async ({ page }, testInfo) => {
 	const directory = mkdtempSync(resolve(tmpdir(), "openamx-sprint062-"));
 	try {
-		const htmlPath = createRenderedFixture(directory);
+		const { previewPath, previewTokenPath, navigationPath, navigationTokenPath } = createRenderedFixture(directory);
+		const htmlPath = resolve(directory, "report.html");
 		const html = readFileSync(htmlPath, "utf8");
+		const previewHtml = readFileSync(previewPath, "utf8");
+		const previewToken = readFileSync(previewTokenPath, "utf8");
+		const navigationHtml = readFileSync(navigationPath, "utf8");
+		const navigationToken = readFileSync(navigationTokenPath, "utf8");
 		const browserErrors: string[] = [];
 		page.on("pageerror", error => browserErrors.push(error.message));
 		page.on("console", message => { if (message.type() === "error") browserErrors.push(message.text()); });
@@ -50,22 +65,20 @@ test("standalone and desktop preview render offline charts without authored navi
 			await expect(page.locator(".openamx-chart-plot canvas"), browserErrors.join("\n")).toHaveCount(10);
 		});
 		expect(attempted).toEqual([]);
+		await expect(page.locator("img.openamx-narrative-image")).toHaveCount(1);
+		expect(await page.locator("img.openamx-narrative-image").evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(1);
 		expect(await page.locator("[data-openamx-chart]").count()).toBe(10);
 		expect(await page.locator(".openamx-chart-data tbody tr").count()).toBeGreaterThan(100);
 		const scatterPayload = await page.locator('[data-chart-model]').evaluateAll(nodes => nodes.map(node => JSON.parse(node.textContent ?? "null")).find(model => model.kind === "scatter"));
 		expect(scatterPayload.option.dataZoom[0].xAxisIndex).toBe(0);
 		expect(scatterPayload.option.dataZoom[0].yAxisIndex).toBe(0);
-		expect(await page.locator("a[href]").count()).toBe(0);
+		expect(await page.locator('a[href^="https:"],a[href^="http:"]').count()).toBeGreaterThan(0);
+		expect(await page.locator('a[href^="javascript:"],a[href^="data:"],a[href^="file:"]').count()).toBe(0);
 		expect(await page.locator('meta[http-equiv="refresh"],script:not([nonce]):not([type="application/json"]),img[src^=http],form,svg use[href]').count()).toBe(0);
-		expect(html).not.toContain("data:text/html");
 		expect(html).not.toContain("../outside.html");
 		expect(await page.locator("iframe,object,embed").count()).toBe(0);
 		expect(await page.evaluate(() => (window as Window & { __authoredScript?: number }).__authoredScript)).toBeUndefined();
-		const activationAttempts = await outboundRequests(page, async () => {
-			await page.getByText("visible external link").click();
-			await page.keyboard.press("Enter");
-		});
-		expect(activationAttempts).toEqual([]);
+		expect(await page.getByText("visible external link").count()).toBe(1);
 		const hostileChart = page.locator("[data-openamx-chart]").first();
 		const chartPayload = JSON.parse((await hostileChart.locator("[data-chart-model]").textContent()) ?? "null");
 		expect(chartPayload.title).toContain("</script>");
@@ -142,12 +155,73 @@ test("standalone and desktop preview render offline charts without authored navi
 		const frame = page.locator('iframe[title="OpenAMX live HTML preview"]').last();
 		await expect(frame).toHaveAttribute("sandbox", "allow-scripts");
 		const previewAttempts = await outboundRequests(page, async () => {
-			await frame.evaluate((element, srcdoc) => { (element as HTMLIFrameElement).srcdoc = srcdoc; }, html);
+			await frame.evaluate((element, srcdoc) => { (element as HTMLIFrameElement).srcdoc = srcdoc; }, previewHtml);
 			await expect(page.frameLocator('iframe[title="OpenAMX live HTML preview"]').last().locator(".openamx-chart-data").first()).toBeVisible();
 		});
 		expect(previewAttempts).toEqual([]);
 		const previewFrame = page.frameLocator('iframe[title="OpenAMX live HTML preview"]').last();
-		await expect(previewFrame.locator("a[href]")).toHaveCount(0);
+		await expect(previewFrame.locator("a[data-openamx-target][href='#']")).toHaveCount(2);
+		await expect(previewFrame.locator('a[href^="https:"],a[href^="http:"],a[href^="file:"]')).toHaveCount(0);
+		await expect(previewFrame.locator("img.openamx-narrative-image")).toHaveCount(1);
+		expect(await previewFrame.locator("img.openamx-narrative-image").evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(1);
+		expect(previewHtml).not.toContain("openamx-sprint062.invalid/link");
+		expect(previewHtml).not.toContain("../outside.html");
+		expect(previewHtml).toMatch(/script-src 'nonce-[^']+'/);
+		const generatedPage = await page.context().newPage();
+		const generatedOutbound: string[] = [];
+		generatedPage.on("request", request => { if (!request.url().startsWith("data:")) generatedOutbound.push(request.url()); });
+		const navigationMessages: unknown[] = [];
+		await generatedPage.setContent('<iframe id="generated-preview" sandbox="allow-scripts"></iframe>');
+		await generatedPage.evaluate(({ srcdoc, token }) => {
+			const frame = document.querySelector<HTMLIFrameElement>("#generated-preview")!;
+			const channel = new MessageChannel();
+			(window as Window & { __previewNavigationMessages: unknown[] }).__previewNavigationMessages = [];
+			channel.port1.onmessage = event => (window as Window & { __previewNavigationMessages: unknown[] }).__previewNavigationMessages.push(event.data);
+			channel.port1.start();
+			frame.addEventListener("load", () => {
+				frame.contentWindow!.postMessage({ type: "openamx-preview-init", previewToken: token }, "*", [channel.port2]);
+			}, { once: true });
+			frame.srcdoc = srcdoc;
+		}, { srcdoc: navigationHtml, token: navigationToken });
+		const generatedFrame = generatedPage.frameLocator("#generated-preview");
+		expect(navigationHtml).toMatch(/script-src 'nonce-[^']+'/);
+		expect(navigationHtml).not.toContain("generated-only.invalid");
+		expect(navigationHtml).not.toContain("offline.png");
+		await expect(generatedFrame.locator("img.openamx-narrative-image")).toHaveCount(1);
+		expect(await generatedFrame.locator("img.openamx-narrative-image").evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(1);
+		await generatedFrame.getByRole("link", { name: "Safe external" }).evaluate(element => {
+			element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+		});
+		await generatedPage.evaluate(() => new Promise(resolve => setTimeout(resolve, 0)));
+		navigationMessages.push(...await generatedPage.evaluate(() => (window as Window & { __previewNavigationMessages: unknown[] }).__previewNavigationMessages));
+		expect(navigationMessages).toEqual([]);
+		await generatedFrame.getByRole("link", { name: "Safe external" }).click();
+		await expect.poll(() => generatedPage.evaluate(() => (window as Window & { __previewNavigationMessages: unknown[] }).__previewNavigationMessages.length)).toBe(1);
+		const generatedMessage = (await generatedPage.evaluate(() => (window as Window & { __previewNavigationMessages: unknown[] }).__previewNavigationMessages))[0];
+		expect(generatedMessage).toEqual({
+			version: 1, type: "navigate", previewToken: navigationToken, targetId: expect.stringMatching(/^[a-f0-9]{32}$/)
+		});
+		await generatedFrame.getByRole("link", { name: "Local file" }).click();
+		await expect.poll(() => generatedPage.evaluate(() => (window as Window & { __previewNavigationMessages: unknown[] }).__previewNavigationMessages.length)).toBe(2);
+		await generatedFrame.getByRole("link", { name: "Internal anchor" }).click();
+		await expect.poll(() => generatedPage.evaluate(() => (window as Window & { __previewNavigationMessages: unknown[] }).__previewNavigationMessages.length)).toBe(2);
+		await generatedPage.evaluate(() => {
+			const frame = document.querySelector<HTMLIFrameElement>("#generated-preview")!;
+			frame.contentWindow!.postMessage({
+				version: 1, type: "navigate", previewToken: "0".repeat(64),
+				targetId: "0".repeat(32), href: "https://attacker.invalid/"
+			}, "*");
+		});
+		await generatedFrame.locator("body").evaluate(() => {
+			window.parent.postMessage({
+				version: 1, type: "navigate", previewToken: "0".repeat(64),
+				targetId: "0".repeat(32), href: "https://attacker.invalid/"
+			}, "*");
+		});
+		await generatedPage.waitForTimeout(50);
+		expect(await generatedPage.evaluate(() => (window as Window & { __previewNavigationMessages: unknown[] }).__previewNavigationMessages)).toHaveLength(2);
+		expect(generatedOutbound).toEqual([]);
+		await generatedPage.close();
 		await expect(previewFrame.locator('meta[http-equiv="refresh"],form,svg use[href]')).toHaveCount(0);
 		await expect(previewFrame.locator("iframe,object,embed")).toHaveCount(0);
 		await expect(previewFrame.locator(".openamx-chart-plot canvas")).toHaveCount(10);
@@ -167,7 +241,7 @@ test("standalone and desktop preview render offline charts without authored navi
 				scriptedFrame.setAttribute("sandbox", "allow-scripts");
 				scriptedFrame.srcdoc = srcdoc;
 				document.body.append(scriptedFrame);
-			}, html);
+			}, previewHtml);
 			await expect(isolated.locator(".openamx-chart-plot canvas")).toHaveCount(10);
 			await isolated.getByText("visible external link").click();
 			const touchZoom = isolated.getByRole("button", { name: "Zoom in" }).first();

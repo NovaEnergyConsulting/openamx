@@ -1,5 +1,7 @@
 /// <reference path="../types/echarts-runtime.d.ts" />
 import { randomBytes } from 'node:crypto';
+import { existsSync, lstatSync, realpathSync } from 'node:fs';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import echartsBrowserRuntime from 'echarts/dist/echarts.min.js' with { type: 'text' };
 import { marked } from 'marked';
 import sanitizeHtml from 'sanitize-html';
@@ -13,6 +15,8 @@ import { Environment } from '../runtime/environment';
 import type { ViewDataValue, ViewEmission, TableViewEmission, ChartViewEmission } from '../runtime/environment';
 import { formatAmx } from '../formatter/formatAmx';
 import { createChartViewModel, type ChartViewModel } from './chartModel';
+import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeInline, type NarrativeLink } from './narrativeModel';
+import { hasSymlink, isContained } from './reportPaths';
 import type { PreparedReport } from './reportPreparation';
 
 const REPORT_MARKDOWN_POLICY: sanitizeHtml.IOptions = {
@@ -63,6 +67,36 @@ interface BrowserChartModel {
   emptyState?: ChartViewModel['emptyState'];
   dateTimePresentation?: ChartViewModel['dateTimePresentation'];
   zoomable: boolean;
+}
+
+export type PreviewNavigationTarget =
+  | { readonly kind: 'external'; readonly href: string }
+  | { readonly kind: 'local'; readonly path: string };
+
+export interface StandaloneHtmlOptions {
+  readonly mode?: 'standalone';
+  readonly sourceDocumentPath?: string;
+  readonly projectRoot?: string;
+  readonly outputPath?: string;
+}
+
+export interface PreviewHtmlOptions {
+  readonly mode: 'preview';
+}
+
+export interface RenderedPreviewHtml {
+  readonly html: string;
+  readonly previewToken: string;
+  readonly targets: Readonly<Record<string, PreviewNavigationTarget>>;
+}
+
+interface NarrativeHtmlContext {
+  readonly mode: 'standalone' | 'preview';
+  readonly sourceDocumentPath?: string;
+  readonly projectRoot?: string;
+  readonly outputPath?: string;
+  readonly previewToken?: string;
+  readonly targets: Record<string, PreviewNavigationTarget>;
 }
 
 /**
@@ -134,7 +168,19 @@ ${bodyHtml}</body>
 </html>`;
 }
 
-export function renderPreparedHtml(report: PreparedReport): string {
+export function renderPreparedHtml(report: PreparedReport, options?: StandaloneHtmlOptions): string;
+export function renderPreparedHtml(report: PreparedReport, options: PreviewHtmlOptions): RenderedPreviewHtml;
+export function renderPreparedHtml(report: PreparedReport, options: StandaloneHtmlOptions | PreviewHtmlOptions = {}): string | RenderedPreviewHtml {
+  const isPreview = options.mode === 'preview';
+  const previewToken = isPreview ? randomBytes(32).toString('hex') : undefined;
+  const context: NarrativeHtmlContext = {
+    mode: isPreview ? 'preview' : 'standalone',
+    ...(previewToken ? { previewToken } : {}),
+    ...(!isPreview && options.sourceDocumentPath ? { sourceDocumentPath: options.sourceDocumentPath } : {}),
+    ...(!isPreview && options.projectRoot ? { projectRoot: options.projectRoot } : {}),
+    ...(!isPreview && options.outputPath ? { outputPath: options.outputPath } : {}),
+    targets: {}
+  };
   const bodyFragments: string[] = [];
   const identity = report.identity;
   const metadata = [
@@ -148,25 +194,154 @@ export function renderPreparedHtml(report: PreparedReport): string {
     bodyFragments.push(`<header class="openamx-report-header"><div class="openamx-report-identity">${logo}<div class="openamx-report-meta">${metadata.map(value => `<div class="openamx-report-attr">${escapeHtml(value)}</div>`).join('')}</div></div></header>`);
   }
   for (const item of report.items) {
-    if (item.type === 'narrative') bodyFragments.push(renderSafeMarkdown(item.text));
+    if (item.type === 'narrative') bodyFragments.push(renderNarrativeBlocks(item.markdown, context));
     else if (item.type === 'source') bodyFragments.push(`<pre><code class="language-amx">${escapeHtml(item.text)}</code></pre>`);
     else bodyFragments.push(renderViewEmission(item.emission, identity));
   }
   if (identity.footer) bodyFragments.push(`<footer class="openamx-report-footer">${escapeHtml(identity.footer)}</footer>`);
   const hasViews = report.items.some(item => item.type === 'view');
-  const nonce = hasViews || identity.accent !== '#146C94' ? randomBytes(18).toString('base64') : '';
+  const hasNarrativeAssets = report.items.some(item => item.type === 'narrative' && hasHtmlAssets(item.markdown));
+  const nonce = hasViews || identity.accent !== '#146C94' || hasNarrativeAssets || isPreview ? randomBytes(18).toString('base64') : '';
   const accentStyle = safeAccentStyle(identity.accent, nonce);
   const viewAssets = hasViews ? renderViewAssets(nonce) : '';
-  return `<!doctype html>
+  const narrativeAssets = hasNarrativeAssets ? renderNarrativeAssets(nonce) : '';
+  const previewNavigation = previewToken ? renderPreviewNavigationBootstrap(nonce, previewToken) : '';
+  const html = `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
-  ${renderContentSecurityPolicy(nonce, hasViews)}
-  <title>${escapeHtml(report.title)}</title>${accentStyle ? `\n${accentStyle}` : ''}${viewAssets ? `\n${viewAssets}` : ''}
+  ${renderContentSecurityPolicy(nonce, hasViews, isPreview)}
+  <title>${escapeHtml(report.title)}</title>${accentStyle ? `\n${accentStyle}` : ''}${narrativeAssets ? `\n${narrativeAssets}` : ''}${viewAssets ? `\n${viewAssets}` : ''}${previewNavigation ? `\n${previewNavigation}` : ''}
 </head>
 <body>
 ${bodyFragments.join('')}</body>
 </html>`;
+  if (previewToken) return { html, previewToken, targets: context.targets };
+  return html;
+}
+
+function renderNarrativeBlocks(blocks: readonly NarrativeBlock[], context: NarrativeHtmlContext): string {
+  return blocks.map(block => {
+    switch (block.type) {
+      case 'heading':
+        return `<h${block.depth} id="${escapeHtml(block.id)}">${renderNarrativeInlines(block.children, context)}</h${block.depth}>`;
+      case 'paragraph':
+        return `<p>${renderNarrativeInlines(block.children, context)}</p>`;
+      case 'code':
+        return `<pre><code${block.language ? ` class="language-${escapeHtml(block.language)}"` : ''}>${escapeHtml(block.text)}</code></pre>`;
+      case 'list': {
+        const tag = block.ordered ? 'ol' : 'ul';
+        const start = block.ordered && block.start !== undefined && block.start !== 1 ? ` start="${block.start}"` : '';
+        return `<${tag}${start}>${block.items.map(item => `<li>${renderNarrativeBlocks(item.blocks, context)}</li>`).join('')}</${tag}>`;
+      }
+      case 'blockquote':
+        return `<blockquote>${renderNarrativeBlocks(block.blocks, context)}</blockquote>`;
+      case 'table':
+        return `<table class="openamx-narrative-table"><thead><tr>${block.header.map((cell, index) => `<th scope="col"${tableCellAlignment(block.align[index])}>${renderNarrativeInlines(cell, context)}</th>`).join('')}</tr></thead><tbody>${block.rows.map(row => `<tr>${row.map((cell, index) => `<td${tableCellAlignment(block.align[index])}>${renderNarrativeInlines(cell, context)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      case 'horizontalRule':
+        return '<hr>';
+      case 'pageBreak':
+        return '<div class="openamx-page-break" aria-hidden="true"></div>';
+    }
+  }).join('');
+}
+
+function tableCellAlignment(alignment: string | null | undefined): string {
+  return alignment === 'left' || alignment === 'center' || alignment === 'right' ? ` align="${alignment}"` : '';
+}
+
+function renderNarrativeInlines(inlines: readonly NarrativeInline[], context: NarrativeHtmlContext): string {
+  return inlines.map(inline => {
+    switch (inline.type) {
+      case 'text': return escapeHtml(inline.text);
+      case 'lineBreak': return '<br>';
+      case 'strong': return `<strong>${renderNarrativeInlines(inline.children, context)}</strong>`;
+      case 'emphasis': return `<em>${renderNarrativeInlines(inline.children, context)}</em>`;
+      case 'delete': return `<del>${renderNarrativeInlines(inline.children, context)}</del>`;
+      case 'inlineCode': return `<code>${escapeHtml(inline.text)}</code>`;
+      case 'image': return renderNarrativeImage(inline.image, inline.title);
+      case 'link': return renderNarrativeLink(inline.link, inline.children, context);
+    }
+  }).join('');
+}
+
+function renderNarrativeImage(image: NarrativeImage, title: string | undefined): string {
+  const dimensions = fitNarrativeImage(image, { maxWidth: 1024, maxHeight: 768 });
+  return `<img class="openamx-narrative-image" src="${escapeHtml(image.dataUri)}" alt="${escapeHtml(image.alt)}" width="${Math.round(dimensions.width)}" height="${Math.round(dimensions.height)}"${title === undefined ? '' : ` title="${escapeHtml(title)}"`}>`;
+}
+
+function renderNarrativeLink(link: NarrativeLink, children: readonly NarrativeInline[], context: NarrativeHtmlContext): string {
+  const label = renderNarrativeInlines(children, context);
+  const title = link.title === undefined ? '' : ` title="${escapeHtml(link.title)}"`;
+  if (link.type === 'internal') return `<a href="#${encodeURIComponent(link.targetId)}"${title}>${label}</a>`;
+  if (context.mode === 'preview') {
+    const targetId = addPreviewTarget(context, link);
+    return `<a href="#" data-openamx-target="${targetId}"${title}>${label}</a>`;
+  }
+  if (link.type === 'external') return `<a href="${escapeHtml(link.href)}" rel="noopener noreferrer"${title}>${label}</a>`;
+  return `<a href="${escapeHtml(standaloneLocalLinkUri(link, context))}"${title}>${label}</a>`;
+}
+
+function addPreviewTarget(context: NarrativeHtmlContext, link: Exclude<NarrativeLink, { type: 'internal' }>): string {
+  let targetId: string;
+  do targetId = randomBytes(16).toString('hex');
+  while (context.targets[targetId]);
+  context.targets[targetId] = link.type === 'external'
+    ? { kind: 'external', href: link.href }
+    : { kind: 'local', path: link.path };
+  return targetId;
+}
+
+function standaloneLocalLinkUri(
+  link: Extract<NarrativeLink, { type: 'local' }>,
+  context: NarrativeHtmlContext
+): string {
+  if (!context.sourceDocumentPath || !context.outputPath || link.sourceBase !== 'document-directory') {
+    throw new Error('Standalone HTML local links require source-document and final-output path context.');
+  }
+  const sourceDirectory = realpathSync(dirname(resolve(context.sourceDocumentPath)));
+  const sourceRoot = context.projectRoot ? realpathSync(context.projectRoot) : sourceDirectory;
+  if (sourceDirectory !== sourceRoot && !isContained(sourceRoot, sourceDirectory)) {
+    throw new Error('HTML source document is outside the permitted project root.');
+  }
+  const sourceTarget = resolve(sourceDirectory, ...link.path.split('/'));
+  if (!isContained(sourceRoot, sourceTarget) || hasSymlink(sourceRoot, sourceTarget)
+    || !existsSync(sourceTarget) || !lstatSync(sourceTarget).isFile()) {
+    throw new Error('HTML local link target is no longer a contained regular file.');
+  }
+  const canonicalTarget = realpathSync(sourceTarget);
+  if (!isContained(sourceRoot, canonicalTarget)) throw new Error('HTML local link target is outside the permitted project root.');
+  const outputDirectory = realpathSync(dirname(resolve(context.outputPath)));
+  const relativePath = relative(outputDirectory, canonicalTarget);
+  if (!relativePath || isAbsolute(relativePath)) throw new Error('HTML local link target cannot be represented relative to the final HTML destination.');
+  const encodedPath = relativePath.split(sep).map(segment => encodeURIComponent(segment)).join('/');
+  return `${encodedPath}${link.query === undefined ? '' : `?${link.query}`}${link.fragment === undefined ? '' : `#${link.fragment}`}`;
+}
+
+function hasHtmlAssets(blocks: readonly NarrativeBlock[]): boolean {
+  return blocks.some(block => {
+    if (block.type === 'pageBreak' || block.type === 'table') return true;
+    if (block.type === 'blockquote') return hasHtmlAssets(block.blocks);
+    if (block.type === 'list') return block.items.some(item => hasHtmlAssets(item.blocks));
+    return block.type === 'paragraph' || block.type === 'heading'
+      ? hasInlineHtmlAssets(block.children)
+      : false;
+  });
+}
+
+function hasInlineHtmlAssets(inlines: readonly NarrativeInline[]): boolean {
+  return inlines.some(inline => inline.type === 'image'
+    || (inline.type === 'link' || inline.type === 'strong' || inline.type === 'emphasis' || inline.type === 'delete')
+      && hasInlineHtmlAssets(inline.children));
+}
+
+function renderNarrativeAssets(nonce: string): string {
+  return `<style nonce="${nonce}">.openamx-narrative-image{display:block;max-width:100%;height:auto}.openamx-narrative-table{border-collapse:collapse;width:100%;margin:1rem 0}.openamx-narrative-table th,.openamx-narrative-table td{border:1px solid #a8b3bd;padding:.4rem;text-align:left}.openamx-page-break{break-before:page;page-break-before:always}@media screen{.openamx-page-break{border-top:1px dashed #a8b3bd;margin:1.5rem 0}}</style>`;
+}
+
+function renderPreviewNavigationBootstrap(nonce: string, previewToken: string): string {
+  const token = JSON.stringify(previewToken);
+  return `<script nonce="${nonce}">(()=>{const token=${token};let port;window.addEventListener("message",event=>{const data=event.data;if(event.source!==parent||!data||data.type!=="openamx-preview-init"||data.previewToken!==token||event.ports.length!==1)return;port=event.ports[0];port.start()},{once:true});document.addEventListener("click",event=>{const source=event.target;if(!(source instanceof Element))return;const link=source.closest("a[data-openamx-target]");if(!link)return;event.preventDefault();if(!event.isTrusted||!navigator.userActivation?.isActive||!port)return;const targetId=link.getAttribute("data-openamx-target");if(!targetId)return;port.postMessage({version:1,type:"navigate",previewToken:token,targetId})},true)})();</script>`;
 }
 
 function renderViewEmission(emission: ViewEmission, identity: Pick<ResolvedReportIdentity, 'accent'>): string {
@@ -304,8 +479,8 @@ function safeJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
 }
 
-function renderContentSecurityPolicy(nonce: string, hasViews: boolean): string {
-  const scripts = hasViews ? `'nonce-${nonce}'` : "'none'";
+function renderContentSecurityPolicy(nonce: string, hasViews: boolean, hasPreviewNavigation = false): string {
+  const scripts = hasViews || hasPreviewNavigation ? `'nonce-${nonce}'` : "'none'";
   const styles = hasViews || nonce ? `'nonce-${nonce}'` : "'none'";
   const styleAttributes = hasViews ? "; style-src-attr 'unsafe-inline'" : '';
   return `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${scripts}; style-src ${styles}${styleAttributes}; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; media-src 'none'">`;

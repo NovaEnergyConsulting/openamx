@@ -21,7 +21,8 @@ import { renderHtml, renderPreparedHtml } from "../src/renderer/renderHtml";
 import { OpenAmxDocument } from "../src/ast/types";
 import { AmxError } from "../src/diagnostics/errors";
 import { parseDocumentText } from "../src/parser/parseDocument";
-import type { PreparedReport } from "../src/renderer/reportPreparation";
+import { evaluateDocumentEnvironment } from "../src/runtime/evaluateDocument";
+import { prepareReport } from "../src/renderer/reportPreparation";
 
 function makeDocFromBody(body: string, metadata: Record<string, unknown> = {}): OpenAmxDocument {
   const nodes: OpenAmxDocument["nodes"] = [];
@@ -242,32 +243,23 @@ Value is {{ x }}.`;
 });
 
 describe("renderer - report Markdown security policy", () => {
-  it("keeps visible Markdown text while stripping authored navigation, active markup, and resources", () => {
+  it("keeps legacy HTML sanitization and renders prepared raw HTML as inert literal text", async () => {
     const payload = `[visible link](https://outside.invalid/path "external")\n\n<a href="javascript:alert(1)" target="_top" onclick="alert(2)">raw link text</a>\n\n<meta http-equiv="refresh" content="0;url=https://outside.invalid/refresh">\n<script>alert('script text')</script>\n<style>@import url(https://outside.invalid/style.css)</style>\n<img src="https://outside.invalid/image.png" alt="remote image">\n<form action="https://outside.invalid/submit"><button>visible form text</button></form>\n<svg><use href="https://outside.invalid/sprite.svg#icon"></use></svg>`;
     const html = renderHtml(makeDocFromBody(payload));
-    const prepared = renderPreparedHtml({
-      title: "Security test",
-      identity: { accent: "#146C94", sourceVisible: true },
-      items: [{ type: "narrative", text: payload }]
-    } satisfies PreparedReport);
-
-    for (const output of [html, prepared]) {
-      expect(output).toContain("visible link");
-      expect(output).toContain("raw link text");
-      expect(output).toContain("visible form text");
-      expect(output).toContain("<span>visible link</span>");
-      expect(output).not.toContain("outside.invalid");
-      expect(output).not.toContain("javascript:");
-      expect(output).not.toContain('http-equiv="refresh"');
-      expect(output).not.toContain("<script");
-      expect(output).not.toContain("script text");
-      expect(output).not.toContain("@import");
-      expect(output).not.toContain("<img");
-      expect(output).not.toContain("onclick");
-      expect(output).not.toContain("target=");
-      expect(output).not.toContain("<form");
-      expect(output).not.toContain("<svg");
-    }
+    const document = makeDocFromBody(payload);
+    const prepared = renderPreparedHtml(await prepareReport(document, evaluateDocumentEnvironment(document)));
+    expect(html).toContain("visible link");
+    expect(html).toContain("<span>visible link</span>");
+    expect(html).not.toContain("outside.invalid");
+    expect(html).not.toContain("javascript:");
+    expect(html).not.toContain("<script");
+    expect(prepared).toContain('<a href="https://outside.invalid/path" rel="noopener noreferrer" title="external">visible link</a>');
+    expect(prepared).toContain("&lt;script&gt;alert('script text')&lt;/script&gt;");
+    expect(prepared).toContain("&lt;a href=&quot;javascript:alert(1)&quot;");
+    expect(prepared).not.toContain("<script");
+    expect(prepared).not.toContain("<img");
+    expect(prepared).not.toContain("<form");
+    expect(prepared).not.toContain("<svg");
   });
 });
 

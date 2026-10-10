@@ -83,6 +83,69 @@ test("trusted worker serializes only explicitly exported compatible data binding
 	}
 });
 
+test("trusted worker keeps preview targets opaque and standalone HTML links relative to the final output", async () => {
+	const root = mkdtempSync(join(tmpdir(), "openamx-worker-html-links-"));
+	const sourceDirectory = join(root, "source");
+	const outputDirectory = join(root, "output");
+	const entryPath = join(sourceDirectory, "report.amx");
+	const companionPath = join(sourceDirectory, "companion.pdf");
+	const source = "# Heading\n\n[Internal](#heading) [External](https://example.invalid/report) [Local](./companion.pdf)\n";
+	mkdirSync(sourceDirectory);
+	mkdirSync(outputDirectory);
+	writeFileSync(entryPath, source);
+	writeFileSync(companionPath, "local test target");
+	const run = async (jobId: number, operation: "preview" | "html", htmlDestinationPath?: string) => {
+		const worker = new Worker(new URL("./jobWorker.ts", import.meta.url).href);
+		try {
+			const wait = new Promise<WorkerJobMessage>((resolve, reject) => {
+				const timer = setTimeout(() => reject(new Error(`worker HTML job ${jobId} timed out`)), 5000);
+				const onMessage = (event: MessageEvent<WorkerJobMessage>) => {
+					if (event.data.kind !== "complete" && event.data.kind !== "failed") return;
+					clearTimeout(timer);
+					worker.removeEventListener("message", onMessage);
+					if (event.data.kind === "failed") reject(new Error(event.data.diagnostics[0]?.message ?? "Worker HTML operation failed."));
+					else resolve(event.data);
+				};
+				worker.addEventListener("error", event => reject(new Error(event.message)), { once: true });
+				worker.addEventListener("message", onMessage);
+			});
+			const request: WorkerJobRequest = {
+				kind: "start", jobId, operation, entryPath, entryText: source,
+				projectRoot: root, sourceOverlay: [], inputMappings: [], validation: "aggregate",
+				...(htmlDestinationPath ? { htmlDestinationPath } : {})
+			};
+			worker.postMessage(request);
+			return await wait;
+		} finally {
+			worker.terminate();
+		}
+	};
+	try {
+		const previewMessage = await run(51, "preview");
+		expect(previewMessage.kind).toBe("complete");
+		if (previewMessage.kind !== "complete" || previewMessage.result.kind !== "preview")
+			throw new Error("Expected a preview worker result.");
+		const preview = previewMessage.result;
+		const ids = [...preview.html.matchAll(/data-openamx-target="([a-f0-9]{32})"/g)].map(match => match[1]);
+		expect(ids).toHaveLength(2);
+		expect(preview.previewToken).toMatch(/^[a-f0-9]{64}$/);
+		expect(preview.targets[ids[0]]).toEqual({ kind: "external", href: "https://example.invalid/report" });
+		expect(preview.targets[ids[1]]).toEqual({ kind: "local", path: "companion.pdf" });
+		expect(preview.html).not.toContain("https://example.invalid/report");
+		expect(preview.html).not.toContain(companionPath);
+
+		const standaloneMessage = await run(52, "html", join(outputDirectory, "report.html"));
+		expect(standaloneMessage.kind).toBe("complete");
+		if (standaloneMessage.kind !== "complete" || standaloneMessage.result.kind !== "export")
+			throw new Error("Expected a standalone HTML worker result.");
+		expect(standaloneMessage.result.data).toContain('<a href="../source/companion.pdf">Local</a>');
+		expect(standaloneMessage.result.data).toContain('<a href="#heading">Internal</a>');
+		expect(standaloneMessage.result.data).toContain('href="https://example.invalid/report"');
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
 test("trusted worker rejects an invalid untyped program before returning a run result", async () => {
 	const root = mkdtempSync(join(tmpdir(), "openamx-job-invalid-"));
 	const entryPath = join(root, "report.amx");

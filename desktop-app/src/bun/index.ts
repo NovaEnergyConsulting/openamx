@@ -40,6 +40,19 @@ const service = createDesktopService(undefined, {
 		});
 		return response === 0;
 	},
+	async confirmPreviewNavigation(target) {
+		const external = target.kind === "external";
+		const destination = external ? target.href : target.path;
+		const { response } = await Utils.showMessageBox({
+			type: "question",
+			title: external ? "Open external link?" : "Open local file?",
+			message: external ? "The preview is requesting to open this web address:" : "The preview is requesting to open this local file:",
+			detail: destination,
+			buttons: ["Open", "Cancel"], defaultId: 1, cancelId: 1
+		});
+		return response === 0;
+	},
+	openExternal(url) { return Utils.openExternal(url); },
 	openPath(path) { return Utils.openPath(path); },
 	revealPath(path) { Utils.showItemInFolder(path); return true; }
 }, join(homedir(), ".config", "openamx", "desktop-session.json"));

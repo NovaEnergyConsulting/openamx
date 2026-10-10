@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import sharp from 'sharp';
 import JSZip from 'jszip';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { loadEntryModule } from '../src/runtime/moduleLoader';
@@ -25,6 +26,75 @@ afterEach(async () => {
 });
 
 describe('prepared PDF and DOCX presentation', () => {
+  it('renders shared narrative nodes with final-output-relative standalone links and opaque preview targets', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'openamx-html-alignment-'));
+    directories.push(root);
+    const sourceDirectory = join(root, 'source');
+    const outputDirectory = join(root, 'output');
+    const companionDirectory = join(sourceDirectory, 'companions');
+    await mkdir(companionDirectory, { recursive: true });
+    await mkdir(outputDirectory);
+    await writeFile(join(companionDirectory, 'asset one.txt'), 'offline companion');
+    const image = await sharp({ create: { width: 1200, height: 600, channels: 3, background: '#336699' } }).png().toBuffer();
+    await writeFile(join(sourceDirectory, 'wide.png'), image);
+    const input = join(sourceDirectory, 'report.amx');
+    await writeFile(input, `# Heading
+
+Soft
+line with **nested _emphasis_** and \`code\`.
+
+[Internal](#heading) [External](https://example.invalid/report)
+[Companion](./companions/asset%20one.txt?download=1#section)
+
+![A wide test image](./wide.png "Image title")
+
+| Name | Value |
+| :--- | ---: |
+| First | **one** |
+
+<!-- page-break -->
+
+<script>inert()</script>`);
+    const loaded = await loadEntryModule(input);
+    const prepared = await prepareReport(loaded.doc, loaded.env, { file: input, projectRoot: root });
+    const standalone = renderPreparedHtml(prepared, {
+      mode: 'standalone',
+      sourceDocumentPath: input,
+      projectRoot: root,
+      outputPath: join(outputDirectory, 'final.html')
+    });
+    expect(standalone).toContain('<h1 id="heading">Heading</h1>');
+    expect(standalone).toContain('Soft<br>line with <strong>nested <em>emphasis</em></strong> and <code>code</code>.');
+    expect(standalone).toContain('<a href="#heading">Internal</a>');
+    expect(standalone).toContain('<a href="https://example.invalid/report" rel="noopener noreferrer">External</a>');
+    expect(standalone).toContain('<a href="../source/companions/asset%20one.txt?download=1#section">Companion</a>');
+    expect(standalone).toContain('alt="A wide test image" width="1024" height="512"');
+    expect(standalone).toContain('data:image/png;base64,');
+    expect(standalone).toContain('<table class="openamx-narrative-table">');
+    expect(standalone).toContain('<th scope="col" align="left">Name</th>');
+    expect(standalone).toContain('<th scope="col" align="right">Value</th>');
+    expect(standalone).toContain('class="openamx-page-break"');
+    expect(standalone).toContain('&lt;script&gt;inert()&lt;/script&gt;');
+    expect(standalone).not.toContain(root);
+
+    const preview = renderPreparedHtml(prepared, { mode: 'preview' });
+    const ids = [...preview.html.matchAll(/data-openamx-target="([a-f0-9]{32})"/g)].map(match => match[1]);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    expect(preview.previewToken).toMatch(/^[a-f0-9]{64}$/);
+    expect(preview.targets[ids[0]]).toEqual({ kind: 'external', href: 'https://example.invalid/report' });
+    expect(preview.targets[ids[1]]).toEqual({ kind: 'local', path: 'companions/asset one.txt' });
+    expect(preview.html).toContain('<a href="#heading">Internal</a>');
+    expect(preview.html).not.toContain('https://example.invalid/report');
+    expect(preview.html).not.toContain('asset%20one.txt');
+    expect(preview.html).not.toContain(root);
+    expect(preview.html).toContain("connect-src 'none'");
+    expect(preview.html).not.toContain('allow-same-origin');
+    expect(standalone).toContain("script-src 'none'");
+    expect(preview.html).toMatch(/script-src 'nonce-[^']+'/);
+    expect(preview.html).toContain('type:"navigate"');
+  });
+
   it('uses the same safe identity and ordered source decision in both formats', async () => {
     const root = await mkdtemp(join(tmpdir(), 'openamx-report-presentation-'));
     directories.push(root);

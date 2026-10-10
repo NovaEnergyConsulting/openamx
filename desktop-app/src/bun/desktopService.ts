@@ -19,12 +19,14 @@ import { prepareDocxReport, serializeDocxReport } from "../../../src/renderer/re
 import { prepareDocxDestination, writeDocxAtomically } from "../../../src/runtime/docxDestination";
 import { prepareReport } from "../../../src/renderer/reportPreparation";
 import { effectiveReportAccent, validateReportSettings } from "../../../src/renderer/reportPreparation";
+import { hasSymlink, isContained } from "../../../src/renderer/reportPaths";
 import { parseFrontMatter } from "../../../src/parser/parseFrontMatter";
 import { readConfiguration, readConfigurationRevision, updateConfiguration } from "./configuration";
 import { updateReportFrontmatter } from "./desktopSettings";
 	import { resolveDesktopInputs, validateDesktopDestination, validateDesktopMappings, writeDesktopData, writeDesktopHtml } from "./desktopWorkflow";
 import { desktopWorkerUrl } from "./workerEntrypoint";
 import { createPingResponse, type ActiveDocumentRequestIdentity, type DesktopJobIdentity, type DesktopJobOperation, type DesktopJobResult, type DesktopJobSnapshot, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type DocumentKind, type OpenDocument, type ProjectFile, type ProjectFileKind, type RecoveryItem, type RunSummary, type TextAnalysis, type TextDiagnostic, type WorkbenchState, type RecentProject, type ReportSettingKey, type ReportSettingsSnapshot, type ReportSettingsValues, type TransitionAction } from "../shared/rpc";
+import type { PreviewNavigationTarget } from "../../../src/renderer/renderHtml";
 import type { WorkerJobMessage, WorkerJobRequest, WorkerJobResult } from "./jobProtocol";
 
 const MAX_TEXT = 2_000_000;
@@ -34,6 +36,7 @@ const MAX_FILES = 5000;
 const MAX_FOLDERS = 5000;
 const IGNORED = new Set(["node_modules", "build", "dist", "artifacts", "generated", "out"]);
 const REPORT_SETTING_KEYS: ReportSettingKey[] = ["organization", "logo", "logoAlt", "accent", "author", "status", "classification", "footer", "sourceVisible"];
+const PREVIEW_LOCAL_EXTENSIONS = new Set([".pdf", ".png", ".jpg", ".jpeg", ".txt", ".csv", ".json"]);
 
 function hash(text: string): string {
 	return createHash("sha256").update(text).digest("hex");
@@ -133,6 +136,64 @@ function allowedFile(root: string, file: string): boolean {
 	return validProjectFile(file);
 }
 
+export function resolvePreviewNavigationTarget(
+	target: PreviewNavigationTarget,
+	projectRoot: string,
+	documentPath: string
+): { kind: "external"; href: string } | { kind: "local"; path: string } {
+	if (target.kind === "external") {
+		if (typeof target.href !== "string" || target.href.length > 8192) throw new Error("Preview link target is invalid.");
+		const url = new URL(target.href);
+		if ((url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password) {
+			throw new Error("Only credential-free HTTP and HTTPS preview links can be opened.");
+		}
+		return { kind: "external", href: url.href };
+	}
+	if (target.kind !== "local" || typeof target.path !== "string" || !target.path || target.path.length > 4096) {
+		throw new Error("Preview local-file target is invalid.");
+	}
+	// Shared narrative preparation has already decoded the relative URI path.
+	const path = target.path;
+	if (path.startsWith("/") || path.includes("\\") || /^[A-Za-z]:/.test(path) || /[\u0000-\u001f\u007f]/u.test(path)) {
+		throw new Error("Preview local-file target must be relative to its source document.");
+	}
+	const root = realpathSync(projectRoot);
+	const sourceDirectory = realpathSync(dirname(resolve(documentPath)));
+	if (sourceDirectory !== root && !isContained(root, sourceDirectory)) throw new Error("Preview source document is outside the project root.");
+	const segments = path.split("/");
+	if (segments.some(segment => segment === "" || segment === ".")) throw new Error("Preview local-file path contains an invalid segment.");
+	const candidate = resolve(sourceDirectory, ...segments);
+	if (!isContained(root, candidate) || hasSymlink(root, candidate) || !existsSync(candidate) || !lstatSync(candidate).isFile()) {
+		throw new Error("Preview local-file target is missing, linked, non-regular, or outside the project.");
+	}
+	const canonical = realpathSync(candidate);
+	if (!isContained(root, canonical) || !PREVIEW_LOCAL_EXTENSIONS.has(extname(canonical).toLowerCase())) {
+		throw new Error("Preview local-file target is outside the project or has an unsupported file type.");
+	}
+	return { kind: "local", path: canonical };
+}
+
+function isPreviewTargetMap(value: unknown): value is Readonly<Record<string, PreviewNavigationTarget>> {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+	return Object.entries(value).every(([targetId, target]) => {
+		if (!/^[a-f0-9]{32}$/.test(targetId) || !target || typeof target !== "object" || Array.isArray(target)) return false;
+		const item = target as Record<string, unknown>;
+		const fields = Object.keys(item).sort().join(",");
+		if (item.kind === "external") {
+			if (fields !== "href,kind" || typeof item.href !== "string" || item.href.length > 8192) return false;
+			try {
+				const url = new URL(item.href);
+				return (url.protocol === "http:" || url.protocol === "https:") && !url.username && !url.password;
+			} catch { return false; }
+		}
+		if (item.kind !== "local" || fields !== "kind,path" || typeof item.path !== "string"
+			|| !item.path || item.path.length > 4096 || item.path.startsWith("/")
+			|| item.path.includes("\\") || /^[A-Za-z]:/.test(item.path)
+			|| /[\u0000-\u001f\u007f]/u.test(item.path)) return false;
+		return true;
+	});
+}
+
 function projectError(message: string): DesktopRPCError {
 	return { code: "DESKTOP_PROJECT", message };
 }
@@ -210,6 +271,8 @@ interface ActiveJob extends DesktopJobSnapshot {
 	destinationSelected?: boolean;
 	destinationSelectionId?: string;
 	destinationSnapshot?: DestinationSnapshot;
+	previewTargets?: Map<string, PreviewNavigationTarget>;
+	previewToken?: string;
 	workerResultReceived: boolean;
 }
 
@@ -221,6 +284,8 @@ export interface DesktopPicker {
 	choose(options: { directory: boolean; extension?: string; fileName?: string; root?: string }): Promise<string | undefined>;
 	confirmTransition?(operation: "project" | "quit"): Promise<TransitionAction>;
 	confirmOverwrite?(fileName: string): boolean | Promise<boolean>;
+	confirmPreviewNavigation?(target: { kind: "external"; href: string } | { kind: "local"; path: string }): boolean | Promise<boolean>;
+	openExternal?(url: string): boolean | Promise<boolean>;
 	openPath?(path: string): boolean | Promise<boolean>;
 	revealPath?(path: string): boolean | Promise<boolean>;
 }
@@ -241,6 +306,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 	const autosaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	let nextJobId = 0;
 	let latestJobId = 0;
+	let latestPreviewJobId: number | undefined;
 	const jobs = new Map<number, ActiveJob>();
 	const exportSelections = new Map<string, ExportSelection>();
 	const exportedOutputs = new Map<string, { path: string; root: string; fileName: string }>();
@@ -438,17 +504,30 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		};
 	}
 
+	function clearPreviewTargets(job: ActiveJob): void {
+		job.previewTargets = undefined;
+		job.previewToken = undefined;
+		if (latestPreviewJobId === job.identity.jobId) latestPreviewJobId = undefined;
+	}
+
+	function clearAllPreviewTargets(): void {
+		for (const job of jobs.values()) clearPreviewTargets(job);
+		latestPreviewJobId = undefined;
+	}
+
 	function terminateJob(job: ActiveJob, status: "cancelled" | "superseded"): void {
 		if (job.status !== "running") return;
 		job.status = status;
 		job.stage = undefined;
 		job.result = undefined;
+		clearPreviewTargets(job);
 		if (job.worker) void job.worker.terminate();
 	}
 
 	function invalidateStaleJobs(): void {
 		for (const job of jobs.values()) {
 			if (job.status === "running" && !jobIsCurrent(job)) terminateJob(job, "superseded");
+			else if (job.previewTargets && !jobIsCurrent(job)) clearPreviewTargets(job);
 		}
 	}
 
@@ -456,6 +535,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		if (job.status !== "running" && job.status !== "committing") return;
 		job.status = "failed";
 		job.stage = undefined;
+		clearPreviewTargets(job);
 		job.diagnostics = diagnostics(error, job.diagnosticPath, job.privatePaths);
 	}
 
@@ -544,7 +624,14 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			return;
 		}
 		if (message.result.kind === "preview") {
-			job.result = { kind: "preview", html: message.result.html };
+			if (!/^[a-f0-9]{64}$/.test(message.result.previewToken) || !isPreviewTargetMap(message.result.targets)) {
+				failJob(job, new Error("Preview worker returned an invalid navigation target map."));
+				return;
+			}
+			job.previewToken = message.result.previewToken;
+			job.previewTargets = new Map(Object.entries(message.result.targets));
+			latestPreviewJobId = job.identity.jobId;
+			job.result = { kind: "preview", html: message.result.html, previewToken: message.result.previewToken };
 			job.diagnostics = message.result.diagnostics;
 			job.status = "succeeded";
 			job.stage = undefined;
@@ -611,6 +698,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			const document = activeDocument;
 			if (!identityMatchesCurrent(identity)) return errorResult({ code: "DESKTOP_STALE", message: "The active document or settings changed before the job started." });
 			if (!["run", "preview", "html", "pdf", "docx", "export-data", "discover-outputs", "validate-data"].includes(operation)) throw new Error("Unsupported desktop job operation.");
+			if (operation === "preview") clearAllPreviewTargets();
 			if (operation === "validate-data") {
 				if (!jobInputInspection || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(jobInputInspection.name)
 					|| (jobInputInspection.format !== "json" && jobInputInspection.format !== "csv")
@@ -669,6 +757,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				inputMappings: resolved.mappings, validation: activeValidation,
 				...(operation === "pdf" ? { pdfDestinationPath: job.destination } : {}),
 				...(operation === "docx" ? { docxDestinationPath: job.destination } : {}),
+				...(operation === "html" ? { htmlDestinationPath: job.destination } : {}),
 				inputInspection: jobInputInspection, dataOutput
 			};
 			worker.postMessage(request);
@@ -1439,6 +1528,64 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				if (selectionId) return errorResult<{ job: DesktopJobSnapshot }>(projectError("A native destination is valid only for an export job."));
 				return beginJob(operation, identity, undefined, inputInspection, dataOutput);
 			},
+			async openPreviewTarget(params: { targetId: string; previewToken: string; identity: ActiveDocumentRequestIdentity }) {
+				try {
+					if (!params || typeof params !== "object" || Array.isArray(params)
+						|| Object.keys(params).sort().join(",") !== "identity,previewToken,targetId") {
+						throw new Error("Preview navigation request is malformed.");
+					}
+					const { targetId, previewToken, identity } = params;
+					if (!/^[a-f0-9]{32}$/.test(targetId) || !/^[a-f0-9]{64}$/.test(previewToken)
+						|| !identity || typeof identity !== "object" || Array.isArray(identity)
+						|| Object.keys(identity).sort().join(",") !== "canonicalActiveUri,documentRevision,inputSettingsRevision,projectGeneration"
+						|| typeof identity.canonicalActiveUri !== "string") {
+						throw new Error("Preview navigation request is malformed.");
+					}
+					const job = latestPreviewJobId === undefined ? undefined : jobs.get(latestPreviewJobId);
+					if (!job || job.operation !== "preview" || job.status !== "succeeded"
+						|| job.previewToken !== previewToken || !job.previewTargets
+						|| !identityMatchesCurrent(identity) || !sameRequestIdentity(identity, job.identity) || !jobIsCurrent(job)) {
+						if (job?.previewTargets && !jobIsCurrent(job)) clearPreviewTargets(job);
+						throw new Error("Preview navigation request is stale.");
+					}
+					const mappedTarget = job.previewTargets.get(targetId);
+					if (!mappedTarget) throw new Error("Preview navigation target is unknown.");
+					const target = resolvePreviewNavigationTarget(mappedTarget, job.projectRoot, job.documentPath);
+					if (!picker?.confirmPreviewNavigation) throw new Error("Trusted preview navigation confirmation is unavailable.");
+					const approved = await picker.confirmPreviewNavigation(target);
+					if (!approved) return { ok: true, opened: false, cancelled: true };
+					if (latestPreviewJobId !== job.identity.jobId || job.status !== "succeeded"
+						|| job.previewToken !== previewToken || job.previewTargets?.get(targetId) !== mappedTarget
+						|| !identityMatchesCurrent(identity) || !jobIsCurrent(job)) {
+						if (job.previewTargets && !jobIsCurrent(job)) clearPreviewTargets(job);
+						throw new Error("Preview navigation became stale before the confirmed action.");
+					}
+					const revalidated = resolvePreviewNavigationTarget(mappedTarget, job.projectRoot, job.documentPath);
+					const opened = revalidated.kind === "external"
+						? await picker.openExternal?.(revalidated.href)
+						: await picker.openPath?.(revalidated.path);
+					if (opened !== true) throw new Error("The confirmed preview target could not be opened.");
+					return { ok: true, opened: true };
+				} catch (error) {
+					return errorResult<{ opened: boolean; cancelled?: boolean }>({
+						code: "DESKTOP_PREVIEW_NAVIGATION",
+						message: error instanceof Error ? error.message.slice(0, 1000) : "Preview navigation was rejected."
+					});
+				}
+			},
+			async invalidatePreviewTargets(params: { previewToken: string; identity: ActiveDocumentRequestIdentity }) {
+				if (!params || typeof params !== "object" || Array.isArray(params)
+					|| Object.keys(params).sort().join(",") !== "identity,previewToken"
+					|| typeof params.previewToken !== "string"
+					|| !params.identity || typeof params.identity !== "object" || Array.isArray(params.identity)
+					|| Object.keys(params.identity).sort().join(",") !== "canonicalActiveUri,documentRevision,inputSettingsRevision,projectGeneration") {
+					return errorResult<{ invalidated: boolean }>({ code: "DESKTOP_PREVIEW_NAVIGATION", message: "Preview invalidation request is malformed." });
+				}
+				const job = latestPreviewJobId === undefined ? undefined : jobs.get(latestPreviewJobId);
+				if (job?.previewToken === params.previewToken && identityMatchesCurrent(params.identity)
+					&& sameRequestIdentity(params.identity, job.identity)) clearPreviewTargets(job);
+				return { ok: true, invalidated: true };
+			},
 			async getJob({ jobId }: { jobId: number }) {
 				if (!Number.isSafeInteger(jobId) || jobId < 1) return errorResult<{ job: DesktopJobSnapshot }>(projectError("Invalid job identifier."));
 				const job = jobs.get(jobId);
@@ -2060,7 +2207,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					const result = await runManagedJob("preview", inputMappings, validation);
 					if (!result.ok) return { ok: true, html: "", diagnostics: [{ code: result.error.code, message: result.error.message }] };
 					if (result.job.status === "succeeded" && result.job.result?.kind === "preview") {
-						return { ok: true, html: result.job.result.html ?? "", diagnostics: result.job.diagnostics };
+						return { ok: true, html: result.job.result.html ?? "", previewToken: result.job.result.previewToken, diagnostics: result.job.diagnostics };
 					}
 					return { ok: true, html: "", diagnostics: result.job.diagnostics.length ? result.job.diagnostics : [{ code: "DESKTOP_JOB", message: `Preview ${result.job.status}.` }] };
 				} catch (error) {

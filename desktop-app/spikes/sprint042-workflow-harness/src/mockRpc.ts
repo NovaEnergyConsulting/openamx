@@ -14,6 +14,9 @@ let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
 let previewCompletions = 0;
 let previewAutosavedAtCompletion: boolean[] = [];
 let previewStartedAt: number[] = [];
+let previewNavigationCalls: Array<{ targetId: string; previewToken: string }> = [];
+let windowsExplorerPathFixture = false;
+let lastOpenedPath = "";
 let inputSettingsKey = "[]";
 let nextJobId = 0;
 let selectedId = 0;
@@ -49,6 +52,7 @@ function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchStat
 	else if (operation === "preview") {
 		const previewSource = currentText;
 		const pending: DesktopJobSnapshot = { identity: jobIdentity, operation: "preview", status, cleanupPending: false, diagnostics, result };
+		const previewToken = jobIdentity.jobId.toString(16).padStart(64, "0");
 		jobs.set(jobIdentity.jobId, pending);
 		setTimeout(() => {
 			previewCompletions++;
@@ -60,7 +64,14 @@ function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchStat
 			} else {
 				const value = previewSource.match(/export let result: Number = (\d+)/)?.[1] ?? "unknown";
 				pending.status = "succeeded";
-				pending.result = { kind: "preview", html: `<!doctype html><html><body><h1>Current preview</h1><p>${value}</p></body></html>` };
+				const navigation = previewSource.includes("Preview navigation fixture")
+					? `<h2 id="inside">Inside</h2><a href="#" data-openamx-target="eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee">Open external link</a><a href="#inside">Internal anchor</a>`
+					: "";
+				const bootstrap = `<script nonce="fixture-nonce">(()=>{const token=${JSON.stringify(previewToken)};let port;window.addEventListener("message",event=>{const data=event.data;if(event.source!==parent||!data||data.type!=="openamx-preview-init"||data.previewToken!==token||event.ports.length!==1)return;port=event.ports[0];port.start()},{once:true});document.addEventListener("click",event=>{const source=event.target;if(!(source instanceof Element))return;const link=source.closest("a[data-openamx-target]");if(!link)return;event.preventDefault();if(!event.isTrusted||!navigator.userActivation?.isActive||!port)return;const targetId=link.getAttribute("data-openamx-target");if(!targetId)return;port.postMessage({version:1,type:"navigate",previewToken:token,targetId})},true)})();</script>`;
+				pending.result = {
+					kind: "preview", previewToken,
+					html: `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-fixture-nonce'; img-src data:; connect-src 'none'">${bootstrap}</head><body><h1>Current preview</h1><p>${value}</p>${navigation}</body></html>`
+				};
 			}
 		}, 250);
 		return pending;
@@ -77,13 +88,27 @@ const request = {
 	async pickCreateProject() { generation++; return { ok: true as const, cancelled: false, root: projectRoot }; },
 	async getWorkbench() { return { ok: true as const, state: state() }; },
 	async getProjectContext() { return { ok: true as const, root: projectRoot, state: state() }; },
-	async listProjectFiles() { return { ok: true as const, files: [{ path: `${projectRoot}/report.amx`, kind: "amx" as const }, { path: secondPath, kind: "amx" as const }], folders: [] }; },
+	async listProjectFiles() {
+		if (windowsExplorerPathFixture) {
+			return {
+				ok: true as const,
+				files: [
+					{ path: "report.amx", kind: "amx" as const },
+					{ path: "second.amx", kind: "amx" as const },
+					{ path: "libraries\\asset-management.amx", kind: "amx" as const }
+				],
+				folders: ["libraries"]
+			};
+		}
+		return { ok: true as const, files: [{ path: `${projectRoot}/report.amx`, kind: "amx" as const }, { path: secondPath, kind: "amx" as const }], folders: [] };
+	},
 	async getRecents() { return { ok: true as const, projects: [] }; },
 	async getRecovery() { return { ok: true as const, available: false, items: [] }; },
 	async setAutosave({ enabled, delayMs }: { enabled: boolean; delayMs: number }) { autosaveDelayMs = delayMs; return { ok: true as const, enabled, delayMs }; },
 	async readDocument() { return { ok: true as const, document: document() }; },
 	async openDocument({ path }: { path: string }) {
 		activePath = path;
+		lastOpenedPath = path;
 		if (activePath === secondPath && !currentText.includes("Second fixture")) currentText = "# Second fixture\n\n```amx\nexport let result: Number = 5\n```\n";
 		else if (activePath.endsWith("/report.amx") && !currentText.includes("Sprint 042 report")) currentText = "# Sprint 042 report\n\n```amx\nexport let result: Number = 3\n```\n";
 		return { ok: true as const, document: document() };
@@ -118,6 +143,14 @@ const request = {
 		jobs.set(jobId, job);
 		return { ok: true as const, job };
 	},
+	async openPreviewTarget({ targetId, previewToken }: { targetId: string; previewToken: string }) {
+		if (targetId !== "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" || !/^[a-f0-9]{64}$/.test(previewToken)) {
+			return { ok: false as const, error: { code: "PREVIEW", message: "Preview target rejected." } };
+		}
+		previewNavigationCalls.push({ targetId, previewToken });
+		return { ok: true as const, opened: true };
+	},
+	async invalidatePreviewTargets() { return { ok: true as const, invalidated: true }; },
 	async pickDestination({ extension }: { extension: string }) {
 		return { ok: true as const, cancelled: false, selectionId: `selection-${++selectedId}`, fileName: `report${extension}` };
 	},
@@ -128,6 +161,10 @@ const request = {
 
 export const rpc = { request } as unknown as DesktopRPCClient;
 
+export function setWindowsExplorerPathFixture(enabled: boolean) {
+	windowsExplorerPathFixture = enabled;
+}
+
 export function harnessSnapshot() {
-	return { currentText, savedText, previewCompletions, previewStartedAt: [...previewStartedAt], previewAutosavedAtCompletion: [...previewAutosavedAtCompletion] };
+	return { currentText, savedText, lastOpenedPath, previewCompletions, previewStartedAt: [...previewStartedAt], previewAutosavedAtCompletion: [...previewAutosavedAtCompletion], previewNavigationCalls: [...previewNavigationCalls] };
 }

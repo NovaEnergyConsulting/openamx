@@ -8,11 +8,14 @@ import "vxe-table/lib/style.css";
 import "vanilla-jsoneditor/themes/jse-theme-dark.css";
 import { createApp, defineComponent, h, onMounted, ref } from "vue";
 import HelpCenterDialog from "../../../src/mainview/components/HelpCenterDialog.vue";
-import { harnessSnapshot, rpc, failNextPreview } from "./mockRpc";
+import { harnessSnapshot, rpc, failNextPreview, setWindowsExplorerPathFixture } from "./mockRpc";
 
 VxeUIBase.setI18n("en-US", VxeEnglish);
 VxeUIBase.setLanguage("en-US");
-Object.assign(window, { __openamxHarnessSnapshot: harnessSnapshot });
+Object.assign(window, {
+	__openamxHarnessSnapshot: harnessSnapshot,
+	__setWindowsExplorerPathFixture: setWindowsExplorerPathFixture
+});
 
 const Harness = defineComponent({
 	setup() {

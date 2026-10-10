@@ -139,7 +139,12 @@ cli
         reservedOutputPath: outputMappings?.length ? outPath : undefined
       });
       const report = await prepareReport(doc, env, { file: input, projectRoot: options.projectRoot });
-      const html = renderPreparedHtml(report);
+      const html = renderPreparedHtml(report, {
+        mode: "standalone",
+        sourceDocumentPath: input,
+        projectRoot: options.projectRoot,
+        outputPath: resolve(outPath)
+      });
       const serialized = serializeOutputs(outputs, env);
       await writeOutputs([{ path: outPath, contents: html }, ...serialized]);
       console.log(`Rendered to ${outPath}`);

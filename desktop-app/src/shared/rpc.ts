@@ -51,6 +51,7 @@ export interface DesktopJobResult {
 	kind: "run" | "preview" | "export" | "data-validation" | "output-discovery";
 	summary?: RunSummary;
 	html?: string;
+	previewToken?: string;
 	path?: string;
 	bytes?: number;
 	valid?: boolean;
@@ -124,6 +125,8 @@ export interface DesktopRPCClient {
 		setDocumentReportSettings(params: { values: ReportSettingsValues; expectedRevision: number }): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }>>;
 		setAutosave(params: { enabled: boolean; delayMs: number }): Promise<DesktopRPCResponse<{ enabled: boolean; delayMs: number }>>;
 		startJob(params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; selectionId?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string }; dataOutput?: { name: string; format: "json" | "csv" } }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
+		openPreviewTarget(params: { targetId: string; previewToken: string; identity: ActiveDocumentRequestIdentity }): Promise<DesktopRPCResponse<{ opened: boolean; cancelled?: boolean }>>;
+		invalidatePreviewTargets(params: { previewToken: string; identity: ActiveDocumentRequestIdentity }): Promise<DesktopRPCResponse<{ invalidated: boolean }>>;
 		getJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		cancelJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		prepareTransition(params: { action: TransitionAction }): Promise<DesktopRPCResponse<{ ready: boolean; state: WorkbenchState }>>;
@@ -153,7 +156,7 @@ export interface DesktopRPCClient {
 		renameSymbol(params: { offset: number; newName: string; expectedRevision: number }): Promise<DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }>>;
 		getInputConfiguration(params?: { inputMappings?: string[] }): Promise<DesktopRPCResponse<{ configuration: InputConfiguration }>>;
 		runBuffer(params?: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ summary: RunSummary; diagnostics: TextAnalysis["diagnostics"] }>>;
-		previewBuffer(params?: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ html: string; diagnostics: TextAnalysis["diagnostics"] }>>;
+		previewBuffer(params?: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }): Promise<DesktopRPCResponse<{ html: string; previewToken?: string; diagnostics: TextAnalysis["diagnostics"] }>>;
 	};
 }
 
@@ -190,6 +193,8 @@ export type DesktopRPCSchema = {
 			setDocumentReportSettings: { params: { values: ReportSettingsValues; expectedRevision: number }; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }> };
 			setAutosave: { params: { enabled: boolean; delayMs: number }; response: DesktopRPCResponse<{ enabled: boolean; delayMs: number }> };
 			startJob: { params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; selectionId?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string }; dataOutput?: { name: string; format: "json" | "csv" } }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
+			openPreviewTarget: { params: { targetId: string; previewToken: string; identity: ActiveDocumentRequestIdentity }; response: DesktopRPCResponse<{ opened: boolean; cancelled?: boolean }> };
+			invalidatePreviewTargets: { params: { previewToken: string; identity: ActiveDocumentRequestIdentity }; response: DesktopRPCResponse<{ invalidated: boolean }> };
 			getJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			cancelJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			prepareTransition: { params: { action: TransitionAction }; response: DesktopRPCResponse<{ ready: boolean; state: WorkbenchState }> };
@@ -219,7 +224,7 @@ export type DesktopRPCSchema = {
 			renameSymbol: { params: { offset: number; newName: string; expectedRevision: number }; response: DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }> };
 			runBuffer: { params: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ summary: RunSummary; diagnostics: TextAnalysis["diagnostics"] }> };
 			getInputConfiguration: { params: { inputMappings?: string[] }; response: DesktopRPCResponse<{ configuration: InputConfiguration }> };
-			previewBuffer: { params: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ html: string; diagnostics: TextAnalysis["diagnostics"] }> };
+			previewBuffer: { params: { inputMappings?: string[]; validation?: "aggregate" | "fail-fast" }; response: DesktopRPCResponse<{ html: string; previewToken?: string; diagnostics: TextAnalysis["diagnostics"] }> };
 		};
 	}>;
 	webview: RPCSchema;

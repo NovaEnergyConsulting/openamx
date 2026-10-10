@@ -2,14 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'none'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; media-src 'none'">
   <title>Typed Asset Screening Analysis</title>
 </head>
 <body>
-<h1>Typed Asset Screening Analysis</h1>
-<p>This illustrative screening combines a nested Asset Management record from JSON
-with scalar screening rows from CSV. Its score is an example calculation, not a
-domain-standard risk formula.</p>
-<pre><code class="language-amx">import { Asset, FailureMode } from &quot;./libraries/asset-management.amx&quot;
+<h1 id="typed-asset-screening-analysis">Typed Asset Screening Analysis</h1><p>This illustrative screening combines a nested Asset Management record from JSON<br>with scalar screening rows from CSV. Its score is an example calculation, not a<br>domain-standard risk formula.</p><pre><code class="language-amx">import { Asset, FailureMode } from &quot;./libraries/asset-management.amx&quot;
 import { Screening } from &quot;./libraries/screening.amx&quot;
 
 input asset: Asset
@@ -38,7 +35,5 @@ export let summary: Summary = Summary { assetName = asset.name, reviewedAt = rev
 export let resultRows: ScreeningResult[] = for screening in screenings {
   return ScreeningResult { assetId = screening.assetId, score = screeningScore(screening.severity, screening.occurrence), note = screening.note }
 }
-</code></pre><p>Asset <strong>North Pump 01</strong> was reviewed at 2026-09-29T12:00:00Z.
-The illustrative screening total is 38.</p>
-</body>
+</code></pre><p>Asset <strong>North Pump 01</strong> was reviewed at 2026-09-29T12:00:00Z.<br>The illustrative screening total is 38.</p></body>
 </html>
