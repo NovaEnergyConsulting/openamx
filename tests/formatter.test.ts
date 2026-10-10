@@ -76,6 +76,80 @@ describe('formatAmx', () => {
     expect(formatAmx(formatAmx(source))).toBe(`${source}\n`);
   });
 
+  it('formats V0.12 declarations and braced conditionals without changing meaning', () => {
+    const source = [
+      'type Identifier {',
+      'id: String',
+      '}',
+      'type Named {',
+      'id: String',
+      'name: String',
+      '}',
+      'type Asset extends Identifier, Named {',
+      'override id: String',
+      'status: Number',
+      '}',
+      'enum Status = {',
+      'DRAFT,',
+      'ACTIVE',
+      '}',
+      'let asset: Asset = Asset { id = "A-1", name = "Pump", status = Status.ACTIVE }',
+      'let active: Boolean = Status.ACTIVE == 2',
+      'let selected: String = if active {',
+      ' return "yes"',
+      '} else {',
+      ' return "no"',
+      '}',
+      'let legacy: String = if true then "legacy" else "unchanged"',
+      'let adjusted: Number = 1',
+      'if active {',
+      ' let local: Number = 2',
+      ' adjusted += local',
+      '}'
+    ].join('\n');
+    const expected = [
+      'type Identifier {',
+      '  id: String',
+      '}',
+      'type Named {',
+      '  id: String',
+      '  name: String',
+      '}',
+      'type Asset extends Identifier, Named {',
+      '  override id: String',
+      '  status: Number',
+      '}',
+      'enum Status = {',
+      '  DRAFT,',
+      '  ACTIVE',
+      '}',
+      'let asset: Asset = Asset { id = "A-1", name = "Pump", status = Status.ACTIVE }',
+      'let active: Boolean = Status.ACTIVE == 2',
+      'let selected: String = if active {',
+      '  return "yes"',
+      '} else {',
+      '  return "no"',
+      '}',
+      'let legacy: String = if true then "legacy" else "unchanged"',
+      'let adjusted: Number = 1',
+      'if active {',
+      '  let local: Number = 2',
+      '  adjusted += local',
+      '}',
+      ''
+    ].join('\n');
+    const formatted = formatAmx(source);
+    const evaluate = (text: string) => evaluateDocument(parseDocumentText(`\`\`\`amx\n${text}\n\`\`\``));
+
+    expect(formatted).toBe(expected);
+    expect(formatAmx(formatted)).toBe(formatted);
+    expect(() => parseStatements(formatted)).not.toThrow();
+    expect(evaluate(formatted)).toEqual(evaluate(source));
+    expect(evaluate(formatted).selected).toBe('yes');
+    expect(evaluate(formatted).legacy).toBe('legacy');
+    expect(evaluate(formatted).adjusted).toBe(3);
+  });
+
   it('normalizes line endings, edge whitespace, and final newline', () => {
     expect(formatAmx('\r\n  let value = 1  \r\n\r\n  value += 2\r\n\r\n'))
       .toBe('let value = 1\n\nvalue += 2\n');

@@ -90,6 +90,7 @@ function at(items: Occurrence[], position: vscode.Position): Occurrence | undefi
 function symbolKind(statement: StatementNode): vscode.SymbolKind {
   switch (statement.type) {
     case 'typeDeclaration': return vscode.SymbolKind.Struct;
+    case 'enumDeclaration': return vscode.SymbolKind.Enum;
     case 'functionDeclaration': return vscode.SymbolKind.Function;
     case 'inputDeclaration': return vscode.SymbolKind.Variable;
     case 'tableDeclaration': case 'chartDeclaration': return vscode.SymbolKind.Object;
@@ -129,8 +130,13 @@ export function registerNavigationProviders(): vscode.Disposable[] {
               const fieldRange = tokenRange(document, field.source, field.name);
               if (fieldRange) symbol.children.push(new vscode.DocumentSymbol(field.name, '', vscode.SymbolKind.Field, fieldRange, fieldRange));
             }
-            if (symbol.children.length) symbol.range = new vscode.Range(range.start, symbol.children[symbol.children.length - 1].range.end);
+          } else if (statement.type === 'enumDeclaration') {
+            for (const member of statement.members) {
+              const memberRange = tokenRange(document, member.nameSource, member.name);
+              if (memberRange) symbol.children.push(new vscode.DocumentSymbol(member.name, '', vscode.SymbolKind.EnumMember, memberRange, memberRange));
+            }
           }
+          if (symbol.children.length) symbol.range = new vscode.Range(range.start, symbol.children[symbol.children.length - 1].range.end);
           symbols.push(symbol);
         }
         return symbols;

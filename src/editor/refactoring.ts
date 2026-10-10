@@ -21,7 +21,7 @@ export interface EditorRenameFact {
 }
 
 const reservedNames = new Set([
-	"let", "for", "in", "to", "return", "match", "case", "default", "if", "then", "else", "and", "or", "not", "dimension", "unit",
+	"let", "for", "in", "to", "return", "match", "case", "default", "if", "then", "else", "and", "or", "not", "dimension", "unit", "extends", "override", "enum",
 	"true", "false", "null", "type", "fn", "import", "from", "input", "export", "table", "chart", "show",
 	"title", "description", "column", "category", "x", "y", "group", "labels", "series", "as",
 	"Number", "String", "Boolean", "DateTime"

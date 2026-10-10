@@ -1,0 +1,20 @@
+# Braced conditionals
+
+The selected description is {{ description }} and the adjusted priority is
+{{ adjustedPriority }}.
+
+```amx
+let priority: Number = 7
+let description: String = if priority >= 5 {
+  return "high"
+} else {
+  return "normal"
+}
+
+let adjustedPriority: Number = priority
+if priority >= 5 {
+  adjustedPriority += 1
+} else {
+  adjustedPriority += 2
+}
+```

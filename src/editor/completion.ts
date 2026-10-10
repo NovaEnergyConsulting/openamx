@@ -1,5 +1,8 @@
 import type {
 	DocumentNode,
+	BracedIfExpressionNode,
+	BracedIfStatementNode,
+	EnumDeclarationNode,
 	ForExpressionNode,
 	ForStatementNode,
 	MatchExpressionNode,
@@ -25,6 +28,7 @@ const v03Keywords = ["null", "type", "fn", "import", "from", "input", "export"];
 const v04Keywords = ["table", "chart", "show", "title", "description", "column", "category", "x", "y", "group", "labels", "series", "as"];
 const v09ListKeywords = ["add", "remove", "at"];
 const v09UnitKeywords = ["dimension", "unit"];
+const v12Keywords = ["enum", "extends", "override"];
 const standardFunctions = ["sum", "min", "max", "mean", "round", "abs", "sqrt", "pow"];
 const primitiveTypes = ["Number", "String", "Boolean", "DateTime"];
 
@@ -94,6 +98,7 @@ interface VisibleSymbols {
 	variables: Set<string>;
 	functions: Set<string>;
 	types: Set<string>;
+	enums: Map<string, EnumDeclarationNode>;
 	views: Set<string>;
 	recordTypes: Map<string, TypeDeclarationNode>;
 }
@@ -137,18 +142,66 @@ function loopBounds(text: string, loop: ForStatementNode | ForExpressionNode): {
 			const end = findStringLiteralEnd(text, offset);
 			if (end === undefined) return undefined;
 			offset = end;
-			continue;
-		}
-		if (character === "{") depth++;
+		} else if (character === "{") depth++;
 		else if (character === "}" && --depth === 0) return { open, close: offset };
 	}
 	return undefined;
+}
+
+function ifBranchBounds(text: string, node: BracedIfExpressionNode | BracedIfStatementNode, alternate: boolean): { open: number; close: number } | undefined {
+	const start = sourceOffset(text, node.source);
+	if (start === undefined) return undefined;
+	const findOpen = (from: number): number | undefined => {
+		let brackets = 0;
+		for (let offset = from; offset < text.length; offset++) {
+			const character = text[offset];
+			if (character === '"' || character === "'") {
+				const end = findStringLiteralEnd(text, offset);
+				if (end === undefined) return undefined;
+				offset = end;
+			} else if (character === "(" || character === "[") brackets++;
+			else if (character === ")" || character === "]") brackets--;
+			else if (character === "{" && brackets === 0) return offset;
+		}
+		return undefined;
+	};
+	const findClose = (open: number): number | undefined => {
+		let depth = 0;
+		for (let offset = open; offset < text.length; offset++) {
+			const character = text[offset];
+			if (character === '"' || character === "'") {
+				const end = findStringLiteralEnd(text, offset);
+				if (end === undefined) return undefined;
+				offset = end;
+			} else if (character === "{") depth++;
+			else if (character === "}" && --depth === 0) return offset;
+		}
+		return undefined;
+	};
+	const firstOpen = findOpen(start + 2);
+	if (firstOpen === undefined) return undefined;
+	const firstClose = findClose(firstOpen);
+	if (firstClose === undefined) return undefined;
+	if (!alternate) return { open: firstOpen, close: firstClose };
+	let cursor = firstClose + 1;
+	while (/\s/.test(text[cursor] ?? "")) cursor++;
+	if (!text.startsWith("else", cursor)) return undefined;
+	const secondOpen = findOpen(cursor + 4);
+	if (secondOpen === undefined) return undefined;
+	const secondClose = findClose(secondOpen);
+	return secondClose === undefined ? undefined : { open: secondOpen, close: secondClose };
+}
+
+function insideIfBranch(text: string, node: BracedIfExpressionNode | BracedIfStatementNode, cursorOffset: number, alternate: boolean): boolean {
+	const bounds = ifBranchBounds(text, node, alternate);
+	return !!bounds && cursorOffset > bounds.open && cursorOffset < bounds.close;
 }
 
 function visibleSymbols(text: string, parsed: OpenAmxDocument, cursorOffset: number, analysis?: EditorModuleAnalysis): VisibleSymbols {
 	const variables = new Set<string>();
 	const functions = new Set<string>();
 	const types = new Set(primitiveTypes);
+	const enums = new Map<string, EnumDeclarationNode>();
 	const views = new Set<string>();
 	const recordTypes = new Map<string, TypeDeclarationNode>();
 	const localTypeDeclarations = new Map<string, TypeDeclarationNode>();
@@ -177,6 +230,11 @@ function visibleSymbols(text: string, parsed: OpenAmxDocument, cursorOffset: num
 					types.add(statement.name);
 					localTypeDeclarations.set(statement.name, statement);
 				}
+			} else if (statement.type === "enumDeclaration") {
+				if (statementEndOffset(text, statement) <= cursorOffset) {
+					types.add(statement.name);
+					enums.set(statement.name, statement);
+				}
 			} else if (statement.type === "functionDeclaration") {
 				if (statementEndOffset(text, statement) <= cursorOffset) functions.add(statement.name);
 			} else if (statement.type === "tableDeclaration" || statement.type === "chartDeclaration") {
@@ -185,6 +243,10 @@ function visibleSymbols(text: string, parsed: OpenAmxDocument, cursorOffset: num
 				if (statementEndOffset(text, statement) <= cursorOffset) {
 					for (const item of statement.names) {
 						if (analysis?.importedTypes.has(item.name)) types.add(item.name);
+						if (analysis?.importedEnums.has(item.name)) {
+							types.add(item.name);
+							enums.set(item.name, analysis.importedEnums.get(item.name)!);
+						}
 						if (analysis?.importedFunctions.has(item.name)) functions.add(item.name);
 						if (analysis?.importedBindings.has(item.name)) {
 							variables.add(item.name);
@@ -194,6 +256,11 @@ function visibleSymbols(text: string, parsed: OpenAmxDocument, cursorOffset: num
 					}
 				}
 			} else if (statement.type === "forStatement") collectLoop(statement);
+			else if (statement.type === "bracedIfStatement") {
+				collectExpression(statement.test);
+				if (insideIfBranch(text, statement, cursorOffset, false)) collectStatements(statement.consequent);
+				if (statement.alternate && insideIfBranch(text, statement, cursorOffset, true)) collectStatements(statement.alternate);
+			}
 			else if (statement.type === "assignmentStatement" || statement.type === "compoundAssignmentStatement") collectExpression(statement.expression);
 			else if ("expression" in statement && statement.expression) collectExpression(statement.expression);
 		}
@@ -215,6 +282,11 @@ function visibleSymbols(text: string, parsed: OpenAmxDocument, cursorOffset: num
 			case "measurementConversion": collectExpression(expression.value); break;
 			case "unaryExpression": collectExpression(expression.argument); break;
 			case "conditionalExpression": collectExpression(expression.test); collectExpression(expression.consequent); collectExpression(expression.alternate); break;
+			case "bracedIfExpression":
+				collectExpression(expression.test);
+				if (insideIfBranch(text, expression, cursorOffset, false)) collectStatements(expression.consequent);
+				if (insideIfBranch(text, expression, cursorOffset, true)) collectStatements(expression.alternate);
+				break;
 			case "matchExpression": collectMatch(expression); break;
 			case "rangeExpression": collectRange(expression); break;
 			case "functionCall": expression.arguments.forEach(collectExpression); break;
@@ -242,7 +314,7 @@ function visibleSymbols(text: string, parsed: OpenAmxDocument, cursorOffset: num
 		if (declaration) recordTypes.set(name, declaration);
 	}
 	if (analysis) for (const [name, declaration] of analysis.importedTypes) if (types.has(name)) localTypeDeclarations.set(name, declaration);
-	return { variables, functions, types, views, recordTypes };
+	return { variables, functions, types, enums, views, recordTypes };
 }
 
 /** Return only candidates proven visible before the cursor in the parsed source order. */
@@ -259,9 +331,12 @@ export function editorCompletionFacts(
 	const lineStart = contextText.lastIndexOf("\n", Math.max(0, contextCursor - 1)) + 1;
 	const prefix = contextText.slice(lineStart, contextCursor);
 	const fieldReceiver = prefix.match(/\b([A-Za-z][A-Za-z0-9_]*)\.\w*$/)?.[1];
-	const fields = fieldReceiver ? visible.recordTypes.get(fieldReceiver)?.fields.map(field => field.name) ?? [] : [];
+	const fields = fieldReceiver
+		? visible.enums.get(fieldReceiver)?.members.map(member => member.name)
+			?? visible.recordTypes.get(fieldReceiver)?.fields.map(field => field.name) ?? []
+		: [];
 	const facts: EditorCompletionFact[] = [
-		...[...v02Keywords, ...v03Keywords, ...v04Keywords, ...v09ListKeywords, ...v09UnitKeywords].map(label => ({ label, kind: "keyword" as const })),
+		...[...v02Keywords, ...v03Keywords, ...v04Keywords, ...v09ListKeywords, ...v09UnitKeywords, ...v12Keywords].map(label => ({ label, kind: "keyword" as const })),
 		...standardFunctions.map(label => ({ label, kind: "function" as const })),
 		...[...visible.functions].map(label => ({ label, kind: "function" as const })),
 		...[...visible.types].map(label => ({ label, kind: "class" as const })),

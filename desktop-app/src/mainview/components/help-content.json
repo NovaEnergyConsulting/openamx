@@ -36,6 +36,30 @@
       ]
     },
     {
+      "id": "language-v0.12",
+      "title": "V0.12 language features",
+      "summary": "Use inherited records, enums, and braced conditionals.",
+      "terms": "language v0.12 record inheritance extends override effective fields enum enumeration primitive values braced if expression statement return AMX3011 AMX3021",
+      "steps": [
+        "A record may extend visible record parents. Inherited name collisions require override; inheritance reuses fields and does not make the child assignable to its parent.",
+        "Without explicit enum values, numbering starts at 1. Explicit values must be unique Number literals or unique String literals of one type; member access returns that primitive.",
+        "The legacy if condition then value else value expression is unchanged. Braced if expressions require else and an explicit value return on every path.",
+        "Braced if statements may omit else. Branch declarations stay local, while assignments to existing outer bindings persist."
+      ]
+    },
+    {
+      "id": "language-v0.9",
+      "title": "V0.9 language features",
+      "summary": "Review V0.9 syntax and its compatibility changes.",
+      "terms": "v0.9 migration record constructor equals = colon annotation string escape interpolation list index dimension unit measurement conversion JSON CSV",
+      "steps": [
+        "Record constructor fields use =; colons remain required for type annotations.",
+        "String escapes are decoded, and double-quoted strings support expression interpolation.",
+        "List indexes are 1-based. Dimensions, units, and measurements retain their declared identity and conversion rules.",
+        "Invalid programs are checked before execution. See the V0.9 migration guide before updating older documents."
+      ]
+    },
+    {
       "id": "documents",
       "title": "Documents and imports",
       "summary": "Work with the active report and unsaved modules.",
@@ -63,7 +87,7 @@
       "id": "preview-export",
       "title": "Preview and export",
       "summary": "Keep results tied to the current document state.",
-      "terms": "run preview cancel stale html offline interactive charts legend zoom static pdf native editable docx embedded workbook numeric x line scatter markdown image link companion",
+      "terms": "run preview cancel stale html offline interactive charts legend zoom static pdf data table docx json csv native editable embedded workbook numeric x line scatter markdown image link companion",
       "steps": [
         "Preview updates after edits; Pause and Refresh are available in the context pane.",
         "Run is explicit. A stale result is labeled and is not presented as current success.",

@@ -66,6 +66,88 @@ function delayedPreviewWorkerFactory() {
 const result = createPingResponse("request-1", "1.4.2");
 assert.deepEqual(result, { nonce: "request-1", runtime: "bun", version: "1.4.2" });
 assert.deepEqual(Object.keys(result), ["nonce", "runtime", "version"]);
+const v012EditorRoot = mkdtempSync(join(tmpdir(), "openamx-v012-editor-"));
+const v012EditorPath = join(v012EditorRoot, "report.amx");
+const v012EditorText = [
+	"```amx",
+	"type Parent {",
+	"  id: String",
+	"}",
+	"enum Status = {",
+	"  ACTIVE,",
+	"  CLOSED",
+	"}",
+	"type Asset extends Parent {",
+	"  override id: String",
+	"}",
+	'let asset: Asset = Asset { id = "A-1" }',
+	"let status: Number = Status.ACTIVE",
+	"let selected: String = if status == 1 {",
+	"  return asset.id",
+	"} else {",
+	'  return "none"',
+	"}",
+	"if status == 1 {",
+	"  let branchLocal: Number = 1",
+	"  branchLocal += 1",
+	"}",
+	"```",
+	""
+].join("\n");
+writeFileSync(v012EditorPath, v012EditorText);
+try {
+	const v012EditorService = createDesktopService();
+	assert.equal((await v012EditorService.request.openProject({ path: v012EditorRoot })).ok, true);
+	const v012EditorDocument = await v012EditorService.request.openDocument({ path: v012EditorPath });
+	assert.equal(v012EditorDocument.ok, true);
+	if (!v012EditorDocument.ok) throw new Error(v012EditorDocument.error.message);
+	const v012EditorFacts = await v012EditorService.request.analyzeBuffer({
+		path: v012EditorPath,
+		revision: v012EditorDocument.document.revision,
+		cursorOffset: v012EditorText.indexOf("Status.ACTIVE") + "Status.".length
+	});
+	assert.equal(v012EditorFacts.ok, true);
+	if (!v012EditorFacts.ok) throw new Error(v012EditorFacts.error.message);
+	assert.deepEqual(v012EditorFacts.analysis.diagnostics, []);
+	assert.ok(v012EditorFacts.analysis.completions.includes("ACTIVE"));
+	assert.ok(v012EditorFacts.analysis.highlights?.some(fact => v012EditorText.slice(fact.from, fact.to) === "extends"));
+	assert.ok(v012EditorFacts.analysis.highlights?.some(fact => v012EditorText.slice(fact.from, fact.to) === "return"));
+	assert.ok(v012EditorFacts.analysis.symbols?.some(fact => fact.name === "ACTIVE" && fact.declaration));
+	assert.ok(v012EditorFacts.analysis.symbols?.some(fact => fact.name === "ACTIVE" && !fact.declaration));
+	const inheritedFieldFacts = await v012EditorService.request.analyzeBuffer({
+		path: v012EditorPath,
+		revision: v012EditorDocument.document.revision,
+		cursorOffset: v012EditorText.indexOf("asset.id") + "asset.".length
+	});
+	assert.equal(inheritedFieldFacts.ok, true);
+	if (!inheritedFieldFacts.ok) throw new Error(inheritedFieldFacts.error.message);
+	assert.ok(inheritedFieldFacts.analysis.completions.includes("id"));
+	const invalidText = [
+		"```amx",
+		"let selected: Number = if true {",
+		"  return 1",
+		"} else {",
+		"  let missing: Number = 2",
+		"}",
+		"```",
+		""
+	].join("\n");
+	const invalidBuffer = await v012EditorService.request.updateBuffer({ text: invalidText });
+	assert.equal(invalidBuffer.ok, true);
+	if (!invalidBuffer.ok) throw new Error(invalidBuffer.error.message);
+	const invalidFacts = await v012EditorService.request.analyzeBuffer({
+		path: v012EditorPath,
+		revision: invalidBuffer.document.revision
+	});
+	assert.equal(invalidFacts.ok, true);
+	if (!invalidFacts.ok) throw new Error(invalidFacts.error.message);
+	const missingReturn = invalidFacts.analysis.diagnostics.find(item => item.code === "AMX3021");
+	assert.ok(missingReturn);
+	assert.equal(missingReturn.line, 6);
+	assert.equal(missingReturn.column, 1);
+} finally {
+	rmSync(v012EditorRoot, { recursive: true, force: true });
+}
 const webviewSource = readFileSync(join(import.meta.dir, "../src/mainview/App.vue"), "utf8");
 assert.equal(webviewSource.match(/sandbox="allow-scripts"/g)?.length, 2);
 assert.match(webviewSource, /sandbox="allow-scripts"/);

@@ -365,7 +365,7 @@ suite('OpenAMX providers', () => {
       assert.ok(!outsideLabels.has(fn), fn);
     }
   });
-  test('tokenizes V0.9 syntax with the actual TextMate grammar and preserves Markdown boundaries', async () => {
+  test('tokenizes V0.9 and V0.12 syntax with the actual TextMate grammar and preserves Markdown boundaries', async () => {
     const extension = vscode.extensions.getExtension('EngineersTools.openamx-vscode');
     assert.ok(extension);
     const wasm = await fs.readFile(require.resolve('vscode-oniguruma/release/onig.wasm'));
@@ -400,6 +400,19 @@ suite('OpenAMX providers', () => {
       'add 4 to rows at 2',
       'remove 1 from rows',
       'type Sample { distance: Length }',
+      'enum Status = {',
+      '  DRAFT,',
+      '  ACTIVE',
+      '}',
+      'type Child extends Sample {',
+      '  override distance: Length',
+      '}',
+      'let status: Number = Status.ACTIVE',
+      'let selected = if status == 2 {',
+      '  return 1',
+      '} else {',
+      '  return 0',
+      '}',
       'let record = Sample { distance = 2 meter }',
       'let label = "escaped \\${notCode}; value ${second}"',
       'let draft = (2 meter',
@@ -431,6 +444,13 @@ suite('OpenAMX providers', () => {
     hasScope('let converted = 2 kilometer in meter', 'in', 'keyword.control.amx');
     hasScope('add 4 to rows at 2', 'add', 'keyword.control.amx');
     hasScope('remove 1 from rows', 'remove', 'keyword.control.amx');
+    hasScope('enum Status = {', 'enum', 'keyword.declaration.enum.amx');
+    hasScope('enum Status = {', 'Status', 'entity.name.type.enum.amx');
+    hasScope('  ACTIVE', 'ACTIVE', 'entity.name.enum-member.amx');
+    hasScope('type Child extends Sample {', 'extends', 'keyword.control.amx');
+    hasScope('  override distance: Length', 'override', 'keyword.control.amx');
+    hasScope('let selected = if status == 2 {', 'if', 'keyword.control.amx');
+    hasScope('  return 1', 'return', 'keyword.control.amx');
     hasScope('let record = Sample { distance = 2 meter }', '= 2', 'keyword.operator.amx');
     hasScope('let label = "escaped \\${notCode}; value ${second}"', '\\${', 'constant.character.escape.amx');
     lacksScope('let label = "escaped \\${notCode}; value ${second}"', '\\${', 'meta.interpolation.string.amx');
@@ -486,6 +506,98 @@ suite('OpenAMX providers', () => {
       lacksScope(inertLineText, 'let', 'keyword.control.amx', unterminated);
     }
     hasScope('let remainsExecutable = 6', 'let', 'keyword.control.amx', unterminated);
+  });
+
+  test('provides V0.12 completion, outline, navigation, formatting, and diagnostic ranges', async () => {
+    const content = [
+      '```amx',
+      'type Parent {',
+      ' id: String',
+      '}',
+      'enum Status = {',
+      ' ACTIVE,',
+      ' CLOSED',
+      '}',
+      'type Asset extends Parent {',
+      ' override id: String',
+      '}',
+      'let asset: Asset = Asset { id = "A-1" }',
+      'let inheritedId: String = asset.id',
+      'let state: Number = Status.ACTIVE',
+      'let selected: String = if state == 1 {',
+      ' return asset.id',
+      '} else {',
+      ' return "none"',
+      '}',
+      'let legacy: String = if true then "old" else "new"',
+      '```'
+    ].join('\n');
+    const document = await vscode.workspace.openTextDocument({ language: 'amx', content });
+    await vscode.window.showTextDocument(document);
+    assert.equal((await waitForDiagnostics(document.uri, false)).length, 0);
+
+    const memberOffset = content.indexOf('Status.ACTIVE') + 'Status.'.length;
+    const completions = await vscode.commands.executeCommand<vscode.CompletionList>(
+      'vscode.executeCompletionItemProvider', document.uri, document.positionAt(memberOffset)
+    );
+    assert.ok(completions?.items.some(item => String(item.label) === 'ACTIVE'));
+    const inheritedFieldOffset = content.indexOf('asset.id') + 'asset.'.length;
+    const inheritedCompletions = await vscode.commands.executeCommand<vscode.CompletionList>(
+      'vscode.executeCompletionItemProvider', document.uri, document.positionAt(inheritedFieldOffset)
+    );
+    assert.ok(inheritedCompletions?.items.some(item => String(item.label) === 'id'));
+
+    const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+      'vscode.executeDocumentSymbolProvider', document.uri
+    );
+    const status = symbols?.find(item => item.name === 'Status');
+    assert.equal(status?.kind, vscode.SymbolKind.Enum);
+    assert.ok(status?.children.some(item => item.name === 'ACTIVE' && item.kind === vscode.SymbolKind.EnumMember));
+
+    const parentUse = content.indexOf('extends Parent') + 'extends '.length;
+    const parentDefinition = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeDefinitionProvider', document.uri, document.positionAt(parentUse)
+    );
+    assert.equal(parentDefinition?.length, 1);
+    assert.equal(document.getText(parentDefinition[0].range), 'Parent');
+
+    const memberUse = content.indexOf('Status.ACTIVE') + 'Status.'.length;
+    const memberDefinition = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeDefinitionProvider', document.uri, document.positionAt(memberUse)
+    );
+    assert.equal(memberDefinition?.length, 1);
+    assert.equal(document.getText(memberDefinition[0].range), 'ACTIVE');
+
+    const formatting = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+      'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 2, insertSpaces: true }
+    );
+    assert.ok(formatting && formatting.length > 0);
+    const workspaceEdit = new vscode.WorkspaceEdit();
+    formatting.forEach(edit => workspaceEdit.replace(document.uri, edit.range, edit.newText));
+    assert.ok(await vscode.workspace.applyEdit(workspaceEdit));
+    const secondFormatting = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+      'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 2, insertSpaces: true }
+    );
+    assert.equal(secondFormatting?.length ?? 0, 0);
+    assert.equal((await waitForDiagnostics(document.uri, false)).length, 0);
+
+    const invalidContent = [
+      '```amx',
+      'let selected: Number = if true {',
+      '  return 1',
+      '} else {',
+      '  let missing: Number = 2',
+      '}',
+      '```'
+    ].join('\n');
+    const invalid = await vscode.workspace.openTextDocument({ language: 'amx', content: invalidContent });
+    await vscode.window.showTextDocument(invalid);
+    const diagnostics = await waitForDiagnostics(invalid.uri, true);
+    const missingReturn = diagnostics.find(item => item.code === 'AMX3021');
+    assert.ok(missingReturn);
+    const closingBrace = invalid.positionAt(invalidContent.lastIndexOf('}'));
+    assert.equal(missingReturn.range.start.line, closingBrace.line);
+    assert.equal(missingReturn.range.start.character, closingBrace.character);
   });
 
   test('completes V0.3 types, inputs, functions, imported exports, and known record fields', async () => {

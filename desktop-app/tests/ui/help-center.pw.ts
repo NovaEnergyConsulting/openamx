@@ -1,13 +1,14 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 const expectedTopicIds = [
-	"getting-started", "starters", "language", "language-v0.9", "documents", "data",
+	"getting-started", "starters", "language", "language-v0.12", "language-v0.9", "documents", "data",
 	"preview-export", "recovery", "diagnostics", "release-notes"
 ];
 const expectedSearchTerms = [
 	["getting-started", "welcome first project starter create open"],
 	["starters", "example templates hello asset management operation note"],
 	["language", "language syntax code fence markdown let type function import export input record table chart cli"],
+	["language-v0.12", "language v0.12 record inheritance extends override effective fields enum enumeration primitive values braced if expression statement return AMX3011 AMX3021"],
 	["language-v0.9", "v0.9 migration record constructor equals = colon annotation string escape interpolation list index dimension unit measurement conversion JSON CSV"],
 	["documents", "active tab import source editor save intelligence rename"],
 	["data", "csv json external private mapping schema validation"],
@@ -57,9 +58,18 @@ test("bundled help keeps stable topics, local search, registry shortcuts, routin
 	const previewTopic = page.locator(".help-topics [data-topic-id='preview-export']");
 	await previewTopic.click();
 	await expect(page.locator(".help-content")).toContainText("PDF charts are static");
-	await expect(page.locator(".help-content")).toContainText("complete chart data remains in report tables");
+	await expect(page.locator(".help-content")).toContainText("PDF charts are static with complete data tables");
 	await search.fill("measurement conversion");
 	const v09Topic = page.locator(".help-topics [data-topic-id='language-v0.9']");
+	const v012Topic = page.locator(".help-topics [data-topic-id='language-v0.12']");
+	await search.fill("effective fields");
+	await expect(v012Topic).toBeVisible();
+	await v012Topic.click();
+	await expect(page.locator(".help-content")).toContainText("does not make the child assignable to its parent");
+	await expect(page.locator(".help-content")).toContainText("numbering starts at 1");
+	await expect(page.locator(".help-content")).toContainText("explicit value return on every path");
+	await expect(page.locator(".help-content")).toContainText("Branch declarations stay local");
+	await search.fill("measurement conversion");
 	await expect(v09Topic).toBeVisible();
 	await v09Topic.click();
 	await expect(page.locator(".help-content")).toContainText("Record constructor fields use =");

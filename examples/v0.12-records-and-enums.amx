@@ -1,0 +1,28 @@
+# Records and enumerations
+
+The active state has primitive value {{ currentStatus }}.
+
+```amx
+type Identifier {
+  id: String
+}
+
+type Named {
+  id: String
+  name: String
+}
+
+type Asset extends Identifier, Named {
+  override id: String
+  status: Number
+}
+
+enum Status = {
+  DRAFT,
+  ACTIVE,
+  CLOSED
+}
+
+let asset: Asset = Asset { id = "A-1", name = "Pump", status = Status.ACTIVE }
+let currentStatus: Number = Status.ACTIVE
+```

@@ -5,7 +5,16 @@
 - Prepared Sprint 076 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0076-v12-editor-language-documentation-integration/`.
 - Sprints 073-075 are recorded implemented. Sprint 075 evidence includes AMX3021 approval and reports focused parser/evaluator/formatter/module suites and the root build passing; its full root suite retains the two known failures from the prior baseline.
 - Sprint 076 integrates both editor clients, the existing shared editor/formatter services, searchable desktop language Help, runnable V0.12 examples, README links, and `docs/language-spec-v0.12.md`.
-- This is Architect preparation only; explicit Builder authorization and a concrete file-by-file plan are still required. Sprint 077 remains the integrated V0.12 acceptance/closeout gate.
+- At preparation time, Builder execution still required explicit authorization and an approved file-by-file plan; that gate was subsequently satisfied as recorded below. Sprint 077 remains the integrated V0.12 acceptance/closeout gate.
+
+## V0.12 Sprint 076 Builder Execution (2026-10-11)
+
+- The Lead Developer explicitly authorized execution and approved the concrete file-by-file plan before implementation, test, example, README, Help, or language-specification changes.
+- Added the additive V0.12 language specification, two runnable examples, README links, and a searchable desktop Help topic while retaining V0.9 documentation and behavior as historical references.
+- Extended existing shared editor analysis/highlighting/completion/symbol/range/refactoring services and VS Code TextMate/navigation integration for inheritance, enums, and braced `if`; added no parallel service and changed no parser/runtime semantics.
+- Verified formatter meaning-preservation/idempotence for inherited records, enums, braced expressions/statements, nested blocks, and the legacy conditional through the existing generic formatter; no formatter implementation change was required.
+- Focused new V0.12 tests pass, root build passes, VS Code V0.12 host tests pass within a Development Host run that retains Windows-only/inherited test failures, desktop Help UI passes, and desktop typecheck/web build pass. Full root and RPC suite results retain documented baseline/environment residuals; see Sprint 076 `builder-evidence.md` for exact commands, counts, retries, and scope.
+- Sprint 076 does not claim V0.12 closeout; Sprint 077 remains the integrated acceptance gate.
 
 ## V0.12 Sprint 075 Architect Preparation (2026-10-10)
 

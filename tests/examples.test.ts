@@ -45,6 +45,29 @@ describe("V0.9 user documentation", () => {
   });
 });
 
+describe("V0.12 language documentation and examples", () => {
+  it("links the additive specification and runs both feature examples", async () => {
+    const readme = await Bun.file("README.md").text();
+    const specification = await Bun.file("docs/language-spec-v0.12.md").text();
+    expect(readme).toContain("[V0.12 language specification](docs/language-spec-v0.12.md)");
+    expect(readme).toContain("[record inheritance and enums](examples/v0.12-records-and-enums.amx)");
+    expect(readme).toContain("[braced conditional](examples/v0.12-braced-if.amx)");
+    expect(readme).toContain("[V0.9 language specification](docs/language-spec-v0.9.md)");
+    expect(specification).toContain("AMX3011");
+    expect(specification).toContain("AMX3021");
+
+    const recordsPath = "examples/v0.12-records-and-enums.amx";
+    const records = evaluateDocument(await parseDocument(recordsPath), recordsPath);
+    expect(records.currentStatus).toBe(2);
+    expect(records.asset).toMatchObject({ id: "A-1", name: "Pump", status: 2 });
+
+    const ifPath = "examples/v0.12-braced-if.amx";
+    const conditional = evaluateDocument(await parseDocument(ifPath), ifPath);
+    expect(conditional.description).toBe("high");
+    expect(conditional.adjustedPriority).toBe(8);
+  });
+});
+
 describe("V0.2 canonical examples", () => {
   it("renders the basic example without executing its ordinary fence", async () => {
     const path = "examples/hello-world.amx";

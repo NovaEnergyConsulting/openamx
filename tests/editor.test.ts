@@ -245,3 +245,128 @@ test("shared refactoring facts require unique diagnostics and proven symbol iden
 	expect(isSafeRenameIdentifier("unit")).toBe(false);
 	expect(isSafeRenameIdentifier("Number")).toBe(false);
 });
+
+test("V0.12 editor facts cover inherited types, enums, and nested braced conditionals", () => {
+	const text = [
+		"```amx",
+		"type Parent {",
+		"  id: String",
+		"}",
+		"enum Status = {",
+		"  DRAFT,",
+		"  ACTIVE",
+		"}",
+		"type Asset extends Parent {",
+		"  override id: String",
+		"  status: Number",
+		"}",
+		'let asset: Asset = Asset { id = "A-1", status = Status.ACTIVE }',
+		"let inheritedId: String = asset.id",
+		"let status: Number = Status.ACTIVE",
+		"let chosen: String = if status == 2 {",
+		"  return asset.id",
+		"} else {",
+		'  return "none"',
+		"}",
+		"if status == 2 {",
+		"  let branchLocal: Number = 1",
+		"  branchLocal += 1",
+		"}",
+		"let afterBlock: Number = status",
+		"```",
+		""
+	].join("\r\n");
+	const analysis = analyzeEditorModules(text, "/project/v12.amx");
+	const document = analysis.document;
+	const highlights = editorHighlightFacts(text, document);
+	const slice = (fact: { from: number; to: number }) => text.slice(fact.from, fact.to);
+	const highlighted = (value: string, kind?: string) => highlights.some(fact =>
+		slice(fact) === value && (!kind || fact.kind === kind)
+	);
+
+	expect(highlighted("enum", "keyword")).toBe(true);
+	expect(highlighted("ACTIVE", "declaration")).toBe(true);
+	expect(highlighted("extends", "keyword")).toBe(true);
+	expect(highlighted("Parent", "type")).toBe(true);
+	expect(highlighted("override", "keyword")).toBe(true);
+	expect(highlighted("if", "keyword")).toBe(true);
+	expect(highlighted("return", "keyword")).toBe(true);
+
+	const symbols = editorSymbolFacts(text, "/project/v12.amx", document, analysis);
+	const parentDeclaration = symbols.find(fact => fact.declaration && fact.name === "Parent");
+	const parentReference = symbols.find(fact => !fact.declaration && fact.name === "Parent");
+	const enumMember = symbols.find(fact => fact.declaration && fact.name === "ACTIVE");
+	const enumMemberUses = symbols.filter(fact => !fact.declaration && fact.name === "ACTIVE");
+	expect(parentReference?.target).toEqual(parentDeclaration?.target);
+	expect(enumMember).toBeDefined();
+	expect(enumMemberUses).toHaveLength(2);
+	expect(enumMemberUses.every(fact => fact.target.from === enumMember!.from && fact.target.to === enumMember!.to)).toBe(true);
+	expect(editorRenameFact(symbols, "/project/v12.amx", enumMemberUses[0].from)?.edits).toHaveLength(3);
+	expect(isSafeRenameIdentifier("enum")).toBe(false);
+	expect(isSafeRenameIdentifier("extends")).toBe(false);
+	expect(isSafeRenameIdentifier("override")).toBe(false);
+
+	const memberCursor = text.indexOf("Status.ACTIVE") + "Status.".length;
+	const memberLabels = editorCompletionFacts(text, memberCursor, document, analysis).map(item => item.label);
+	expect(memberLabels).toContain("ACTIVE");
+	expect(memberLabels).toContain("override");
+	const inheritedFieldCursor = text.indexOf("asset.id") + "asset.".length;
+	expect(editorCompletionFacts(text, inheritedFieldCursor, document, analysis).map(item => item.label)).toContain("id");
+	const insideBranch = text.indexOf("branchLocal +=");
+	expect(editorCompletionFacts(text, insideBranch, document, analysis).map(item => item.label)).toContain("branchLocal");
+	const outsideBranch = text.indexOf("afterBlock") + "afterBlock".length;
+	expect(editorCompletionFacts(text, outsideBranch, document, analysis).map(item => item.label)).not.toContain("branchLocal");
+});
+
+test("shared module analysis resolves imported enum symbols and completion", () => {
+	const entryFile = resolve("/project/entry.amx");
+	const moduleFile = resolve("/project/model.amx");
+	const moduleText = "```amx\nexport enum Status = {\n  ACTIVE,\n  CLOSED\n}\n```\n";
+	const text = '```amx\nimport { Status } from "./model.amx"\nlet current: Number = Status.ACTIVE\n```\n';
+	const analysis = analyzeEditorModules(text, entryFile, (_from, targetPath) => ({ file: targetPath, text: moduleText }));
+	expect(analysis.importedEnums.has("Status")).toBe(true);
+
+	const symbols = editorSymbolFacts(text, entryFile, analysis.document, analysis, new Map([[moduleFile, moduleText]]));
+	const member = symbols.find(fact => fact.declaration && fact.name === "ACTIVE");
+	const memberUse = symbols.find(fact => !fact.declaration && fact.name === "ACTIVE");
+	expect(member).toBeDefined();
+	expect(memberUse?.target).toEqual(member?.target);
+
+	const cursor = text.indexOf("Status.ACTIVE") + "Status.".length;
+	expect(editorCompletionFacts(text, cursor, analysis.document, analysis).map(item => item.label)).toContain("ACTIVE");
+});
+
+test("shared editor analysis preserves V0.12 diagnostic identities and original source positions", () => {
+	const invalidCases = [
+		["AMX3011", "type Left {\n  id: String\n}\ntype Right {\n  id: String\n}\ntype Asset extends Left, Right {\n}\n"],
+		["AMX3012", "type Parent {\n  id: String\n}\ntype Child extends Parent {\n  id: String\n}\n"],
+		["AMX3013", "type Parent {\n  id: String\n}\ntype Child extends Parent {\n  override tag: String\n}\n"],
+		["AMX3014", "type First extends First {\n}\n"],
+		["AMX3015", "enum Empty = {\n}\n"],
+		["AMX3016", "enum State = {\n  ACTIVE,\n  ACTIVE\n}\n"],
+		["AMX3017", 'enum State = {\n  FIRST = 2,\n  SECOND = 2\n}\n'],
+		["AMX3018", 'enum State = {\n  FIRST = "one",\n  SECOND = 2\n}\n'],
+		["AMX3019", 'enum State = {\n  FIRST = "one",\n  SECOND\n}\n'],
+		["AMX3020", "enum State = {\n  FIRST = 1 + 1,\n  SECOND = 2\n}\n"],
+		["AMX3021", "let selected: Number = if true {\n  return 1\n} else {\n  let missing: Number = 2\n}\n"]
+	] as const;
+
+	for (const [code, body] of invalidCases) {
+		const coordinates = ["\n", "\r\n"].map(newline => {
+			const text = `\`\`\`amx${newline}${body.replace(/\n/g, newline)}\`\`\`${newline}`;
+			try {
+				analyzeEditorModules(text, "/project/invalid-v12.amx");
+				throw new Error(`Expected ${code}`);
+			} catch (error) {
+				expect(error).toMatchObject({ code });
+				const located = error as { line?: number; column?: number };
+				expect(located.line).toBeGreaterThan(0);
+				expect(located.column).toBeGreaterThan(0);
+				const sourceLine = text.split(/\r?\n/)[located.line! - 1] ?? "";
+				expect(located.column).toBeLessThanOrEqual(sourceLine.length + 1);
+				return [located.line, located.column];
+			}
+		});
+		expect(coordinates[1]).toEqual(coordinates[0]);
+	}
+});

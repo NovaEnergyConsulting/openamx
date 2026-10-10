@@ -243,6 +243,9 @@
                     "include": "#amx-type-declaration"
                 },
                 {
+                    "include": "#amx-enum-declaration"
+                },
+                {
                     "include": "#amx-view-declaration"
                 },
                 {
@@ -375,6 +378,46 @@
                 }
             }
         },
+        "amx-enum-declaration": {
+            "begin": "\\b(enum)(\\s+)([A-Za-z][A-Za-z0-9_]*)(?=\\s*=\\s*\\{)",
+            "end": "\\}",
+            "name": "meta.declaration.enum.amx",
+            "beginCaptures": {
+                "1": {
+                    "name": "keyword.declaration.enum.amx"
+                },
+                "3": {
+                    "name": "entity.name.type.enum.amx"
+                }
+            },
+            "endCaptures": {
+                "0": {
+                    "name": "punctuation.section.block.end.amx"
+                }
+            },
+            "patterns": [
+                {
+                    "include": "#amx-strings"
+                },
+                {
+                    "match": "\\b([A-Za-z][A-Za-z0-9_]*)\\b(?=\\s*(?:=|,|}|$))",
+                    "captures": {
+                        "1": {
+                            "name": "entity.name.enum-member.amx"
+                        }
+                    }
+                },
+                {
+                    "include": "#amx-numbers"
+                },
+                {
+                    "include": "#amx-operators"
+                },
+                {
+                    "include": "#amx-punctuation"
+                }
+            ]
+        },
         "amx-view-declaration": {
             "match": "\\b(table|chart)(\\s+)([A-Za-z][A-Za-z0-9_]*)(\\s*=)",
             "captures": {
@@ -392,7 +435,7 @@
         "amx-keywords": {
             "patterns": [
                 {
-                    "match": "\\b(export|import|from|input|let|type|fn|return|for|in|if|then|else|match|case|default|show|table|chart|dimension|unit|add|remove|at)\\b",
+                    "match": "\\b(export|import|from|input|let|type|enum|extends|override|fn|return|for|in|if|then|else|match|case|default|show|table|chart|dimension|unit|add|remove|at)\\b",
                     "name": "keyword.control.amx"
                 },
                 {

@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
-import type { FunctionDeclarationNode, ImportDeclarationNode, OpenAmxDocument, StatementNode, TypeDeclarationNode } from "../ast/types";
+import type { EnumDeclarationNode, FunctionDeclarationNode, ImportDeclarationNode, OpenAmxDocument, StatementNode, TypeDeclarationNode } from "../ast/types";
 import { AmxError } from "../diagnostics/errors";
 import { parseDocumentText } from "../parser/parseDocument";
 import { type CheckedType, checkDocument, type ModuleCheckResult } from "../typechecker/checkDocument";
@@ -21,6 +21,7 @@ export interface EditorModuleRecord {
 	document: OpenAmxDocument;
 	checkResult: ModuleCheckResult;
 	importedTypes: Map<string, TypeDeclarationNode>;
+	importedEnums: Map<string, EnumDeclarationNode>;
 	importedFunctions: Map<string, FunctionDeclarationNode>;
 	importedBindings: Map<string, CheckedType>;
 	importedDimensions: Map<string, DimensionMetadata>;
@@ -31,6 +32,7 @@ export interface EditorModuleRecord {
 export interface EditorModuleAnalysis {
 	document: OpenAmxDocument;
 	importedTypes: Map<string, TypeDeclarationNode>;
+	importedEnums: Map<string, EnumDeclarationNode>;
 	importedFunctions: Map<string, FunctionDeclarationNode>;
 	importedBindings: Map<string, CheckedType>;
 	importedDimensions: Map<string, DimensionMetadata>;
@@ -103,6 +105,7 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 		return {
 			document: entryDocument,
 			importedTypes: new Map(),
+			importedEnums: new Map(),
 			importedFunctions: new Map(),
 			importedBindings: new Map(),
 			importedDimensions: new Map(),
@@ -144,7 +147,7 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 		}
 		const imports = statements.filter((statement): statement is ImportDeclarationNode => statement.type === "importDeclaration");
 		const localNames = new Set(statements.flatMap(statement =>
-			statement.type === "typeDeclaration" || statement.type === "functionDeclaration"
+			statement.type === "typeDeclaration" || statement.type === "enumDeclaration" || statement.type === "functionDeclaration"
 				|| statement.type === "variableDeclaration" || statement.type === "inputDeclaration"
 				|| statement.type === "tableDeclaration" || statement.type === "chartDeclaration"
 				|| statement.type === "dimensionDeclaration" || statement.type === "unitDeclaration" ? [statement.name] : []
@@ -153,6 +156,7 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 			statement.type === "dimensionDeclaration" || statement.type === "unitDeclaration" ? [statement.name] : []
 		));
 		const importedTypes = new Map<string, TypeDeclarationNode>();
+		const importedEnums = new Map<string, EnumDeclarationNode>();
 		const importedFunctions = new Map<string, FunctionDeclarationNode>();
 		const importedBindings = new Map<string, CheckedType>();
 		const importedDimensions = new Map<string, DimensionMetadata>();
@@ -198,6 +202,7 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 					moduleIssue("AMX5002", `Imported name '${importedName.name}' collides with a local declaration`, file, importedName.source);
 				}
 				if (dependency.checkResult.exportedTypes.has(importedName.name)) importedTypes.set(importedName.name, dependency.checkResult.exportedTypes.get(importedName.name)!);
+				else if (dependency.checkResult.exportedEnums.has(importedName.name)) importedEnums.set(importedName.name, dependency.checkResult.exportedEnums.get(importedName.name)!);
 				else if (dependency.checkResult.exportedFunctions.has(importedName.name)) importedFunctions.set(importedName.name, dependency.checkResult.exportedFunctions.get(importedName.name)!);
 				else if (dependency.checkResult.exportedBindings.has(importedName.name)) importedBindings.set(importedName.name, dependency.checkResult.exportedBindings.get(importedName.name)!);
 				else if (dependency.checkResult.exportedDimensions.has(importedName.name)) {
@@ -216,6 +221,7 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 		try {
 			checkResult = checkDocument(document, file, {
 				types: importedTypes,
+				enums: importedEnums,
 				functions: importedFunctions,
 				bindings: importedBindings,
 				dimensions: importedDimensions,
@@ -226,7 +232,7 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 		}
 		catch (error) { visiting.pop(); throw locatedError(error, file); }
 		visiting.pop();
-		const record = { file, document, checkResult, importedTypes, importedFunctions, importedBindings, importedDimensions, importedUnits, importTargets };
+		const record = { file, document, checkResult, importedTypes, importedEnums, importedFunctions, importedBindings, importedDimensions, importedUnits, importTargets };
 		records.set(file, record);
 		return record;
 	};
@@ -235,6 +241,7 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 	return {
 		document: result.document,
 		importedTypes: result.importedTypes,
+		importedEnums: result.importedEnums,
 		importedFunctions: result.importedFunctions,
 		importedBindings: result.importedBindings,
 		importedDimensions: result.importedDimensions,

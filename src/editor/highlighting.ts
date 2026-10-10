@@ -1,6 +1,7 @@
 import type { OpenAmxDocument, StatementNode, TypeReferenceNode, V02ExpressionNode } from "../ast/types";
 import { declarationNameRange, sourceOffset, sourceTokenRange, type EditorRange } from "./sourceRanges";
 import { findStringLiteralEnd } from "../parser/stringScanner";
+import type { SourceLocation } from "../ast/types";
 
 export interface EditorHighlightFact extends EditorRange {
 	kind: "keyword" | "declaration" | "reference" | "field" | "type" | "literal";
@@ -8,6 +9,11 @@ export interface EditorHighlightFact extends EditorRange {
 
 function statementsOf(document: OpenAmxDocument): StatementNode[] {
 	return document.nodes.flatMap(node => node.type === "executableCodeBlock" ? node.statements : []);
+}
+
+function sourceLocationAtOffset(text: string, offset: number): SourceLocation {
+	const before = text.slice(0, offset).split(/\r?\n/);
+	return { line: before.length, column: before.at(-1)!.length + 1 };
 }
 
 /** Return parser-proven tokens only; narrative and ordinary fences never enter the AST statement walk. */
@@ -73,6 +79,12 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 			case "binaryExpression": expression(node.left); expression(node.right); break;
 			case "unaryExpression": expression(node.argument); break;
 			case "conditionalExpression": expression(node.test); expression(node.consequent); expression(node.alternate); break;
+			case "bracedIfExpression":
+				add(node.source, "if", "keyword");
+				expression(node.test);
+				node.consequent.forEach(statement);
+				node.alternate.forEach(statement);
+				break;
 			case "forExpression": expression(node.iterable); node.body.forEach(statement); break;
 			case "matchExpression":
 				add(node.source, "match", "keyword");
@@ -93,11 +105,11 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 	};
 	const statement = (node: StatementNode): void => {
 		const keyword: Partial<Record<StatementNode["type"], string>> = {
-			variableDeclaration: "let", typeDeclaration: "type", functionDeclaration: "fn",
+			variableDeclaration: "let", typeDeclaration: "type", enumDeclaration: "enum", functionDeclaration: "fn",
 			dimensionDeclaration: "dimension", unitDeclaration: "unit",
 			inputDeclaration: "input", importDeclaration: "import", tableDeclaration: "table",
 			chartDeclaration: "chart", showStatement: "show", forStatement: "for",
-			assignmentStatement: "", compoundAssignmentStatement: "",
+			assignmentStatement: "", compoundAssignmentStatement: "", bracedIfStatement: "if", returnStatement: "return",
 			addStatement: "add", removeStatement: "remove"
 		};
 		const word = keyword[node.type];
@@ -118,7 +130,22 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 		}
 		if (node.type === "importDeclaration") for (const item of node.names) add(item.source, item.name, "reference");
 		if (node.type === "inputDeclaration") typeReference(node.annotation);
-		if (node.type === "typeDeclaration") for (const field of node.fields) { add(field.source, field.name, "field"); typeReference(field.annotation); }
+		if (node.type === "typeDeclaration") {
+			const firstParent = node.parents?.[0];
+			const typeOffset = sourceOffset(text, node.source);
+			const parentOffset = sourceOffset(text, firstParent?.source);
+			if (typeOffset !== undefined && parentOffset !== undefined) {
+				const extendsOffset = text.slice(typeOffset, parentOffset).indexOf("extends");
+				if (extendsOffset >= 0) add(sourceLocationAtOffset(text, typeOffset + extendsOffset), "extends", "keyword");
+			}
+			for (const parent of node.parents ?? []) add(parent.source, parent.name, "type");
+			for (const field of node.fields) {
+				if (field.override) add(field.overrideSource, "override", "keyword");
+				add(field.source, field.name, "field");
+				typeReference(field.annotation);
+			}
+		}
+		if (node.type === "enumDeclaration") for (const member of node.members) add(member.nameSource, member.name, "declaration");
 		if (node.type === "variableDeclaration") { typeReference(node.annotation); expression(node.expression); }
 		else if (node.type === "functionDeclaration") { node.parameters.forEach(param => typeReference(param.annotation)); typeReference(node.returnType); expression(node.body); }
 		else if (node.type === "tableDeclaration" || node.type === "chartDeclaration") add(node.bindingSource, node.binding, "reference");
@@ -127,6 +154,12 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 		else if (node.type === "addStatement") { add(node.targetSource, node.name, "reference"); expression(node.value); if (node.index) expression(node.index); }
 		else if (node.type === "removeStatement") { add(node.targetSource, node.name, "reference"); expression(node.count); if (node.index) expression(node.index); }
 		else if (node.type === "forStatement") { expression(node.iterable); node.body.forEach(statement); }
+		else if (node.type === "bracedIfStatement") {
+			expression(node.test);
+			node.consequent.forEach(statement);
+			node.alternate?.forEach(statement);
+		}
+		else if (node.type === "returnStatement") expression(node.expression);
 		else if ("expression" in node && node.expression) expression(node.expression);
 	};
 	for (const node of document.nodes) if (node.type === "executableCodeBlock") node.statements.forEach(statement);
