@@ -1,5 +1,11 @@
 # Planning Decisions
 
+## V0.12 Sprint 072 Architect Preparation (2026-10-10)
+
+- The V0.12 master plan is the sole scope authority for Sprint 072. Its confirmed contracts are to be translated into grammar examples, diagnostics with pinned source ranges, and a traceable test-fixture map; this preparation makes no additional language-semantic decision.
+- Reuse the existing source-location convention: positions are 1-based in the original document, including front matter and fence delimiters, and columns count UTF-16 code units.
+- Sprint 072 is documentation/contract preparation only. It does not authorize production feature implementation, editor or language-specification changes, release, or publication.
+
 ## V0.11 Sprint 071 Builder Execution (2026-10-10)
 
 - The user authorized Sprint 071 and approved its concrete file-by-file documentation/evidence plan before edits. Sprint 071 itself added no product feature.

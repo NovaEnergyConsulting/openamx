@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.12 Sprint 072 Architect Preparation (2026-10-10)
+
+- Prepared Sprint 072 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0072-v12-language-contract-acceptance-fixtures/`.
+- The V0.12 master plan is the confirmed scope authority. Sprint 072 is a contract/acceptance-fixture gate for Sprints 073-075; it does not implement language behavior or authorize release/publication.
+- The sprint pack requires canonical grammar examples, a source-located diagnostic matrix, and a requirement-to-test fixture map covering records, enums, braced `if`, modules, formatting, and preservation of the legacy conditional expression.
+- Builder execution remains separate from this Architect preparation; no feature implementation, executable feature tests, language-specification update, or V0.12 behavior verification is authorized by this preparation.
+
 ## V0.11 Sprint 071 Builder Execution (2026-10-10)
 
 - The user explicitly authorized Sprint 071 and approved the file-by-file documentation/evidence plan before its closeout edits. The separately authorized chart-width follow-up is recorded below; dependencies, language specifications, security boundaries, and the supplied PDF were not changed.
