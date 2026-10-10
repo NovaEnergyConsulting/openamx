@@ -1,5 +1,15 @@
 # Planning Questions (Sprint 002)
 
+## V0.11 Sprint 069 Preparation (2026-10-10)
+
+- **Resolved for planning:** Sprint 069 is the roadmap's Editable Native Word Charts sprint and its formal dependencies (Sprints 065, 066, and 068) are closed. Sprint 068's disposition explicitly does not authorize Sprint 069.
+- **Implementation gate remains open:** obtain explicit Lead Developer authorization and code-gate approval of the Builder's concrete file-by-file plan before source/test edits. Owner: Lead Developer.
+- **Numeric line mismatch remains unresolved:** Sprint 065 observed numeric x values `10, 30, 30, 11` represented as equally spaced category positions in Word web. Reproduce with actual Windows Word desktop/web. If continuous numeric spacing cannot be preserved, request a specific Lead Developer product/architecture decision; no category coercion is approved. Owner: Sprint 069 Builder / Lead Developer.
+- **Axis capacity remains unresolved:** the probed native chart API assigned only primary/secondary value axes. Verify faithful representation of all required independent measurement-unit axes. Do not merge, normalize, relabel, or silently drop units. Owner: Sprint 069 Builder / Lead Developer.
+- **Null/empty native states remain unresolved:** prior probes rejected empty scatter series and scatter null-coordinate points; all-null line serialized without fabricated values. Verify all empty/all-null/mixed-null chart kinds in the real Word applications and retain complete source tables. If any required state is misleading or unrepresentable, stop for explicit direction. Owner: Sprint 069 Builder / Lead Developer.
+- **Word application evidence:** Sprint 068 reviewed narrative DOCX in Word desktop/web but did not verify charts. Sprint 065 Word web chart evidence does not satisfy desktop edit/save/reopen or downloaded-copy desktop confirmation. Record current exact Windows/Word versions, reviewer, actions, and prompts; do not substitute package inspection or LibreOffice. Owner: Sprint 069 Builder / reviewer.
+- Sprint 067/068 inherited root failures (`tests/editor.test.ts:73`, `tests/examples.test.ts:43`), desktop sandbox-count failure (`desktop-app/tests/rpc-contract-check.ts:74`), and Word web local-link rewrite remain out of chart scope. Recheck only to identify new regressions; do not repair unrelated residuals.
+
 ## V0.11 Sprint 068 Preparation (2026-10-09)
 
 - **Resolved for planning:** Sprint 068 is the master-plan Native DOCX Narrative, Tables, and Code sprint. Its formal upstream sprint dependency is Sprint 066, ACCEPTED / CLOSED. Sprint 067 is now also ACCEPTED / CLOSED WITH RECORDED RESIDUALS, but its closeout expressly withholds downstream authorization.

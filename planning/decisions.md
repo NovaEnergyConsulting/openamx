@@ -1,5 +1,13 @@
 # Planning Decisions
 
+## V0.11 Sprint 069 Architect Preparation (2026-10-10)
+
+- The V0.11 master plan remains the scope authority. Sprint 069 owns native DOCX chart adaptation for the existing four chart kinds using embedded workbooks and the shared `ChartViewModel`; no changes to shared chart semantics or PDF/HTML charts are approved.
+- Preserve kind/orientation, series/grouping/order, axes and units, values, labels, DateTime meaning, duplicates, null gaps, and truthful empty/all-null behavior. Preserve a complete accessible table alternative and all source rows.
+- Sprint 065's numeric-line category mismatch, API's primary/secondary axis limitation, and rejected empty/null scatter cases are not waived. Reproduce them on Windows in actual Word; if a required case remains incompatible, stop for a specific Lead Developer product/architecture decision before mapping behavior.
+- Embedded data must remain local and editable; external workbooks, macros, remote resources, semantic coercion, fabricated points, and static image fallback are prohibited.
+- Sprint 068 is ACCEPTED / CLOSED WITH RECORDED RESIDUALS but did not authorize Sprint 069. Explicit Sprint 069 authorization and code-gate approval are required before source/test edits.
+
 ## V0.11 Sprint 068 Architect Preparation (2026-10-09)
 
 - The V0.11 master plan remains the scope authority. Sprint 068 owns native DOCX narrative integration only; native charts remain Sprint 069, PDF remains Sprint 067, and HTML/preview remains Sprint 070.
