@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.12 Sprint 073 Architect Preparation (2026-10-10)
+
+- Prepared Sprint 073 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0073-v12-record-inheritance/`.
+- Sprint 072 Builder execution is recorded complete; Sprint 073 uses its grammar examples, source-located diagnostic matrix, and requirement-to-test map as the acceptance contract.
+- The Lead Developer clarified effective-field ordering: parents are visited in declaration order using each parent's effective-field order; first occurrence fixes position, an override replaces in place, and child-only fields follow in declaration order.
+- Inheritance diagnostics RI-I01, RI-I02, RI-I03, and RI-I07 remain unallocated in Sprint 072. Their identities/messages require explicit approval before implementing those diagnostics or exact-code assertions.
+- This is Architect preparation only; it does not authorize Builder execution, release, or publication.
+
 ## V0.12 Sprint 072 Builder Execution (2026-10-10)
 
 - The Lead Developer explicitly authorized Sprint 072 and approved the file-by-file documentation plan before edits.

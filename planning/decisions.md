@@ -1,5 +1,11 @@
 # Planning Decisions
 
+## V0.12 Sprint 073 Architect Preparation (2026-10-10)
+
+- **Effective inherited-field ordering (Lead Developer, 2026-10-10):** visit parents in declaration order and each parent's effective fields in their established order; the first occurrence of a field fixes its position; a valid child override replaces the field in place; child-only fields append in child declaration order. This applies consistently anywhere the effective record field list is observed.
+- Sprint 072's diagnostic matrix leaves inheritance-specific identities/messages for RI-I01, RI-I02, RI-I03, and RI-I07 unallocated. Approval is required before implementing those diagnostic categories or adding exact-code assertions; no code/message is inferred here.
+- Sprint 073 follows the V0.12 master plan and Sprint 072 fixture contract. Preparation adds no subtyping or other language-semantic change.
+
 ## V0.12 Sprint 072 Lead Developer Clarification (2026-10-10)
 
 - The Lead Developer explicitly decided that an enum with an empty body is invalid and must contain at least one member. This resolves the omission in the master plan for Sprint 072's required emptiness coverage and is recorded by fixture EN-I01; it does not change any other V0.12 contract.
