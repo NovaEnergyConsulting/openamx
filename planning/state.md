@@ -1,5 +1,12 @@
 # Planning State
 
+## V0.12 Sprint 075 Architect Preparation (2026-10-10)
+
+- Prepared Sprint 075 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0075-v12-braced-if-expressions-statements/`.
+- Sprint 072's `if` fixtures are the acceptance contract. Sprint 073 and Sprint 074 execution records report their focused suites/build passing; Sprint 074's full-suite retry matches the two Sprint 073 baseline failures.
+- The missing-return diagnostic for IF-I02 remains unallocated. The pack requires explicit approval before implementing that diagnostic or exact-code assertions; no identity/message is guessed.
+- This is Architect preparation only; it does not authorize Builder execution, publication, or release.
+
 ## V0.12 Sprint 074 Builder Execution (2026-10-10)
 
 - The Lead Developer explicitly authorized execution, approved the concrete file-by-file plan, and allocated AMX3015-AMX3020 with exact messages; see `planning/decisions.md`.
@@ -15,7 +22,7 @@
 - Prepared Sprint 074 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0074-v12-enumerations/`.
 - Sprint 072's enum fixtures are the contract; the empty-enum rejection is the explicit Lead Developer clarification already recorded in `planning/decisions.md`.
 - Sprint 073 implementation evidence records focused parser/evaluator/module/input/output/dimension tests and build passing; the full root suite retains two failures reported as inherited in Sprint 073 evidence.
-- Enum-specific diagnostic identities/messages for EN-I01–EN-I06 remain unallocated. The pack makes approval a gate for those diagnostics and exact-code assertions; no codes are guessed.
+- At preparation time, enum-specific diagnostics for EN-I01–EN-I06 were unallocated. Sprint 074 execution later obtained approval for AMX3015–AMX3020 and implemented fixture-derived assertions; see the execution record above and `planning/decisions.md`.
 - This is Architect preparation only; it does not authorize Builder execution, release, or publication.
 
 ## V0.12 Sprint 073 Builder Execution (2026-10-10)

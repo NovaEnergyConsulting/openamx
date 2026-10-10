@@ -1,5 +1,11 @@
 # Planning Decisions
 
+## V0.12 Sprint 075 Architect Preparation (2026-10-10)
+
+- Sprint 075 follows the V0.12 master plan and Sprint 072 `if` fixtures. Expression-block returns remain local value-producing exits; this preparation adds no new loop or function-return semantics.
+- The missing-return diagnostic for IF-I02 remains unallocated. Explicit approval is required before implementing that diagnostic or exact-code assertions; this preparation assigns no code.
+- Sprint 075 preserves the completed Sprint 073 inheritance and Sprint 074 enum contracts; editor/formatter integration and language-specification publication remain Sprint 076 scope.
+
 ## V0.12 Sprint 074 Builder Execution (2026-10-10)
 
 - The Lead Developer explicitly authorized Sprint 074 and approved the concrete file-by-file plan before implementation.
@@ -9,7 +15,7 @@
 ## V0.12 Sprint 074 Architect Preparation (2026-10-10)
 
 - Sprint 074 follows the V0.12 master plan and the approved Sprint 072 enum fixtures, including the Lead Developer clarification that empty enums are invalid. This preparation adds no enum-semantic decision.
-- Enum diagnostic identities/messages for EN-I01–EN-I06 remain unallocated. Explicit approval is required before implementing those diagnostics or exact-code assertions; this preparation assigns no codes.
+- At preparation time, enum diagnostics EN-I01–EN-I06 were unallocated. Sprint 074 execution later obtained approval for AMX3015–AMX3020; see the execution record above.
 - Sprint 074 preserves the Sprint 073 record-inheritance behavior and does not authorize editor/formatter integration, publication, or release.
 
 ## V0.12 Sprint 073 Architect Preparation (2026-10-10)
