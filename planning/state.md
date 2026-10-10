@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.12 Sprint 072 Builder Execution (2026-10-10)
+
+- The Lead Developer explicitly authorized Sprint 072 and approved the file-by-file documentation plan before edits.
+- Created `grammar-examples.md`, `diagnostic-matrix.md`, and `requirement-test-matrix.md` in `planning/sprints/0072-v12-language-contract-acceptance-fixtures/`. The fixtures cover record inheritance, enums, braced `if`, modules, source-order behavior, source locations, formatting, and legacy conditional-expression preservation.
+- Contract status: complete for the approved language semantics. Existing diagnostic identities are pinned only where their catalog categories apply; new inheritance, enum, and `if` diagnostic identities/messages remain explicitly unallocated and require Lead Developer approval before the affected diagnostics or exact-code tests are implemented in Sprints 073-075.
+- The Lead Developer clarified that empty enums are rejected; the clarification is recorded in `planning/decisions.md`. No unresolved language-semantic question remains, so `planning/questions.md` was not changed.
+- No production code, language specification, examples, editor clients, or executable feature tests were changed. These fixtures record expectations only; no V0.12 behavior is claimed implemented or verified, and no release/publication is authorized.
+
 ## V0.12 Sprint 072 Architect Preparation (2026-10-10)
 
 - Prepared Sprint 072 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0072-v12-language-contract-acceptance-fixtures/`.

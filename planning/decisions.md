@@ -1,5 +1,10 @@
 # Planning Decisions
 
+## V0.12 Sprint 072 Lead Developer Clarification (2026-10-10)
+
+- The Lead Developer explicitly decided that an enum with an empty body is invalid and must contain at least one member. This resolves the omission in the master plan for Sprint 072's required emptiness coverage and is recorded by fixture EN-I01; it does not change any other V0.12 contract.
+- New diagnostic identities/messages for inheritance, enum validation, and braced-`if` return-path failures were not allocated by this clarification; their feature sprints must obtain approval before implementation and exact-code assertions.
+
 ## V0.12 Sprint 072 Architect Preparation (2026-10-10)
 
 - The V0.12 master plan is the sole scope authority for Sprint 072. Its confirmed contracts are to be translated into grammar examples, diagnostics with pinned source ranges, and a traceable test-fixture map; this preparation makes no additional language-semantic decision.
