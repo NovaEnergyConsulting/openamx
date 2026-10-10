@@ -122,20 +122,53 @@ async function cancelActiveJob() {
 		jobStage.value = "";
 	}
 }
-async function executeJob(operation: DesktopJobOperation, selectionId?: string, dataOutput?: { name: string; format: "json" | "csv" }) {
-	await pendingEdit; await pendingInputSettings; if (!workbench.value.requestIdentity) await syncWorkbench();
-	const identity = workbench.value.requestIdentity; if (!identity) throw new Error("Open an active AMX document before starting a job.");
+
+async function executeJob(
+	operation: DesktopJobOperation, 
+	selectionId?: string, 
+	dataOutput?: { name: string; format: "json" | "csv" }) {
+	
+	await pendingEdit; 
+	await pendingInputSettings; 
+	if (!workbench.value.requestIdentity) await syncWorkbench();
+	
+	const identity = workbench.value.requestIdentity;
+	if (!identity) throw new Error("Open an active AMX document before starting a job.");
+	
 	const started = await props.rpc.request.startJob({ operation, identity, selectionId, dataOutput }); if (!started.ok) throw new Error(started.error.message);
-	let job = started.job; const jobId = job.identity.jobId; activeJobId.value = jobId; jobStage.value = job.stage ?? "";
-	cleanupJobId.value = null; cleanupPending.value = false;
+	
+	let job = started.job; 
+	const jobId = job.identity.jobId; 
+	activeJobId.value = jobId; 
+	jobStage.value = job.stage ?? "";
+	cleanupJobId.value = null; 
+	cleanupPending.value = false;
+	
 	for (let attempt = 0; ["running", "committing"].includes(job.status) && attempt < 600; attempt++) {
-		await new Promise(resolve => setTimeout(resolve, 50)); if (activeJobId.value !== jobId) return undefined;
-		const polled = await props.rpc.request.getJob({ jobId }); if (!polled.ok) throw new Error(polled.error.message); job = polled.job; jobStage.value = job.stage ?? "";
+		await new Promise(resolve => setTimeout(resolve, 50)); 
+		if (activeJobId.value !== jobId) return undefined;
+		
+		const polled = await props.rpc.request.getJob({ jobId }); 
+		if (!polled.ok) throw new Error(polled.error.message); 
+		job = polled.job; 
+		jobStage.value = job.stage ?? "";
 	}
-	if (["running", "committing"].includes(job.status)) { void props.rpc.request.cancelJob({ jobId }); throw new Error("The desktop job did not complete before its polling limit."); }
+	
+	if (["running", "committing"].includes(job.status)) { 
+		void props.rpc.request.cancelJob({ jobId }); 
+		throw new Error("The desktop job did not complete before its polling limit."); 
+	}
+	
 	if (activeJobId.value === jobId) activeJobId.value = null;
+	
 	jobStage.value = "";
-	if (job.cleanupPending) { cleanupPending.value = true; cleanupJobId.value = jobId; void observeWorkerCleanup(jobId); }
+	
+	if (job.cleanupPending) { 
+		cleanupPending.value = true; 
+		cleanupJobId.value = jobId; 
+		void observeWorkerCleanup(jobId); 
+	}
+	
 	return job;
 }
 

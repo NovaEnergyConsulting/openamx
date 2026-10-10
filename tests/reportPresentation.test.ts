@@ -127,6 +127,10 @@ Narrative after captured emissions.
     expect(documentXml).toContain('500 meter');
     expect(documentXml).toContain('Distance (kilometer)');
     expect(documentXml).toContain('0.5');
+    expect(documentXml.indexOf('Narrative before captured emissions')).toBeLessThan(documentXml.indexOf('Distances'));
+    expect(documentXml.indexOf('Distances')).toBeLessThan(documentXml.indexOf('Distance trend'));
+    expect(documentXml.indexOf('Distance trend')).toBeLessThan(documentXml.indexOf('Narrative after captured emissions'));
+    expect(Object.keys(archive.files).some(name => name.startsWith('word/media/') && name.endsWith('.svg'))).toBe(true);
     expect(prepared.items.filter(item => item.type === 'view').map(item => item.emission.name)).toEqual(['register', 'amounts']);
   });
 

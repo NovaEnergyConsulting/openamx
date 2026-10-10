@@ -9,6 +9,16 @@
 - Sprint 067's known suite failures and missing visual/viewer evidence remain residuals. This preparation does not authorize their repair or imply downstream implementation approval.
 - Sprint 067 disposition did not authorize Sprint 068. Explicit Lead Developer authorization and the repository code-gate approval are required before source/test edits.
 
+## V0.11 Sprint 068 Builder Decisions (2026-10-10)
+
+- **Authorization and code gate:** the user explicitly authorized Sprint 068 and approved the concrete file-by-file code plan before any source/test edits. The separate Lead Developer disposition was recorded as **ACCEPTED / CLOSED WITH RECORDED RESIDUALS (2026-10-10)**.
+- DOCX consumes only the prepared Sprint 066 narrative AST. Native Word bookmarks use safe, deterministic unique names while internal links retain the shared target IDs. Ordered/unordered lists use Word numbering, Markdown tables use editable cells with repeating header rows and 100% page width, and narrative images use only sanitized shared-model bytes and `fitNarrativeImage`.
+- CLI supplies `destination.path` from `prepareDocxDestination`; desktop supplies `job.destination` only after host-side destination validation. The DOCX worker accepts that absolute final path only for DOCX jobs. Existing conflict/overwrite checks, caps, and atomic commits remain unchanged.
+- Local hyperlink targets are encoded relative to the validated final DOCX directory from the prepared document-relative path. The `.pdf`, `.png`, `.jpg`, `.jpeg`, `.txt`, `.csv`, and `.json` allowlist is unchanged; no companion copy, absolute path, `file:` URL, HTTP conversion, or atomic temporary path is introduced.
+- Package tests and Word application observations are separate evidence. Word desktop saved/reopened the generated output; Word for the Web showed a relative `sprint068-companion.txt` relationship as `https://sprint068-companion.txt`. The target was not clicked. Do not claim web local-link support; obtain Lead Developer disposition before resolving that residual.
+- The existing chart adapter/meaning, report metadata/footer/order, source visibility, emitted values, null/measurement semantics, shared model, preparation, PDF, HTML/preview, dependencies, fonts, caps, and supplied baseline are unchanged.
+- Sprint 067's two root failures and desktop contract-test failure remain unchanged residuals. Sprint 068 is ACCEPTED / CLOSED WITH RECORDED RESIDUALS; this does not authorize Sprints 069-071.
+
 ## V0.11 Sprint 067 Architect Preparation (2026-10-09)
 
 - The V0.11 master plan remains the scope authority. Sprint 067 owns PDF integration of the Sprint 066 shared narrative model; DOCX, HTML/preview, and native chart work remain assigned to Sprints 068, 070, and 069.

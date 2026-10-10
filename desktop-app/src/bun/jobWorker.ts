@@ -64,6 +64,12 @@ function validateRequest(request: WorkerJobRequest): void {
 	} else if (request.pdfDestinationPath !== undefined) {
 		throw new Error("A PDF destination is valid only for a PDF export job.");
 	}
+	if (request.operation === "docx") {
+		if (!request.docxDestinationPath || request.docxDestinationPath.length > 4096 || !isAbsolute(request.docxDestinationPath))
+			throw new Error("DOCX worker request requires a validated final destination path.");
+	} else if (request.docxDestinationPath !== undefined) {
+		throw new Error("A DOCX destination is valid only for a DOCX export job.");
+	}
 	let overlayTextLength = 0;
 	for (const [path, text] of request.sourceOverlay) {
 		if (path.length > 4096 || text.length > MAX_TEXT) throw new Error("Worker overlay item exceeds its limit.");
@@ -200,7 +206,12 @@ async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
 			destinationPath
 		}));
 	} else {
-		bytes = await serializeDocxReport(prepareDocxReport(prepared));
+		const destinationPath = request.docxDestinationPath;
+		if (!destinationPath) throw new Error("DOCX worker request requires a validated final destination path.");
+		bytes = await serializeDocxReport(prepareDocxReport(prepared, {
+			sourceDocumentPath: request.entryPath,
+			destinationPath
+		}));
 	}
 	if (bytes.length > MAX_BINARY_EXPORT) throw new Error(`Report output exceeds the ${MAX_BINARY_EXPORT}-byte limit.`);
 	const data = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;

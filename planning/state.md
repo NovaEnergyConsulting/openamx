@@ -1,5 +1,18 @@
 # Planning State
 
+## V0.11 Sprint 068 Builder Execution (2026-10-10)
+
+- Before source or test edits, the user explicitly authorized Sprint 068 and approved the concrete file-by-file code plan presented in the handoff. A separate Lead Developer disposition remains pending.
+- Replaced the line-based DOCX narrative adapter with traversal of the accepted Sprint 066 `PreparedReportItem.markdown` AST. DOCX now emits native editable paragraphs/runs, heading bookmarks, hyperlinks, lists, Markdown tables, images, rules, page breaks, and monospaced code. Shared parsing/preparation, report order/identity, emitted tables, chart output, and atomic writers were left unchanged.
+- CLI passes the input document and validated final `.docx` path. Desktop passes only the host-validated destination to the DOCX worker; worker request validation requires an absolute DOCX path only for DOCX jobs. Final-relative local links use the validated source-relative path and preserve query/fragment without serializing an absolute path, using the atomic temporary path, or copying companions.
+- Focused root DOCX/CLI/presentation tests: 10 passed, 0 failed, 102 assertions. Root build passed. Root `bun test`: 419 passed, 2 failed across 421 tests / 34 files (2,220 expectations); the only failures are the known `tests/editor.test.ts:73` and `tests/examples.test.ts:43` residuals from Sprint 067.
+- Desktop focused worker/DOCX tests: 5 passed, 0 failed (25 expectations). Desktop `bun run typecheck` passed. Desktop `bun run test` retains the known `desktop-app/tests/rpc-contract-check.ts:74` sandbox-count failure (expected 2, found 1). An initial concurrent root-suite run also observed the existing PDF export test during `committing`; the isolated test and a subsequent non-concurrent full root run passed it.
+- Word desktop 16.0.20430.20146 opened the generated kitchen-sink DOCX; the Builder edited the title, saved, closed, and reopened it successfully. The Word object model reported 18 tables, 9 images, and 23 bookmarks. A separate local-link probe retained its relative target across save/reopen; its target was not clicked.
+- A 101-row Markdown table opened in Word desktop as one table across 7 pages; the 101 rows were present and Word reported the header row as repeating.
+- Word for the Web opened the representative DOCX and a disposable local-link probe. The probe's relative OOXML target `sprint068-companion.txt` was exposed by the viewer as `https://sprint068-companion.txt`; it was not clicked and is not claimed to be a valid local link. Both test uploads were moved to the OneDrive Recycle Bin after review. No viewer restriction was bypassed.
+- `examples/kitchen-sink.pdf` remained read-only; SHA-256 is unchanged at `9ADD5C76030F9D6248A8126EFA0D96F2E1FC2168A654DA1F07E2B6953E3BE778`.
+- Exact commands, package observations, Word application details, and residual owners are recorded in [Sprint 068 Builder evidence](sprints/0068-v11-docx-narrative-tables-code/builder-evidence.md). The separate Lead Developer disposition was recorded as **ACCEPTED / CLOSED WITH RECORDED RESIDUALS** on 2026-10-10. This closes Sprint 068 only; no Sprint 069-071, V0.11 completion, release, or publication is authorized or implied.
+
 ## V0.11 Sprint 068 Architect Preparation (2026-10-09)
 
 - Prepared the Sprint 068 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0068-v11-docx-narrative-tables-code/`.

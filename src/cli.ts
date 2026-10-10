@@ -89,7 +89,10 @@ cli
           validation: options.validation as "aggregate" | "fail-fast" | undefined
         });
         const report = await prepareReport(doc, env, { file: input, projectRoot: options.projectRoot });
-        const bytes = await serializeDocxReport(prepareDocxReport(report));
+        const bytes = await serializeDocxReport(prepareDocxReport(report, {
+          sourceDocumentPath: input,
+          destinationPath: destination.path
+        }));
         await writeDocxAtomically(destination, bytes);
         console.log(`Exported DOCX to ${destination.path}`);
         return;

@@ -668,6 +668,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				projectRoot: job.projectRoot, sourceOverlay: [...sourceOverlay],
 				inputMappings: resolved.mappings, validation: activeValidation,
 				...(operation === "pdf" ? { pdfDestinationPath: job.destination } : {}),
+				...(operation === "docx" ? { docxDestinationPath: job.destination } : {}),
 				inputInspection: jobInputInspection, dataOutput
 			};
 			worker.postMessage(request);

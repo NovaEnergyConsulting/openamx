@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import JSZip from 'jszip';
 
 const directories: string[] = [];
 
@@ -35,6 +36,29 @@ describe('export docx CLI', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Exported DOCX');
     expect((await Bun.file(output).arrayBuffer()).byteLength).toBeGreaterThan(1000);
+  });
+
+  it('serializes local links relative to the validated final DOCX directory', async () => {
+    const directory = await fixtureDirectory();
+    const sourceDirectory = join(directory, 'source');
+    const outputDirectory = join(directory, 'output');
+    await Promise.all([
+      mkdir(join(sourceDirectory, 'companions'), { recursive: true }),
+      mkdir(outputDirectory)
+    ]);
+    const input = join(sourceDirectory, 'report.amx');
+    const output = join(outputDirectory, 'report.docx');
+    await Bun.write(join(sourceDirectory, 'companions', 'asset one.txt'), 'portable companion');
+    await Bun.write(input, '[Companion](./companions/asset%20one.txt?download=1#page)\n');
+
+    const result = await runCli('export', 'docx', input, '--out', output);
+    expect(result.exitCode).toBe(0);
+    const archive = await JSZip.loadAsync(await Bun.file(output).arrayBuffer());
+    const relationships = await archive.file('word/_rels/document.xml.rels')?.async('string');
+    expect(relationships).toContain('Target="../source/companions/asset%20one.txt?download=1#page"');
+    expect(relationships).not.toContain(directory);
+    expect(relationships).not.toContain('.tmp');
+    expect(await Bun.file(join(outputDirectory, 'companions', 'asset one.txt')).exists()).toBe(false);
   });
 
   it('rejects invalid destinations before writing', async () => {

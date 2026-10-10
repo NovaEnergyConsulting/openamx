@@ -14,6 +14,7 @@ export interface WorkerJobRequest {
 	inputMappings: string[];
 	validation: "aggregate" | "fail-fast";
 	pdfDestinationPath?: string;
+	docxDestinationPath?: string;
 	inputInspection?: { name: string; format: "json" | "csv"; text: string };
 	dataOutput?: { name: string; format: "json" | "csv" };
 }
