@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.11 Sprint 070 Architect Preparation (2026-10-10)
+
+- Prepared Sprint 070 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0070-v11-html-alignment-controlled-preview-links/`.
+- Sprint 066, Sprint 067, Sprint 068, and Sprint 069 are closed. The master plan's formal dependency for Sprint 070 is Sprint 066; none of these closeouts independently authorizes Sprint 070.
+- The pack aligns standalone HTML/desktop preview with the shared narrative model and specifies offline sanitized images, final-output-relative standalone links, and opaque-ID-only desktop preview links.
+- The user selected a dedicated host navigation action that resolves/revalidates an opaque target ID, confirms with the user, and only then opens the mapped destination. Message schema, target-map lifetime, and confirmation details must be approved in the Builder's code plan.
+- Explicit Sprint 070 implementation authorization and repository code-gate approval remain prerequisites. Preserve the sandbox, host allowlist/confirmation, Sprint 069 chart residuals, Sprint 067 PDF visual residual, and inherited test failures. No source changes, Sprint 071, V0.11 completion, release, or publication are authorized by this preparation.
+
 ## V0.11 Sprint 069 Architect Preparation (2026-10-10)
 
 - Prepared the Sprint 069 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0069-v11-native-word-charts/`.

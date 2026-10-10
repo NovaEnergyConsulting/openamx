@@ -1,5 +1,14 @@
 # Planning Decisions
 
+## V0.11 Sprint 070 Architect Preparation (2026-10-10)
+
+- The V0.11 master plan remains the scope authority. Sprint 070 owns standalone HTML/desktop-preview alignment for images, visible line breaks, and safe links; no chart, PDF, or DOCX behavior change is approved.
+- The opaque target-ID, active-frame/revision, host-map/revalidation, allowlist, and confirmation protocol is approved as design direction. The user selected a dedicated host navigation action that accepts only opaque target IDs, revalidates the mapped target, confirms, and then opens it. This does not authorize source edits.
+- Standalone HTML local targets must be materialized relative to the validated final output directory. Desktop preview never receives raw target URLs or filesystem paths; the target map remains host-owned and current-revision-bound.
+- Preserve local target allowlist `.pdf`, `.png`, `.jpg`, `.jpeg`, `.txt`, `.csv`, and `.json`, HTTP/HTTPS-only external links, sanitized offline PNG/JPEG images, and `sandbox="allow-scripts"` without `allow-same-origin`.
+- The exact wire schema, target-map lifecycle, and confirmation UI/action must be stated in the Builder's concrete file-by-file plan and approved before implementation. Sprint 069's Word Web null-gap visual and screen-reader residuals and inherited test failures remain unchanged.
+- Sprint 069 disposition does not authorize Sprint 070. Explicit Lead Developer authorization and repository code-gate approval are required before source/test edits.
+
 ## V0.11 Sprint 069 Architect Preparation (2026-10-10)
 
 - The V0.11 master plan remains the scope authority. Sprint 069 owns native DOCX chart adaptation for the existing four chart kinds using embedded workbooks and the shared `ChartViewModel`; no changes to shared chart semantics or PDF/HTML charts are approved.

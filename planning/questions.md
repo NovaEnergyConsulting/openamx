@@ -1,5 +1,15 @@
 # Planning Questions (Sprint 002)
 
+## V0.11 Sprint 070 Preparation (2026-10-10)
+
+- **Resolved for planning:** Sprint 070 is the master-plan HTML Alignment and Controlled Preview Links sprint. Its formal dependency on Sprint 066 is closed; Sprints 067-069 are also closed but did not authorize Sprint 070.
+- **Resolved design selection (user, 2026-10-10):** use a dedicated host navigation action that accepts an opaque target ID, resolves and revalidates the host-held target, confirms with the user, and opens it only after confirmation. Do not reuse a generic raw-path `openPath` RPC as the preview API. This is not implementation authorization.
+- **Implementation gate remains open:** obtain explicit Sprint 070 authorization and approval of the concrete file-by-file plan before source/test edits. The plan must spell out the wire schema, target-map lifecycle/invalidation, genuine-click and active-frame/revision checks, confirmation UI, cancel behavior, and native open action. Owner: Lead Developer.
+- **Resolved constraints:** preview iframe stays `allow-scripts` without `allow-same-origin`; only HTTP/HTTPS and the Sprint 066 local extension allowlist are permitted; standalone local links use final-output-relative paths; preview messages carry opaque identifiers only.
+- **Carry-forward chart evidence:** Sprint 069 is ACCEPTED / CLOSED WITH RECORDED RESIDUALS. Word Web visual evidence for the numeric-X null-gap encoding and a formal screen-reader review remain open for integrated closeout. Sprint 070 must not change charts. Owner: Sprint 071 reviewer / Lead Developer.
+- **Carry-forward root/desktop test residuals:** root `tests/editor.test.ts:73`, root `tests/examples.test.ts:43`, and desktop `desktop-app/tests/rpc-contract-check.ts:74` remain as recorded in Sprint 068/069 evidence. Recheck for new regressions; do not make unrelated repairs. Owners: Lead Developer / respective maintainers.
+- **Other evidence residuals:** Sprint 067 has no PDF raster review or actual viewer-open evidence. Sprint 069 has no formal screen-reader review. Sprint 070 does not close either item. Owner: Sprint 071 reviewer / Lead Developer.
+
 ## V0.11 Sprint 069 Preparation (2026-10-10)
 
 - **Resolved for planning:** Sprint 069 is the roadmap's Editable Native Word Charts sprint and its formal dependencies (Sprints 065, 066, and 068) are closed. Sprint 068's disposition explicitly does not authorize Sprint 069.
