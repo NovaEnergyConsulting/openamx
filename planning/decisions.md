@@ -1,9 +1,16 @@
 # Planning Decisions
 
+## V0.12 Sprint 076 Architect Preparation (2026-10-11)
+
+- Sprint 076 follows the confirmed V0.12 master plan and the implemented Sprint 072-075 contracts. No language-semantic, diagnostic, or compatibility change is proposed.
+- The V0.12 language specification, two runnable feature examples, README links, desktop Help, formatter integration, and both existing editor clients are in scope. Use existing shared/editor/test infrastructure; do not add a parallel service.
+- Sprint 075 approved IF-I02 as AMX3021 with the exact message `Every possible path in an if expression must return a value`, reported at the closing brace of the branch with fallthrough. This supersedes the earlier preparation note that its identity was unallocated.
+- Sprint 076 is not V0.12 closeout or release authorization; Sprint 077 retains the integrated acceptance gate.
+
 ## V0.12 Sprint 075 Architect Preparation (2026-10-10)
 
 - Sprint 075 follows the V0.12 master plan and Sprint 072 `if` fixtures. Expression-block returns remain local value-producing exits; this preparation adds no new loop or function-return semantics.
-- The missing-return diagnostic for IF-I02 remains unallocated. Explicit approval is required before implementing that diagnostic or exact-code assertions; this preparation assigns no code.
+- At preparation time, IF-I02's missing-return diagnostic was unallocated. Sprint 075 execution later obtained approval for AMX3021; see the execution record above.
 - Sprint 075 preserves the completed Sprint 073 inheritance and Sprint 074 enum contracts; editor/formatter integration and language-specification publication remain Sprint 076 scope.
 
 ## V0.12 Sprint 075 Builder Execution (2026-10-10)

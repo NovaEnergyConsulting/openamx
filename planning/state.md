@@ -1,10 +1,17 @@
 # Planning State
 
+## V0.12 Sprint 076 Architect Preparation (2026-10-11)
+
+- Prepared Sprint 076 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0076-v12-editor-language-documentation-integration/`.
+- Sprints 073-075 are recorded implemented. Sprint 075 evidence includes AMX3021 approval and reports focused parser/evaluator/formatter/module suites and the root build passing; its full root suite retains the two known failures from the prior baseline.
+- Sprint 076 integrates both editor clients, the existing shared editor/formatter services, searchable desktop language Help, runnable V0.12 examples, README links, and `docs/language-spec-v0.12.md`.
+- This is Architect preparation only; explicit Builder authorization and a concrete file-by-file plan are still required. Sprint 077 remains the integrated V0.12 acceptance/closeout gate.
+
 ## V0.12 Sprint 075 Architect Preparation (2026-10-10)
 
 - Prepared Sprint 075 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0075-v12-braced-if-expressions-statements/`.
 - Sprint 072's `if` fixtures are the acceptance contract. Sprint 073 and Sprint 074 execution records report their focused suites/build passing; Sprint 074's full-suite retry matches the two Sprint 073 baseline failures.
-- The missing-return diagnostic for IF-I02 remains unallocated. The pack requires explicit approval before implementing that diagnostic or exact-code assertions; no identity/message is guessed.
+- At preparation time, IF-I02's missing-return diagnostic was unallocated. Sprint 075 execution later obtained approval for AMX3021 and implemented fixture-derived coverage; see the execution record above and `planning/decisions.md`.
 - This is Architect preparation only; it does not authorize Builder execution, publication, or release.
 
 ## V0.12 Sprint 075 Builder Execution (2026-10-10)
