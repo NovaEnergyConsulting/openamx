@@ -181,7 +181,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   const views = new Map<string, TableDeclarationNode | ChartDeclarationNode>();
   let loopDepth = 0;
   let allowListMutation = true;
-  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010', message: string, source?: SourceLocation): never => staticError(code, message, source, file);
+  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010' | 'AMX3011' | 'AMX3012' | 'AMX3013' | 'AMX3014', message: string, source?: SourceLocation, declarationSource?: SourceLocation): never => staticError(code, message, source, file, declarationSource);
   const failDeclaration = (message: string, source?: SourceLocation, declarationSource?: SourceLocation): never =>
     staticError('AMX3008', message, source, file, declarationSource);
 
@@ -381,7 +381,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     }
   }
 
-  function resolve(ref: TypeReferenceNode, owner?: TypeDeclarationNode | FunctionDeclarationNode): CheckedType {
+  function resolve(ref: TypeReferenceNode, owner?: TypeDeclarationNode | FunctionDeclarationNode | RecordFieldNode): CheckedType {
     if (ref.type === 'namedType') {
       const scope = owner ? fieldRegistry(owner) : undefined;
       const dimension = ref.name ? (scope?.dimensions ?? dimensions).get(ref.name) : undefined;
@@ -541,7 +541,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
           seen.add(field.name);
           const declared = declaration!.fields.find(item => item.name === field.name);
           if (!declared) fail('AMX3001', `Unknown field '${field.name}'`, field.source);
-          const target = resolve(declared!.annotation, declaration);
+          const target = resolve(declared!.annotation, declared);
           requireType(infer(field.expression, target), target, field.expression.source ?? field.source);
         }
         for (const field of declaration!.fields) {
@@ -555,7 +555,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         if (!declaration) fail('AMX3003', 'Field access requires a non-null record', expression.source);
         const field = declaration!.fields.find(item => item.name === expression.field);
         if (!field) fail('AMX3001', `Unknown field '${expression.field}'`, expression.source);
-        return resolve(field!.annotation, declaration);
+        return resolve(field!.annotation, field);
       }
       case 'listAccess': {
         const receiver = infer(expression.receiver);
@@ -818,7 +818,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
       for (const field of expression.fields) {
         const declaration = types.get(expression.name);
         const declared = declaration?.fields.find(item => item.name === field.name);
-        if (declared) checkDefault(field.expression, resolve(declared.annotation, declaration));
+        if (declared) checkDefault(field.expression, resolve(declared.annotation, declared));
       }
     } else if (!(expression.type === 'unaryExpression' && expression.operator === '-'
       && (expression.argument.type === 'numberLiteral'
@@ -875,7 +875,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     const declaration = types.get(recordName)!;
     const field = declaration.fields.find(item => item.name === fieldName);
     if (!field) fail('AMX3001', `Unknown field '${fieldName}' on '${recordName}'`, source);
-    return resolve(field!.annotation, declaration);
+    return resolve(field!.annotation, field);
   }
 
   function isScalar(type: CheckedType): boolean {
@@ -1017,15 +1017,53 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
       case 'typeDeclaration': {
         if (hasName(statement.name)) fail('AMX3005', `Duplicate type '${statement.name}'`, statement.source);
         setDeclaringRegistry(statement, moduleRegistry);
+        const declaredFields = statement.declaredFields ?? statement.fields;
+        statement.declaredFields = declaredFields;
+        const inheritedFields: RecordFieldNode[] = [];
+        const inheritedPositions = new Map<string, number>();
+        const inheritedParents = new Map<string, { name: string; field: RecordFieldNode }>();
+        for (const parent of statement.parents ?? []) {
+          const parentDeclaration = types.get(parent.name);
+          if (!parentDeclaration) return fail('AMX3001', `Unknown type '${parent.name}'`, parent.source);
+          for (const field of parentDeclaration.fields) {
+            const previous = inheritedParents.get(field.name);
+            if (previous && !declaredFields.some(candidate => candidate.name === field.name && candidate.override)) {
+              fail('AMX3011', `Parent ${previous.name} and Parent ${parent.name} have the same property: '${field.name}'`, field.source, previous.field.source);
+            }
+            if (!previous) inheritedParents.set(field.name, { name: parent.name, field });
+            if (!inheritedPositions.has(field.name)) {
+              inheritedPositions.set(field.name, inheritedFields.length);
+              inheritedFields.push(field);
+            }
+          }
+        }
         const fields = new Set<string>();
-        for (const field of statement.fields) {
+        for (const field of declaredFields) {
           if (fields.has(field.name)) fail('AMX3005', `Duplicate field '${field.name}'`, field.source);
           fields.add(field.name);
-          const target = resolve(field.annotation);
+          const inherited = inheritedParents.get(field.name);
+          if (inherited && !field.override) {
+            fail('AMX3012', `This type declared '${field.name}' which is also declared by "${inherited.name}", use the override keyword to declare this property.`, field.source, inherited.field.source);
+          }
+          if (!inherited && field.override) {
+            fail('AMX3013', `No inherited type includes "${field.name}", override is not necessary`, field.source);
+          }
+          setDeclaringRegistry(field, moduleRegistry);
+          const target = resolve(field.annotation, field);
           if (field.optional && !field.defaultExpression && target.kind !== 'nullable') fail('AMX3005', `Optional field '${field.name}' needs a nullable type or default`, field.source);
         }
+        const effectiveFields = [...inheritedFields];
+        for (const field of declaredFields) {
+          const inheritedPosition = inheritedPositions.get(field.name);
+          if (inheritedPosition === undefined) {
+            effectiveFields.push(field);
+          } else {
+            effectiveFields[inheritedPosition] = field;
+          }
+        }
+        statement.fields = effectiveFields;
         types.set(statement.name, statement);
-        for (const field of statement.fields) if (field.defaultExpression) checkDefault(field.defaultExpression, resolve(field.annotation));
+        for (const field of declaredFields) if (field.defaultExpression) checkDefault(field.defaultExpression, resolve(field.annotation, field));
         if (statement.exported) exportedTypes.set(statement.name, statement);
         return;
       }
@@ -1119,9 +1157,41 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     }
   }
 
+  function checkInheritanceCycles(): void {
+    const declarations = doc.nodes.flatMap(node => node.type === 'executableCodeBlock' ? node.statements : [])
+      .filter((statement): statement is TypeDeclarationNode => statement.type === 'typeDeclaration');
+    const declarationsByName = new Map<string, TypeDeclarationNode>();
+    const duplicateNames = new Set<string>();
+    for (const declaration of declarations) {
+      if (declarationsByName.has(declaration.name)) duplicateNames.add(declaration.name);
+      else declarationsByName.set(declaration.name, declaration);
+    }
+    for (const name of duplicateNames) declarationsByName.delete(name);
+
+    const states = new Map<string, 'visiting' | 'visited'>();
+    const visit = (declaration: TypeDeclarationNode): void => {
+      states.set(declaration.name, 'visiting');
+      for (const parent of declaration.parents ?? []) {
+        const parentDeclaration = declarationsByName.get(parent.name);
+        if (!parentDeclaration) continue;
+        const state = states.get(parent.name);
+        if (state === 'visiting') {
+          fail('AMX3014', 'The inherited type causes a circular dependency', parent.source, parentDeclaration.nameSource);
+        }
+        if (!state) visit(parentDeclaration);
+      }
+      states.set(declaration.name, 'visited');
+    };
+
+    for (const declaration of declarationsByName.values()) {
+      if (!states.has(declaration.name)) visit(declaration);
+    }
+  }
+
   let sawNonImport = false;
   let sawInput = false;
   let sawOtherItem = false;
+  checkInheritanceCycles();
   for (const node of doc.nodes) {
     if (node.type !== 'executableCodeBlock') continue;
     for (const statement of node.statements) {

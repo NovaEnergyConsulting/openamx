@@ -161,22 +161,44 @@ export function parseStatements(
 
     if (/^\s*type\b/.test(rawLine)) {
       if (context.allowFor === false) throw new Error(`Type declarations cannot occur in loops at ${source.line}:${source.column}`);
-      const header = rawLine.match(/^\s*type\s+([A-Za-z][A-Za-z0-9_]*)\s*\{\s*$/);
+      const header = rawLine.match(/^\s*type\s+([A-Za-z][A-Za-z0-9_]*)(?:\s+extends\s+([A-Za-z][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z][A-Za-z0-9_]*)*))?\s*\{\s*$/);
       if (!header) throw new Error(`Invalid type declaration at ${source.line}:${source.column}`);
+      let parentSearchFrom = rawLine.indexOf('extends') + 'extends'.length;
+      const parents = header[2] ? header[2].split(',').map(rawName => {
+        const name = rawName.trim();
+        const parentIndex = rawLine.indexOf(name, parentSearchFrom);
+        parentSearchFrom = parentIndex + name.length;
+        return { name, source: { line: source.line, column: parentIndex + 1 } };
+      }) : undefined;
       const fields = [];
       let closed = false;
       while (++i < lines.length) {
         const fieldLine = lines[i];
         if (/^\s*}\s*$/.test(fieldLine)) { closed = true; break; }
         if (!fieldLine.trim()) continue;
-        const match = fieldLine.match(/^\s*([A-Za-z][A-Za-z0-9_]*)(\?)?\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*)\s*(?:=\s*(.+))?\s*$/);
-        const fieldSource = { line: start.line + i, column: fieldLine.length - fieldLine.trimStart().length + 1 };
+        const match = fieldLine.match(/^\s*(?:(override)\s+)?([A-Za-z][A-Za-z0-9_]*)(\?)?\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*)\s*(?:=\s*(.+))?\s*$/);
+        const fieldColumn = match
+          ? fieldLine.indexOf(match[2], match[1] ? fieldLine.indexOf(match[1]) + match[1].length : 0) + 1
+          : fieldLine.length - fieldLine.trimStart().length + 1;
+        const fieldSource = { line: start.line + i, column: fieldColumn };
         if (!match) throw new Error(`Invalid record field at ${fieldSource.line}:${fieldSource.column}`);
-        fields.push({ name: match[1], optional: !!match[2], annotation: parseTypeReference(match[3], fieldSource),
-          ...(match[4] ? { defaultExpression: parseExpression(match[4], { line: fieldSource.line, column: fieldLine.indexOf(match[4]) + 1 }) } : {}), source: fieldSource });
+        const overrideSource = match[1]
+          ? { line: fieldSource.line, column: fieldLine.indexOf(match[1]) + 1 }
+          : undefined;
+        fields.push({ name: match[2], optional: !!match[3], annotation: parseTypeReference(match[4], fieldSource),
+          ...(match[1] ? { override: true, overrideSource } : {}),
+          ...(match[5] ? { defaultExpression: parseExpression(match[5], { line: fieldSource.line, column: fieldLine.indexOf(match[5]) + 1 }) } : {}), source: fieldSource });
       }
       if (!closed) throw new Error(`Unclosed type declaration at ${source.line}:${source.column}`);
-      statements.push({ type: 'typeDeclaration', name: header[1], fields, ...(exported ? { exported } : {}), source });
+      statements.push({
+        type: 'typeDeclaration',
+        name: header[1],
+        nameSource: { line: source.line, column: rawLine.indexOf(header[1]) + 1 },
+        fields,
+        ...(parents ? { parents } : {}),
+        ...(exported ? { exported } : {}),
+        source
+      });
       continue;
     }
 

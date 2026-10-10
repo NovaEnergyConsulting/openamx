@@ -46,14 +46,24 @@ export interface RecordFieldNode {
   name: string;
   optional: boolean;
   annotation: TypeReferenceNode;
+  override?: boolean;
+  overrideSource?: SourceLocation;
   defaultExpression?: V02ExpressionNode;
+  source?: SourceLocation;
+}
+
+export interface TypeParentNode {
+  name: string;
   source?: SourceLocation;
 }
 
 export interface TypeDeclarationNode {
   type: 'typeDeclaration';
   name: string;
+  nameSource?: SourceLocation;
   fields: RecordFieldNode[];
+  parents?: TypeParentNode[];
+  declaredFields?: RecordFieldNode[];
   exported?: boolean;
   source?: SourceLocation;
 }

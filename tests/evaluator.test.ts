@@ -31,6 +31,8 @@ import { renderHtml } from "../src/renderer/renderHtml";
 describe("Sprint 014 activated checking and records", () => {
   const document = (source: string) => parseDocumentText(`\`\`\`amx\n${source}\n\`\`\``);
   const run = (source: string) => evaluateDocument(document(source), 'case.amx');
+  const fixtureDocument = (id: string, source: string) =>
+    parseDocumentText(`---\nfixture: ${id}\n---\n\`\`\`amx\n${source}\n\`\`\`\n`);
 
   it("materializes defaults, nullable omissions and nested records in declaration order with fresh copies", () => {
     const values = run(`type Inner {\n  name: String\n}\ntype Outer {\n  id: Number\n  inner: Inner = Inner { name = "A" }\n  tags: String[] = []\n  note?: String?\n}\nlet first: Outer = Outer { id = 1 }\nlet second: Outer = Outer { id = 2, note = null }\nlet name: String = first.inner.name`);
@@ -38,6 +40,170 @@ describe("Sprint 014 activated checking and records", () => {
     expect(Object.keys(values.first as object)).toEqual(['id', 'inner', 'tags', 'note']);
     expect((values.first as any).tags).not.toBe((values.second as any).tags);
     expect((values.first as any).inner).not.toBe((values.second as any).inner);
+  });
+
+  it("implements RI-V01 through RI-V03 with transitive, ordered effective fields and complete overrides", () => {
+    const transitive = run([
+      'type Identifier {',
+      '  id: String',
+      '}',
+      'type Asset extends Identifier {',
+      '  tag: String',
+      '}',
+      'type Pump extends Asset {',
+      '  duty: Number',
+      '}',
+      'let pump: Pump = Pump { id = "P-1", tag = "feed", duty = 4 }'
+    ].join('\n'));
+    expect(transitive.pump).toEqual({ id: 'P-1', tag: 'feed', duty: 4 });
+    expect(Object.keys(transitive.pump as object)).toEqual(['id', 'tag', 'duty']);
+
+    const multipleParents = run([
+      'type Identifier {',
+      '  id: String',
+      '}',
+      'type Named {',
+      '  id: String',
+      '  name: String',
+      '}',
+      'type Asset extends Identifier, Named {',
+      '  override id: String',
+      '}',
+      'let asset: Asset = Asset { id = "A-1", name = "Pump" }'
+    ].join('\n'));
+    expect(multipleParents.asset).toEqual({ id: 'A-1', name: 'Pump' });
+    expect(Object.keys(multipleParents.asset as object)).toEqual(['id', 'name']);
+
+    const replacedContract = run([
+      'type Identifier {',
+      '  id?: String = "unset"',
+      '}',
+      'type Asset extends Identifier {',
+      '  override id: Number',
+      '  tag?: String = "general"',
+      '}',
+      'let asset: Asset = Asset { id = 42 }'
+    ].join('\n'));
+    expect(replacedContract.asset).toEqual({ id: 42, tag: 'general' });
+    expect(() => run('type Identifier {\n  id?: String = "unset"\n}\ntype Asset extends Identifier {\n  override id: Number\n}\nlet asset: Asset = Asset { }')).toThrow(
+      expect.objectContaining({ code: 'AMX3002' })
+    );
+  });
+
+  it("keeps the approved effective-field order across multiple parents and child-only fields", () => {
+    const values = run([
+      'type Left {',
+      '  first: String',
+      '  shared: String',
+      '}',
+      'type Right {',
+      '  second: Number',
+      '  shared: String',
+      '}',
+      'type Child extends Left, Right {',
+      '  override shared: Number',
+      '  last: Boolean',
+      '}',
+      'let child: Child = Child { last = true, second = 2, shared = 1, first = "a" }'
+    ].join('\n'));
+    expect(Object.keys(values.child as object)).toEqual(['first', 'shared', 'second', 'last']);
+    expect(values.child).toEqual({ first: 'a', shared: 1, second: 2, last: true });
+  });
+
+  it("rejects RI-I04 through RI-I06, RI-I08, and RI-I09 at the fixture source locations", () => {
+    const cases: Array<{ id: string; source: string; code: string; line: number; column: number }> = [
+      { id: 'RI-I04', source: 'type Asset extends Missing {\n  id: String\n}', code: 'AMX3001', line: 5, column: 20 },
+      { id: 'RI-I05', source: 'type Asset extends Identifier {\n  tag: String\n}\ntype Identifier {\n  id: String\n}', code: 'AMX3001', line: 5, column: 20 },
+      { id: 'RI-I06', source: 'let count: Number = 1\ntype Asset extends count {\n  id: String\n}', code: 'AMX3001', line: 6, column: 20 },
+      {
+        id: 'RI-I08',
+        source: 'type Identifier {\n  id: String\n}\ntype Asset extends Identifier {\n  tag: String\n}\nlet asset: Asset = Asset { id = "A-1", tag = "pump" }\nlet identifier: Identifier = asset',
+        code: 'AMX3002', line: 12, column: 30
+      },
+      {
+        id: 'RI-I09',
+        source: 'type Identifier {\n  id: String\n}\ntype Asset extends Identifier {\n  duty: Number\n}\nlet asset: Asset = Asset { duty = 2 }',
+        code: 'AMX3002', line: 11, column: 20
+      }
+    ];
+    for (const fixture of cases) {
+      try {
+        evaluateDocument(fixtureDocument(fixture.id, fixture.source), `${fixture.id}.amx`);
+        throw new Error(`Expected ${fixture.code} for ${fixture.id}`);
+      } catch (error) {
+        expect(error).toBeInstanceOf(AmxError);
+        expect(error).toMatchObject({
+          code: fixture.code,
+          file: `${fixture.id}.amx`,
+          line: fixture.line,
+          column: fixture.column
+        });
+      }
+    }
+  });
+
+  it("reports approved RI-I01, RI-I02, RI-I03, and RI-I07 diagnostics at fixture locations", () => {
+    const cases: Array<{
+      id: string;
+      source: string;
+      code: string;
+      message: string;
+      line: number;
+      column: number;
+      declarationSource?: { line: number; column: number };
+    }> = [
+      {
+        id: 'RI-I01',
+        source: 'type Left {\n  id: String\n}\ntype Right {\n  id: String\n}\ntype Asset extends Left, Right {\n}',
+        code: 'AMX3011',
+        message: "Parent Left and Parent Right have the same property: 'id'",
+        line: 9,
+        column: 3,
+        declarationSource: { line: 6, column: 3 }
+      },
+      {
+        id: 'RI-I02',
+        source: 'type Identifier {\n  id: String\n}\ntype Asset extends Identifier {\n  id: Number\n}',
+        code: 'AMX3012',
+        message: 'This type declared \'id\' which is also declared by "Identifier", use the override keyword to declare this property.',
+        line: 9,
+        column: 3,
+        declarationSource: { line: 6, column: 3 }
+      },
+      {
+        id: 'RI-I03',
+        source: 'type Identifier {\n  id: String\n}\ntype Asset extends Identifier {\n  override tag: String\n}',
+        code: 'AMX3013',
+        message: 'No inherited type includes "tag", override is not necessary',
+        line: 9,
+        column: 12
+      },
+      {
+        id: 'RI-I07',
+        source: 'type First extends Second {\n  first: String\n}\ntype Second extends First {\n  second: String\n}',
+        code: 'AMX3014',
+        message: 'The inherited type causes a circular dependency',
+        line: 8,
+        column: 21,
+        declarationSource: { line: 5, column: 6 }
+      }
+    ];
+    for (const fixture of cases) {
+      try {
+        evaluateDocument(fixtureDocument(fixture.id, fixture.source), `${fixture.id}.amx`);
+        throw new Error(`Expected ${fixture.code} for ${fixture.id}`);
+      } catch (error) {
+        expect(error).toBeInstanceOf(AmxError);
+        expect(error).toMatchObject({
+          code: fixture.code,
+          message: fixture.message,
+          file: `${fixture.id}.amx`,
+          line: fixture.line,
+          column: fixture.column,
+          ...(fixture.declarationSource ? { declarationSource: fixture.declarationSource } : {})
+        });
+      }
+    }
   });
 
   it("evaluates canonical nested multiline record constructors without changing field values", () => {

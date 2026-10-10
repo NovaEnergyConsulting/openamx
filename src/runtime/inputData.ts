@@ -62,20 +62,23 @@ export function describeInputSchema(
     && declaration.annotation.element?.type === 'namedType'
     ? types.get(declaration.annotation.element.name!)
     : undefined;
-  const recordRegistry = recordType ? fieldRegistry(recordType, registry) : undefined;
-  const csvCompatible = !!recordType && recordType.fields.every(field => isCsvScalar(field.annotation, recordRegistry));
+  const csvCompatible = !!recordType && recordType.fields.every(field =>
+    isCsvScalar(field.annotation, fieldRegistry(field, registry)));
   return {
     name: declaration.name,
     type: typeName(declaration.annotation),
     acceptedFormats: csvCompatible ? ['json', 'csv'] : ['json'],
     ...(registry ? measurementSchema(declaration.annotation, registry) : {}),
-    ...(recordType ? { fields: recordType.fields.map(field => ({
-      name: field.name,
-      type: typeName(field.annotation),
-      optional: field.optional,
-      hasDefault: field.defaultExpression !== undefined,
-      ...(recordRegistry ? measurementSchema(field.annotation, recordRegistry) : {})
-    })) } : {})
+    ...(recordType ? { fields: recordType.fields.map(field => {
+      const fieldScope = fieldRegistry(field, registry);
+      return {
+        name: field.name,
+        type: typeName(field.annotation),
+        optional: field.optional,
+        hasDefault: field.defaultExpression !== undefined,
+        ...(fieldScope ? measurementSchema(field.annotation, fieldScope) : {})
+      };
+    }) } : {})
   };
 }
 
@@ -277,14 +280,14 @@ function convertJson(
     report(shapeDiagnostic(`Unknown field '${key}'`, 'declared record field', describe(object[key]), propertyPointer, context, declarationSource, fieldSource));
   }
   const materialized: Record<string, unknown> = {};
-  const recordRegistry = fieldRegistry(declaration, registry);
   for (const field of declaration.fields) {
+    const fieldScope = fieldRegistry(field, registry);
     const propertyPointer = `${pointer}/${escapePointer(field.name)}`;
     if (Object.prototype.hasOwnProperty.call(object, field.name)) {
-      materialized[field.name] = convertJson(object[field.name], field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source, recordRegistry, internalDefault);
+      materialized[field.name] = convertJson(object[field.name], field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source, fieldScope, internalDefault);
     } else if (field.defaultExpression) {
-      const value = evaluateExpression(field.defaultExpression, defaultsEnvironment(environment, recordRegistry), context.file);
-      materialized[field.name] = convertJson(value, field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source, recordRegistry, true);
+      const value = evaluateExpression(field.defaultExpression, defaultsEnvironment(environment, fieldScope), context.file);
+      materialized[field.name] = convertJson(value, field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source, fieldScope, true);
     } else if (field.optional) {
       materialized[field.name] = null;
     } else {
@@ -309,8 +312,7 @@ function convertCsv(
     return [];
   }
   const recordType = types.get(annotation.element.name!)!;
-  const recordRegistry = fieldRegistry(recordType, registry);
-  const scalarFields = recordType.fields.every(field => isCsvScalar(field.annotation, recordRegistry));
+  const scalarFields = recordType.fields.every(field => isCsvScalar(field.annotation, fieldRegistry(field, registry)));
   if (!scalarFields) {
     report(shapeDiagnostic('CSV records may contain only scalar fields', 'scalar-field RecordType[]', recordType.name, '', context, declarationSource));
     return [];
@@ -360,15 +362,16 @@ function convertCsv(
       const propertyPath = `record[${recordNumber}].${field.name}`;
       if (column < 0) {
         if (field.defaultExpression) {
-          const value = evaluateExpression(field.defaultExpression, defaultsEnvironment(environment, recordRegistry), context.file);
-          materialized[field.name] = convertJson(value, field.annotation, propertyPath, context.declarationSource, types, environment, report, context, field.source, recordRegistry, true);
+          const fieldScope = fieldRegistry(field, registry);
+          const value = evaluateExpression(field.defaultExpression, defaultsEnvironment(environment, fieldScope), context.file);
+          materialized[field.name] = convertJson(value, field.annotation, propertyPath, context.declarationSource, types, environment, report, context, field.source, fieldScope, true);
         }
         else if (field.optional) materialized[field.name] = null;
         continue;
       }
       const cell = row[column];
       if (!cell) continue;
-      materialized[field.name] = convertCsvCell(cell, field.annotation, propertyPath, recordNumber, column + 1, field.source, report, context, recordRegistry);
+      materialized[field.name] = convertCsvCell(cell, field.annotation, propertyPath, recordNumber, column + 1, field.source, report, context, fieldRegistry(field, registry));
     }
     result.push(materialized);
   }

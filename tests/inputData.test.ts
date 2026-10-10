@@ -4,8 +4,10 @@ import { tmpdir } from 'os';
 import * as path from 'path';
 import { InputDeclarationNode, TypeDeclarationNode } from '../src/ast/types';
 import { AmxError } from '../src/diagnostics/errors';
+import { parseDocumentText } from '../src/parser/parseDocument';
 import { parseStatements } from '../src/parser/parseStatements';
 import { describeInputSchema, loadInputValues, parseStrictCsvText, parseStrictJsonText, serializeCsvText, validateInputText } from '../src/runtime/inputData';
+import { checkDocument } from '../src/typechecker/checkDocument';
 
 let directory = '';
 
@@ -39,6 +41,23 @@ describe('Sprint 036 in-memory input validation', () => {
     const invalid = validateInputText('[{"id":"A","id":"B"}]', 'json', declaration, types, 'aggregate', { file: 'entry.amx', dataFile: 'virtual.json' });
     expect(invalid.value).toBeUndefined();
     expect(invalid.diagnostics[0]).toMatchObject({ code: 'AMX4003', inputName: 'rows', dataPath: '/0/id', dataFile: 'virtual.json' });
+  });
+
+  it('uses RI-V01 effective fields for input schema and JSON validation', () => {
+    const typeDocument = parseDocumentText('```amx\nexport type Identifier {\n  id: String\n}\nexport type Asset extends Identifier {\n  name: String\n}\n```\n');
+    const types = checkDocument(typeDocument).exportedTypes;
+    const declaration = parseStatements('input assets: Asset[]')
+      .find((statement): statement is InputDeclarationNode => statement.type === 'inputDeclaration')!;
+
+    expect(describeInputSchema(declaration, types)).toMatchObject({
+      name: 'assets',
+      fields: [
+        { name: 'id', type: 'String', optional: false, hasDefault: false },
+        { name: 'name', type: 'String', optional: false, hasDefault: false }
+      ]
+    });
+    expect(validateInputText('[{"name":"Pump","id":"A-1"}]', 'json', declaration, types))
+      .toEqual({ value: [{ id: 'A-1', name: 'Pump' }], diagnostics: [] });
   });
 
   it('exposes strict raw-editor parsing without relaxing duplicate-key or RFC 4180 behavior', () => {

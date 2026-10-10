@@ -49,13 +49,16 @@ function supportsJson(type: CheckedType, recordTypes: Map<string, TypeDeclaratio
   const declaration = recordTypes.get(type.name);
   if (!declaration || visiting.has(type.name)) return false;
   const next = new Set(visiting).add(type.name);
-  return declaration.fields.every(field => supportsJson(checkedType(field.annotation, fieldRegistry(declaration, registry)), recordTypes, fieldRegistry(declaration, registry), next));
+  return declaration.fields.every(field => {
+    const fieldScope = fieldRegistry(field, registry);
+    return supportsJson(checkedType(field.annotation, fieldScope), recordTypes, fieldScope, next);
+  });
 }
 
 function supportsCsv(type: CheckedType, recordTypes: Map<string, TypeDeclarationNode>, registry?: DimensionUnitRegistry): boolean {
   if (type.kind !== 'list' || type.element.kind !== 'named') return false;
   const declaration = recordTypes.get(type.element.name);
-  return !!declaration && declaration.fields.every(field => isCsvScalar(checkedType(field.annotation, fieldRegistry(declaration, registry))));
+  return !!declaration && declaration.fields.every(field => isCsvScalar(checkedType(field.annotation, fieldRegistry(field, registry))));
 }
 
 export function describeOutputSchemas(
@@ -82,8 +85,10 @@ function assertJsonShape(type: CheckedType, recordTypes: Map<string, TypeDeclara
   if (isPrimitive(type)) return;
   const declaration = recordTypes.get(type.name);
   if (!declaration) outputError('AMX6001', `Output '${outputName}' uses unknown record type '${type.name}'`);
-  const recordRegistry = fieldRegistry(declaration, registry);
-  for (const field of declaration.fields) assertJsonShape(checkedType(field.annotation, recordRegistry), recordTypes, outputName, recordRegistry);
+  for (const field of declaration.fields) {
+    const fieldScope = fieldRegistry(field, registry);
+    assertJsonShape(checkedType(field.annotation, fieldScope), recordTypes, outputName, fieldScope);
+  }
 }
 
 function checkedType(reference: TypeDeclarationNode['fields'][number]['annotation'], registry?: DimensionUnitRegistry): CheckedType {
@@ -101,10 +106,9 @@ function assertCsvShape(type: CheckedType, recordTypes: Map<string, TypeDeclarat
   }
   const declaration = recordTypes.get(type.element.name);
   if (!declaration) outputError('AMX6001', `CSV output '${outputName}' uses unknown record type '${type.element.name}'`);
-  const recordRegistry = fieldRegistry(declaration, registry);
-  const unsupported = declaration.fields.find(field => !isCsvScalar(checkedType(field.annotation, recordRegistry)));
+  const unsupported = declaration.fields.find(field => !isCsvScalar(checkedType(field.annotation, fieldRegistry(field, registry))));
   if (unsupported) {
-    outputError('AMX6001', `CSV output '${outputName}' field '${unsupported.name}' must be a scalar or nullable scalar, not ${typeName(checkedType(unsupported.annotation, recordRegistry))}`);
+    outputError('AMX6001', `CSV output '${outputName}' field '${unsupported.name}' must be a scalar or nullable scalar, not ${typeName(checkedType(unsupported.annotation, fieldRegistry(unsupported, registry)))}`);
   }
 }
 
@@ -196,7 +200,8 @@ function jsonValue(value: unknown, type: CheckedType, output: PreparedOutput, re
   const ordered: Record<string, unknown> = {};
   for (const field of declaration.fields) {
     if (!Object.prototype.hasOwnProperty.call(record, field.name)) return invalidValue(output, `record ${type.name} is missing field '${field.name}'`);
-    ordered[field.name] = jsonValue(record[field.name], checkedType(field.annotation, fieldRegistry(declaration, registry)), output, recordTypes, fieldRegistry(declaration, registry));
+    const fieldScope = fieldRegistry(field, registry);
+    ordered[field.name] = jsonValue(record[field.name], checkedType(field.annotation, fieldScope), output, recordTypes, fieldScope);
   }
   return ordered;
 }
@@ -245,7 +250,7 @@ function csvContents(value: unknown, type: CheckedType, output: PreparedOutput, 
     if (extras.length) return invalidValue(output, `record ${index} has undeclared field '${extras[0]}'`);
     rows.push(fields.map(field => {
       if (!Object.prototype.hasOwnProperty.call(record, field.name)) return invalidValue(output, `record ${index} is missing field '${field.name}'`);
-      return csvCell(record[field.name], checkedType(field.annotation, fieldRegistry(declaration, registry)), output, registry);
+      return csvCell(record[field.name], checkedType(field.annotation, fieldRegistry(field, registry)), output, registry);
     }).join(','));
   }
   return `${rows.join('\n')}\n`;
@@ -274,8 +279,10 @@ function measurementExpectations(type: CheckedType, recordTypes: Map<string, Typ
   const declaration = recordTypes.get(type.name);
   if (!declaration) return [];
   const next = new Set(seen).add(type.name);
-  const recordRegistry = fieldRegistry(declaration, registry) ?? registry;
-  return declaration.fields.flatMap(field => measurementExpectations(checkedType(field.annotation, recordRegistry), recordTypes, recordRegistry, `${path}.${field.name}`, next) ?? []);
+  return declaration.fields.flatMap(field => {
+    const fieldScope = fieldRegistry(field, registry) ?? registry;
+    return measurementExpectations(checkedType(field.annotation, fieldScope), recordTypes, fieldScope, `${path}.${field.name}`, next) ?? [];
+  });
 }
 
 function formatDimensionVector(vector: ReadonlyMap<string, number>, registry: DimensionUnitRegistry): string {

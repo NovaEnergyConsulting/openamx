@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import { rm } from 'fs/promises';
 import { TypeDeclarationNode } from '../src/ast/types';
 import { AmxError } from '../src/diagnostics/errors';
+import { parseDocumentText } from '../src/parser/parseDocument';
 import { parseStatements } from '../src/parser/parseStatements';
 import { Environment } from '../src/runtime/environment';
 import { describeOutputSchemas, prepareOutputs, serializeOutputs } from '../src/runtime/outputData';
-import type { CheckedType } from '../src/typechecker/checkDocument';
+import { checkDocument, type CheckedType } from '../src/typechecker/checkDocument';
 
 const directories: string[] = [];
 
@@ -61,6 +62,32 @@ describe('Sprint 017 output serialization', () => {
     const outputs = prepareOutputs(['items=items.json'], new Map([['items', itemType]]), recordTypes);
     const [serialized] = serializeOutputs(outputs, environment);
     expect(serialized.contents).toBe('[\n  {\n    "label": "A",\n    "created": "2026-09-29T12:00:00Z",\n    "note": null,\n    "values": [\n      1,\n      2\n    ]\n  }\n]\n');
+  });
+
+  it('uses RI-V01 effective fields and their order in output schemas and serialization', () => {
+    const document = parseDocumentText([
+      '```amx',
+      'type Identifier {',
+      '  id: String',
+      '}',
+      'type Asset extends Identifier {',
+      '  name: String',
+      '}',
+      'export let assets: Asset[] = []',
+      '```',
+      ''
+    ].join('\n'));
+    const statements = document.nodes.flatMap(node => node.type === 'executableCodeBlock' ? node.statements : []);
+    const checked = checkDocument(document);
+    const recordTypes = new Map(statements
+      .filter((statement): statement is TypeDeclarationNode => statement.type === 'typeDeclaration')
+      .map(declaration => [declaration.name, declaration]));
+    const environment = new Environment(recordTypes);
+    environment.set('assets', [{ id: 'A-1', name: 'Pump' }]);
+    const schemas = describeOutputSchemas(checked.exportedBindings, recordTypes);
+    expect(schemas).toEqual([{ name: 'assets', type: 'Asset[]', formats: ['json', 'csv'] }]);
+    const outputs = prepareOutputs(['assets=assets.csv'], checked.exportedBindings, recordTypes);
+    expect(serializeOutputs(outputs, environment)[0].contents).toBe('id,name\nA-1,Pump\n');
   });
 
   it('writes declaration-order CSV headers and preserves null versus quoted empty strings', () => {

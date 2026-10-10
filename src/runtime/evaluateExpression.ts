@@ -12,6 +12,7 @@ import {
   ForStatementNode,
   RangeExpressionNode,
   MatchExpressionNode,
+  RecordFieldNode,
   StatementNode,
   SourceLocation,
   TypeReferenceNode,
@@ -102,12 +103,12 @@ function validateRuntimeValue(
     }
     const record = actual as Record<string, unknown>;
     const fieldNames = new Set(declaration.fields.map(field => field.name));
-    const recordRegistry = fieldRegistry(declaration, env.dimensionRegistry);
     for (const field of declaration.fields) {
+      const fieldScope = fieldRegistry(field, env.dimensionRegistry);
       if (!Object.prototype.hasOwnProperty.call(record, field.name)) {
-        report(`Missing computed field '${field.name}'`, checkedType(field.annotation, recordRegistry), 'missing', `${dataPath}.${field.name}`, field.source);
+        report(`Missing computed field '${field.name}'`, checkedType(field.annotation, fieldScope), 'missing', `${dataPath}.${field.name}`, field.source);
       } else {
-        visit(record[field.name], checkedType(field.annotation, recordRegistry), `${dataPath}.${field.name}`, field.source);
+        visit(record[field.name], checkedType(field.annotation, fieldScope), `${dataPath}.${field.name}`, field.source);
       }
     }
     for (const name of Object.keys(record).filter(name => !fieldNames.has(name)).sort()) {
@@ -116,6 +117,17 @@ function validateRuntimeValue(
   };
   visit(value, expected, valuePath);
   if (diagnostics.length) throwInputErrors(diagnostics);
+}
+
+function evaluateFieldDefault(field: RecordFieldNode, env: Environment, file?: string): unknown {
+  if (!field.defaultExpression) return null;
+  const currentRegistry = env.dimensionRegistry;
+  env.dimensionRegistry = fieldRegistry(field, currentRegistry);
+  try {
+    return evaluateExpression(field.defaultExpression, env, file);
+  } finally {
+    env.dimensionRegistry = currentRegistry;
+  }
 }
 
 function checkedType(reference: TypeReferenceNode, scope?: Environment | DimensionUnitRegistry): CheckedType {
@@ -175,7 +187,7 @@ export function evaluateExpression(
       const record: Record<string, unknown> = {};
       for (const field of declaration.fields) {
         record[field.name] = supplied.has(field.name) ? supplied.get(field.name)
-          : field.defaultExpression ? evaluateExpression(field.defaultExpression, env, file) : null;
+          : field.defaultExpression ? evaluateFieldDefault(field, env, file) : null;
       }
       validateRuntimeValue(record, { kind: 'named', name: node.name }, env, node.source, file, `record ${node.name}`);
       return record;

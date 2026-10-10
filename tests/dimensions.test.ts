@@ -7,6 +7,7 @@ import { parseDocumentText } from "../src/parser/parseDocument";
 import { parseStatements } from "../src/parser/parseStatements";
 import { checkDocument } from "../src/typechecker/checkDocument";
 import { loadEntryModule } from "../src/runtime/moduleLoader";
+import { isMeasurement } from "../src/runtime/measurement";
 import { AmxError } from "../src/diagnostics/errors";
 import { analyzeEditorModules } from "../src/editor/moduleAnalysis";
 
@@ -168,6 +169,46 @@ describe("Sprint 055 dimension and unit declarations", () => {
     expect(loaded.registry.dimensions.get("Length")?.baseIdentity).toBe(JSON.stringify([realpathSync(join(directory, "base.amx")), "Length"]));
     expect([...loaded.registry.dimensions.get("Left")!.vector]).toEqual([...loaded.registry.dimensions.get("Right")!.vector]);
     expect(loaded.registry.units.get("meter")?.moduleIdentity).toBe(loaded.registry.dimensions.get("Length")?.moduleIdentity);
+  });
+
+  it("preserves imported parent field dimension and unit context in inherited defaults and output schemas", async () => {
+    const directory = await makeDir();
+    await write(directory, "si.amx", "```amx\nexport dimension Length\nexport unit meter: Length\n```\n");
+    await write(directory, "library.amx", [
+      '```amx',
+      'import { Length, meter } from "./si.amx"',
+      'export type Identifier {',
+      '  id: String',
+      '  distance: Length = 2 meter',
+      '}',
+      '```',
+      ''
+    ].join('\n'));
+    const entry = await write(directory, "entry.amx", [
+      '```amx',
+      'import { Identifier } from "./library.amx"',
+      'type Asset extends Identifier {',
+      '  name: String',
+      '}',
+      'export let assets: Asset[] = [Asset { id = "A-1", name = "Pump" }]',
+      '```',
+      ''
+    ].join('\n'));
+
+    const inspected = await loadEntryModule(entry, { outputInspection: true });
+    expect(inspected.outputSchemas).toEqual([{
+      name: "assets",
+      type: "Asset[]",
+      formats: ["json", "csv"],
+      measurements: [{ path: "$.distance", dimension: "Length", visibleUnits: ["meter"] }]
+    }]);
+
+    const loaded = await loadEntryModule(entry);
+    const assets = loaded.env.get("assets") as Array<Record<string, unknown>>;
+    expect(assets).toHaveLength(1);
+    expect(isMeasurement(assets[0].distance)).toBe(true);
+    expect((assets[0].distance as { value: number; unit: { text?: string } }).value).toBe(2);
+    expect((assets[0].distance as { value: number; unit: { text?: string } }).unit.text).toBe("meter");
   });
 
   it("does not unify independently declared same-name dimensions", async () => {

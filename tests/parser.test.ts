@@ -118,6 +118,24 @@ describe("parseStatements", () => {
     expect((statements[2] as VariableDeclarationNode).expression.source).toEqual({ line: 14, column: 27 });
     expect(statements[3]).toMatchObject({ expression: { type: 'nullLiteral' } });
   });
+  it("parses record parents and override fields with token locations", () => {
+    const statements = parseStatements(
+      "type Asset extends Identifier, Named {\n  override id: Number\n  label?: String\n}\n",
+      { line: 5, column: 1 }
+    );
+    expect(statements[0]).toMatchObject({
+      type: 'typeDeclaration',
+      name: 'Asset',
+      parents: [
+        { name: 'Identifier', source: { line: 5, column: 20 } },
+        { name: 'Named', source: { line: 5, column: 32 } }
+      ],
+      fields: [
+        { name: 'id', override: true, overrideSource: { line: 6, column: 3 }, source: { line: 6, column: 12 } },
+        { name: 'label', optional: true, source: { line: 7, column: 3 } }
+      ]
+    });
+  });
   it("parses declarations with original-document source locations", () => {
     const statements = parseStatements("\n  let first = 1\nlet second = 2", { line: 7, column: 1 });
     expect(statements).toHaveLength(2);

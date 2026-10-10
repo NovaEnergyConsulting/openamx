@@ -1,5 +1,14 @@
 # Planning State
 
+## V0.12 Sprint 073 Builder Execution (2026-10-10)
+
+- The Lead Developer explicitly authorized execution and approved the file-by-file plan, then allocated RI-I01/AMX3011, RI-I02/AMX3012, RI-I03/AMX3013, and RI-I07/AMX3014 with exact messages. The allocation is recorded in `planning/decisions.md`.
+- Implemented record parent/override parsing, source locations, source-order parent resolution, cycle detection, strict collision/override validation, effective-field composition and ordering, complete valid override replacement, and effective fields in record construction/validation and input/output consumers.
+- Preserved declaration-origin dimension/unit context per field, including imported parent annotations/defaults. Added fixture-focused tests to the existing parser, evaluator, modules, input-data, output-data, and dimensions suites.
+- Focused command `bun test tests\parser.test.ts tests\evaluator.test.ts tests\modules.test.ts tests\inputData.test.ts tests\outputData.test.ts tests\dimensions.test.ts`: 190 passed, 0 failed, 849 expectations. `bun run build`: passed.
+- Full root `bun test`: 439 passed, 2 failed, 2,415 expectations across 441 tests / 35 files. The failures are the previously recorded `tests/editor.test.ts:73` imported dimension/unit symbol failure and `tests/examples.test.ts:43` README/specification link assertion.
+- All RI-I01–RI-I10 categories now have fixture-derived assertions; see `planning/sprints/0073-v12-record-inheritance/builder-evidence.md`. The full-suite failures remain recorded and are not represented as passes.
+
 ## V0.12 Sprint 073 Architect Preparation (2026-10-10)
 
 - Prepared Sprint 073 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0073-v12-record-inheritance/`.

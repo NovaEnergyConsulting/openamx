@@ -112,6 +112,70 @@ describe("Sprint 015 modules, imports, and exports", () => {
     expect(values).not.toHaveProperty("libOnly");
   });
 
+  it("implements RI-V04 for an imported and exported record parent", async () => {
+    const dir = await makeDir();
+    await write(dir, "library.amx", [
+      '---',
+      'fixture: RI-V04',
+      'file: library.amx',
+      '---',
+      '```amx',
+      'export type Identifier {',
+      '  id: String',
+      '}',
+      '```',
+      ''
+    ].join('\n'));
+    const entry = await write(dir, "entry.amx", [
+      '---',
+      'fixture: RI-V04',
+      'file: entry.amx',
+      '---',
+      '```amx',
+      'import { Identifier } from "./library.amx"',
+      'type Asset extends Identifier {',
+      '  duty: Number',
+      '}',
+      'let asset: Asset = Asset { id = "A-1", duty = 2 }',
+      '```',
+      ''
+    ].join('\n'));
+    const { env } = await loadEntryModule(entry);
+    expect(env.toObject().asset).toEqual({ id: 'A-1', duty: 2 });
+  });
+
+  it("rejects RI-I10 when an imported record parent is not exported", async () => {
+    const dir = await makeDir();
+    await write(dir, "library.amx", [
+      '---',
+      'fixture: RI-I10',
+      'file: library.amx',
+      '---',
+      '```amx',
+      'type Identifier {',
+      '  id: String',
+      '}',
+      '```',
+      ''
+    ].join('\n'));
+    const entry = await write(dir, "entry.amx", [
+      '---',
+      'fixture: RI-I10',
+      'file: entry.amx',
+      '---',
+      '```amx',
+      'import { Identifier } from "./library.amx"',
+      'type Asset extends Identifier {',
+      '  tag: String',
+      '}',
+      '```',
+      ''
+    ].join('\n'));
+    const error = await expectAmxError(loadEntryModule(entry), "AMX5002");
+    expect(error.file).toBe(await realpath(entry));
+    expect(error).toMatchObject({ line: 6, column: 10 });
+  });
+
   it("statically rejects an invalid untyped imported module before loading its exports", async () => {
     const dir = await makeDir();
     await write(dir, "library.amx", "```amx\nexport let invalid = \"three\" + 1\n```\n");

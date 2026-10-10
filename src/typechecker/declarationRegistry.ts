@@ -1,9 +1,9 @@
-import type { FunctionDeclarationNode, TypeDeclarationNode } from '../ast/types';
+import type { FunctionDeclarationNode, RecordFieldNode, TypeDeclarationNode } from '../ast/types';
 import type { DimensionUnitRegistry } from './dimensionTypes';
 
 // Record field and function annotations, plus function bodies, resolve dimensions and
 // units in the declaring module so imported declarations keep their meaning elsewhere.
-type Declaration = TypeDeclarationNode | FunctionDeclarationNode;
+type Declaration = TypeDeclarationNode | FunctionDeclarationNode | RecordFieldNode;
 const declaringRegistries = new WeakMap<Declaration, DimensionUnitRegistry>();
 
 export function setDeclaringRegistry(declaration: Declaration, registry: DimensionUnitRegistry): void {

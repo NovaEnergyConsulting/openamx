@@ -3,7 +3,8 @@
 ## V0.12 Sprint 073 Architect Preparation (2026-10-10)
 
 - **Effective inherited-field ordering (Lead Developer, 2026-10-10):** visit parents in declaration order and each parent's effective fields in their established order; the first occurrence of a field fixes its position; a valid child override replaces the field in place; child-only fields append in child declaration order. This applies consistently anywhere the effective record field list is observed.
-- Sprint 072's diagnostic matrix leaves inheritance-specific identities/messages for RI-I01, RI-I02, RI-I03, and RI-I07 unallocated. Approval is required before implementing those diagnostic categories or adding exact-code assertions; no code/message is inferred here.
+- Sprint 072's diagnostic matrix initially left inheritance-specific identities/messages for RI-I01, RI-I02, RI-I03, and RI-I07 unallocated; the explicit Lead Developer allocation below resolves that gate.
+- **Inheritance diagnostic allocation (Lead Developer, 2026-10-10):** RI-I01 uses AMX3011 with `Parent {parentX} and Parent {parentY} have the same property: '{property_name}'`; RI-I02 uses AMX3012 with `This type declared '{property name}' which is also declared by "{parent type}", use the override keyword to declare this property.`; RI-I03 uses AMX3013 with `No inherited type includes "{property name}", override is not necessary`; RI-I07 uses AMX3014 with `The inherited type causes a circular dependency`. Placeholder values are replaced with the actual field/parent names. The approved primary and secondary locations remain those in the Sprint 072 diagnostic matrix.
 - Sprint 073 follows the V0.12 master plan and Sprint 072 fixture contract. Preparation adds no subtyping or other language-semantic change.
 
 ## V0.12 Sprint 072 Lead Developer Clarification (2026-10-10)
