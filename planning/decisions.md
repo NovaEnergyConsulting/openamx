@@ -1,5 +1,11 @@
 # Planning Decisions
 
+## V0.12 Sprint 074 Architect Preparation (2026-10-10)
+
+- Sprint 074 follows the V0.12 master plan and the approved Sprint 072 enum fixtures, including the Lead Developer clarification that empty enums are invalid. This preparation adds no enum-semantic decision.
+- Enum diagnostic identities/messages for EN-I01–EN-I06 remain unallocated. Explicit approval is required before implementing those diagnostics or exact-code assertions; this preparation assigns no codes.
+- Sprint 074 preserves the Sprint 073 record-inheritance behavior and does not authorize editor/formatter integration, publication, or release.
+
 ## V0.12 Sprint 073 Architect Preparation (2026-10-10)
 
 - **Effective inherited-field ordering (Lead Developer, 2026-10-10):** visit parents in declaration order and each parent's effective fields in their established order; the first occurrence of a field fixes its position; a valid child override replaces the field in place; child-only fields append in child declaration order. This applies consistently anywhere the effective record field list is observed.

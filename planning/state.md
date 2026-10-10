@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.12 Sprint 074 Architect Preparation (2026-10-10)
+
+- Prepared Sprint 074 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0074-v12-enumerations/`.
+- Sprint 072's enum fixtures are the contract; the empty-enum rejection is the explicit Lead Developer clarification already recorded in `planning/decisions.md`.
+- Sprint 073 implementation evidence records focused parser/evaluator/module/input/output/dimension tests and build passing; the full root suite retains two failures reported as inherited in Sprint 073 evidence.
+- Enum-specific diagnostic identities/messages for EN-I01–EN-I06 remain unallocated. The pack makes approval a gate for those diagnostics and exact-code assertions; no codes are guessed.
+- This is Architect preparation only; it does not authorize Builder execution, release, or publication.
+
 ## V0.12 Sprint 073 Builder Execution (2026-10-10)
 
 - The Lead Developer explicitly authorized execution and approved the file-by-file plan, then allocated RI-I01/AMX3011, RI-I02/AMX3012, RI-I03/AMX3013, and RI-I07/AMX3014 with exact messages. The allocation is recorded in `planning/decisions.md`.
@@ -14,7 +22,7 @@
 - Prepared Sprint 073 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0073-v12-record-inheritance/`.
 - Sprint 072 Builder execution is recorded complete; Sprint 073 uses its grammar examples, source-located diagnostic matrix, and requirement-to-test map as the acceptance contract.
 - The Lead Developer clarified effective-field ordering: parents are visited in declaration order using each parent's effective-field order; first occurrence fixes position, an override replaces in place, and child-only fields follow in declaration order.
-- Inheritance diagnostics RI-I01, RI-I02, RI-I03, and RI-I07 remain unallocated in Sprint 072. Their identities/messages require explicit approval before implementing those diagnostics or exact-code assertions.
+- At preparation time, inheritance diagnostics RI-I01, RI-I02, RI-I03, and RI-I07 were unallocated. Sprint 073 execution later obtained approval for AMX3011–AMX3014 and implemented fixture-derived assertions; see the execution record above and `planning/decisions.md`.
 - This is Architect preparation only; it does not authorize Builder execution, release, or publication.
 
 ## V0.12 Sprint 072 Builder Execution (2026-10-10)
