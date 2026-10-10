@@ -1,5 +1,15 @@
 # Planning State
 
+## V0.12 Sprint 074 Builder Execution (2026-10-10)
+
+- The Lead Developer explicitly authorized execution, approved the concrete file-by-file plan, and allocated AMX3015-AMX3020 with exact messages; see `planning/decisions.md`.
+- Implemented enum declaration parsing, source locations, validation, implicit numeric numbering, primitive member access/evaluation, and exported/imported enum visibility under the existing module flow.
+- Added fixture-derived parser, evaluator, and module tests, including duplicate rejection for Number and String enum values.
+- Focused `bun test tests\parser.test.ts tests\evaluator.test.ts tests\modules.test.ts`: 170 passed, 0 failed, 627 expectations across 3 files. `bun run build`: passed.
+- Full root `bun test` first run: 446 passed, 3 failed, 2,436 expectations across 449 tests / 35 files. The additional failure was an intermittent desktop DOCX test (`committing` instead of `succeeded`); its isolated retry passed (2 tests, 18 expectations).
+- Full root `bun test` retry: 447 passed, 2 failed, 2,441 expectations across 449 tests / 35 files. Both failures match the Sprint 073 baseline: `tests/editor.test.ts:73` imported dimension/unit symbol identity and `tests/examples.test.ts:43` README/specification/help assertion. Sprint 073 recorded 439 passed, 2 failed, 2,415 expectations across 441 tests / 35 files.
+- All EN-V01-EN-V04 and EN-I01-EN-I09 fixture categories, plus duplicate String values, are covered. See `planning/sprints/0074-v12-enumerations/builder-evidence.md`.
+
 ## V0.12 Sprint 074 Architect Preparation (2026-10-10)
 
 - Prepared Sprint 074 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0074-v12-enumerations/`.

@@ -68,6 +68,24 @@ export interface TypeDeclarationNode {
   source?: SourceLocation;
 }
 
+export interface EnumMemberNode {
+  name: string;
+  nameSource?: SourceLocation;
+  value?: V02ExpressionNode;
+  valueSource?: SourceLocation;
+}
+
+export interface EnumDeclarationNode {
+  type: 'enumDeclaration';
+  name: string;
+  nameSource?: SourceLocation;
+  members: EnumMemberNode[];
+  closingSource?: SourceLocation;
+  resolvedValues?: Array<string | number>;
+  exported?: boolean;
+  source?: SourceLocation;
+}
+
 export interface FunctionParameterNode {
   name: string;
   annotation: TypeReferenceNode;
@@ -391,6 +409,7 @@ export interface ReturnStatementNode {
 
 export type StatementNode =
   | TypeDeclarationNode
+  | EnumDeclarationNode
   | FunctionDeclarationNode
   | ImportDeclarationNode
   | ExportNamesDeclarationNode

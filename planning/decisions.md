@@ -1,5 +1,11 @@
 # Planning Decisions
 
+## V0.12 Sprint 074 Builder Execution (2026-10-10)
+
+- The Lead Developer explicitly authorized Sprint 074 and approved the concrete file-by-file plan before implementation.
+- **Enum diagnostic allocation (Lead Developer, 2026-10-10):** EN-I01 uses AMX3015, `Enums need at least one value`; EN-I02 uses AMX3016, `Enum members names have to be unique`; EN-I03 uses AMX3017, `All enum members must have unique values`; EN-I04 uses AMX3018, `Enum members should all have the same value types, all Number or String`; EN-I05 uses AMX3019, `All members should have explicitly assigned values`; EN-I06 uses AMX3020, `Only constant values can be assigned to enum members`. The AMX3017 uniqueness diagnostic also applies to the supplemental duplicate String-value case. Primary locations remain as listed in the Sprint 072 diagnostic matrix.
+- Enum values remain primitive Number or String values. Sprint 074 adds no nominal enum type, aliases, flags, mixed values, partial assignments, expression-valued members, editor/formatter integration, specification publication, or release work.
+
 ## V0.12 Sprint 074 Architect Preparation (2026-10-10)
 
 - Sprint 074 follows the V0.12 master plan and the approved Sprint 072 enum fixtures, including the Lead Developer clarification that empty enums are invalid. This preparation adds no enum-semantic decision.

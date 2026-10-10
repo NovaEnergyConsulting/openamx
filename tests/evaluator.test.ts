@@ -34,6 +34,83 @@ describe("Sprint 014 activated checking and records", () => {
   const fixtureDocument = (id: string, source: string) =>
     parseDocumentText(`---\nfixture: ${id}\n---\n\`\`\`amx\n${source}\n\`\`\`\n`);
 
+  it("implements EN-V01 through EN-V03 with primitive values and implicit numbering", () => {
+    const values = run([
+      'enum Status = {',
+      '  DRAFT,',
+      '  ACTIVE,',
+      '  CLOSED',
+      '}',
+      'enum Priority = {',
+      '  LOW = 10,',
+      '  NORMAL = 20,',
+      '  HIGH = 30',
+      '}',
+      'enum State = {',
+      '  OPEN = "open",',
+      '  CLOSED = "closed"',
+      '}',
+      'let first: Number = Status.DRAFT',
+      'let second: Number = Status.ACTIVE',
+      'let third: Number = Status.CLOSED',
+      'let priority: Number = Priority.HIGH',
+      'let state: String = State.OPEN'
+    ].join('\n'));
+    expect(values).toMatchObject({ first: 1, second: 2, third: 3, priority: 30, state: 'open' });
+    expect(typeof values.state).toBe('string');
+    expect(typeof values.priority).toBe('number');
+  });
+
+  it("rejects EN-I01 through EN-I07 with the approved diagnostics and fixture locations", () => {
+    const cases: Array<{ id: string; source: string; code: string; message: string; line: number; column: number }> = [
+      { id: 'EN-I01', source: 'enum Empty = {\n}', code: 'AMX3015', message: 'Enums need at least one value', line: 6, column: 1 },
+      { id: 'EN-I02', source: 'enum Status = {\n  ACTIVE = 1,\n  ACTIVE = 2\n}', code: 'AMX3016', message: 'Enum members names have to be unique', line: 7, column: 3 },
+      { id: 'EN-I03', source: 'enum Priority = {\n  NORMAL = 20,\n  HIGH = 20\n}', code: 'AMX3017', message: 'All enum members must have unique values', line: 7, column: 10 },
+      { id: 'EN-I04', source: 'enum State = {\n  OPEN = "open",\n  CLOSED = 2\n}', code: 'AMX3018', message: 'Enum members should all have the same value types, all Number or String', line: 7, column: 12 },
+      { id: 'EN-I05', source: 'enum Priority = {\n  LOW,\n  HIGH = 10\n}', code: 'AMX3019', message: 'All members should have explicitly assigned values', line: 6, column: 3 },
+      { id: 'EN-I06', source: 'enum Priority = {\n  LOW = 1,\n  HIGH = 1 + 1\n}', code: 'AMX3020', message: 'Only constant values can be assigned to enum members', line: 7, column: 10 },
+    ];
+    for (const fixture of cases) {
+      try {
+        evaluateDocument(fixtureDocument(fixture.id, fixture.source), `${fixture.id}.amx`);
+        throw new Error(`Expected ${fixture.code} for ${fixture.id}`);
+      } catch (error) {
+        expect(error).toBeInstanceOf(AmxError);
+        expect(error).toMatchObject({
+          code: fixture.code,
+          message: fixture.message,
+          file: `${fixture.id}.amx`,
+          line: fixture.line,
+          column: fixture.column
+        });
+      }
+    }
+    try {
+      evaluateDocument(fixtureDocument('EN-I07', 'enum Status = {\n  = 1\n}'), 'EN-I07.amx');
+      throw new Error('Expected AMX3006 for EN-I07');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AmxError);
+      expect(error).toMatchObject({ code: 'AMX3006', line: 6, column: 3 });
+    }
+  });
+
+  it("rejects duplicate string enum values", () => {
+    expect(() => evaluateDocument(fixtureDocument('EN-I03-STRING', 'enum State = {\n  OPEN = "same",\n  CLOSED = "same"\n}'), 'EN-I03-STRING.amx')).toThrow(
+      expect.objectContaining({
+        code: 'AMX3017',
+        message: 'All enum members must have unique values',
+        line: 7,
+        column: 12
+      })
+    );
+  });
+
+  it("rejects EN-I08 forward enum references at the receiver and preserves source order", () => {
+    expect(() => evaluateDocument(fixtureDocument('EN-I08', 'let active: Number = Status.ACTIVE\nenum Status = {\n  ACTIVE\n}'), 'EN-I08.amx')).toThrow(
+      expect.objectContaining({ code: 'AMX3001', file: 'EN-I08.amx', line: 5, column: 22 })
+    );
+  });
+
   it("materializes defaults, nullable omissions and nested records in declaration order with fresh copies", () => {
     const values = run(`type Inner {\n  name: String\n}\ntype Outer {\n  id: Number\n  inner: Inner = Inner { name = "A" }\n  tags: String[] = []\n  note?: String?\n}\nlet first: Outer = Outer { id = 1 }\nlet second: Outer = Outer { id = 2, note = null }\nlet name: String = first.inner.name`);
     expect(values).toMatchObject({ first: { id: 1, inner: { name: 'A' }, tags: [], note: null }, second: { id: 2, note: null }, name: 'A' });

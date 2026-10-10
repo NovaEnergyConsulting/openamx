@@ -1,4 +1,4 @@
-import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, InputDeclarationNode, SourceLocation, StatementNode, TableDeclarationNode, TypeReferenceNode, VariableDeclarationNode, VisualizationOptionNode } from '../ast/types';
+import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, EnumDeclarationNode, FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, InputDeclarationNode, SourceLocation, StatementNode, TableDeclarationNode, TypeReferenceNode, VariableDeclarationNode, VisualizationOptionNode } from '../ast/types';
 import { parseExpression } from './parseExpression';
 import { parseForStatement } from './parseFor';
 import { AmxError, staticError, syntaxError } from '../diagnostics/errors';
@@ -47,7 +47,7 @@ export function parseStatements(
     }
 
     let exported = false;
-    const exportMatch = rawLine.match(/^(\s*)export(\s+)(type|fn|let|table|chart|dimension|unit)\b/);
+    const exportMatch = rawLine.match(/^(\s*)export(\s+)(type|enum|fn|let|table|chart|dimension|unit)\b/);
     if (exportMatch) {
       if (context.allowFor === false && exportMatch[3] !== 'table' && exportMatch[3] !== 'chart'
         && exportMatch[3] !== 'dimension' && exportMatch[3] !== 'unit') throw new Error(`Export declarations cannot occur in loops at ${lineNumber}:${exportMatch[1].length + 1}`);
@@ -115,6 +115,50 @@ export function parseStatements(
         source
       };
       statements.push(input);
+      continue;
+    }
+
+    if (/^\s*enum\b/.test(rawLine)) {
+      if (context.allowFor === false) throw new Error(`Enum declarations cannot occur in loops at ${source.line}:${source.column}`);
+      const header = rawLine.match(/^\s*enum\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*\{\s*$/);
+      if (!header) syntaxError('Invalid enum declaration', source);
+      const members: EnumDeclarationNode['members'] = [];
+      let closed = false;
+      let closingSource: SourceLocation | undefined;
+      while (++i < lines.length) {
+        const memberLine = lines[i];
+        if (/^\s*}\s*$/.test(memberLine)) {
+          closed = true;
+          closingSource = { line: start.line + i, column: memberLine.indexOf('}') + 1 };
+          break;
+        }
+        if (!memberLine.trim()) continue;
+        const match = memberLine.match(/^\s*([A-Za-z][A-Za-z0-9_]*)(?:\s*=\s*(.+?))?\s*,?\s*$/);
+        const memberColumn = match
+          ? memberLine.indexOf(match[1]) + 1
+          : memberLine.length - memberLine.trimStart().length + 1;
+        const memberSource = { line: start.line + i, column: memberColumn };
+        if (!match) syntaxError('Invalid enum member', memberSource);
+        let value: ReturnType<typeof parseExpression> | undefined;
+        let valueSource: SourceLocation | undefined;
+        if (match[2]) {
+          const valueText = match[2].replace(/,\s*$/, '').trim();
+          const valueColumn = memberLine.indexOf(valueText, memberColumn - 1) + 1;
+          valueSource = { line: memberSource.line, column: valueColumn };
+          value = parseExpression(valueText, valueSource);
+        }
+        members.push({ name: match[1], nameSource: memberSource, ...(value ? { value, valueSource } : {}) });
+      }
+      if (!closed) syntaxError('Unclosed enum declaration', source);
+      statements.push({
+        type: 'enumDeclaration',
+        name: header[1],
+        nameSource: { line: source.line, column: rawLine.indexOf(header[1]) + 1 },
+        members,
+        closingSource,
+        ...(exported ? { exported: true } : {}),
+        source
+      });
       continue;
     }
 

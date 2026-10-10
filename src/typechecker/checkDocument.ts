@@ -1,4 +1,4 @@
-import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, DimensionDeclarationNode, ExportNamesDeclarationNode, FunctionDeclarationNode, InputDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TableDeclarationNode, TypeDeclarationNode, TypeReferenceNode, UnitDeclarationNode, V02ExpressionNode, VisualizationOptionNode } from '../ast/types';
+import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, DimensionDeclarationNode, EnumDeclarationNode, ExportNamesDeclarationNode, FunctionDeclarationNode, InputDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TableDeclarationNode, TypeDeclarationNode, TypeReferenceNode, UnitDeclarationNode, V02ExpressionNode, VisualizationOptionNode } from '../ast/types';
 import { moduleError, staticError } from '../diagnostics/errors';
 import type { DimensionMetadata, DimensionUnitRegistry, UnitMetadata } from './dimensionTypes';
 import { fieldRegistry, setDeclaringRegistry } from './declarationRegistry';
@@ -12,6 +12,7 @@ export type CheckedType =
 /** Symbols made visible to a module because they were explicitly imported (immutable). */
 export interface ModuleCheckContext {
   types?: Map<string, TypeDeclarationNode>;
+  enums?: Map<string, EnumDeclarationNode>;
   functions?: Map<string, FunctionDeclarationNode>;
   bindings?: Map<string, CheckedType>;
   dimensions?: Map<string, DimensionMetadata>;
@@ -24,6 +25,7 @@ export interface ModuleCheckContext {
 /** Symbols this module makes available to importers because they were declared with `export`. */
 export interface ModuleCheckResult {
   exportedTypes: Map<string, TypeDeclarationNode>;
+  exportedEnums: Map<string, EnumDeclarationNode>;
   exportedFunctions: Map<string, FunctionDeclarationNode>;
   exportedBindings: Map<string, CheckedType>;
   bindingTypes: Map<string, CheckedType>;
@@ -163,6 +165,7 @@ function literalListLength(expression: V02ExpressionNode): number | undefined {
 
 export function checkDocument(doc: OpenAmxDocument, file?: string, context?: ModuleCheckContext): ModuleCheckResult {
   const types = new Map<string, TypeDeclarationNode>(context?.types ?? []);
+  const enums = new Map<string, EnumDeclarationNode>(context?.enums ?? []);
   let bindings = new Map<string, CheckedType>(context?.bindings ?? []);
   const functions = new Map<string, FunctionDeclarationNode>(context?.functions ?? []);
   const dimensions = new Map<string, DimensionMetadata>(context?.dimensions ?? []);
@@ -170,9 +173,10 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   const baseUnits = context?.baseUnits ?? new Map<string, UnitMetadata>();
   const moduleRegistry: DimensionUnitRegistry = { dimensions, units, baseUnits };
   const moduleIdentity = context?.moduleIdentity ?? file ?? '<memory>';
-  const immutableNames = new Set<string>([...(context?.bindings?.keys() ?? []), ...(context?.functions?.keys() ?? []), ...(context?.types?.keys() ?? []), ...(context?.dimensions?.keys() ?? []), ...(context?.units?.keys() ?? [])]);
+  const immutableNames = new Set<string>([...(context?.bindings?.keys() ?? []), ...(context?.functions?.keys() ?? []), ...(context?.types?.keys() ?? []), ...(context?.enums?.keys() ?? []), ...(context?.dimensions?.keys() ?? []), ...(context?.units?.keys() ?? [])]);
   const inputNames = new Set<string>();
   const exportedTypes = new Map<string, TypeDeclarationNode>();
+  const exportedEnums = new Map<string, EnumDeclarationNode>();
   const exportedFunctions = new Map<string, FunctionDeclarationNode>();
   const exportedBindings = new Map<string, CheckedType>();
   const exportedDimensions = new Map<string, DimensionMetadata>();
@@ -181,12 +185,12 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   const views = new Map<string, TableDeclarationNode | ChartDeclarationNode>();
   let loopDepth = 0;
   let allowListMutation = true;
-  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010' | 'AMX3011' | 'AMX3012' | 'AMX3013' | 'AMX3014', message: string, source?: SourceLocation, declarationSource?: SourceLocation): never => staticError(code, message, source, file, declarationSource);
+  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010' | 'AMX3011' | 'AMX3012' | 'AMX3013' | 'AMX3014' | 'AMX3015' | 'AMX3016' | 'AMX3017' | 'AMX3018' | 'AMX3019' | 'AMX3020', message: string, source?: SourceLocation, declarationSource?: SourceLocation): never => staticError(code, message, source, file, declarationSource);
   const failDeclaration = (message: string, source?: SourceLocation, declarationSource?: SourceLocation): never =>
     staticError('AMX3008', message, source, file, declarationSource);
 
   function hasName(name: string): boolean {
-    return primitives.has(name) || stdlibNames.has(name) || types.has(name) || functions.has(name)
+    return primitives.has(name) || stdlibNames.has(name) || types.has(name) || enums.has(name) || functions.has(name)
       || bindings.has(name) || views.has(name) || dimensions.has(name) || units.has(name);
   }
 
@@ -550,6 +554,15 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         return named(expression.name);
       }
       case 'fieldAccess': {
+        if (expression.receiver.type === 'identifier') {
+          const enumeration = enums.get(expression.receiver.name);
+          if (enumeration) {
+            const member = enumeration.members.find(item => item.name === expression.field);
+            if (!member) fail('AMX3001', `Unknown enum member '${enumeration.name}.${expression.field}'`, expression.source);
+            const resolvedValue = enumeration.resolvedValues?.[enumeration.members.indexOf(member!)];
+            return named(typeof resolvedValue === 'number' ? 'Number' : 'String');
+          }
+        }
         const receiver = infer(expression.receiver);
         const declaration = receiver.kind === 'named' ? types.get(receiver.name) : undefined;
         if (!declaration) fail('AMX3003', 'Field access requires a non-null record', expression.source);
@@ -1067,6 +1080,52 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         if (statement.exported) exportedTypes.set(statement.name, statement);
         return;
       }
+      case 'enumDeclaration': {
+        if (hasName(statement.name)) fail('AMX3005', `Duplicate declaration '${statement.name}'`, statement.nameSource ?? statement.source);
+        if (statement.members.length === 0) {
+          fail('AMX3015', 'Enums need at least one value', statement.closingSource ?? statement.source);
+        }
+        const memberNames = new Set<string>();
+        for (const member of statement.members) {
+          if (memberNames.has(member.name)) fail('AMX3016', 'Enum members names have to be unique', member.nameSource ?? statement.source);
+          memberNames.add(member.name);
+        }
+        const hasExplicitValue = statement.members.some(member => member.value !== undefined);
+        if (!hasExplicitValue) {
+          statement.resolvedValues = statement.members.map((_, index) => index + 1);
+        } else {
+          const missing = statement.members.find(member => member.value === undefined);
+          if (missing) fail('AMX3019', 'All members should have explicitly assigned values', missing.nameSource ?? statement.source);
+          const values: Array<string | number> = [];
+          let valueType: 'Number' | 'String' | undefined;
+          for (const member of statement.members) {
+            const value = member.value!;
+            let literal: string | number;
+            let literalType: 'Number' | 'String';
+            if (value.type === 'numberLiteral') {
+              literal = value.value;
+              literalType = 'Number';
+            } else if (value.type === 'stringLiteral') {
+              literal = value.value;
+              literalType = 'String';
+            } else {
+              return fail('AMX3020', 'Only constant values can be assigned to enum members', member.valueSource ?? value.source ?? member.nameSource ?? statement.source);
+            }
+            if (valueType && valueType !== literalType) {
+              fail('AMX3018', 'Enum members should all have the same value types, all Number or String', member.valueSource ?? value.source ?? member.nameSource ?? statement.source);
+            }
+            valueType = literalType;
+            if (values.includes(literal)) {
+              fail('AMX3017', 'All enum members must have unique values', member.valueSource ?? value.source ?? member.nameSource ?? statement.source);
+            }
+            values.push(literal);
+          }
+          statement.resolvedValues = values;
+        }
+        enums.set(statement.name, statement);
+        if (statement.exported) exportedEnums.set(statement.name, statement);
+        return;
+      }
       case 'functionDeclaration': {
         if (hasName(statement.name)) fail('AMX3005', `Duplicate declaration '${statement.name}'`, statement.source);
         if (stdlibNames.has(statement.name)) fail('AMX3005', `Function '${statement.name}' cannot shadow a standard-library function`, statement.source);
@@ -1093,7 +1152,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         return;
       }
       case 'variableDeclaration': {
-        if (types.has(statement.name) || functions.has(statement.name) || views.has(statement.name) || dimensions.has(statement.name) || units.has(statement.name)) fail('AMX3005', `Binding '${statement.name}' conflicts with another declaration`, statement.source);
+        if (types.has(statement.name) || enums.has(statement.name) || functions.has(statement.name) || views.has(statement.name) || dimensions.has(statement.name) || units.has(statement.name)) fail('AMX3005', `Binding '${statement.name}' conflicts with another declaration`, statement.source);
         if (inputNames.has(statement.name)) fail('AMX3005', `Binding '${statement.name}' conflicts with an input`, statement.source);
         if (immutableNames.has(statement.name)) moduleError('AMX5002', `Cannot redeclare imported binding '${statement.name}'`, statement.source, file);
         const target = statement.annotation ? resolve(statement.annotation) : bindings.get(statement.name);
@@ -1211,6 +1270,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
 
   return {
     exportedTypes,
+    exportedEnums,
     exportedFunctions,
     exportedBindings,
     bindingTypes: new Map(bindings),

@@ -1,5 +1,5 @@
 import { throwUndefinedIdentifier } from '../diagnostics/errors';
-import { ChartDeclarationNode, FunctionDeclarationNode, SourceLocation, TableDeclarationNode, TypeDeclarationNode } from '../ast/types';
+import { ChartDeclarationNode, EnumDeclarationNode, FunctionDeclarationNode, SourceLocation, TableDeclarationNode, TypeDeclarationNode } from '../ast/types';
 import type { CheckedType } from '../typechecker/checkDocument';
 import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
 
@@ -51,6 +51,8 @@ export type ViewEmission = TableViewEmission | ChartViewEmission;
 export class Environment {
   private store: Map<string, unknown> = new Map();
   readonly recordTypes: Map<string, TypeDeclarationNode>;
+  readonly enumDeclarations = new Map<string, EnumDeclarationNode>();
+  readonly enumValues = new Map<string, Record<string, string | number>>();
   readonly functions: Map<string, FunctionDeclarationNode>;
   readonly bindingTypes = new Map<string, CheckedType>();
   dimensionRegistry?: DimensionUnitRegistry;

@@ -136,6 +136,28 @@ describe("parseStatements", () => {
       ]
     });
   });
+  it("parses enum declarations, literal members, exports and original token locations", () => {
+    const statements = parseStatements(
+      'export enum Status = {\n  OPEN = "open",\n  CLOSED = "closed"\n}\n',
+      { line: 5, column: 1 }
+    );
+    expect(statements[0]).toMatchObject({
+      type: 'enumDeclaration',
+      name: 'Status',
+      exported: true,
+      nameSource: { line: 5, column: 13 },
+      members: [
+        { name: 'OPEN', nameSource: { line: 6, column: 3 }, valueSource: { line: 6, column: 10 }, value: { type: 'stringLiteral', value: 'open' } },
+        { name: 'CLOSED', nameSource: { line: 7, column: 3 }, valueSource: { line: 7, column: 12 }, value: { type: 'stringLiteral', value: 'closed' } }
+      ],
+      closingSource: { line: 8, column: 1 }
+    });
+  });
+  it("reports malformed enum member syntax at the original token location", () => {
+    expect(() => parseStatements('enum Status = {\n  = 1\n}\n', { line: 5, column: 1 })).toThrow(
+      expect.objectContaining({ code: 'AMX3006', line: 6, column: 3 })
+    );
+  });
   it("parses declarations with original-document source locations", () => {
     const statements = parseStatements("\n  let first = 1\nlet second = 2", { line: 7, column: 1 });
     expect(statements).toHaveLength(2);

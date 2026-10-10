@@ -144,6 +144,66 @@ describe("Sprint 015 modules, imports, and exports", () => {
     expect(env.toObject().asset).toEqual({ id: 'A-1', duty: 2 });
   });
 
+  it("implements EN-V04 for an imported and exported enum with primitive member values", async () => {
+    const dir = await makeDir();
+    await write(dir, "library.amx", [
+      '---',
+      'fixture: EN-V04',
+      'file: library.amx',
+      '---',
+      '```amx',
+      'export enum Status = {',
+      '  DRAFT,',
+      '  ACTIVE',
+      '}',
+      '```',
+      ''
+    ].join('\n'));
+    const entry = await write(dir, "entry.amx", [
+      '---',
+      'fixture: EN-V04',
+      'file: entry.amx',
+      '---',
+      '```amx',
+      'import { Status } from "./library.amx"',
+      'let active: Number = Status.ACTIVE',
+      '```',
+      ''
+    ].join('\n'));
+    const { env } = await loadEntryModule(entry);
+    expect(env.toObject().active).toBe(2);
+  });
+
+  it("rejects EN-I09 when an imported enum is not exported", async () => {
+    const dir = await makeDir();
+    await write(dir, "library.amx", [
+      '---',
+      'fixture: EN-I09',
+      'file: library.amx',
+      '---',
+      '```amx',
+      'enum Status = {',
+      '  ACTIVE',
+      '}',
+      '```',
+      ''
+    ].join('\n'));
+    const entry = await write(dir, "entry.amx", [
+      '---',
+      'fixture: EN-I09',
+      'file: entry.amx',
+      '---',
+      '```amx',
+      'import { Status } from "./library.amx"',
+      'let active: Number = Status.ACTIVE',
+      '```',
+      ''
+    ].join('\n'));
+    const error = await expectAmxError(loadEntryModule(entry), "AMX5002");
+    expect(error.file).toBe(await realpath(entry));
+    expect(error).toMatchObject({ line: 6, column: 10 });
+  });
+
   it("rejects RI-I10 when an imported record parent is not exported", async () => {
     const dir = await makeDir();
     await write(dir, "library.amx", [

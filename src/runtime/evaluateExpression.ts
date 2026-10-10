@@ -193,8 +193,13 @@ export function evaluateExpression(
       return record;
     }
 
-    case 'fieldAccess':
+    case 'fieldAccess': {
+      if (node.receiver.type === 'identifier') {
+        const enumeration = env.enumValues.get(node.receiver.name);
+        if (enumeration) return enumeration[node.field];
+      }
       return (evaluateExpression(node.receiver, env, file) as Record<string, unknown>)[node.field];
+    }
 
     case 'listAccess':
       return evalListAccess(node, env, file);
@@ -799,6 +804,18 @@ function evaluateStatement(statement: StatementNode, env: Environment, file?: st
     case 'typeDeclaration':
       env.recordTypes.set(statement.name, statement);
       return;
+    case 'enumDeclaration': {
+      const values = statement.resolvedValues ?? statement.members.map((member, index) => {
+        if (!member.value) return index + 1;
+        if (member.value.type === 'numberLiteral' || member.value.type === 'stringLiteral') return member.value.value;
+        return staticError('AMX3020', 'Only constant values can be assigned to enum members', member.valueSource ?? member.value.source, file);
+      });
+      const enumeration: Record<string, string | number> = {};
+      statement.members.forEach((member, index) => { enumeration[member.name] = values[index]; });
+      env.enumDeclarations.set(statement.name, statement);
+      env.enumValues.set(statement.name, enumeration);
+      return;
+    }
     case 'functionDeclaration':
       env.functions.set(statement.name, statement);
       return;

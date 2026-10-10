@@ -5,6 +5,7 @@ import {
   ImportDeclarationNode,
   OpenAmxDocument,
   StatementNode,
+  EnumDeclarationNode,
   TypeDeclarationNode
 } from '../ast/types';
 import { parseDocument, parseDocumentText } from '../parser/parseDocument';
@@ -32,6 +33,8 @@ interface ModuleRecord {
   doc: OpenAmxDocument;
   checkResult: ModuleCheckResult;
   importedTypes: Map<string, TypeDeclarationNode>;
+  importedEnums: Map<string, EnumDeclarationNode>;
+  importedEnumSources: Map<string, string>;
   importedFunctions: Map<string, FunctionDeclarationNode>;
   importedBindings: Map<string, CheckedType>;
   importedBindingSources: Map<string, string>;
@@ -162,7 +165,7 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     const statements = flattenStatements(doc);
     const localNames = new Set<string>();
     for (const statement of statements) {
-      if (statement.type === 'typeDeclaration' || statement.type === 'functionDeclaration' || statement.type === 'variableDeclaration' || statement.type === 'inputDeclaration'
+      if (statement.type === 'typeDeclaration' || statement.type === 'enumDeclaration' || statement.type === 'functionDeclaration' || statement.type === 'variableDeclaration' || statement.type === 'inputDeclaration'
         || statement.type === 'tableDeclaration' || statement.type === 'chartDeclaration'
         || statement.type === 'dimensionDeclaration' || statement.type === 'unitDeclaration') {
         localNames.add(statement.name);
@@ -190,6 +193,8 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
       statement.type === 'dimensionDeclaration' || statement.type === 'unitDeclaration' ? [statement.name] : []
     ));
     const importedTypes = new Map<string, TypeDeclarationNode>();
+    const importedEnums = new Map<string, EnumDeclarationNode>();
+    const importedEnumSources = new Map<string, string>();
     const importedFunctions = new Map<string, FunctionDeclarationNode>();
     const importedBindings = new Map<string, CheckedType>();
     const importedBindingSources = new Map<string, string>();
@@ -234,6 +239,9 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
 
         if (dependency.checkResult.exportedTypes.has(importedName.name)) {
           importedTypes.set(importedName.name, dependency.checkResult.exportedTypes.get(importedName.name)!);
+        } else if (dependency.checkResult.exportedEnums.has(importedName.name)) {
+          importedEnums.set(importedName.name, dependency.checkResult.exportedEnums.get(importedName.name)!);
+          importedEnumSources.set(importedName.name, dependency.canonicalPath);
         } else if (dependency.checkResult.exportedFunctions.has(importedName.name)) {
           importedFunctions.set(importedName.name, dependency.checkResult.exportedFunctions.get(importedName.name)!);
         } else if (dependency.checkResult.exportedBindings.has(importedName.name)) {
@@ -253,6 +261,7 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
 
     const checkResult: ModuleCheckResult = checkDocument(doc, canonicalPath, {
       types: importedTypes,
+      enums: importedEnums,
       functions: importedFunctions,
       bindings: importedBindings,
       dimensions: importedDimensions,
@@ -263,7 +272,7 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     });
 
     visiting.pop();
-    const record: ModuleRecord = { canonicalPath, doc, checkResult, importedTypes, importedFunctions, importedBindings, importedBindingSources, importedDimensions, importedUnits };
+    const record: ModuleRecord = { canonicalPath, doc, checkResult, importedTypes, importedEnums, importedEnumSources, importedFunctions, importedBindings, importedBindingSources, importedDimensions, importedUnits };
     resolved.set(canonicalPath, record);
     evaluationOrder.push(canonicalPath);
     return record;
@@ -348,6 +357,12 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     });
     env.validationMode = options.validation ?? 'aggregate';
     for (const [name, typeDeclaration] of record.importedTypes) env.recordTypes.set(name, typeDeclaration);
+    for (const [name, enumDeclaration] of record.importedEnums) {
+      const dependency = evaluatedEnvironments.get(record.importedEnumSources.get(name)!);
+      if (!dependency) moduleError('AMX5002', `Imported enum '${name}' was not materialized`, enumDeclaration.source, canonicalPath);
+      env.enumDeclarations.set(name, enumDeclaration);
+      env.enumValues.set(name, dependency!.enumValues.get(name)!);
+    }
     for (const [name, functionDeclaration] of record.importedFunctions) env.functions.set(name, functionDeclaration);
     for (const [name, bindingType] of record.checkResult.bindingTypes) env.bindingTypes.set(name, bindingType);
     for (const [name, sourcePath] of record.importedBindingSources) {
