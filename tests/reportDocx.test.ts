@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdir, mkdtemp, rm, unlink, writeFile } from 'node:fs/promises';
+import { Packer } from 'docx';
+import { mkdir, mkdtemp, readdir, rm, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import JSZip from 'jszip';
@@ -7,6 +8,7 @@ import sharp from 'sharp';
 import { loadEntryModule } from '../src/runtime/moduleLoader';
 import { prepareDocxReport, serializeDocxReport } from '../src/renderer/reportDocx';
 import { prepareReport } from '../src/renderer/reportPreparation';
+import { prepareDocxDestination, writeDocxAtomically } from '../src/runtime/docxDestination';
 
 async function packageParts(bytes: Uint8Array): Promise<Map<string, string>> {
   const archive = await JSZip.loadAsync(bytes);
@@ -52,8 +54,314 @@ describe('report DOCX adapter', () => {
     expect(documentXml.indexOf('Narrative before')).toBeLessThan(documentXml.indexOf('Risk Register'));
     expect(documentXml.indexOf('Risk Register')).toBeLessThan(documentXml.indexOf('Exposure'));
     expect(documentXml).toContain('<w:tbl>');
-    expect(relsXml).toContain('image');
-    expect([...parts.keys()].some(name => name.startsWith('word/media/') && name.endsWith('.svg'))).toBe(true);
+    expect(relsXml).toContain('chart');
+    expect([...parts.keys()].some(name => /^word\/charts\/chart\d+\.xml$/.test(name))).toBe(true);
+    expect([...parts.keys()].some(name => name.startsWith('word/embeddings/') && name.endsWith('.xlsx'))).toBe(true);
+    expect([...parts.keys()].some(name => name.startsWith('word/media/') && name.endsWith('.svg'))).toBe(false);
+  });
+
+  it('serializes all chart kinds as native charts with embedded workbooks and complete table alternatives', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'openamx-docx-native-charts-'));
+    temporaryDirectories.push(directory);
+    const input = join(directory, 'report.amx');
+    await writeFile(input, `\`\`\`amx
+type CategoryRow {
+  label: String
+  first: Number?
+  second: Number?
+}
+let categories: CategoryRow[] = [
+  CategoryRow { label = "same", first = -2, second = 0 },
+  CategoryRow { label = "same", first = 0, second = 3 },
+  CategoryRow { label = "last", first = null, second = -1 }
+]
+chart horizontal = bar(categories) {
+  title: "Horizontal"
+  description: "Two ordered series"
+  category: label
+  series first as "First"
+  series second as "Second"
+}
+chart vertical = column(categories) {
+  title: "Vertical"
+  description: "Two ordered series"
+  category: label
+  series first as "First"
+  series second as "Second"
+}
+type TimelineRow {
+  at: DateTime
+  value: Number?
+}
+let timeline: TimelineRow[] = [
+  TimelineRow { at = "2025-01-01T00:00:00Z", value = 1 },
+  TimelineRow { at = "2025-01-11T00:00:00Z", value = null },
+  TimelineRow { at = "2025-03-01T00:00:00Z", value = 4 }
+]
+chart dates = line(timeline) {
+  title: "Date line"
+  description: "UTC dates and a null gap"
+  x: at
+  series value as "Value"
+}
+type NumericRow {
+  x: Number
+  value: Number?
+  absent: Number?
+}
+let numeric: NumericRow[] = [
+  NumericRow { x = 10, value = 1, absent = null },
+  NumericRow { x = 30, value = null, absent = null },
+  NumericRow { x = 30, value = 8, absent = null },
+  NumericRow { x = 11, value = 2, absent = null }
+]
+chart numericLine = line(numeric) {
+  title: "Numeric line"
+  description: "Continuous numeric x values"
+  x: x
+  series value as "Value"
+  series absent as "Absent"
+}
+type ScatterRow {
+  x: Number?
+  y: Number?
+  group: String
+}
+let points: ScatterRow[] = [
+  ScatterRow { x = 1, y = 2, group = "A" },
+  ScatterRow { x = null, y = 8, group = "A" },
+  ScatterRow { x = 4, y = 5, group = "B" }
+]
+chart scatter = scatter(points) {
+  title: "Grouped scatter"
+  description: "First-seen groups"
+  x: x
+  y: y
+  group: group
+}
+show horizontal
+show vertical
+show dates
+show numericLine
+show scatter
+\`\`\``);
+    const loaded = await loadEntryModule(input);
+    const prepared = await prepareReport(loaded.doc, loaded.env, { file: input });
+    const archive = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
+    const names = Object.keys(archive.files);
+    const chartNames = names.filter(name => /^word\/charts\/chart\d+\.xml$/.test(name));
+    const workbooks = names.filter(name => name.startsWith('word/embeddings/') && name.endsWith('.xlsx'));
+    const documentXml = await archive.file('word/document.xml')?.async('string') ?? '';
+    const relationships = await archive.file('word/_rels/document.xml.rels')?.async('string') ?? '';
+    expect(chartNames).toHaveLength(5);
+    expect(workbooks).toHaveLength(5);
+    expect(documentXml.match(/<w:tbl>/g)).toHaveLength(5);
+    expect(documentXml).toContain('Continuous numeric x values');
+    expect(documentXml).toContain('Series &quot;Absent&quot; has no plottable coordinates');
+    expect(documentXml).toContain('Date line');
+    expect(documentXml).toContain('Grouped scatter');
+    expect(documentXml).toContain('(null)');
+    expect(relationships).toContain('chart');
+    expect(relationships).not.toContain('TargetMode="External"');
+    expect(names.some(name => name.startsWith('word/media/') && name.endsWith('.svg'))).toBe(false);
+    expect(names.some(name => /vbaProject|macros/i.test(name))).toBe(false);
+
+    const chartXml = await Promise.all(chartNames.map(name => archive.file(name)!.async('string')));
+    expect(chartXml.some(xml => xml.includes('<c:barDir val="bar"/>'))).toBe(true);
+    expect(chartXml.some(xml => xml.includes('<c:barDir val="col"/>'))).toBe(true);
+    expect(chartXml.some(xml => xml.includes('<c:lineChart>') && xml.includes('<c:dateAx>'))).toBe(true);
+    expect(chartXml.join('').toLowerCase()).toContain('146c94');
+    expect(chartXml.filter(xml => xml.includes('<c:scatterChart>'))).toHaveLength(2);
+    for (const chartName of chartNames) {
+      const relName = chartName.replace('word/charts/', 'word/charts/_rels/').replace('.xml', '.xml.rels');
+      const chartRels = await archive.file(relName)?.async('string');
+      expect(chartRels).toContain('Microsoft_Excel_Worksheet');
+      expect(chartRels).not.toContain('TargetMode="External"');
+    }
+
+    const numericXml = await archive.file(chartNames[3]!)!.async('string');
+    expect(numericXml).toContain('Numeric line');
+    expect(numericXml).toContain('<c:scatterChart>');
+    expect(numericXml.match(/<c:ser>/g)).toHaveLength(2);
+    expect(numericXml).toContain('<c:v>10</c:v>');
+    expect(numericXml).toContain('<c:v>30</c:v>');
+    expect(numericXml).toContain('<c:v>11</c:v>');
+    expect(numericXml).not.toContain('Absent');
+
+    const embeddedWorkbook = await JSZip.loadAsync(await archive.file(workbooks[3]!)!.async('uint8array'));
+    const worksheetXml = await embeddedWorkbook.file('xl/worksheets/sheet1.xml')?.async('string') ?? '';
+    expect(worksheetXml).toContain('<v>10</v>');
+    expect(worksheetXml).toContain('<v>30</v>');
+    expect(worksheetXml).toContain('<v>11</v>');
+  });
+
+  it('uses truthful notice-and-table alternatives for zero-point and unsupported chart cases', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'openamx-docx-chart-deferrals-'));
+    temporaryDirectories.push(directory);
+    const input = join(directory, 'report.amx');
+    await writeFile(input, `\`\`\`amx
+type ValueRow {
+  label: Number
+  value: Number?
+}
+let empty: ValueRow[] = []
+let allNull: ValueRow[] = [ValueRow { label = 1, value = null }]
+chart emptyChart = bar(empty) {
+  title: "Empty chart"
+  description: "No rows"
+  category: label
+  series value as "Value"
+}
+chart nullChart = line(allNull) {
+  title: "All-null chart"
+  description: "All values are null"
+  x: label
+  series value as "Value"
+}
+type UnlocatedRow {
+  x: Number?
+  value: Number
+}
+let unlocated: UnlocatedRow[] = [UnlocatedRow { x = null, value = 3 }]
+chart unlocatedChart = line(unlocated) {
+  title: "Unlocated points"
+  description: "No row has a numeric x coordinate"
+  x: x
+  series value as "Value"
+}
+type PointRow {
+  x: Number?
+  y: Number?
+  group: String
+}
+let points: PointRow[] = [
+  PointRow { x = null, y = 8, group = "No points" },
+  PointRow { x = 1, y = 2, group = "Plotted" }
+]
+chart mixedGroups = scatter(points) {
+  title: "Mixed groups"
+  description: "One group has no plottable points"
+  x: x
+  y: y
+  group: group
+}
+show emptyChart
+show nullChart
+show unlocatedChart
+show mixedGroups
+\`\`\``);
+    const loaded = await loadEntryModule(input);
+    const prepared = await prepareReport(loaded.doc, loaded.env, { file: input });
+    const archive = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
+    const names = Object.keys(archive.files);
+    const documentXml = await archive.file('word/document.xml')?.async('string') ?? '';
+    expect(names.some(name => /^word\/charts\/chart\d+\.xml$/.test(name))).toBe(false);
+    expect(documentXml.match(/Chart not shown: no plottable data\./g)).toHaveLength(3);
+    expect(documentXml).toContain('Chart not shown: Word cannot represent a scatter group with no plottable points.');
+    expect(documentXml).toContain('>1<');
+    expect(documentXml).toContain('No row has a numeric x coordinate');
+    expect(documentXml).toContain('No points');
+    expect(documentXml).toContain('Plotted');
+    expect(documentXml).toContain('8');
+    expect(documentXml).toContain('(null)');
+    expect(documentXml.match(/<w:tbl>/g)).toHaveLength(4);
+  });
+
+  it('omits only numeric-X line series with no plottable coordinates and preserves their table data', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'openamx-docx-line-null-x-'));
+    temporaryDirectories.push(directory);
+    const input = join(directory, 'report.amx');
+    await writeFile(input, `\`\`\`amx
+type NumericRow {
+  x: Number?
+  onlyAtNull: Number?
+  value: Number?
+}
+let rows: NumericRow[] = [
+  NumericRow { x = null, onlyAtNull = 8, value = 1 },
+  NumericRow { x = 10, onlyAtNull = null, value = 3 },
+  NumericRow { x = 20, onlyAtNull = null, value = 4 }
+]
+chart trend = line(rows) {
+  title: "Nullable X"
+  description: "One series has no plottable coordinates"
+  x: x
+  series onlyAtNull as "OnlyAtNull"
+  series value as "Value"
+}
+show trend
+\`\`\``);
+    const loaded = await loadEntryModule(input);
+    const prepared = await prepareReport(loaded.doc, loaded.env, { file: input });
+    const archive = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
+    const chartXml = await archive.file('word/charts/chart1.xml')?.async('string') ?? '';
+    const documentXml = await archive.file('word/document.xml')?.async('string') ?? '';
+    expect(chartXml).toContain('<c:scatterChart>');
+    expect(chartXml).not.toContain('OnlyAtNull');
+    expect(chartXml).toContain('Value');
+    expect(chartXml).toContain('<c:v>10</c:v>');
+    expect(chartXml).toContain('<c:v>20</c:v>');
+    expect(documentXml).toContain('Series &quot;OnlyAtNull&quot; has no plottable coordinates');
+    expect(documentXml).toContain('OnlyAtNull');
+    expect(documentXml).toContain('>8<');
+    expect(documentXml.match(/<w:tbl>/g)).toHaveLength(1);
+  });
+
+  it('maps two measurement axes and defers charts requiring three axes without merging units', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'openamx-docx-chart-axes-'));
+    temporaryDirectories.push(directory);
+    const input = join(directory, 'report.amx');
+    await writeFile(input, `\`\`\`amx
+dimension Length
+unit meter: Length
+unit kilometer = 1000 * meter
+dimension Mass
+unit gram: Mass
+dimension Time
+unit second: Time
+type Measurement {
+  id: String
+  distance: Length
+  mass: Mass
+  duration: Time
+}
+let values: Measurement[] = [
+  Measurement { id = "A", distance = 1 kilometer, mass = 2 gram, duration = 3 second },
+  Measurement { id = "B", distance = 500 meter, mass = 4 gram, duration = 5 second }
+]
+chart twoAxes = column(values) {
+  title: "Two axes"
+  description: "Independent units"
+  category: id
+  series distance as "Distance"
+  series mass as "Mass"
+}
+chart threeAxes = column(values) {
+  title: "Three axes"
+  description: "Unsupported independent units"
+  category: id
+  series distance as "Distance"
+  series mass as "Mass"
+  series duration as "Duration"
+}
+show twoAxes
+show threeAxes
+\`\`\``);
+    const loaded = await loadEntryModule(input);
+    const prepared = await prepareReport(loaded.doc, loaded.env, { file: input });
+    const archive = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
+    const chartNames = Object.keys(archive.files).filter(name => /^word\/charts\/chart\d+\.xml$/.test(name));
+    const documentXml = await archive.file('word/document.xml')?.async('string') ?? '';
+    expect(chartNames).toHaveLength(1);
+    const chartXml = await archive.file(chartNames[0]!)?.async('string') ?? '';
+    expect(chartXml.match(/<c:valAx>/g)).toHaveLength(2);
+    expect(chartXml).toContain('kilometer');
+    expect(chartXml).toContain('gram');
+    expect(documentXml).toContain('Distance (kilometer)');
+    expect(documentXml).toContain('Mass (gram)');
+    expect(documentXml).toContain('Duration (second)');
+    expect(documentXml).toContain('Chart not shown: Word cannot represent all measurement axes without changing their meaning.');
+    expect(documentXml.match(/<w:tbl>/g)).toHaveLength(2);
   });
 
   it('renders the shared narrative AST as editable Word structures and final-relative links', async () => {
@@ -176,5 +484,33 @@ describe('report DOCX adapter', () => {
     const documentXml = parts.get('word/document.xml') ?? '';
     expect(documentXml).toContain('<w:tblHeader');
     expect(documentXml.match(/<w:tr>/g)).toHaveLength(101);
+  });
+
+  it('preserves an existing destination when native chart serialization fails', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'openamx-docx-serialization-failure-'));
+    temporaryDirectories.push(directory);
+    const input = join(directory, 'report.amx');
+    const output = join(directory, 'report.docx');
+    await writeFile(input, '```amx\nlet values: Number[] = [1]\nchart valuesChart = bar(values) {\n  title: "Values"\n  description: "Serialization failure fixture"\n  series "Value"\n}\nshow valuesChart\n```\n');
+    await writeFile(output, 'preserve existing DOCX bytes');
+    const loaded = await loadEntryModule(input);
+    const report = await prepareReport(loaded.doc, loaded.env, { file: input });
+    const destination = await prepareDocxDestination(output, input, undefined);
+    const originalToBuffer = Packer.toBuffer;
+
+    try {
+      Packer.toBuffer = async () => {
+        throw new Error('injected native chart serialization failure');
+      };
+      await expect(async () => {
+        const bytes = await serializeDocxReport(prepareDocxReport(report));
+        await writeDocxAtomically(destination, bytes);
+      }).toThrow('injected native chart serialization failure');
+    } finally {
+      Packer.toBuffer = originalToBuffer;
+    }
+
+    expect(await Bun.file(output).text()).toBe('preserve existing DOCX bytes');
+    expect((await readdir(directory)).sort()).toEqual(['report.amx', 'report.docx']);
   });
 });

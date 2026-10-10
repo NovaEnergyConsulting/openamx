@@ -130,7 +130,9 @@ Narrative after captured emissions.
     expect(documentXml.indexOf('Narrative before captured emissions')).toBeLessThan(documentXml.indexOf('Distances'));
     expect(documentXml.indexOf('Distances')).toBeLessThan(documentXml.indexOf('Distance trend'));
     expect(documentXml.indexOf('Distance trend')).toBeLessThan(documentXml.indexOf('Narrative after captured emissions'));
-    expect(Object.keys(archive.files).some(name => name.startsWith('word/media/') && name.endsWith('.svg'))).toBe(true);
+    expect(Object.keys(archive.files).some(name => /^word\/charts\/chart\d+\.xml$/.test(name))).toBe(true);
+    expect(Object.keys(archive.files).some(name => name.startsWith('word/embeddings/') && name.endsWith('.xlsx'))).toBe(true);
+    expect(Object.keys(archive.files).some(name => name.startsWith('word/media/') && name.endsWith('.svg'))).toBe(false);
     expect(prepared.items.filter(item => item.type === 'view').map(item => item.emission.name)).toEqual(['register', 'amounts']);
   });
 
@@ -191,8 +193,9 @@ show nullChart
 
     const docx = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
     const documentXml = await docx.file('word/document.xml')?.async('string');
-    expect(documentXml).toContain('No data');
+    expect(documentXml.match(/Chart not shown: no plottable data/g)?.length).toBe(2);
     expect(documentXml).toContain('(null)');
     expect(documentXml).not.toContain('Distance (meter)');
+    expect(Object.keys(docx.files).some(name => /^word\/charts\/chart\d+\.xml$/.test(name))).toBe(false);
   });
 });
