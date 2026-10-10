@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.12 Sprint 077 Architect Preparation (2026-10-11)
+
+- Prepared Sprint 077 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0077-v12-integrated-acceptance-closeout/`.
+- The pack requires direct evidence across core language, formatter/docs/examples, VS Code, and desktop editor; a requirement-to-evidence matrix with explicit PASS/FAIL/BLOCKED/NOT RUN statuses; and a separate Lead Developer disposition.
+- Sprint 076 evidence records root retry at 460 passed / 1 failed (imported dimension/unit symbol identity), VS Code Development Host at 16 passed / 7 failed (Windows EBUSY/path-case residuals), and desktop RPC stopping at the inherited sandbox-count assertion. These remain explicit baselines, not passes.
+- Sprint 076 tested shared desktop editor facts through RPC but did not claim direct V0.12 CodeMirror UI acceptance. Sprint 077 requires direct user-visible editor verification or a BLOCKED/UNAVAILABLE status.
+- Preparation does not authorize Builder execution, V0.12 acceptance/closeout, software release, or publication.
+
 ## V0.12 Sprint 076 Architect Preparation (2026-10-11)
 
 - Prepared Sprint 076 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0076-v12-editor-language-documentation-integration/`.

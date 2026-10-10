@@ -1,5 +1,11 @@
 # Planning Decisions
 
+## V0.12 Sprint 077 Architect Preparation (2026-10-11)
+
+- Sprint 077 is integrated verification and closeout only. No feature/diagnostic/editor contract changes are proposed; Sprints 072-076 and approved decisions remain authoritative.
+- Sprint 076's root, VS Code, and desktop residuals remain recorded failures/partial suite outcomes for Sprint 077 comparison. Direct desktop shared-fact RPC evidence does not substitute for user-visible CodeMirror UI acceptance.
+- Sprint 077 must request a separate Lead Developer closeout disposition. It does not authorize release, publication, or platform certification.
+
 ## V0.12 Sprint 076 Architect Preparation (2026-10-11)
 
 - Sprint 076 follows the confirmed V0.12 master plan and the implemented Sprint 072-075 contracts. No language-semantic, diagnostic, or compatibility change is proposed.
