@@ -70,6 +70,12 @@ describe('formatAmxDocument', () => {
 });
 
 describe('formatAmx', () => {
+  it('preserves the legacy IF-V01 conditional expression formatting', () => {
+    const source = 'let selected: String = if true then "yes" else "no"';
+    expect(formatAmx(source)).toBe(`${source}\n`);
+    expect(formatAmx(formatAmx(source))).toBe(`${source}\n`);
+  });
+
   it('normalizes line endings, edge whitespace, and final newline', () => {
     expect(formatAmx('\r\n  let value = 1  \r\n\r\n  value += 2\r\n\r\n'))
       .toBe('let value = 1\n\nvalue += 2\n');

@@ -1,5 +1,10 @@
 # Planning Questions (Sprint 002)
 
+## V0.12 Sprint 075 Builder Execution (2026-10-10)
+
+- **Resolved by Lead Developer approval:** IF-I02's missing-return diagnostic is AMX3021, `Every possible path in an if expression must return a value`; recorded in `planning/decisions.md`.
+- No additional Sprint 075 product-semantic question is open. Any acceptance residual discovered during implementation or verification must be recorded with its owner and disposition.
+
 ## V0.11 Sprint 071 Builder Disposition Request (2026-10-10)
 
 - **Resolved by explicit Lead Developer disposition (user, 2026-10-10): ACCEPTED / CLOSED; V0.11 FINISHED.** The named residuals below remain recorded as unpassed evidence, not inferred passes; the Lead Developer accepts them for this closeout.

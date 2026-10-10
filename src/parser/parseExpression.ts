@@ -10,11 +10,13 @@ import {
   FunctionCallNode,
   RangeExpressionNode,
   MatchExpressionNode,
+  BracedIfExpressionNode,
   MatchCaseNode,
   MeasurementAttachmentNode,
   MeasurementConversionNode
 } from '../ast/types';
 import { parseForExpression } from './parseFor';
+import { findBracedIfExpressionEnd, parseBracedIfExpression } from './parseIf';
 import { AmxError, syntaxError } from '../diagnostics/errors';
 import { findInterpolationEnd as findInterpolationClose, findStringLiteralEnd } from './stringScanner';
 
@@ -25,6 +27,7 @@ type Token =
   | { type: 'identifier'; name: string; text: string; offset: number }
   | { type: 'null'; text: string; offset: number }
   | { type: 'forExpression'; value: string; text: string; offset: number }
+  | { type: 'bracedIfExpression'; value: string; text: string; offset: number }
   | { type: 'matchExpression'; value: string; text: string; offset: number }
   | { type: 'operator'; op: string; text: string; offset: number }
   | { type: 'keyword'; word: 'and' | 'or' | 'not' | 'if' | 'then' | 'else'; text: string }
@@ -44,6 +47,16 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
     if (i >= len) break;
 
     const ch = text[i];
+
+    if (text.startsWith('if', i) && !/[A-Za-z0-9_]/.test(text[i + 2] ?? '')) {
+      const end = findBracedIfExpressionEnd(text, i);
+      if (end !== undefined) {
+        const ifText = text.slice(i, end + 1);
+        tokens.push({ type: 'bracedIfExpression', value: ifText, text: ifText, offset: i });
+        i = end + 1;
+        continue;
+      }
+    }
 
     if (text.startsWith('for', i) && !/[A-Za-z0-9_]/.test(text[i + 3] ?? '')) {
       const end = findForExpressionEnd(text, i, source);
@@ -493,6 +506,11 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
     if (t.type === 'forExpression') {
       advance();
       return parseForExpression(t.value, source);
+    }
+
+    if (t.type === 'bracedIfExpression') {
+      advance();
+      return parseBracedIfExpression(t.value, locationAt(text, t.offset, source)) as BracedIfExpressionNode;
     }
 
     if (t.type === 'number') {

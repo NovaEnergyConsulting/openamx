@@ -6,6 +6,13 @@
 - The missing-return diagnostic for IF-I02 remains unallocated. Explicit approval is required before implementing that diagnostic or exact-code assertions; this preparation assigns no code.
 - Sprint 075 preserves the completed Sprint 073 inheritance and Sprint 074 enum contracts; editor/formatter integration and language-specification publication remain Sprint 076 scope.
 
+## V0.12 Sprint 075 Builder Execution (2026-10-10)
+
+- The Lead Developer explicitly authorized Sprint 075 and approved the concrete file-by-file plan before source or test edits.
+- **IF-I02 diagnostic allocation (Lead Developer, 2026-10-10):** use AMX3021 with the exact message `Every possible path in an if expression must return a value`. Report at the closing brace of the value branch containing a fallthrough path.
+- Braced-expression returns provide only the current conditional expression's value. Branch declarations remain local; assignments to bindings that already exist outside the branch persist. No new loop or function-return behavior is authorized.
+- Sprint 075 retains Sprint 072's legacy conditional, Boolean condition, branch compatibility, and selected-branch semantics; formatter/editor integration remains Sprint 076 scope.
+
 ## V0.12 Sprint 074 Builder Execution (2026-10-10)
 
 - The Lead Developer explicitly authorized Sprint 074 and approved the concrete file-by-file plan before implementation.

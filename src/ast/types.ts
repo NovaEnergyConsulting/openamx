@@ -284,6 +284,16 @@ export interface ConditionalExpressionNode {
   source?: SourceLocation;
 }
 
+export interface BracedIfExpressionNode {
+  type: 'bracedIfExpression';
+  test: V02ExpressionNode;
+  consequent: StatementNode[];
+  alternate: StatementNode[];
+  consequentSource?: SourceLocation;
+  alternateSource?: SourceLocation;
+  source?: SourceLocation;
+}
+
 export interface MatchCaseNode {
   value: NumberLiteralNode | StringLiteralNode | BooleanLiteralNode;
   expression: V02ExpressionNode;
@@ -330,6 +340,7 @@ export type ExpressionNode =
   | MeasurementConversionNode
   | UnaryExpressionNode
   | ConditionalExpressionNode
+  | BracedIfExpressionNode
   | FunctionCallNode
   | ListLiteralNode;
 
@@ -401,6 +412,16 @@ export interface ForStatementNode {
   source?: SourceLocation;
 }
 
+export interface BracedIfStatementNode {
+  type: 'bracedIfStatement';
+  test: V02ExpressionNode;
+  consequent: StatementNode[];
+  alternate?: StatementNode[];
+  consequentSource?: SourceLocation;
+  alternateSource?: SourceLocation;
+  source?: SourceLocation;
+}
+
 export interface ReturnStatementNode {
   type: 'returnStatement';
   expression: V02ExpressionNode;
@@ -425,6 +446,7 @@ export type StatementNode =
   | AddStatementNode
   | RemoveStatementNode
   | ForStatementNode
+  | BracedIfStatementNode
   | ReturnStatementNode;
 
 export interface ExecutableCodeBlockNode {

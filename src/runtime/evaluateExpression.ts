@@ -5,6 +5,8 @@ import {
   BinaryExpressionNode,
   UnaryExpressionNode,
   ConditionalExpressionNode,
+  BracedIfExpressionNode,
+  BracedIfStatementNode,
   ListLiteralNode,
   FunctionCallNode,
   V02ExpressionNode,
@@ -261,6 +263,9 @@ export function evaluateExpression(
     case 'conditionalExpression':
       return evalConditional(node as ConditionalExpressionNode, env, file);
 
+    case 'bracedIfExpression':
+      return evalBracedIfExpression(node as BracedIfExpressionNode, env, file);
+
     case 'listLiteral':
       return evalListLiteral(node as ListLiteralNode, env, file);
 
@@ -445,6 +450,51 @@ function evalConditional(
   return toBoolean(testVal)
     ? evaluateExpression(node.consequent, env, file)
     : evaluateExpression(node.alternate, env, file);
+}
+
+class ConditionalValueReturn {
+  constructor(readonly value: unknown) {}
+}
+
+class ForExpressionReturn {
+  constructor(readonly value: unknown) {}
+}
+
+const conditionalReturnDepth = new WeakMap<Environment, number>();
+const forExpressionDepth = new WeakMap<Environment, number>();
+
+function withDepth<T>(depths: WeakMap<Environment, number>, env: Environment, run: () => T): T {
+  depths.set(env, (depths.get(env) ?? 0) + 1);
+  try {
+    return run();
+  } finally {
+    const depth = depths.get(env)! - 1;
+    if (depth) depths.set(env, depth);
+    else depths.delete(env);
+  }
+}
+
+function evaluateScopedStatements(statements: StatementNode[], env: Environment, file?: string): void {
+  const existing = new Set(Object.keys(env.toObject()));
+  try {
+    evaluateStatements(statements, env, file);
+  } finally {
+    for (const name of Object.keys(env.toObject())) {
+      if (!existing.has(name)) env.delete(name);
+    }
+  }
+}
+
+function evalBracedIfExpression(node: BracedIfExpressionNode, env: Environment, file?: string): unknown {
+  const branch = toBoolean(evaluateExpression(node.test, env, file)) ? node.consequent : node.alternate;
+  const closingSource = branch === node.consequent ? node.consequentSource : node.alternateSource;
+  try {
+    withDepth(conditionalReturnDepth, env, () => evaluateScopedStatements(branch, env, file));
+  } catch (error) {
+    if (error instanceof ConditionalValueReturn) return error.value;
+    throw error;
+  }
+  return staticError('AMX3021', 'Every possible path in an if expression must return a value', closingSource ?? node.source, file);
 }
 
 function evalListLiteral(
@@ -856,9 +906,23 @@ function evaluateStatement(statement: StatementNode, env: Environment, file?: st
     case 'forStatement':
       evalForStatement(statement, env, file);
       return;
+    case 'bracedIfStatement':
+      evalBracedIfStatement(statement, env, file);
+      return;
     case 'returnStatement':
+      if (conditionalReturnDepth.has(env)) {
+        throw new ConditionalValueReturn(evaluateExpression(statement.expression, env, file));
+      }
+      if (forExpressionDepth.has(env)) {
+        throw new ForExpressionReturn(evaluateExpression(statement.expression, env, file));
+      }
       throwInvalidReturnContext(statement.source, file);
   }
+}
+
+function evalBracedIfStatement(node: BracedIfStatementNode, env: Environment, file?: string): void {
+  const branch = toBoolean(evaluateExpression(node.test, env, file)) ? node.consequent : node.alternate;
+  if (branch) evaluateScopedStatements(branch, env, file);
 }
 
 function mutationTarget(name: string, env: Environment, source?: SourceLocation, file?: string): unknown[] {
@@ -936,15 +1000,20 @@ function evalForStatement(node: ForStatementNode, env: Environment, file?: strin
 function evalForExpression(node: ForExpressionNode, env: Environment, file?: string): unknown[] {
   const values = evaluateLoopIterable(node.iterable, env, file);
   const results: unknown[] = [];
-  withLoopBinding(node.variable, values, env, () => {
+  withDepth(forExpressionDepth, env, () => withLoopBinding(node.variable, values, env, () => {
     for (const statement of node.body) {
       if (statement.type === 'returnStatement') {
         results.push(evaluateExpression(statement.expression, env, file));
       } else {
-        evaluateStatement(statement, env, file);
+        try {
+          evaluateStatement(statement, env, file);
+        } catch (error) {
+          if (error instanceof ForExpressionReturn) results.push(error.value);
+          else throw error;
+        }
       }
     }
-  });
+  }));
   return results;
 }
 

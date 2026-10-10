@@ -1,6 +1,7 @@
 import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, EnumDeclarationNode, FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, InputDeclarationNode, SourceLocation, StatementNode, TableDeclarationNode, TypeReferenceNode, VariableDeclarationNode, VisualizationOptionNode } from '../ast/types';
 import { parseExpression } from './parseExpression';
 import { parseForStatement } from './parseFor';
+import { parseBracedIfStatement } from './parseIf';
 import { AmxError, staticError, syntaxError } from '../diagnostics/errors';
 import { findStringLiteralEnd, withoutStringLiterals } from './stringScanner';
 
@@ -248,6 +249,14 @@ export function parseStatements(
 
     if (context.allowFor === false && containsForExpression(rawLine)) {
       throw new Error(`Nested loops are unsupported at ${source.line}:${source.column}`);
+    }
+
+    if (/^\s*if\b/.test(rawLine)) {
+      const collected = collectDelimitedExpression(lines, i, rawLine.trimStart());
+      const parsed = parseBracedIfStatement(collected.text, source, context);
+      statements.push(parsed.statement);
+      i += parsed.lineCount - 1;
+      continue;
     }
 
     if (/^\s*for\b/.test(rawLine)) {

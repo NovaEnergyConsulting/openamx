@@ -974,6 +974,150 @@ describe("evaluator - Sprint 008 mutation, ranges, and loops", () => {
     expect(env.get("total")).toBe(18);
   });
 
+  describe("Sprint 075 braced if fixtures", () => {
+    const fixture = (id: string, source: string) =>
+      parseDocumentText(`---\nfixture: ${id}\n---\n\`\`\`amx\n${source}\n\`\`\`\n`);
+    const run = (id: string, source: string) => evaluateDocument(fixture(id, source), `${id}.amx`);
+
+    it("evaluates IF-V01 through IF-V06 with local expression returns and scoped branches", () => {
+      expect(run("IF-V01", 'let selected: String = if true then "yes" else "no"')).toMatchObject({ selected: "yes" });
+
+      const explicit = run("IF-V02", [
+        "let selected: Number = if true {",
+        "  let answer = 42",
+        "  return answer",
+        "} else {",
+        "  return 0",
+        "}",
+        "let after: Number = 1"
+      ].join("\n"));
+      expect(explicit).toMatchObject({ selected: 42, after: 1 });
+      expect(explicit).not.toHaveProperty("answer");
+      expect(run("IF-V02", [
+        "let selected = if false {",
+        "  let choice = 11",
+        "  return choice",
+        "} else {",
+        "  let choice = 22",
+        "  return choice",
+        "}"
+      ].join("\n"))).toMatchObject({ selected: 22 });
+
+      expect(run("IF-V03", [
+        "let count: Number = 0",
+        "if true {",
+        "  let local: Number = 2",
+        "  count = count + local",
+        "}",
+        "let after: Number = count"
+      ].join("\n"))).toMatchObject({ count: 2, after: 2 });
+
+      expect(run("IF-V04", [
+        "let selected: Number = if true {",
+        "  let nested: Number = if false {",
+        "    return 1",
+        "  } else {",
+        "    return 2",
+        "  }",
+        "  return nested",
+        "} else {",
+        "  return 3",
+        "}"
+      ].join("\n"))).toMatchObject({ selected: 2 });
+      expect(run("IF-V05", [
+        "let selected: Number = if true {",
+        "  return 7",
+        "} else {",
+        "  return sqrt(-1)",
+        "}"
+      ].join("\n"))).toMatchObject({ selected: 7 });
+
+      expect(run("IF-V06", [
+        "let selected: Number = 0",
+        "if true {",
+        "  selected = 1",
+        "} else {",
+        "  selected = 2",
+        "}"
+      ].join("\n"))).toMatchObject({ selected: 1 });
+      expect(run("IF-V06", [
+        "let selected: Number = 0",
+        "if false {",
+        "  selected = 1",
+        "} else {",
+        "  selected = 2",
+        "}"
+      ].join("\n"))).toMatchObject({ selected: 2 });
+      expect(run("IF-V06", [
+        "let selected: Number = 0",
+        "if true {",
+        "  selected = 1",
+        "} else {",
+        "  selected = sqrt(-1)",
+        "}"
+      ].join("\n"))).toMatchObject({ selected: 1 });
+    });
+
+    it("keeps conditional returns local inside expression loops", () => {
+      expect(run("IF-V02", [
+        "let values = for item in [1, 2] {",
+        "  return if item == 1 {",
+        "    return 10",
+        "  } else {",
+        "    return 20",
+        "  }",
+        "}",
+        "let after: Number = 3"
+      ].join("\n"))).toMatchObject({ values: [10, 20], after: 3 });
+    });
+
+    it("reports IF-I01 through IF-I05 at the fixture-defined locations", () => {
+      const cases = [
+        {
+          id: "IF-I01",
+          source: "let selected: Number = if true {\n  return 1\n}",
+          code: "AMX3006", line: 5, column: 24
+        },
+        {
+          id: "IF-I02",
+          source: "let selected: Number = if true {\n  return 1\n} else {\n  let fallback: Number = 2\n}",
+          code: "AMX3021", message: "Every possible path in an if expression must return a value", line: 9, column: 1
+        },
+        {
+          id: "IF-I03",
+          source: "if true {\n  let local: Number = 2\n}\nlet after: Number = local",
+          code: "AMX3001", line: 8, column: 21
+        },
+        {
+          id: "IF-I04",
+          source: "if 1 {\n  let selected: Number = 1\n}",
+          code: "AMX3002", line: 5, column: 4
+        },
+        {
+          id: "IF-I05",
+          source: 'let selected = if true {\n  return 1\n} else {\n  return "one"\n}',
+          code: "AMX3002", message: "Conditional branches have incompatible types", line: 5, column: 16
+        }
+      ];
+      for (const expected of cases) {
+        try {
+          run(expected.id, expected.source);
+          throw new Error(`Expected ${expected.id} diagnostic`);
+        } catch (error: any) {
+          expect(error).toBeInstanceOf(AmxError);
+          expect(error.code).toBe(expected.code);
+          if ("message" in expected) expect(error.message).toBe(expected.message);
+          expect(error.line).toBe(expected.line);
+          expect(error.column).toBe(expected.column);
+        }
+      }
+    });
+
+    it("preserves return restrictions outside expression-local and loop contexts", () => {
+      expect(() => parseStatements("return 1")).toThrow(/Return is only valid inside an expression-form for loop/);
+    });
+  });
+
   it("uses AMX1004 with source locations for undefined writes", () => {
     for (const statement of ["missing = 1", "missing += 1"]) {
       const env = new Environment();

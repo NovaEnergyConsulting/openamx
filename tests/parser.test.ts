@@ -719,3 +719,70 @@ Narrative {{ outside }} and {{ inside }}.
     expect((doc.nodes[2] as NarrativeNode).content).toBe("After\r\n");
   });
 });
+
+describe("Sprint 075 braced if fixtures", () => {
+  const fixture = (id: string, source: string) =>
+    parseDocumentText(`---\nfixture: ${id}\n---\n\`\`\`amx\n${source}\n\`\`\`\n`);
+  const statements = (id: string, source: string) =>
+    fixture(id, source).nodes.find(node => node.type === "executableCodeBlock") as ExecutableCodeBlockNode;
+
+  it("parses IF-V01 through IF-V06 into distinct legacy, expression, and statement forms", () => {
+    const legacy = statements("IF-V01", 'let selected: String = if true then "yes" else "no"').statements[0] as VariableDeclarationNode;
+    expect(legacy.expression.type).toBe("conditionalExpression");
+
+    const expression = statements("IF-V02", [
+      "let selected: Number = if true {",
+      "  let answer = 42",
+      "  return answer",
+      "} else {",
+      "  return 0",
+      "}",
+      "let after: Number = 1"
+    ].join("\n")).statements;
+    expect((expression[0] as VariableDeclarationNode).expression.type).toBe("bracedIfExpression");
+    expect(expression[1].type).toBe("variableDeclaration");
+
+    for (const [id, source, hasElse] of [
+      ["IF-V03", "if true {\n  let local: Number = 2\n}", false],
+      ["IF-V06", "if true {\n  selected = 1\n} else {\n  selected = 2\n}", true]
+    ] as const) {
+      const statement = statements(id, source).statements[0];
+      expect(statement.type).toBe("bracedIfStatement");
+      expect("alternate" in statement && statement.alternate !== undefined).toBe(hasElse);
+    }
+
+    const nested = statements("IF-V04", [
+      "let selected: Number = if true {",
+      "  let nested: Number = if false {",
+      "    return 1",
+      "  } else {",
+      "    return 2",
+      "  }",
+      "  return nested",
+      "} else {",
+      "  return 3",
+      "}"
+    ].join("\n")).statements[0] as VariableDeclarationNode;
+    expect(nested.expression.type).toBe("bracedIfExpression");
+
+    const selectedBranch = statements("IF-V05", [
+      "let selected: Number = if true {",
+      "  return 7",
+      "} else {",
+      "  return sqrt(-1)",
+      "}"
+    ].join("\n")).statements[0] as VariableDeclarationNode;
+    expect(selectedBranch.expression.type).toBe("bracedIfExpression");
+  });
+
+  it("locates the missing expression else in IF-I01", () => {
+    try {
+      fixture("IF-I01", "let selected: Number = if true {\n  return 1\n}");
+      throw new Error("Expected missing-else syntax diagnostic");
+    } catch (error: any) {
+      expect(error.code).toBe("AMX3006");
+      expect(error.line).toBe(5);
+      expect(error.column).toBe(24);
+    }
+  });
+});

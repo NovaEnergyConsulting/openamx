@@ -7,6 +7,12 @@
 - The missing-return diagnostic for IF-I02 remains unallocated. The pack requires explicit approval before implementing that diagnostic or exact-code assertions; no identity/message is guessed.
 - This is Architect preparation only; it does not authorize Builder execution, publication, or release.
 
+## V0.12 Sprint 075 Builder Execution (2026-10-10)
+
+- The Lead Developer authorized execution, approved the file-by-file plan, and allocated IF-I02 as AMX3021 with `Every possible path in an if expression must return a value`; see `planning/decisions.md`.
+- Implemented separate braced expression/statement AST forms, parsing, Boolean/type/path checking, lexical branch scopes, and expression-local runtime returns. Added fixture-derived parser/evaluator coverage plus the legacy formatter regression.
+- Focused parser/evaluator/formatter/module suites pass (194 tests, 719 expectations) and the root build passes. The final root suite reports 454 passed / 2 failed (456 tests, 2,489 expectations); both failures match the Sprint 073–074 baseline. The initial parser/evaluator regression from misidentifying a legacy `if ... then match ... else ...` expression was corrected and documented with its retry. See Sprint 075 `builder-evidence.md` for exact commands and outcomes.
+
 ## V0.12 Sprint 074 Builder Execution (2026-10-10)
 
 - The Lead Developer explicitly authorized execution, approved the concrete file-by-file plan, and allocated AMX3015-AMX3020 with exact messages; see `planning/decisions.md`.

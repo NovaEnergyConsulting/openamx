@@ -98,6 +98,8 @@ function bodyContainsForExpression(expression: V02ExpressionNode): boolean {
     case 'stringInterpolation': return expression.parts.some(part => typeof part !== 'string' && bodyContainsForExpression(part));
     case 'unaryExpression': return bodyContainsForExpression(expression.argument);
     case 'conditionalExpression': return [expression.test, expression.consequent, expression.alternate].some(bodyContainsForExpression);
+    case 'bracedIfExpression': return bodyContainsForExpression(expression.test)
+      || bodyContainsForStatements(expression.consequent) || bodyContainsForStatements(expression.alternate);
     case 'listLiteral': return expression.elements.some(bodyContainsForExpression);
     case 'functionCall': return expression.arguments.some(bodyContainsForExpression);
     case 'rangeExpression': return bodyContainsForExpression(expression.start) || bodyContainsForExpression(expression.end);
@@ -107,6 +109,25 @@ function bodyContainsForExpression(expression: V02ExpressionNode): boolean {
     case 'listAccess': return bodyContainsForExpression(expression.receiver) || bodyContainsForExpression(expression.index);
     default: return false;
   }
+}
+
+function bodyContainsForStatements(statements: StatementNode[]): boolean {
+  return statements.some(statement => {
+    switch (statement.type) {
+      case 'variableDeclaration': return bodyContainsForExpression(statement.expression);
+      case 'assignmentStatement': case 'compoundAssignmentStatement': return bodyContainsForExpression(statement.expression);
+      case 'returnStatement': return bodyContainsForExpression(statement.expression);
+      case 'bracedIfStatement': return bodyContainsForExpression(statement.test)
+        || bodyContainsForStatements(statement.consequent)
+        || !!statement.alternate && bodyContainsForStatements(statement.alternate);
+      case 'forStatement': return bodyContainsForExpression(statement.iterable) || bodyContainsForStatements(statement.body);
+      case 'addStatement': return bodyContainsForExpression(statement.value)
+        || !!statement.index && bodyContainsForExpression(statement.index);
+      case 'removeStatement': return bodyContainsForExpression(statement.count)
+        || !!statement.index && bodyContainsForExpression(statement.index);
+      default: return false;
+    }
+  });
 }
 
 function constantValue(expression: V02ExpressionNode): unknown | undefined {
@@ -185,7 +206,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   const views = new Map<string, TableDeclarationNode | ChartDeclarationNode>();
   let loopDepth = 0;
   let allowListMutation = true;
-  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010' | 'AMX3011' | 'AMX3012' | 'AMX3013' | 'AMX3014' | 'AMX3015' | 'AMX3016' | 'AMX3017' | 'AMX3018' | 'AMX3019' | 'AMX3020', message: string, source?: SourceLocation, declarationSource?: SourceLocation): never => staticError(code, message, source, file, declarationSource);
+  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010' | 'AMX3011' | 'AMX3012' | 'AMX3013' | 'AMX3014' | 'AMX3015' | 'AMX3016' | 'AMX3017' | 'AMX3018' | 'AMX3019' | 'AMX3020' | 'AMX3021', message: string, source?: SourceLocation, declarationSource?: SourceLocation): never => staticError(code, message, source, file, declarationSource);
   const failDeclaration = (message: string, source?: SourceLocation, declarationSource?: SourceLocation): never =>
     staticError('AMX3008', message, source, file, declarationSource);
 
@@ -708,6 +729,15 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
           ? 'AMX3007' : 'AMX3002', 'Conditional branches have incompatible types', expression.source);
         return result!;
       }
+      case 'bracedIfExpression': {
+        requireType(infer(expression.test), named('Boolean'), expression.test.source);
+        const consequent = checkIfExpressionBranch(expression.consequent, expression.consequentSource, expected, expression.source);
+        const alternate = checkIfExpressionBranch(expression.alternate, expression.alternateSource, expected, expression.source);
+        const result = common(consequent, alternate);
+        if (!result) fail(consequent.kind === 'measurement' || alternate.kind === 'measurement'
+          ? 'AMX3007' : 'AMX3002', 'Conditional branches have incompatible types', expression.source);
+        return result!;
+      }
       case 'rangeExpression':
         requireType(infer(expression.start), named('Number'), expression.start.source);
         requireType(infer(expression.end), named('Number'), expression.end.source);
@@ -822,6 +852,61 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
       else bindings.delete(variable);
     }
     return list(returned ?? named('Number'));
+  }
+
+  function checkBranchScope(statements: StatementNode[], check: () => void): void {
+    const original = bindings;
+    bindings = new Map(original);
+    try {
+      for (const statement of statements) checkStatement(statement);
+      check();
+    } finally {
+      bindings = original;
+    }
+  }
+
+  function checkIfExpressionBranch(
+    statements: StatementNode[],
+    closingSource: SourceLocation | undefined,
+    expected: CheckedType | undefined,
+    expressionSource: SourceLocation | undefined
+  ): CheckedType {
+    let result: CheckedType | undefined;
+    let hasFallthrough = true;
+    const collect = (type: CheckedType, source?: SourceLocation): void => {
+      if (!result) result = type;
+      else {
+        const merged = common(result, type);
+        if (!merged) fail('AMX3002', 'Conditional branches have incompatible types', expressionSource ?? source);
+        result = merged;
+      }
+    };
+    const walk = (body: StatementNode[]): boolean => {
+      let terminates = false;
+      const original = bindings;
+      bindings = new Map(original);
+      try {
+        for (const statement of body) {
+          if (statement.type === 'returnStatement') {
+            collect(infer(statement.expression, expected), statement.source);
+            terminates = true;
+          } else if (statement.type === 'bracedIfStatement') {
+            requireType(infer(statement.test), named('Boolean'), statement.test.source);
+            const consequentReturns = walk(statement.consequent);
+            const alternateReturns = statement.alternate ? walk(statement.alternate) : false;
+            if (consequentReturns && alternateReturns) terminates = true;
+          } else {
+            checkStatement(statement);
+          }
+        }
+      } finally {
+        bindings = original;
+      }
+      return terminates;
+    };
+    hasFallthrough = !walk(statements);
+    if (hasFallthrough || !result) fail('AMX3021', 'Every possible path in an if expression must return a value', closingSource ?? expressionSource);
+    return result!;
   }
 
   function checkDefault(expression: V02ExpressionNode, target: CheckedType): void {
@@ -1212,7 +1297,15 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         if (!views.has(statement.name)) fail('AMX3001', `Unknown or not-yet-declared visualization '${statement.name}'`, statement.nameSource ?? statement.source);
         return;
       case 'forStatement': checkLoop(statement.variable, statement.iterable, statement.body, statement.source, undefined, true); return;
-      case 'returnStatement': fail('AMX3003', 'Return outside expression loop', statement.source);
+      case 'bracedIfStatement': {
+        requireType(infer(statement.test), named('Boolean'), statement.test.source);
+        checkBranchScope(statement.consequent, () => {});
+        if (statement.alternate) checkBranchScope(statement.alternate, () => {});
+        return;
+      }
+      case 'returnStatement':
+        if (loopDepth > 0) infer(statement.expression);
+        else fail('AMX3003', 'Return outside expression loop', statement.source);
     }
   }
 
