@@ -1,5 +1,16 @@
 # Planning Questions (Sprint 002)
 
+## V0.11 Sprint 071 Preparation (2026-10-10)
+
+- **Resolved for planning:** Sprint 071 is the master-plan integrated acceptance/V0.11 closeout with formal dependencies on Sprints 067, 069, and 070. Those sprints are closed with recorded residuals, but do not authorize Sprint 071.
+- **Implementation gate remains open:** obtain explicit Sprint 071 authorization and approval of the file-by-file doc/example/test plan before edits. Owner: Lead Developer.
+- **PDF evidence residual:** Sprint 067 produced no raster-page review or actual local-link viewer-open evidence. Sprint 071 must inspect generated PDF pages and report any viewer trust restriction without bypass; otherwise keep the affected criterion blocked. Owner: Sprint 071 Builder / Lead Developer.
+- **Word chart evidence residuals:** Sprint 069's numeric-X null-gap chart lacks direct Word Web visual capture; no formal screen-reader review has been performed. Sprint 071 must collect and record these or keep the criteria blocked. Owner: Sprint 071 Builder / Word reviewer.
+- **Native preview evidence residual:** Sprint 070 verified injected confirmation/opener callbacks and a browser harness, not the actual Electrobun `Utils.showMessageBox` or OS `Utils.openExternal` / `Utils.openPath`. Exercise native Open/Cancel with safe disposable targets where available; otherwise leave native integration blocked. Owner: Sprint 071 Builder / desktop reviewer.
+- **Inherited test residuals:** root `tests/editor.test.ts:73`, `tests/examples.test.ts:43`, desktop `rpc-contract-check.ts` sandbox-count assertion, plus timing-sensitive root parallel/serial timeouts remain recorded. Rerun and compare; do not fix unrelated failures. Owners: Lead Developer / respective maintainers.
+- **Word Web local links:** relative DOCX links were rewritten to HTTPS-like targets in Sprint 066/068 evidence and were not successfully opened. Do not claim Word Web local companion-file support without valid new evidence and explicit Lead Developer disposition.
+- **Closeout decision:** if any mandatory application, visual, or accessibility evidence remains unavailable or failed, mark its criterion BLOCKED/FAILED and request explicit Lead Developer direction; do not claim V0.11 acceptance or release based on the remaining checks.
+
 ## V0.11 Sprint 070 Builder Execution (2026-10-10)
 
 - **Resolved before source/test edits:** the user explicitly authorized Sprint 070 and approved the concrete file-by-file plan, including message schema, token/ID lifecycle, channel/frame binding, confirmation UI, cancel behavior, target revalidation, and native opener. The user separately approved regenerating `examples/typed-asset-analysis.html` after a Sprint-caused golden mismatch.

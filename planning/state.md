@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.11 Sprint 071 Architect Preparation (2026-10-10)
+
+- Prepared Sprint 071 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0071-v11-integrated-acceptance-closeout/`.
+- Sprint 071 is the master-plan no-feature integrated acceptance and closeout, formally dependent on Sprints 067, 069, and 070. All are closed with recorded residuals; none authorizes Sprint 071.
+- The pack requires a per-surface evidence matrix; PDF visual/search/link checks; DOCX package and actual Word edit/save/reopen and Web preservation checks; HTML/preview security and offline checks; documentation/example corrections; and integrated root/desktop validation.
+- It explicitly carries forward Sprint 067's missing PDF raster/viewer evidence, Sprint 069's Word Web null-gap visual and formal screen-reader review, Sprint 070's untested native dialog/OS opener, and inherited root/desktop/timeouts. Mandatory evidence gaps remain blocked unless separately dispositioned.
+- Explicit Sprint 071 implementation authorization and repository code-gate approval remain prerequisites. This preparation does not change product behavior or authorize V0.11 completion, release, or publication.
+
 ## V0.11 Sprint 070 Builder Implementation (2026-10-10)
 
 - Before source/test edits, the user explicitly authorized Sprint 070 and approved the concrete file-by-file plan, including a per-preview 256-bit token, per-target 128-bit IDs, a parent-bound `MessageChannel`, current document/project/revision identity checks, service-owned target mappings, native Open/Cancel confirmation, and dedicated `Utils.openExternal` / `Utils.openPath` actions. The user later approved regenerating `examples/typed-asset-analysis.html` after the CLI golden-file test exposed an intentional rendering change.

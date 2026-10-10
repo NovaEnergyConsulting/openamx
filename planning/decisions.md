@@ -1,5 +1,14 @@
 # Planning Decisions
 
+## V0.11 Sprint 071 Architect Preparation (2026-10-10)
+
+- The master plan remains the scope authority. Sprint 071 adds no product feature; it owns integrated evidence, narrowly scoped reporting documentation/example corrections, and closeout.
+- Each output surface is evaluated independently using the requirement-to-evidence matrix. Package/XML or browser-harness evidence does not substitute for actual PDF visual, Word application, screen-reader, or native host evidence.
+- Sprint 067 PDF raster/local-viewer evidence, Sprint 069 Word Web null-gap visual/screen-reader review, and Sprint 070 native confirmation/OS opener remain named residuals until direct evidence closes them. No prior disposition promotes them to passes.
+- Documentation may describe only verified features and platform behavior. Update obsolete DOCX chart claims to reflect native editable charts/embedded data and approved no-chart/table deferrals; preserve relative companion-file, safe-link, offline image, and viewer-specific caveats. Do not imply an AMX syntax/version change.
+- Sprint 070 disposition does not authorize Sprint 071. Explicit Sprint 071 authorization and repository code-gate approval are required before any doc/example/test changes.
+- Release, publication, platform certification, and V0.11 completion are not authorized by this preparation.
+
 ## V0.11 Sprint 070 Builder Authorization and Implementation (2026-10-10)
 
 - The user explicitly authorized Sprint 070 and approved its concrete file-by-file implementation plan before source/test edits. The code gate covers prepared-AST HTML output, final-output-relative standalone links, private worker-to-service preview target maps, typed opaque-ID navigation, current identity/frame binding, host revalidation, trusted native confirmation, cancel behavior, and focused tests.
