@@ -51,3 +51,16 @@ test("preview links require a trusted frame click and never accept forged or syn
 	expect((await snapshot(page)).previewNavigationCalls).toHaveLength(1);
 	expect(outbound).toEqual([]);
 });
+
+test("a preview link to an AMX file activates its workbench tab", async ({ page }) => {
+	await page.goto("/");
+	await page.getByRole("button", { name: "Open project" }).click();
+	await sourceEditor(page).fill("# Preview AMX link fixture\n");
+	await page.getByRole("button", { name: "Refresh preview" }).click();
+	const frame = page.frameLocator('iframe[title="OpenAMX live HTML preview"]');
+	await frame.getByRole("link", { name: "Open related AMX" }).click();
+
+	const linkedTab = page.getByRole("button", { name: "linked.amx", exact: true });
+	await expect(linkedTab).toHaveAttribute("aria-current", "page");
+	await expect.poll(async () => (await snapshot(page)).lastOpenedPath).toBe("/sprint042-browser-fixture/linked.amx");
+});

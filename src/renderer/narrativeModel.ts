@@ -45,7 +45,8 @@ function fencedCodeContent(raw: string): string {
 export type NarrativeLink =
   | { readonly type: 'external'; readonly href: string; readonly title?: string }
   | { readonly type: 'internal'; readonly targetId: string; readonly title?: string }
-  | { readonly type: 'local'; readonly path: string; readonly sourceBase: 'document-directory'; readonly title?: string; readonly query?: string; readonly fragment?: string };
+  | { readonly type: 'local'; readonly path: string; readonly sourceBase: 'document-directory'; readonly title?: string; readonly query?: string; readonly fragment?: string }
+  | { readonly type: 'amx'; readonly path: string; readonly title?: string };
 
 export interface NarrativeImage {
   readonly format: 'png' | 'jpeg';
@@ -376,17 +377,25 @@ function prepareLink(href: string, title: string | undefined, context: BuildCont
   } else {
     try {
       const path = parseRelativeTarget(href, context.options.file);
-      if (!LOCAL_LINK_EXTENSIONS.has(extension(path.path))) return rejectLink(context, 'invalid-local-target');
+      const targetExtension = extension(path.path);
+      if (targetExtension !== '.amx' && !LOCAL_LINK_EXTENSIONS.has(targetExtension)) {
+        return rejectLink(context, 'invalid-local-target');
+      }
+      if (targetExtension === '.amx' && (path.query !== undefined || path.fragment !== undefined)) {
+        return rejectLink(context, 'invalid-local-target');
+      }
       const source = sourceContext(context);
       resolveContainedFile(source, path.path, context.options.file, 'Narrative local link must target a contained regular file');
-      link = {
-        type: 'local',
-        path: path.path,
-        sourceBase: 'document-directory',
-        ...(path.query === undefined ? {} : { query: path.query }),
-        ...(path.fragment === undefined ? {} : { fragment: path.fragment }),
-        ...(title === undefined ? {} : { title })
-      };
+      link = targetExtension === '.amx'
+        ? { type: 'amx', path: path.path, ...(title === undefined ? {} : { title }) }
+        : {
+            type: 'local',
+            path: path.path,
+            sourceBase: 'document-directory',
+            ...(path.query === undefined ? {} : { query: path.query }),
+            ...(path.fragment === undefined ? {} : { fragment: path.fragment }),
+            ...(title === undefined ? {} : { title })
+          };
     } catch (error) {
       if (!(error instanceof AmxError)) throw error;
       return rejectLink(context, 'invalid-local-target');

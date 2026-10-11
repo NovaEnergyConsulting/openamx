@@ -289,14 +289,17 @@ function inlineChildren(
           : { ...style, strike: true };
       children.push(...inlineChildren(inline.children, context, nestedStyle));
     } else if (inline.type === 'link') {
-      const linkChildren = inlineChildren(inline.children, context, { ...style, color: '0563C1', underline: {} });
       const link = inline.link;
+      const linkChildren = inlineChildren(inline.children, context,
+        link.type === 'amx' ? style : { ...style, color: '0563C1', underline: {} });
       if (link.type === 'external') {
         children.push(new ExternalHyperlink({ link: link.href, children: linkChildren }));
       } else if (link.type === 'internal') {
         const anchor = context.bookmarks.get(link.targetId);
         if (anchor) children.push(new InternalHyperlink({ anchor, children: linkChildren }));
         else children.push(...linkChildren);
+      } else if (link.type === 'amx') {
+        children.push(...linkChildren);
       } else {
         children.push(new ExternalHyperlink({ link: localLinkUri(link, context.exportContext), children: linkChildren }));
       }

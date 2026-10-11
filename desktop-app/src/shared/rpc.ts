@@ -125,7 +125,7 @@ export interface DesktopRPCClient {
 		setDocumentReportSettings(params: { values: ReportSettingsValues; expectedRevision: number }): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }>>;
 		setAutosave(params: { enabled: boolean; delayMs: number }): Promise<DesktopRPCResponse<{ enabled: boolean; delayMs: number }>>;
 		startJob(params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; selectionId?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string }; dataOutput?: { name: string; format: "json" | "csv" } }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
-		openPreviewTarget(params: { targetId: string; previewToken: string; identity: ActiveDocumentRequestIdentity }): Promise<DesktopRPCResponse<{ opened: boolean; cancelled?: boolean }>>;
+		openPreviewTarget(params: { targetId: string; previewToken: string; identity: ActiveDocumentRequestIdentity }): Promise<DesktopRPCResponse<{ opened: boolean; cancelled?: boolean; document?: OpenDocument }>>;
 		invalidatePreviewTargets(params: { previewToken: string; identity: ActiveDocumentRequestIdentity }): Promise<DesktopRPCResponse<{ invalidated: boolean }>>;
 		getJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		cancelJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
@@ -193,7 +193,7 @@ export type DesktopRPCSchema = {
 			setDocumentReportSettings: { params: { values: ReportSettingsValues; expectedRevision: number }; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }> };
 			setAutosave: { params: { enabled: boolean; delayMs: number }; response: DesktopRPCResponse<{ enabled: boolean; delayMs: number }> };
 			startJob: { params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; selectionId?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string }; dataOutput?: { name: string; format: "json" | "csv" } }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
-			openPreviewTarget: { params: { targetId: string; previewToken: string; identity: ActiveDocumentRequestIdentity }; response: DesktopRPCResponse<{ opened: boolean; cancelled?: boolean }> };
+			openPreviewTarget: { params: { targetId: string; previewToken: string; identity: ActiveDocumentRequestIdentity }; response: DesktopRPCResponse<{ opened: boolean; cancelled?: boolean; document?: OpenDocument }> };
 			invalidatePreviewTargets: { params: { previewToken: string; identity: ActiveDocumentRequestIdentity }; response: DesktopRPCResponse<{ invalidated: boolean }> };
 			getJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			cancelJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };

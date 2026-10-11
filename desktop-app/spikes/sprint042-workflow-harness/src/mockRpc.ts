@@ -10,6 +10,7 @@ import type { DesktopRPCClient, DesktopJobIdentity, DesktopJobSnapshot, DesktopJ
 const projectRoot = "/sprint042-browser-fixture";
 let activePath = `${projectRoot}/report.amx`;
 const secondPath = `${projectRoot}/second.amx`;
+const linkedAmxPath = `${projectRoot}/linked.amx`;
 let documentRevision = 0;
 let generation = 0;
 let inputSettingsRevision = 0;
@@ -156,6 +157,8 @@ function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchStat
 				pending.status = "succeeded";
 				const navigation = previewSource.includes("Preview navigation fixture")
 					? `<h2 id="inside">Inside</h2><a href="#" data-openamx-target="eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee">Open external link</a><a href="#inside">Internal anchor</a>`
+					: previewSource.includes("Preview AMX link fixture")
+						? `<a href="#" data-openamx-target="ffffffffffffffffffffffffffffffff">Open related AMX</a>`
 					: "";
 				const bootstrap = `<script nonce="fixture-nonce">(()=>{const token=${JSON.stringify(previewToken)};let port;window.addEventListener("message",event=>{const data=event.data;if(event.source!==parent||!data||data.type!=="openamx-preview-init"||data.previewToken!==token||event.ports.length!==1)return;port=event.ports[0];port.start()},{once:true});document.addEventListener("click",event=>{const source=event.target;if(!(source instanceof Element))return;const link=source.closest("a[data-openamx-target]");if(!link)return;event.preventDefault();if(!event.isTrusted||!navigator.userActivation?.isActive||!port)return;const targetId=link.getAttribute("data-openamx-target");if(!targetId)return;port.postMessage({version:1,type:"navigate",previewToken:token,targetId})},true)})();</script>`;
 				pending.result = {
@@ -238,10 +241,19 @@ const request = {
 		return { ok: true as const, job };
 	},
 	async openPreviewTarget({ targetId, previewToken }: { targetId: string; previewToken: string }) {
-		if (targetId !== "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" || !/^[a-f0-9]{64}$/.test(previewToken)) {
+		if (!["eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "ffffffffffffffffffffffffffffffff"].includes(targetId)
+			|| !/^[a-f0-9]{64}$/.test(previewToken)) {
 			return { ok: false as const, error: { code: "PREVIEW", message: "Preview target rejected." } };
 		}
 		previewNavigationCalls.push({ targetId, previewToken });
+		if (targetId === "ffffffffffffffffffffffffffffffff") {
+			activePath = linkedAmxPath;
+			lastOpenedPath = linkedAmxPath;
+			currentText = "# Linked AMX fixture\n";
+			savedText = currentText;
+			documentRevision = 0;
+			return { ok: true as const, opened: true, document: document() };
+		}
 		return { ok: true as const, opened: true };
 	},
 	async invalidatePreviewTargets() { return { ok: true as const, invalidated: true }; },

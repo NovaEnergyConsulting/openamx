@@ -71,7 +71,8 @@ interface BrowserChartModel {
 
 export type PreviewNavigationTarget =
   | { readonly kind: 'external'; readonly href: string }
-  | { readonly kind: 'local'; readonly path: string };
+  | { readonly kind: 'local'; readonly path: string }
+  | { readonly kind: 'amx'; readonly path: string };
 
 export interface StandaloneHtmlOptions {
   readonly mode?: 'standalone';
@@ -274,11 +275,13 @@ function renderNarrativeLink(link: NarrativeLink, children: readonly NarrativeIn
   const label = renderNarrativeInlines(children, context);
   const title = link.title === undefined ? '' : ` title="${escapeHtml(link.title)}"`;
   if (link.type === 'internal') return `<a href="#${encodeURIComponent(link.targetId)}"${title}>${label}</a>`;
+  if (link.type === 'amx' && context.mode !== 'preview') return label;
   if (context.mode === 'preview') {
     const targetId = addPreviewTarget(context, link);
     return `<a href="#" data-openamx-target="${targetId}"${title}>${label}</a>`;
   }
   if (link.type === 'external') return `<a href="${escapeHtml(link.href)}" rel="noopener noreferrer"${title}>${label}</a>`;
+  if (link.type === 'amx') return label;
   return `<a href="${escapeHtml(standaloneLocalLinkUri(link, context))}"${title}>${label}</a>`;
 }
 
@@ -288,7 +291,7 @@ function addPreviewTarget(context: NarrativeHtmlContext, link: Exclude<Narrative
   while (context.targets[targetId]);
   context.targets[targetId] = link.type === 'external'
     ? { kind: 'external', href: link.href }
-    : { kind: 'local', path: link.path };
+    : { kind: link.type, path: link.path };
   return targetId;
 }
 

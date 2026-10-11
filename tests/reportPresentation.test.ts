@@ -34,6 +34,7 @@ describe('prepared PDF and DOCX presentation', () => {
     const companionDirectory = join(sourceDirectory, 'companions');
     await mkdir(companionDirectory, { recursive: true });
     await mkdir(outputDirectory);
+    await writeFile(join(root, 'related.amx'), '# Related analysis');
     await writeFile(join(companionDirectory, 'asset one.txt'), 'offline companion');
     const image = await sharp({ create: { width: 1200, height: 600, channels: 3, background: '#336699' } }).png().toBuffer();
     await writeFile(join(sourceDirectory, 'wide.png'), image);
@@ -45,6 +46,7 @@ line with **nested _emphasis_** and \`code\`.
 
 [Internal](#heading) [External](https://example.invalid/report)
 [Companion](./companions/asset%20one.txt?download=1#section)
+[Related analysis](../related.amx)
 
 ![A wide test image](./wide.png "Image title")
 
@@ -68,6 +70,8 @@ line with **nested _emphasis_** and \`code\`.
     expect(standalone).toContain('<a href="#heading">Internal</a>');
     expect(standalone).toContain('<a href="https://example.invalid/report" rel="noopener noreferrer">External</a>');
     expect(standalone).toContain('<a href="../source/companions/asset%20one.txt?download=1#section">Companion</a>');
+    expect(standalone).toContain('Related analysis');
+    expect(standalone).not.toContain('href="../related.amx"');
     expect(standalone).toContain('alt="A wide test image" width="1024" height="512"');
     expect(standalone).toContain('data:image/png;base64,');
     expect(standalone).toContain('<table class="openamx-narrative-table">');
@@ -79,20 +83,38 @@ line with **nested _emphasis_** and \`code\`.
 
     const preview = renderPreparedHtml(prepared, { mode: 'preview' });
     const ids = [...preview.html.matchAll(/data-openamx-target="([a-f0-9]{32})"/g)].map(match => match[1]);
-    expect(ids).toHaveLength(2);
-    expect(new Set(ids).size).toBe(2);
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size).toBe(3);
     expect(preview.previewToken).toMatch(/^[a-f0-9]{64}$/);
     expect(preview.targets[ids[0]]).toEqual({ kind: 'external', href: 'https://example.invalid/report' });
     expect(preview.targets[ids[1]]).toEqual({ kind: 'local', path: 'companions/asset one.txt' });
+    expect(preview.targets[ids[2]]).toEqual({ kind: 'amx', path: '../related.amx' });
     expect(preview.html).toContain('<a href="#heading">Internal</a>');
     expect(preview.html).not.toContain('https://example.invalid/report');
     expect(preview.html).not.toContain('asset%20one.txt');
+    expect(preview.html).not.toContain('related.amx');
     expect(preview.html).not.toContain(root);
     expect(preview.html).toContain("connect-src 'none'");
     expect(preview.html).not.toContain('allow-same-origin');
     expect(standalone).toContain("script-src 'none'");
     expect(preview.html).toMatch(/script-src 'nonce-[^']+'/);
     expect(preview.html).toContain('type:"navigate"');
+
+    const pdfDefinition = preparePdfReport(prepared, {
+      sourceDocumentPath: input,
+      destinationPath: join(outputDirectory, 'final.pdf')
+    }).definition;
+    expect(JSON.stringify(pdfDefinition.content)).toContain('Related analysis');
+    expect(JSON.stringify(pdfDefinition.content)).not.toContain('related.amx');
+
+    const docxArchive = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared, {
+      sourceDocumentPath: input,
+      destinationPath: join(outputDirectory, 'final.docx')
+    })));
+    const documentXml = await docxArchive.file('word/document.xml')?.async('string');
+    const relationshipsXml = await docxArchive.file('word/_rels/document.xml.rels')?.async('string');
+    expect(documentXml).toContain('Related analysis');
+    expect(relationshipsXml).not.toContain('related.amx');
   });
 
   it('uses the same safe identity and ordered source decision in both formats', async () => {

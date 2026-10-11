@@ -140,7 +140,7 @@ export function resolvePreviewNavigationTarget(
 	target: PreviewNavigationTarget,
 	projectRoot: string,
 	documentPath: string
-): { kind: "external"; href: string } | { kind: "local"; path: string } {
+): { kind: "external"; href: string } | { kind: "local"; path: string } | { kind: "amx"; path: string } {
 	if (target.kind === "external") {
 		if (typeof target.href !== "string" || target.href.length > 8192) throw new Error("Preview link target is invalid.");
 		const url = new URL(target.href);
@@ -149,7 +149,7 @@ export function resolvePreviewNavigationTarget(
 		}
 		return { kind: "external", href: url.href };
 	}
-	if (target.kind !== "local" || typeof target.path !== "string" || !target.path || target.path.length > 4096) {
+	if ((target.kind !== "local" && target.kind !== "amx") || typeof target.path !== "string" || !target.path || target.path.length > 4096) {
 		throw new Error("Preview local-file target is invalid.");
 	}
 	// Shared narrative preparation has already decoded the relative URI path.
@@ -167,6 +167,12 @@ export function resolvePreviewNavigationTarget(
 		throw new Error("Preview local-file target is missing, linked, non-regular, or outside the project.");
 	}
 	const canonical = realpathSync(candidate);
+	if (target.kind === "amx") {
+		if (extname(canonical) !== ".amx" || !allowedFile(root, canonical)) {
+			throw new Error("Preview AMX target is hidden, unsupported, or outside the project.");
+		}
+		return { kind: "amx", path: canonical };
+	}
 	if (!isContained(root, canonical) || !PREVIEW_LOCAL_EXTENSIONS.has(extname(canonical).toLowerCase())) {
 		throw new Error("Preview local-file target is outside the project or has an unsupported file type.");
 	}
@@ -186,7 +192,7 @@ function isPreviewTargetMap(value: unknown): value is Readonly<Record<string, Pr
 				return (url.protocol === "http:" || url.protocol === "https:") && !url.username && !url.password;
 			} catch { return false; }
 		}
-		if (item.kind !== "local" || fields !== "kind,path" || typeof item.path !== "string"
+		if ((item.kind !== "local" && item.kind !== "amx") || fields !== "kind,path" || typeof item.path !== "string"
 			|| !item.path || item.path.length > 4096 || item.path.startsWith("/")
 			|| item.path.includes("\\") || /^[A-Za-z]:/.test(item.path)
 			|| /[\u0000-\u001f\u007f]/u.test(item.path)) return false;
@@ -1551,6 +1557,11 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					const mappedTarget = job.previewTargets.get(targetId);
 					if (!mappedTarget) throw new Error("Preview navigation target is unknown.");
 					const target = resolvePreviewNavigationTarget(mappedTarget, job.projectRoot, job.documentPath);
+					if (target.kind === "amx") {
+						const opened = await service.request.openDocument({ path: target.path });
+						if (!opened.ok) throw new Error(opened.error.message);
+						return { ok: true, opened: true, document: opened.document };
+					}
 					if (!picker?.confirmPreviewNavigation) throw new Error("Trusted preview navigation confirmation is unavailable.");
 					const approved = await picker.confirmPreviewNavigation(target);
 					if (!approved) return { ok: true, opened: false, cancelled: true };

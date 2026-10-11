@@ -151,9 +151,13 @@ function bindPreviewFrame() {
 			|| previewPortFrame !== frame || previewPortToken !== token
 			|| token !== previewToken.value
 			|| !samePreviewIdentity(workbench.value.requestIdentity, identity)) return;
+		const request = ++navigationRequest;
 		void props.rpc.request.openPreviewTarget({ targetId: event.data.targetId, previewToken: token, identity }).then(result => {
+			if (request !== navigationRequest) return;
 			if (!result.ok) status.value = result.error.message;
-			else if (result.opened) status.value = "Opened the confirmed preview link.";
+			else if (result.opened && result.document?.kind === "amx") {
+				void activate({ ok: true, document: result.document });
+			} else if (result.opened) status.value = "Opened the confirmed preview link.";
 		}).catch(error => { status.value = error instanceof Error ? error.message : "Preview navigation request failed."; });
 	};
 	channel.port1.start();

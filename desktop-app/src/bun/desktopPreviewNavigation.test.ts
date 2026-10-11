@@ -139,6 +139,8 @@ test("host revalidation rejects unsafe schemes, traversal, missing files, symlin
 	const sourceDirectory = join(root, "source");
 	const entryPath = join(sourceDirectory, "report.amx");
 	const allowedPath = join(sourceDirectory, "allowed.pdf");
+	const amxPath = join(sourceDirectory, "linked.amx");
+	const hiddenAmxPath = join(sourceDirectory, ".hidden.amx");
 	const rootPath = join(root, "outside.pdf");
 	const disallowedPath = join(sourceDirectory, "program.exe");
 	const outsidePath = join(dirname(root), `${root.split(/[\\/]/).pop()}-outside.pdf`);
@@ -146,6 +148,8 @@ test("host revalidation rejects unsafe schemes, traversal, missing files, symlin
 	mkdirSync(sourceDirectory);
 	writeFileSync(entryPath, "# Heading\n");
 	writeFileSync(allowedPath, "allowed");
+	writeFileSync(amxPath, "# Linked\n");
+	writeFileSync(hiddenAmxPath, "# Hidden\n");
 	writeFileSync(rootPath, "inside project");
 	writeFileSync(disallowedPath, "disallowed");
 	writeFileSync(outsidePath, "outside");
@@ -165,6 +169,10 @@ test("host revalidation rejects unsafe schemes, traversal, missing files, symlin
 		expect(() => resolvePreviewNavigationTarget({ kind: "external", href: "file:///etc/passwd" }, root, entryPath)).toThrow();
 		expect(() => resolvePreviewNavigationTarget({ kind: "external", href: "https://user@example.invalid/" }, root, entryPath)).toThrow();
 		expect(resolvePreviewNavigationTarget({ kind: "local", path: "allowed.pdf" }, root, entryPath).kind).toBe("local");
+		expect(resolvePreviewNavigationTarget({ kind: "amx", path: "linked.amx" }, root, entryPath))
+			.toEqual({ kind: "amx", path: realpathSync(amxPath) });
+		expect(() => resolvePreviewNavigationTarget({ kind: "amx", path: ".hidden.amx" }, root, entryPath)).toThrow();
+		expect(() => resolvePreviewNavigationTarget({ kind: "amx", path: "../../outside.amx" }, root, entryPath)).toThrow();
 		expect(resolvePreviewNavigationTarget({ kind: "local", path: "../outside.pdf" }, root, entryPath))
 			.toEqual({ kind: "local", path: realpathSync(rootPath) });
 		expect(() => resolvePreviewNavigationTarget({ kind: "local", path: "../../outside.pdf" }, root, entryPath)).toThrow();
@@ -175,5 +183,51 @@ test("host revalidation rejects unsafe schemes, traversal, missing files, symlin
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 		rmSync(outsidePath, { force: true });
+	}
+});
+
+test("preview AMX links open a visible in-project document tab without attachment confirmation", async () => {
+	const root = mkdtempSync(join(tmpdir(), "openamx-preview-amx-navigation-"));
+	const nestedDirectory = join(root, "reports", "quarterly");
+	const entryPath = join(nestedDirectory, "report.amx");
+	const targetPath = join(root, "reports", "related.amx");
+	let confirmationCount = 0;
+	mkdirSync(nestedDirectory, { recursive: true });
+	writeFileSync(entryPath, "# Quarterly report\n\n[Related](../related.amx)\n");
+	writeFileSync(targetPath, "# Related report\n");
+	const service = createDesktopService(root, {
+		async choose() { return undefined; },
+		async confirmPreviewNavigation() { confirmationCount++; return true; }
+	});
+	try {
+		await service.request.openDocument({ path: entryPath });
+		const state = await service.request.getWorkbench();
+		if (!state.ok || !state.state.requestIdentity) throw new Error("Preview document identity is unavailable.");
+		const started = await service.request.startJob({ operation: "preview", identity: state.state.requestIdentity });
+		if (!started.ok) throw new Error(started.error.message);
+		let job = started.job;
+		for (let attempt = 0; job.status === "running" && attempt < 1000; attempt++) {
+			await new Promise(resolve => setTimeout(resolve, 10));
+			const current = await service.request.getJob({ jobId: job.identity.jobId });
+			if (!current.ok) throw new Error(current.error.message);
+			job = current.job;
+		}
+		if (job.status !== "succeeded" || job.result?.kind !== "preview" || !job.result.previewToken || !job.result.html) {
+			throw new Error("Preview job did not produce its private navigation mapping.");
+		}
+		const [targetId] = [...job.result.html.matchAll(/data-openamx-target="([a-f0-9]{32})"/g)].map(match => match[1]);
+		if (!targetId) throw new Error("The relative AMX link was not rendered as an opaque preview target.");
+
+		const opened = await service.request.openPreviewTarget({
+			targetId,
+			previewToken: job.result.previewToken,
+			identity: state.state.requestIdentity
+		});
+		expect(opened).toMatchObject({ ok: true, opened: true, document: { path: realpathSync(targetPath), kind: "amx" } });
+		const active = await service.request.getWorkbench();
+		expect(active.ok && active.state.active).toBe(realpathSync(targetPath));
+		expect(confirmationCount).toBe(0);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
 	}
 });

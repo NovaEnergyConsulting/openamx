@@ -271,12 +271,14 @@ Raw HTML line two
     await mkdir(join(root, 'assets'));
     await writeFile(join(root, 'assets', 'guide.json'), '{}');
     await writeFile(join(root, 'assets', 'run.exe'), 'not executable');
+    await writeFile(join(root, 'library.amx'), '# Shared analysis');
     const file = join(root, 'docs', 'report.amx');
-    const report = await prepareReport(parseDocumentText('[data](../assets/guide.json)'), new Environment(), { file, projectRoot: root });
+    const report = await prepareReport(parseDocumentText('[data](../assets/guide.json)\n\n[analysis](../library.amx)'), new Environment(), { file, projectRoot: root });
     const links = collectInlines(narrativeBlocks(report.items)).filter(
       (inline): inline is Extract<NarrativeInline, { type: 'link' }> => inline.type === 'link'
     );
     expect(links[0]?.link).toMatchObject({ type: 'local', path: '../assets/guide.json', sourceBase: 'document-directory' });
+    expect(links[1]?.link).toMatchObject({ type: 'amx', path: '../library.amx' });
     expect(JSON.stringify(report)).not.toContain(root);
 
     const rejected = await prepareReport(parseDocumentText([
@@ -284,10 +286,14 @@ Raw HTML line two
       '[script](../assets/run.html)',
       '[traversal](%2e%2e%2f%2e%2e%2foutside.pdf)',
       '[missing](../assets/missing.pdf)',
+      '[outside AMX](../../outside.amx)',
+      '[AMX fragment](../library.amx#heading)',
       '[unsupported](mailto:user@example.test)'
     ].join('\n')), new Environment(), { file, projectRoot: root });
     const rejectedItem = rejected.items.find(item => item.type === 'narrative');
     expect(rejectedItem?.type === 'narrative' ? rejectedItem.diagnostics : []).toEqual([
+      { type: 'rejectedLink', reason: 'invalid-local-target' },
+      { type: 'rejectedLink', reason: 'invalid-local-target' },
       { type: 'rejectedLink', reason: 'invalid-local-target' },
       { type: 'rejectedLink', reason: 'invalid-local-target' },
       { type: 'rejectedLink', reason: 'invalid-local-target' },

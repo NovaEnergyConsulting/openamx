@@ -363,13 +363,17 @@ tables, code, rules, and visible source line breaks; authored raw HTML remains
 inert text. Narrative images must be project-contained PNG or JPEG files with
 nonempty alternative text, no more than 4 MiB and 4,000,000 decoded pixels per
 image. They are sanitized and embedded, so reports do not fetch remote images.
-External links are limited to HTTP(S); local links are limited to PDF, PNG,
-JPEG, TXT, CSV, and JSON targets contained by the project. Local links are
-relative to the final report location, and companion files are not copied; keep
-them at the corresponding relative paths when moving a report. Desktop preview
-routes activated external/local links through host confirmation. Viewer behavior
-varies: Word for the Web rewrote tested relative DOCX links as HTTPS targets, so
-local companion-file opening there is not claimed.
+External links are limited to HTTP(S); local companion links in reports are
+limited to PDF, PNG, JPEG, TXT, CSV, and JSON targets contained by the project.
+They are relative to the final report location, and companion files are not
+copied; keep them at the corresponding relative paths when moving a report.
+In the desktop live preview, a Markdown link such as
+`[Related analysis](../other.amx)` opens a visible AMX file in the same project
+in a workbench tab; `../` paths are allowed only while they remain inside the project. These AMX links are not
+navigable in exported reports. Desktop preview routes activated external and
+companion links through host confirmation. Viewer behavior varies: Word for the
+Web rewrote tested relative DOCX links as HTTPS targets, so local companion-file
+opening there is not claimed.
 
 Run the V0.5 typed example with its local imports, JSON/CSV inputs, table and
 chart. Copy the sample project config into a temporary project because the CLI

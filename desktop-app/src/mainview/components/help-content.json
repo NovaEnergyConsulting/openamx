@@ -94,7 +94,7 @@
         "Reports support headings, formatting, lists, tables, code, and visible source line breaks; authored raw HTML remains inert. Contained PNG/JPEG images need alternative text and are sanitized and embedded for offline use.",
         "Charts are interactive in the live preview and HTML reports; PDF charts are static with complete data tables. DOCX uses native editable charts with embedded data when representable; numeric-X lines use straight-line XY scatter.",
         "Unsupported axes, charts with no plottable points, and mixed-group scatter with a null-only group are deferred with a notice and complete table. A numeric-X line series with no plottable pairs is disclosed and retained in its table.",
-        "External links use HTTP(S). Supported contained local links are PDF, PNG, JPEG, TXT, CSV, or JSON, remain relative to the final report, and do not copy companion files. Word for the Web rewrites tested relative DOCX links, so local companion opening there is not claimed.",
+        "External links use HTTP(S). Supported contained local links are PDF, PNG, JPEG, TXT, CSV, or JSON, remain relative to the final report, and do not copy companion files. In the desktop live preview, a relative Markdown link such as `[Related analysis](../other.amx)` opens a visible AMX file in the same project in a tab; parent-directory links cannot leave the project. AMX links are not navigable in exported reports. Word for the Web rewrites tested relative DOCX links, so local companion opening there is not claimed.",
         "Export supports HTML, PDF, DOCX, JSON, and CSV where the selected binding is eligible.",
         "Cancellation or a failed preparation preserves an existing destination; atomic replacement cannot be interrupted once started."
       ]
