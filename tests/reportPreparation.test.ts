@@ -54,6 +54,46 @@ afterEach(async () => {
 });
 
 describe('shared report preparation', () => {
+  it('loads project-relative CSS and rejects unsafe stylesheet paths', async () => {
+    const root = await fixtureRoot();
+    await mkdir(join(root, 'assets'));
+    await writeFile(join(root, 'assets', 'theme.css'), 'body { color: navy; }');
+    await writeFile(join(root, 'assets', 'document.css'), 'body { color: teal; }');
+    await writeFile(join(root, '.openamx', 'project.json'), JSON.stringify({
+      version: 1,
+      inputs: {},
+      report: { stylesheet: 'assets/theme.css' }
+    }));
+    const inherited = await prepareReport(parseDocumentText('# Inherited styles'), new Environment(), {
+      file: join(root, 'report.amx'),
+      projectRoot: root
+    });
+    expect(inherited.identity.stylesheetCss).toBe('body { color: navy; }');
+
+    const overridden = await prepareReport(parseDocumentText(`---
+report:
+  stylesheet: assets/document.css
+---
+# Document styles`), new Environment(), { file: join(root, 'report.amx'), projectRoot: root });
+    expect(overridden.identity.stylesheetCss).toBe('body { color: teal; }');
+    const nonHtml = await prepareReport(parseDocumentText(`---
+report:
+  stylesheet: assets/not-needed.css
+---
+# Non-HTML export`), new Environment(), {
+      file: join(root, 'report.amx'),
+      projectRoot: root,
+      includeStylesheet: false
+    });
+    expect(nonHtml.identity.stylesheetCss).toBeUndefined();
+    await expect(prepareReport(parseDocumentText(`---
+report:
+  stylesheet: ../outside.css
+---
+# Unsafe path`), new Environment(), { file: join(root, 'report.amx'), projectRoot: root }))
+      .rejects.toMatchObject({ code: 'AMX6001' });
+  });
+
   it('resolves identity once, sanitizes a contained logo, and preserves source/view order', async () => {
     const root = await fixtureRoot();
     await writeFile(join(root, 'logo.png'), png);

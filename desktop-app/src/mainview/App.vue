@@ -431,6 +431,15 @@ async function pickReportLogo(scope: "project" | "document") {
 	}
 }
 
+async function pickReportStylesheet(scope: "project" | "document") {
+	const result = await props.rpc.request.pickReportStylesheet({}, { maxRequestTime: Infinity });
+	if (!result.ok) { reportSettingsError.value = result.error.message; return; }
+	if (!result.cancelled && result.path && reportSettings.value) {
+		const target = scope === "project" ? reportSettings.value.project : reportSettings.value.document;
+		reportSettings.value = { ...reportSettings.value, [scope]: { ...target, stylesheet: result.path } };
+	}
+}
+
 function closeReportSettings() {
 	reportSettingsOpen.value = false;
 	requestAnimationFrame(() => settingsInvoker?.focus());
@@ -581,9 +590,10 @@ const commands = computed<ShellCommand[]>(() => [
 	{ id: "project.open", label: "Open project", shortcut: "Ctrl/Cmd+O", enabled: true, run: openProject },
 	{ id: "project.create", label: "Create project", enabled: true, run: createProject },
 	{ id: "project.new-amx", label: "New AMX file", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => createProjectFile("amx") },
+	{ id: "project.new-css", label: "New CSS file", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => createProjectFile("css") },
 	{ id: "project.new-folder", label: "New folder", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: createProjectFolder },
-	{ id: "project.duplicate-file", label: "Duplicate active file", enabled: !!document.value && ["amx", "csv", "json"].includes(document.value.kind), disabledReason: "Open an editable project file first", run: duplicateProjectFile },
-	{ id: "project.move-file", label: "Move or rename active file", enabled: !!document.value && ["amx", "csv", "json"].includes(document.value.kind), disabledReason: "Open an editable project file first", run: moveActiveProjectFile },
+	{ id: "project.duplicate-file", label: "Duplicate active file", enabled: !!document.value && ["amx", "csv", "json", "css"].includes(document.value.kind), disabledReason: "Open an editable project file first", run: duplicateProjectFile },
+	{ id: "project.move-file", label: "Move or rename active file", enabled: !!document.value && ["amx", "csv", "json", "css"].includes(document.value.kind), disabledReason: "Open an editable project file first", run: moveActiveProjectFile },
 	{ id: "file.open", label: "Open file", shortcut: "Ctrl/Cmd+Shift+O", enabled: !!projectRoot.value, disabledReason: "Open a project first", run: () => openDocument() },
 	{ id: "tab.next", label: "Next tab", shortcut: "Ctrl/Cmd+Alt+Right", enabled: workbench.value.tabs.length > 1, disabledReason: "Open another tab first", run: () => cycleTab(1) },
 	{ id: "tab.previous", label: "Previous tab", shortcut: "Ctrl/Cmd+Alt+Left", enabled: workbench.value.tabs.length > 1, disabledReason: "Open another tab first", run: () => cycleTab(-1) },
@@ -912,7 +922,7 @@ async function openDocument(path?: string) {
 	await activate({ ok: true, document: result.document });
 }
 
-async function createProjectFile(kind: "amx" | "csv" | "json") {
+async function createProjectFile(kind: "amx" | "csv" | "json" | "css") {
 	const path = window.prompt(`New ${kind.toUpperCase()} file path`, `untitled.${kind}`)?.trim();
 	if (!path) return;
 	const result = await props.rpc.request.createProjectFile({ path, kind });
@@ -950,7 +960,7 @@ async function duplicateProjectFile() {
 async function moveActiveProjectFile() {
 	await pendingEdit;
 	const active = document.value;
-	if (!active || !["amx", "csv", "json"].includes(active.kind)) return;
+	if (!active || !["amx", "csv", "json", "css"].includes(active.kind)) return;
 	const request = ++navigationRequest;
 	const projectGeneration = workbench.value.generation;
 	const name = active.path.split(/[\\/]/).pop() ?? "";
@@ -1250,12 +1260,13 @@ function displayDiagnostic(item: TextDiagnostic): string {
 		</header>
 		<WelcomeView v-if="!projectRoot" :recents="recents" :recovery="recovery" :status="status" @open-project="openProject" @create-project="createProject" @restore="restore" @restore-recovery="resolveRecovery('restore')" @discard-recovery="resolveRecovery('discard')" @clear-recents="clearRecents" @open-help="openHelp" />
 		<div v-else class="workbench" :class="[`focus-${focusMode}`, `drawer-${drawerDock}`]" :style="{ '--explorer-width': `${explorerWidth}px`, '--preview-width': `${previewWidth}%` }">
-			<ProjectExplorer :files="files" :folders="folders" :workbench="workbench" :can-move-active="!!document && ['amx', 'csv', 'json'].includes(document.kind)" @open="openDocument" @create-amx="createProjectFile('amx')" @create-folder="createProjectFolder" @move-active="moveActiveProjectFile" />
+			<ProjectExplorer :files="files" :folders="folders" :workbench="workbench" :can-move-active="!!document && ['amx', 'csv', 'json', 'css'].includes(document.kind)" @open="openDocument" @create-amx="createProjectFile('amx')" @create-css="createProjectFile('css')" @create-folder="createProjectFolder" @move-active="moveActiveProjectFile" />
 			<div class="divider divider-explorer" role="separator" aria-label="Resize explorer" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'explorer')"></div>
 			<section class="editor-pane" aria-label="Document editor">
 				<WorkbenchTabs :workbench="workbench" @select="selectTab" @close="closeTab" />
-				<div class="pane-header"><strong>{{ document?.label ?? document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><button :disabled="document?.kind !== 'amx'" type="button" @click="editorElement?.openSearch()">Find</button><button :disabled="document?.kind !== 'amx' || pending" type="button" @click="format">Format</button><button :disabled="!document || !document.dirty" type="button" @click="save">Save</button></span></div>
+				<div class="pane-header"><strong>{{ document?.label ?? document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><button :disabled="document?.kind !== 'amx' && document?.kind !== 'css'" type="button" @click="editorElement?.openSearch()">Find</button><button :disabled="document?.kind !== 'amx' || pending" type="button" @click="format">Format</button><button :disabled="!document || !document.dirty" type="button" @click="save">Save</button></span></div>
 				<CodeEditor v-if="document?.kind === 'amx'" ref="editorElement" :path="document.path" :text="document.text" :revision="document.revision" :wrap-lines="editorWrapLines" :highlights="staticAnalysis.highlights" :diagnostics="staticAnalysis.diagnostics" :symbols="staticAnalysis.symbols" :actions="staticAnalysis.actions" :complete="requestCompletions" :rename="renameSymbol" @change="updateText" @navigate="navigateSymbol" @references="showReferences" />
+				<CodeEditor v-else-if="document?.kind === 'css'" ref="editorElement" :path="document.path" :text="document.text" :revision="document.revision" :wrap-lines="editorWrapLines" @change="updateText" />
 				<DataEditorPane v-else-if="document?.kind === 'csv' || document?.kind === 'json' || document?.kind === 'external-data'" ref="dataEditorElement" :key="document.path" :kind="document.kind === 'external-data' ? document.dataFormat ?? 'json' : document.kind" :text="document.text" :revision="document.revision" :external="document.external" :input-name="dataEditorContexts.get(document.path)?.inputName ?? document.inputName" :schema="dataEditorContexts.get(document.path)?.schema" :diagnostics="dataEditorContexts.get(document.path)?.diagnostics" @change="updateText" @navigate-declaration="navigateMappedDeclaration(document.path)" />
 				<div v-else class="file-kind-shell"><strong>{{ document?.kind ?? "document" }}</strong><p>This file is read-only in the current workbench.</p></div>
 			</section>
@@ -1291,6 +1302,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 				</section>
 				<template v-else>
 					<iframe v-if="document?.kind === 'amx'" :key="previewToken" ref="previewFrame" :srcdoc="preview" sandbox="allow-scripts" title="OpenAMX live HTML preview" @load="bindPreviewFrame"></iframe>
+					<div v-else-if="document?.kind === 'css'" class="file-kind-shell"><strong>Stylesheet</strong><p>Select this file in Report Settings to style preview and HTML output. Switch back to an AMX tab to preview your unsaved CSS edits.</p></div>
 					<div v-else class="file-kind-shell"><strong>Context</strong><p>Select an AMX document to show its live report preview.</p></div>
 				</template>
 			</section>
@@ -1325,6 +1337,6 @@ function displayDiagnostic(item: TextDiagnostic): string {
 		<HelpCenterDialog :open="helpOpen" :initial-section="helpSection" :shortcuts="commands" @close="helpOpen = false" @create-project="helpOpen = false; createProject($event)" @export-diagnostics="downloadDiagnosticSummary" />
 		<PreferencesDialog :open="preferencesOpen" :theme="theme" :drawer-dock="drawerDock" :wrap-lines="editorWrapLines" :autosave="autosaveEnabled" :autosave-delay-ms="autosaveDelayMs" @close="preferencesOpen = false" @save="savePreferences" />
 		<ExportDialog :open="exportDialogOpen" :active-label="document?.label ?? document?.path.split(/[\\/]/).pop() ?? ''" :outputs="exportOutputs" :selected-format="exportFormat" :selected-output="exportBinding" :file-name="exportFileName" :busy="exportBusy" :error="exportDialogError" :outputs-truncated="exportOutputsTruncated" @close="closeExportWorkflow" @format="setExportFormat" @output="setExportBinding" @file-name="exportFileName = $event" @export="performExport" />
-		<ReportSettingsDialog :open="reportSettingsOpen" :settings="reportSettings" :busy="reportSettingsBusy" :error="reportSettingsError" @close="closeReportSettings" @save="saveReportSettings" @pick-logo="pickReportLogo" />
+		<ReportSettingsDialog :open="reportSettingsOpen" :settings="reportSettings" :busy="reportSettingsBusy" :error="reportSettingsError" @close="closeReportSettings" @save="saveReportSettings" @pick-logo="pickReportLogo" @pick-stylesheet="pickReportStylesheet" />
 	</main>
 </template>

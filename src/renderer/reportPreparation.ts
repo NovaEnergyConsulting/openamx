@@ -11,8 +11,9 @@ import { formatAmxValue } from '../runtime/valueSerialization';
 import { parseNarrativeImageWidth, prepareNarratives, type NarrativeBlock, type NarrativeDiagnostic, type NarrativeImageWidth } from './narrativeModel';
 import { canonicalDirectory, hasSymlink, isContained } from './reportPaths';
 
-const REPORT_FIELDS = new Set(['organization', 'logo', 'logoAlt', 'accent', 'author', 'status', 'classification', 'footer', 'sourceVisible', 'imageWidth']);
-const TEXT_LIMITS: Record<string, number> = { organization: 120, logoAlt: 120, author: 120, status: 80, classification: 80, footer: 300, imageWidth: 16 };
+const REPORT_FIELDS = new Set(['organization', 'logo', 'logoAlt', 'stylesheet', 'accent', 'author', 'status', 'classification', 'footer', 'sourceVisible', 'imageWidth']);
+const TEXT_LIMITS: Record<string, number> = { organization: 120, logoAlt: 120, stylesheet: 240, author: 120, status: 80, classification: 80, footer: 300, imageWidth: 16 };
+const STYLESHEET_BYTE_LIMIT = 256 * 1024;
 
 export interface PreparedLogo {
   readonly bytes: Uint8Array;
@@ -23,6 +24,7 @@ export interface PreparedLogo {
 export interface ResolvedReportIdentity {
   readonly organization?: string;
   readonly logo?: PreparedLogo;
+  readonly stylesheetCss?: string;
   readonly accent: string;
   readonly author?: string;
   readonly status?: string;
@@ -46,6 +48,8 @@ export interface PreparedReport {
 export interface ReportPreparationOptions {
   readonly file?: string;
   readonly projectRoot?: string;
+  readonly includeStylesheet?: boolean;
+  readonly stylesheetOverlay?: ReadonlyMap<string, string>;
 }
 
 export async function prepareReport(doc: OpenAmxDocument, env: Environment, options: ReportPreparationOptions = {}): Promise<PreparedReport> {
@@ -116,9 +120,10 @@ function readProjectReport(projectRoot?: string): Record<string, unknown> {
 
 export function validateReportSettings(report: Record<string, unknown>, projectRoot?: string, file?: string): Promise<void> {
   validateReport(report, file ?? '.openamx/project.json', file);
-  if (report.logo === undefined) return Promise.resolve();
-  if (typeof report.logo !== 'string') return Promise.resolve();
-  return prepareLogo(report.logo, String(report.logoAlt ?? ''), projectRoot, file).then(() => undefined);
+  const validations: Promise<unknown>[] = [];
+  if (typeof report.logo === 'string') validations.push(prepareLogo(report.logo, String(report.logoAlt ?? ''), projectRoot, file));
+  if (typeof report.stylesheet === 'string') validations.push(Promise.resolve(readReportStylesheet(report.stylesheet, projectRoot, file)));
+  return Promise.all(validations).then(() => undefined);
 }
 
 function validateReport(report: Record<string, unknown>, location: string, file?: string): void {
@@ -135,6 +140,9 @@ function validateReport(report: Record<string, unknown>, location: string, file?
     if (key === 'imageWidth' && !parseNarrativeImageWidth(text)) {
       fail('AMX6001', 'Report imageWidth must be a positive pixel width up to 4096px or a percentage from 1% to 100%', file ?? location);
     }
+    if (key === 'stylesheet' && !isValidStylesheetPath(text)) {
+      fail('AMX6001', 'Report stylesheet must be a project-relative .css path', file ?? location);
+    }
   }
   if (report.logoAlt !== undefined && report.logo === undefined) fail('AMX6001', 'Report logoAlt requires a logo', file ?? location);
   if (report.accent !== undefined && (typeof report.accent !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(report.accent))) fail('AMX6001', 'Report accent must use #RRGGBB', file ?? location);
@@ -145,9 +153,14 @@ async function resolveIdentity(projectReport: Record<string, unknown>, frontMatt
   const merged = { ...projectReport, ...frontMatter };
   const logoPath = typeof merged.logo === 'string' ? merged.logo.trim() : undefined;
   const logo = logoPath ? await prepareLogo(logoPath, String(merged.logoAlt ?? ''), options.projectRoot, options.file) : undefined;
+  const stylesheetPath = typeof merged.stylesheet === 'string' ? merged.stylesheet.trim() : undefined;
+  const stylesheetCss = stylesheetPath && options.includeStylesheet !== false
+    ? readReportStylesheet(stylesheetPath, options.projectRoot, options.file, options.stylesheetOverlay)
+    : undefined;
   return Object.freeze({
     organization: text(merged.organization),
     logo,
+    stylesheetCss,
     accent: effectiveReportAccent(text(merged.accent) ?? '#146C94'),
     author: text(merged.author),
     status: text(merged.status),
@@ -156,6 +169,35 @@ async function resolveIdentity(projectReport: Record<string, unknown>, frontMatt
     imageWidth: typeof merged.imageWidth === 'string' ? parseNarrativeImageWidth(merged.imageWidth) : undefined,
     sourceVisible: merged.sourceVisible === undefined ? true : merged.sourceVisible as boolean
   });
+}
+
+export function readReportStylesheet(path: string, projectRoot?: string, file?: string, overlay?: ReadonlyMap<string, string>): string {
+  if (!projectRoot) fail('AMX6001', 'A report stylesheet requires an explicit project root', file);
+  if (!isValidStylesheetPath(path)) fail('AMX6001', 'Report stylesheet must be a project-relative .css path', file);
+  const root = canonicalDirectory(projectRoot);
+  const candidate = resolve(root, path);
+  if (!isContained(root, candidate) || hasSymlink(root, candidate) || !existsSync(candidate) || !lstatSync(candidate).isFile()) {
+    fail('AMX6001', 'Report stylesheet must be a contained regular file', file);
+  }
+  const overlayText = overlay?.get(candidate);
+  const bytes = overlayText === undefined ? readFileSync(candidate) : Buffer.from(overlayText, 'utf8');
+  if (bytes.byteLength > STYLESHEET_BYTE_LIMIT) fail('AMX6001', 'Report stylesheet exceeds 256 KiB', file);
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    fail('AMX6001', 'Report stylesheet must be valid UTF-8', file);
+  }
+}
+
+function isValidStylesheetPath(path: string): boolean {
+  return path.length > 0
+    && path.length <= 240
+    && path.endsWith('.css')
+    && !path.startsWith('/')
+    && !path.includes('\\')
+    && !path.includes(':')
+    && !/[\u0000-\u001f\u007f]/u.test(path)
+    && path.split('/').every(segment => segment !== '' && segment !== '.' && segment !== '..' && !segment.startsWith('.'));
 }
 
 async function prepareLogo(path: string, alt: string, projectRoot: string | undefined, file?: string): Promise<PreparedLogo> {

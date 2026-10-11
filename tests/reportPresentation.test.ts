@@ -26,6 +26,38 @@ afterEach(async () => {
 });
 
 describe('prepared PDF and DOCX presentation', () => {
+  it('embeds the effective project or document stylesheet in preview and standalone HTML', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'openamx-report-stylesheet-'));
+    directories.push(root);
+    await mkdir(join(root, '.openamx'));
+    await mkdir(join(root, 'assets'));
+    await writeFile(join(root, 'assets', 'project.css'), '.openamx-report-header{color:blue}');
+    await writeFile(join(root, 'assets', 'document.css'), '.openamx-report-header{color:green}/* </style><script> */');
+    await writeFile(join(root, '.openamx', 'project.json'), JSON.stringify({
+      version: 1,
+      inputs: {},
+      report: { stylesheet: 'assets/project.css' }
+    }));
+    const input = join(root, 'report.amx');
+    await writeFile(input, `---
+report:
+  stylesheet: assets/document.css
+---
+# Styled report`);
+    const loaded = await loadEntryModule(input);
+    const prepared = await prepareReport(loaded.doc, loaded.env, { file: input, projectRoot: root });
+    const preview = renderPreparedHtml(prepared, { mode: 'preview' });
+    const standalone = renderPreparedHtml(prepared, { mode: 'standalone', sourceDocumentPath: input, projectRoot: root });
+
+    for (const html of [preview.html, standalone]) {
+      expect(html).toContain('.openamx-report-header{color:green}');
+      expect(html).not.toContain('.openamx-report-header{color:blue}');
+      expect(html).toContain('<style nonce="');
+      expect(html).not.toContain('</style><script>');
+      expect(html).toContain('\\3C /style>');
+    }
+  });
+
   it('pretty-prints object expressions in HTML preview, PDF, and DOCX while preserving arrays', async () => {
     const root = await mkdtemp(join(tmpdir(), 'openamx-object-serialization-'));
     directories.push(root);

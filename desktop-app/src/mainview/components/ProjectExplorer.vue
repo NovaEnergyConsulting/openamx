@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 import type { ProjectFile, WorkbenchState } from "../../shared/rpc";
 
 const props = defineProps<{ files: ProjectFile[]; folders: string[]; workbench: WorkbenchState; canMoveActive: boolean }>();
-const emit = defineEmits<{ open: [path: string]; createAmx: []; createFolder: []; moveActive: [] }>();
+const emit = defineEmits<{ open: [path: string]; createAmx: []; createCss: []; createFolder: []; moveActive: [] }>();
 const search = ref("");
 const visibleFiles = computed(() => props.files.filter(file => file.path.toLowerCase().includes(search.value.toLowerCase())));
 function normalizePath(path: string): string {
@@ -33,7 +33,7 @@ const groupedFiles = computed(() => {
 <template>
 	<aside class="explorer" aria-label="Project explorer">
 		<div class="section-heading"><span>PROJECT</span><span>{{ files.length + folders.length }}</span></div>
-		<div class="explorer-actions"><button type="button" @click="emit('createAmx')">New AMX</button><button type="button" @click="emit('createFolder')">New folder</button><button type="button" :disabled="!canMoveActive" @click="emit('moveActive')">Move / rename</button></div>
+		<div class="explorer-actions"><button type="button" @click="emit('createAmx')">New AMX</button><button type="button" @click="emit('createCss')">New CSS</button><button type="button" @click="emit('createFolder')">New folder</button><button type="button" :disabled="!canMoveActive" @click="emit('moveActive')">Move / rename</button></div>
 		<input id="project-search" v-model="search" aria-label="Search project files" placeholder="Search files">
 		<div v-for="[folder, entries] in groupedFiles" :key="folder">
 			<p class="folder">{{ folder === '.' ? 'Root Folder' : folder }}</p>

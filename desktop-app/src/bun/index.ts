@@ -7,7 +7,7 @@ import { createDesktopService } from "./desktopService";
 
 const service = createDesktopService(undefined, {
 	async choose({ directory, extension, fileName, root }) {
-		if (extension && extension !== ".amx") {
+		if (extension && extension !== ".amx" && fileName !== undefined) {
 			if (!root) throw new Error("Open a project before choosing a report destination.");
 			if (!fileName) throw new Error("Export filename is unavailable.");
 			const folders = await Utils.openFileDialog({

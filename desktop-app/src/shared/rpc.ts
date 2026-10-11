@@ -9,11 +9,11 @@ export interface PingResponse {
 export interface DesktopRPCError { code: string; message: string; }
 export type DesktopRPCResponse<T> = { ok: true } & T | { ok: false; error: DesktopRPCError };
 export interface DesktopRequestOptions { maxRequestTime?: number; }
-export type DocumentKind = "amx" | "csv" | "json" | "settings" | "external-data" | "html-output" | "pdf-output" | "docx-output";
+export type DocumentKind = "amx" | "csv" | "json" | "css" | "settings" | "external-data" | "html-output" | "pdf-output" | "docx-output";
 export type ProjectFileKind = Exclude<DocumentKind, "external-data">;
 export interface ProjectFile { path: string; kind: ProjectFileKind; }
 export interface TrashItem { id: string; path: string; kind: ProjectFileKind; }
-export interface RecoveryItem { path: string; kind: "amx" | "csv" | "json"; }
+export interface RecoveryItem { path: string; kind: "amx" | "csv" | "json" | "css"; }
 export interface OpenDocument { path: string; kind: DocumentKind; text: string; diskHash: string; dirty: boolean; conflict: boolean; revision: number; external?: boolean; label?: string; inputName?: string; dataFormat?: "json" | "csv"; }
 export interface TabState { path: string; kind: DocumentKind; dirty: boolean; conflict: boolean; revision: number; label?: string; }
 export interface ActiveDocumentRequestIdentity {
@@ -88,7 +88,7 @@ export interface InputConfiguration {
 	diagnostics: TextDiagnostic[];
 	revisions?: { local: string; project: string };
 }
-export type ReportSettingKey = "organization" | "logo" | "logoAlt" | "accent" | "author" | "status" | "classification" | "footer" | "sourceVisible" | "imageWidth";
+export type ReportSettingKey = "organization" | "logo" | "logoAlt" | "stylesheet" | "accent" | "author" | "status" | "classification" | "footer" | "sourceVisible" | "imageWidth";
 export type ReportSettingsValues = Partial<Record<ReportSettingKey, string | boolean | null>>;
 export interface ReportSettingsSnapshot {
 	project: ReportSettingsValues;
@@ -121,6 +121,7 @@ export interface DesktopRPCClient {
 		openMappedInput(params: { name: string }): Promise<DesktopRPCResponse<{ document: OpenDocument; inputName?: string; schema?: DataInputSchema; diagnostics?: TextDiagnostic[] }>>;
 		getReportSettings(): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot }>>;
 		pickReportLogo(params: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; path?: string }>>;
+		pickReportStylesheet(params: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; path?: string }>>;
 		setProjectReportSettings(params: { values: ReportSettingsValues; expectedRevision: string }): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot; state: WorkbenchState }>>;
 		setDocumentReportSettings(params: { values: ReportSettingsValues; expectedRevision: number }): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }>>;
 		setAutosave(params: { enabled: boolean; delayMs: number }): Promise<DesktopRPCResponse<{ enabled: boolean; delayMs: number }>>;
@@ -140,7 +141,7 @@ export interface DesktopRPCClient {
 		closeTab(params: { path: string; action: "save" | "discard" | "cancel" }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		reloadTab(params: { action: "discard" | "cancel" }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		listProjectFiles(): Promise<DesktopRPCResponse<{ files: ProjectFile[]; folders: string[] }>>;
-		createProjectFile(params: { path: string; kind: "amx" | "csv" | "json" }): Promise<DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }>>;
+		createProjectFile(params: { path: string; kind: "amx" | "csv" | "json" | "css" }): Promise<DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }>>;
 		createProjectFolder(params: { path: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		duplicateProjectFile(params: { source: string; destination: string }): Promise<DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }>>;
 		moveProjectFile(params: { source: string; destination: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
@@ -189,6 +190,7 @@ export type DesktopRPCSchema = {
 			openMappedInput: { params: { name: string }; response: DesktopRPCResponse<{ document: OpenDocument; inputName?: string; schema?: DataInputSchema; diagnostics?: TextDiagnostic[] }> };
 			getReportSettings: { params: Record<string, never>; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot }> };
 			pickReportLogo: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; path?: string }> };
+			pickReportStylesheet: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; path?: string }> };
 			setProjectReportSettings: { params: { values: ReportSettingsValues; expectedRevision: string }; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot; state: WorkbenchState }> };
 			setDocumentReportSettings: { params: { values: ReportSettingsValues; expectedRevision: number }; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }> };
 			setAutosave: { params: { enabled: boolean; delayMs: number }; response: DesktopRPCResponse<{ enabled: boolean; delayMs: number }> };
@@ -208,7 +210,7 @@ export type DesktopRPCSchema = {
 			closeTab: { params: { path: string; action: "save" | "discard" | "cancel" }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			reloadTab: { params: { action: "discard" | "cancel" }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			listProjectFiles: { params: Record<string, never>; response: DesktopRPCResponse<{ files: ProjectFile[]; folders: string[] }> };
-			createProjectFile: { params: { path: string; kind: "amx" | "csv" | "json" }; response: DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }> };
+			createProjectFile: { params: { path: string; kind: "amx" | "csv" | "json" | "css" }; response: DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }> };
 			createProjectFolder: { params: { path: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			duplicateProjectFile: { params: { source: string; destination: string }; response: DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }> };
 			moveProjectFile: { params: { source: string; destination: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };

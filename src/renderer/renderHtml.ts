@@ -205,23 +205,28 @@ export function renderPreparedHtml(report: PreparedReport, options: StandaloneHt
   if (identity.footer) bodyFragments.push(`<footer class="openamx-report-footer">${escapeHtml(identity.footer)}</footer>`);
   const hasViews = report.items.some(item => item.type === 'view');
   const hasNarrativeAssets = report.items.some(item => item.type === 'narrative' && hasHtmlAssets(item.markdown));
-  const nonce = hasViews || identity.accent !== '#146C94' || hasNarrativeAssets || isPreview ? randomBytes(18).toString('base64') : '';
+  const nonce = hasViews || identity.accent !== '#146C94' || hasNarrativeAssets || identity.stylesheetCss !== undefined || isPreview ? randomBytes(18).toString('base64') : '';
   const accentStyle = safeAccentStyle(identity.accent, nonce);
   const viewAssets = hasViews ? renderViewAssets(nonce) : '';
   const narrativeAssets = hasNarrativeAssets ? renderNarrativeAssets(nonce, identity.imageWidth) : '';
+  const stylesheet = identity.stylesheetCss === undefined ? '' : renderCustomStylesheet(identity.stylesheetCss, nonce);
   const previewNavigation = previewToken ? renderPreviewNavigationBootstrap(nonce, previewToken) : '';
   const html = `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
   ${renderContentSecurityPolicy(nonce, hasViews, isPreview)}
-  <title>${escapeHtml(report.title)}</title>${accentStyle ? `\n${accentStyle}` : ''}${narrativeAssets ? `\n${narrativeAssets}` : ''}${viewAssets ? `\n${viewAssets}` : ''}${previewNavigation ? `\n${previewNavigation}` : ''}
+  <title>${escapeHtml(report.title)}</title>${accentStyle ? `\n${accentStyle}` : ''}${narrativeAssets ? `\n${narrativeAssets}` : ''}${viewAssets ? `\n${viewAssets}` : ''}${stylesheet ? `\n${stylesheet}` : ''}${previewNavigation ? `\n${previewNavigation}` : ''}
 </head>
 <body>
 ${bodyFragments.join('')}</body>
 </html>`;
   if (previewToken) return { html, previewToken, targets: context.targets };
   return html;
+}
+
+function renderCustomStylesheet(css: string, nonce: string): string {
+  return `<style nonce="${nonce}">${css.replace(/</g, '\\3C ')}</style>`;
 }
 
 function renderNarrativeBlocks(blocks: readonly NarrativeBlock[], context: NarrativeHtmlContext): string {

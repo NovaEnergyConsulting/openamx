@@ -26,6 +26,7 @@ The sole additive report-level YAML frontmatter key is `report`, a mapping with 
 | `organization` | string, 1-120 code points | absent (no publisher line) |
 | `logo` | POSIX-style project-relative string, 1-240 ASCII characters; see section 3 | absent |
 | `logoAlt` | string, 1-120 code points; required when `logo` is present in the effective identity | absent |
+| `stylesheet` | project-relative `.css` file path, 1-240 characters; no hidden, empty, `.` or `..` path segments; UTF-8 file no larger than 256 KiB | absent |
 | `accent` | string matching `^#[0-9A-Fa-f]{6}$` | `#146C94` |
 | `author` | string, 1-120 code points | absent |
 | `status` | string, 1-80 code points | absent |
@@ -33,10 +34,10 @@ The sole additive report-level YAML frontmatter key is `report`, a mapping with 
 | `footer` | string, 1-300 code points (legal notice may be included) | absent |
 | `sourceVisible` | Boolean | `true` |
 
-Report frontmatter overrides project report defaults **field by field**, then neutral defaults apply. `logoAlt` follows the effective logo: a frontmatter `logo` override without `logoAlt` must supply a new frontmatter `logoAlt` rather than inherit the project's description of a different image. If `logoAlt` is given without an effective logo it is invalid. Neither file may contain absolute/drive/UNC/private paths, credentials, URLs, CSS, HTML, fonts, scripts or arbitrary asset references. Names/status/classification/footer are plain text, never trusted markup. `status` and `classification` are free-text labels, not access controls, security markings, workflow state or permission grants. Source hiding is presentation only, not a confidentiality boundary: original AMX, input data, view alternatives and exported documents can still disclose content. UI must label the setting accordingly.
+Report frontmatter overrides project report defaults **field by field**, then neutral defaults apply. `logoAlt` follows the effective logo: a frontmatter `logo` override without `logoAlt` must supply a new frontmatter `logoAlt` rather than inherit the project's description of a different image. If `logoAlt` is given without an effective logo it is invalid. All asset paths must be relative to the canonical project root and must not traverse directories, use symlinks, or resolve outside the project. `stylesheet`, when set, is read and embedded in preview and standalone HTML; it does not affect PDF or DOCX. The embedded stylesheet is subject to the HTML content security policy, which blocks remote resources. Other report fields must not contain absolute/drive/UNC/private paths, credentials, URLs, CSS, HTML, fonts, scripts or arbitrary asset references. Names/status/classification/footer are plain text, never trusted markup. `status` and `classification` are free-text labels, not access controls, security markings, workflow state or permission grants. Source hiding is presentation only, not a confidentiality boundary: original AMX, input data, view alternatives and exported documents can still disclose content. UI must label the setting accordingly.
 
 ```json
-{"version":1,"inputs":{"screenings":"data/screenings.csv"},"report":{"organization":"Example Utilities","logo":"assets/logo.png","logoAlt":"Example Utilities logo","accent":"#146C94","footer":"Copyright Example Utilities","sourceVisible":true}}
+{"version":1,"inputs":{"screenings":"data/screenings.csv"},"report":{"organization":"Example Utilities","logo":"assets/logo.png","logoAlt":"Example Utilities logo","stylesheet":"styles/report.css","accent":"#146C94","footer":"Copyright Example Utilities","sourceVisible":true}}
 ```
 
 ```yaml
@@ -45,6 +46,7 @@ title: Transformer review
 report:
   author: "A. Analyst"
   status: "Draft"
+  stylesheet: styles/report.css
   sourceVisible: false
 ---
 ```

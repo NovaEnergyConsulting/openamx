@@ -29,6 +29,7 @@ let inputSettingsKey = "[]";
 let nextJobId = 0;
 let selectedId = 0;
 const jobs = new Map<number, DesktopJobSnapshot>();
+const createdCssFiles = new Map<string, string>();
 export const failNextPreview = ref(false);
 
 function analyzeSingleDocument(document: ReturnType<typeof parseDocumentText>, file: string): EditorModuleAnalysis {
@@ -125,13 +126,13 @@ function identity(): WorkbenchState["requestIdentity"] {
 
 function state(): WorkbenchState {
 	return {
-		tabs: [{ path: activePath, kind: "amx", dirty: false, conflict: false, revision: documentRevision }],
+		tabs: [{ path: activePath, kind: activePath.endsWith(".css") ? "css" : "amx", dirty: false, conflict: false, revision: documentRevision }],
 		active: activePath, generation, inputSettingsRevision, requestIdentity: identity()
 	};
 }
 
 function document(): OpenDocument {
-	return { path: activePath, kind: "amx", text: currentText, diskHash: "fixture", dirty: documentRevision > 0, conflict: false, revision: documentRevision };
+	return { path: activePath, kind: activePath.endsWith(".css") ? "css" : "amx", text: currentText, diskHash: "fixture", dirty: documentRevision > 0, conflict: false, revision: documentRevision };
 }
 
 function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchState["requestIdentity"]>): DesktopJobSnapshot {
@@ -193,7 +194,15 @@ const request = {
 				folders: ["libraries"]
 			};
 		}
-		return { ok: true as const, files: [{ path: `${projectRoot}/report.amx`, kind: "amx" as const }, { path: secondPath, kind: "amx" as const }], folders: [] };
+		return { ok: true as const, files: [{ path: `${projectRoot}/report.amx`, kind: "amx" as const }, { path: secondPath, kind: "amx" as const }, ...[...createdCssFiles.keys()].map(path => ({ path, kind: "css" as const }))], folders: [] };
+	},
+	async createProjectFile({ path, kind }: { path: string; kind: "css" }) {
+		activePath = `${projectRoot}/${path}`;
+		currentText = "\n";
+		documentRevision = 0;
+		createdCssFiles.set(activePath, currentText);
+		generation++;
+		return { ok: true as const, document: document(), state: state() };
 	},
 	async getRecents() { return { ok: true as const, projects: [] }; },
 	async getRecovery() { return { ok: true as const, available: false, items: [] }; },
@@ -202,7 +211,8 @@ const request = {
 	async openDocument({ path }: { path: string }) {
 		activePath = path;
 		lastOpenedPath = path;
-		if (activePath === secondPath && !currentText.includes("Second fixture")) currentText = "# Second fixture\n\n```amx\nexport let result: Number = 5\n```\n";
+		if (createdCssFiles.has(activePath)) currentText = createdCssFiles.get(activePath)!;
+		else if (activePath === secondPath && !currentText.includes("Second fixture")) currentText = "# Second fixture\n\n```amx\nexport let result: Number = 5\n```\n";
 		else if (activePath.endsWith("/report.amx") && !currentText.includes("Sprint 042 report")) currentText = "# Sprint 042 report\n\n```amx\nexport let result: Number = 3\n```\n";
 		return { ok: true as const, document: document() };
 	},
@@ -220,6 +230,7 @@ const request = {
 	},
 	async updateBuffer({ text }: { text: string }) {
 		currentText = text;
+		if (activePath.endsWith(".css")) createdCssFiles.set(activePath, text);
 		documentRevision++;
 		if (autosaveTimer) clearTimeout(autosaveTimer);
 		autosaveTimer = setTimeout(() => { savedText = currentText; autosaveTimer = undefined; }, autosaveDelayMs);

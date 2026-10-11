@@ -26,6 +26,7 @@ let editor: EditorView | undefined;
 let applyingExternal = false;
 let hasUnacknowledgedEdits = false;
 const wrapping = new Compartment();
+const language = new Compartment();
 
 function normalizedEditorText(text: string): string { return text.replace(/\r\n/g, "\n"); }
 function sourceText(editorText: string): string {
@@ -134,7 +135,7 @@ async function confirmRename() {
 
 const extensions = [keymap.of([indentWithTab, { key: "F12", run: definitionAt }, { key: "Shift-F12", run: referencesAt }, { key: "F2", run: beginRename },
 	{ key: "Ctrl-Space", run: startCompletion }, { key: "Cmd-Space", run: startCompletion }]),
-	basicSetup, markdown(), syntaxHighlighting(HighlightStyle.define([
+	basicSetup, language.of(props.path.endsWith(".css") ? [] : markdown()), syntaxHighlighting(HighlightStyle.define([
 		{ tag: tags.heading, color: "var(--shell-accent)", fontWeight: "bold" },
 		{ tag: tags.link, color: "var(--shell-link)", textDecoration: "underline" },
 		{ tag: tags.emphasis, fontStyle: "italic" },
@@ -163,7 +164,7 @@ const extensions = [keymap.of([indentWithTab, { key: "F12", run: definitionAt },
 		emit("navigate", symbol.target.file, symbol.target.from);
 		return true;
 	} }),
-	EditorView.contentAttributes.of({ "aria-label": "OpenAMX source", spellcheck: "false" }), EditorView.updateListener.of(update => {
+	EditorView.contentAttributes.of(() => ({ "aria-label": props.path.endsWith(".css") ? "CSS source" : "OpenAMX source", spellcheck: "false" })), EditorView.updateListener.of(update => {
 	if (update.docChanged && !applyingExternal) {
 		hasUnacknowledgedEdits = true;
 		emit("change", sourceText(update.state.doc.toString()));
@@ -240,7 +241,10 @@ watch(() => [props.path, props.text, props.revision] as const, ([path, text], [o
 		scrollPositions.set(oldPath, editor.scrollDOM.scrollTop);
 		const saved = states.get(path);
 		editor.setState(saved?.doc.toString() === text ? saved : createState(text));
-		editor.dispatch({ effects: wrapping.reconfigure(props.wrapLines === false ? [] : EditorView.lineWrapping) });
+		editor.dispatch({ effects: [
+			wrapping.reconfigure(props.wrapLines === false ? [] : EditorView.lineWrapping),
+			language.reconfigure(path.endsWith(".css") ? [] : markdown())
+		] });
 		editor.scrollDOM.scrollTop = scrollPositions.get(path) ?? 0;
 		applyEditorFacts();
 		return;
@@ -270,7 +274,7 @@ onUnmounted(() => { editor?.destroy(); editor = undefined; });
 </script>
 
 <template>
-	<div ref="host" class="code-editor" aria-label="OpenAMX source editor"></div>
+	<div ref="host" class="code-editor" :aria-label="path.endsWith('.css') ? 'CSS source editor' : 'OpenAMX source editor'"></div>
 	<div v-if="actions?.length" class="editor-code-actions" role="group" aria-label="Code actions">
 		<button v-for="action in actions" :key="`${action.code}-${action.from}-${action.revision}`" type="button" @click="applyAction(action)">{{ action.title }}</button>
 	</div>

@@ -217,4 +217,55 @@ describe("Sprint 039 trusted settings RPC", () => {
 			rmSync(root, { recursive: true, force: true });
 		}
 	});
+
+	it("selects and persists project-relative report stylesheets at project and document scope", async () => {
+		const root = mkdtempSync(join(tmpdir(), "openamx-stylesheet-settings-rpc-"));
+		const stateDirectory = join(root, ".openamx");
+		const assetDirectory = join(root, "assets");
+		mkdirSync(stateDirectory, { mode: 0o700 });
+		mkdirSync(assetDirectory);
+		writeFileSync(join(stateDirectory, "project.json"), JSON.stringify({ version: 1, inputs: {} }));
+		const entry = join(root, "report.amx");
+		writeFileSync(entry, "# Report\n");
+		const stylesheet = join(assetDirectory, "theme.css");
+		writeFileSync(stylesheet, "body { color: navy; }");
+		let picked: string | undefined = stylesheet;
+		let pickerExtension: string | undefined;
+		let pickerFileName: string | undefined;
+		const service = createDesktopService(undefined, { async choose(options) { pickerExtension = options.extension; pickerFileName = options.fileName; return picked; } });
+		try {
+			service.setProjectRoot(root);
+			await service.request.openDocument({ path: entry });
+			const selection = await service.request.pickReportStylesheet({});
+			expect(selection).toEqual({ ok: true, cancelled: false, path: "assets/theme.css" });
+			expect(pickerExtension).toBe(".css");
+			expect(pickerFileName).toBeUndefined();
+			const snapshot = await service.request.getReportSettings();
+			expect(snapshot.ok).toBe(true);
+			if (!snapshot.ok) throw new Error(snapshot.error.message);
+			const savedProject = await service.request.setProjectReportSettings({
+				values: { stylesheet: "assets/theme.css" },
+				expectedRevision: snapshot.settings.projectRevision
+			});
+			expect(savedProject.ok).toBe(true);
+			if (!savedProject.ok) throw new Error(savedProject.error.message);
+			expect(savedProject.settings.effective.stylesheet).toBe("assets/theme.css");
+			const savedDocument = await service.request.setDocumentReportSettings({
+				values: { stylesheet: "assets/theme.css" },
+				expectedRevision: savedProject.settings.documentRevision
+			});
+			expect(savedDocument.ok).toBe(true);
+			if (!savedDocument.ok) throw new Error(savedDocument.error.message);
+			expect(parseFrontMatter(savedDocument.document.text).metadata.report).toEqual({ stylesheet: "assets/theme.css" });
+			const invalid = await service.request.setDocumentReportSettings({
+				values: { stylesheet: "../outside.css" },
+				expectedRevision: savedDocument.settings.documentRevision
+			});
+			expect(invalid.ok).toBe(false);
+			picked = undefined;
+			expect(await service.request.pickReportStylesheet({})).toEqual({ ok: true, cancelled: true });
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
 });

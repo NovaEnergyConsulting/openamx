@@ -193,7 +193,12 @@ async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
 	}
 
 	send({ kind: "progress", jobId: request.jobId, stage: "preparing-report" });
-	const prepared = await prepareReport(loaded.doc, loaded.env, { file: request.entryPath, projectRoot: request.projectRoot });
+	const prepared = await prepareReport(loaded.doc, loaded.env, {
+		file: request.entryPath,
+		projectRoot: request.projectRoot,
+		includeStylesheet: request.operation === "preview" || request.operation === "html",
+		stylesheetOverlay: new Map(request.sourceOverlay)
+	});
 	if (request.operation === "preview") {
 		const rendered = renderPreparedHtml(prepared, { mode: "preview" });
 		if (rendered.html.length > MAX_HTML) throw new Error(`HTML output exceeds the ${MAX_HTML}-character limit.`);

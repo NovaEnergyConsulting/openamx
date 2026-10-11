@@ -35,7 +35,7 @@ const MAX_HTML = 8_000_000;
 const MAX_FILES = 5000;
 const MAX_FOLDERS = 5000;
 const IGNORED = new Set(["node_modules", "build", "dist", "artifacts", "generated", "out"]);
-const REPORT_SETTING_KEYS: ReportSettingKey[] = ["organization", "logo", "logoAlt", "accent", "author", "status", "classification", "footer", "sourceVisible", "imageWidth"];
+const REPORT_SETTING_KEYS: ReportSettingKey[] = ["organization", "logo", "logoAlt", "stylesheet", "accent", "author", "status", "classification", "footer", "sourceVisible", "imageWidth"];
 const PREVIEW_LOCAL_EXTENSIONS = new Set([".pdf", ".png", ".jpg", ".jpeg", ".txt", ".csv", ".json"]);
 
 function hash(text: string): string {
@@ -111,6 +111,7 @@ function documentKind(file: string): ProjectFileKind | undefined {
 	if (extension === ".amx") return "amx";
 	if (extension === ".csv") return "csv";
 	if (extension === ".json") return "json";
+	if (extension === ".css") return "css";
 	if (extension === ".html") return "html-output";
 	if (extension === ".pdf") return "pdf-output";
 	if (extension === ".docx") return "docx-output";
@@ -357,7 +358,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 
 	function persistRecovery() {
 		if (!recoveryFile) return;
-		const documents = projectRoot ? [...tabs.values()].filter(tab => tab.dirty && ["amx", "csv", "json"].includes(tab.kind) && allowedFile(projectRoot!, tab.path)).slice(0, 10).map(tab => ({
+		const documents = projectRoot ? [...tabs.values()].filter(tab => tab.dirty && ["amx", "csv", "json", "css"].includes(tab.kind) && allowedFile(projectRoot!, tab.path)).slice(0, 10).map(tab => ({
 			path: relative(projectRoot!, tab.path), text: tab.text, diskHash: tab.diskHash, revision: tab.revision
 		})) : [];
 		if (!projectRoot || !documents.length || documents.reduce((total, item) => total + item.text.length, 0) > 5_000_000) {
@@ -466,6 +467,11 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			}
 		}
 		collectOpenModules(document.path, document.text);
+		for (const tab of tabs.values()) {
+			if (tab.kind !== "css") continue;
+			sourceOverlay.set(tab.path, tab.text);
+			sourceRevisions.push({ path: tab.path, revision: tab.revision, diskHash: hash(readFileSync(tab.path, "utf8")), present: true });
+		}
 		return { document, sourceOverlay, sourceRevisions };
 	}
 
@@ -491,7 +497,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 			const sourceDocument = source.revision === undefined ? undefined : findDocument(source.path);
 			if (source.revision !== undefined && sourceDocument?.revision !== source.revision) return false;
 			if (!source.present) return !existsSync(source.path);
-			const expectedDiskHash = sourceDocument?.kind === "amx" && !sourceDocument.dirty ? sourceDocument.diskHash : source.diskHash;
+			const expectedDiskHash = (sourceDocument?.kind === "amx" || sourceDocument?.kind === "css") && !sourceDocument.dirty ? sourceDocument.diskHash : source.diskHash;
 			if (expectedDiskHash === undefined) return existsSync(source.path);
 			try { return hash(readFileSync(source.path, "utf8")) === expectedDiskHash; }
 			catch { return false; }
@@ -837,7 +843,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 		let temporary: string | undefined;
 		try {
 			const external = !!document.externalIdentity;
-			if ((!external && (!allowedFile(requireRoot(), document.path) || !["amx", "csv", "json"].includes(document.kind)))
+			if ((!external && (!allowedFile(requireRoot(), document.path) || !["amx", "csv", "json", "css"].includes(document.kind)))
 				|| (external && (!lstatSync(document.path).isFile() || lstatSync(document.path).isSymbolicLink() || realpathSync(document.path) !== document.path)))
 				throw new Error(external ? "The external input is no longer a regular local file." : "File is not an editable project document.");
 			const diskText = readFileSync(document.path, "utf8");
@@ -1157,7 +1163,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				return { ok: true, projects: recents };
 			},
 			async getRecovery() {
-				const items: RecoveryItem[] = recovery?.documents.map(item => ({ path: item.path, kind: documentKind(item.path) as "amx" | "csv" | "json" })).filter((item): item is RecoveryItem => !!item.kind) ?? [];
+				const items: RecoveryItem[] = recovery?.documents.map(item => ({ path: item.path, kind: documentKind(item.path) as RecoveryItem["kind"] })).filter((item): item is RecoveryItem => !!item.kind) ?? [];
 				return { ok: true, available: !!recovery && !!items.length, root: recovery?.root, items };
 			},
 			async resolveRecovery({ action }: { action: "restore" | "discard" }) {
@@ -1174,7 +1180,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					service.setProjectRoot(snapshot.root, "discard-all");
 					for (const item of snapshot.documents) {
 						const path = within(snapshot.root, item.path);
-						if (!path || !allowedFile(snapshot.root, path) || !["amx", "csv", "json"].includes(documentKind(path) ?? "")) continue;
+						if (!path || !allowedFile(snapshot.root, path) || !["amx", "csv", "json", "css"].includes(documentKind(path) ?? "")) continue;
 						const document = readEntry(path);
 						document.text = item.text;
 						document.dirty = hash(document.text) !== document.diskHash;
@@ -1283,7 +1289,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					const file = within(requireRoot(), path);
 					const kind = file && documentKind(file);
 					if (!file || !kind || !allowedFile(requireRoot(), resolve(requireRoot(), path))) return errorResult<{ document: OpenDocument }>(projectError("Only visible, contained supported project files can be opened."));
-					if (!["amx", "csv", "json"].includes(kind)) return errorResult<{ document: OpenDocument }>(projectError("Generated reports are read-only and open through their system application."));
+					if (!["amx", "csv", "json", "css"].includes(kind)) return errorResult<{ document: OpenDocument }>(projectError("Generated reports are read-only and open through their system application."));
 					current = tabs.get(file) ?? readEntry(file);
 					tabs.set(file, current);
 					refreshConflicts();
@@ -1453,6 +1459,24 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					return { ok: true, cancelled: false, path };
 				} catch (error) {
 					return errorResult<{ cancelled: boolean; path?: string }>({ code: "AMX6001", message: error instanceof Error ? error.message.slice(0, 1000) : "Selected logo is invalid." });
+				}
+			},
+			async pickReportStylesheet() {
+				try {
+					const active = requireActive().document;
+					const startedGeneration = generation;
+					const startedRevision = active.revision;
+					const root = requireRoot();
+					const selected = await picker?.choose({ directory: false, extension: ".css", root });
+					if (!selected) return { ok: true, cancelled: true };
+					if (generation !== startedGeneration || current !== active || active.revision !== startedRevision) return errorResult<{ cancelled: boolean; path?: string }>({ code: "DESKTOP_STALE", message: "The active document changed while choosing a stylesheet." });
+					const canonical = validatedPickedFile(selected, [".css"]);
+					const path = containedRelativeFile(root, canonical);
+					await validateReportSettings({ stylesheet: path }, root, active.path);
+					if (generation !== startedGeneration || current !== active || active.revision !== startedRevision) return errorResult<{ cancelled: boolean; path?: string }>({ code: "DESKTOP_STALE", message: "The active document changed while validating the stylesheet." });
+					return { ok: true, cancelled: false, path };
+				} catch (error) {
+					return errorResult<{ cancelled: boolean; path?: string }>({ code: "AMX6001", message: error instanceof Error ? error.message.slice(0, 1000) : "Selected stylesheet is invalid." });
 				}
 			},
 			async setProjectReportSettings({ values, expectedRevision }: { values: ReportSettingsValues; expectedRevision: string }) {
@@ -1666,6 +1690,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					fresh.revision = tab.revision + 1;
 					tabs.set(tab.path, fresh);
 					current = fresh;
+					if (fresh.kind === "css") markSettingsChanged();
 					persistRecovery();
 					return { ok: true, document: publicDocument(fresh) };
 				} catch (error) { return errorResult<{ document: OpenDocument }>(projectError(error instanceof Error ? error.message : String(error))); }
@@ -1703,12 +1728,12 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					return errorResult<{ files: ProjectFile[]; folders: string[] }>(projectError(error instanceof Error ? error.message : String(error)));
 				}
 			},
-			async createProjectFile({ path, kind }: { path: string; kind: "amx" | "csv" | "json" }) {
+			async createProjectFile({ path, kind }: { path: string; kind: "amx" | "csv" | "json" | "css" }) {
 				try {
 					const root = requireRoot();
 					const target = createTarget(root, path);
 					if (documentKind(target) !== kind) throw new Error("Project file extension does not match its requested kind.");
-					const text = kind === "amx" ? "# New Document\n\n```amx\n\n```\n" : kind === "csv" ? "\n" : "{}\n";
+					const text = kind === "amx" ? "# New Document\n\n```amx\n\n```\n" : kind === "csv" || kind === "css" ? "\n" : "{}\n";
 					writeNewFile(target, text);
 					const document = readEntry(target);
 					current = document;
@@ -1730,7 +1755,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				try {
 					const root = requireRoot();
 					const original = within(root, source);
-					if (!original || !allowedFile(root, original) || !["amx", "csv", "json"].includes(documentKind(original) ?? "")) throw new Error("Only contained editable project files can be duplicated.");
+					if (!original || !allowedFile(root, original) || !["amx", "csv", "json", "css"].includes(documentKind(original) ?? "")) throw new Error("Only contained editable project files can be duplicated.");
 					const target = createTarget(root, destination);
 					if (extname(target) !== extname(original)) throw new Error("Duplicate destination must retain the source extension.");
 					const text = readFileSync(original, "utf8");
@@ -1996,7 +2021,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 				try {
 					const document = path ? findDocument(path) : requireCurrent();
 					if (!document) return errorResult<{ document: OpenDocument }>(projectError("Tab is no longer open."));
-					const limit = document.kind === "amx" ? MAX_TEXT : MAX_DATA_TEXT;
+					const limit = documentTextLimit(document.path);
 					if (typeof text !== "string" || text.length > limit) return errorResult<{ document: OpenDocument }>(projectError(`Document exceeds the ${limit}-character limit.`));
 					const key = publicPath(document);
 					if (sequence !== undefined) {
@@ -2007,6 +2032,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					document.text = text;
 					document.dirty = hash(text) !== document.diskHash;
 					document.revision++;
+					if (document.kind === "css") inputSettingsRevision++;
 					invalidateStaleJobs();
 					scheduleAutosave(document);
 					persistRecovery();

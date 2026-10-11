@@ -370,6 +370,15 @@ percentage such as `75%`; for example, `.openamx/project.json` may contain
 `report: { imageWidth: 640px }`. Images keep their aspect ratio; widths are
 clamped to the available report/page bounds. Fixed CSS pixels map to 0.75 PDF
 points. With no width setting, the existing fit-to-bounds sizing is used.
+Report Settings can also select a project-contained `.css` stylesheet at
+project-default or current-document scope. Its contents are embedded in live
+preview and standalone HTML exports, so those HTML files retain the styling
+without loading the original CSS file; stylesheet changes do not affect PDF or
+DOCX output.
+CSS files are editable project tabs in the desktop explorer. Use **New CSS** to
+create a stylesheet, edit it in the source editor, and select it in Report
+Settings. Switching back to an AMX tab previews unsaved CSS edits; HTML export
+also uses the open stylesheet buffer.
 External links are limited to HTTP(S); local companion links in reports are
 limited to PDF, PNG, JPEG, TXT, CSV, and JSON targets contained by the project.
 They are relative to the final report location, and companion files are not

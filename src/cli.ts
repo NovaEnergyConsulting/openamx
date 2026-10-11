@@ -78,7 +78,7 @@ cli
   .option("--out <path>", "Output PDF or DOCX file path")
   .option("--input <mapping>", "Map a logical input to a data file", { type: [String] })
   .option("--validation <mode>", "Validation mode: aggregate or fail-fast")
-  .option("--project-root <path>", "Project root for report metadata and logo assets")
+  .option("--project-root <path>", "Project root for report metadata and assets")
   .action(async (format: string, input: string, options: { out?: string; input?: string[]; validation?: string; projectRoot?: string }) => {
     try {
       const inputMappings = suppliedMappings(options, "input");
@@ -88,7 +88,7 @@ cli
           inputMappings,
           validation: options.validation as "aggregate" | "fail-fast" | undefined
         });
-        const report = await prepareReport(doc, env, { file: input, projectRoot: options.projectRoot });
+        const report = await prepareReport(doc, env, { file: input, projectRoot: options.projectRoot, includeStylesheet: false });
         const bytes = await serializeDocxReport(prepareDocxReport(report, {
           sourceDocumentPath: input,
           destinationPath: destination.path
@@ -103,7 +103,7 @@ cli
         inputMappings,
         validation: options.validation as "aggregate" | "fail-fast" | undefined
       });
-      const report = await prepareReport(doc, env, { file: input, projectRoot: options.projectRoot });
+      const report = await prepareReport(doc, env, { file: input, projectRoot: options.projectRoot, includeStylesheet: false });
       const bytes = await serializePdfReport(preparePdfReport(report, {
         sourceDocumentPath: input,
         destinationPath: destination.path
@@ -126,7 +126,7 @@ cli
   .option("--input <mapping>", "Map a logical input to a data file", { type: [String] })
   .option("--output <mapping>", "Write an exported value to a JSON or CSV file", { type: [String] })
   .option("--validation <mode>", "Validation mode: aggregate or fail-fast")
-  .option("--project-root <path>", "Project root for report metadata and logo assets")
+  .option("--project-root <path>", "Project root for report metadata and assets")
   .action(async (input: string, options: { out?: string; input?: string[]; output?: string[]; validation?: string; projectRoot?: string }) => {
     try {
       const outPath = options.out || input.replace(/\.amx$/, ".html");

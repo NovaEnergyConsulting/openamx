@@ -12,6 +12,7 @@ const emit = defineEmits<{
 	close: [];
 	save: [scope: "project" | "document", values: ReportSettingsValues];
 	pickLogo: [scope: "project" | "document"];
+	pickStylesheet: [scope: "project" | "document"];
 }>();
 
 const scope = ref<"project" | "document">("project");
@@ -21,6 +22,7 @@ const textFields: Array<{ key: Exclude<ReportSettingKey, "sourceVisible">; label
 	{ key: "organization", label: "Organization" },
 	{ key: "logo", label: "Logo path" },
 	{ key: "logoAlt", label: "Logo alternative text" },
+	{ key: "stylesheet", label: "CSS stylesheet path" },
 	{ key: "accent", label: "Accent color" },
 	{ key: "author", label: "Author" },
 	{ key: "status", label: "Status" },
@@ -85,11 +87,13 @@ function submit() {
 				<label v-for="field in textFields" :key="field.key" class="settings-field">
 					<span>{{ field.label }}</span>
 					<div class="settings-input-row">
-						<input :ref="field.key === 'organization' ? setFirstField : undefined" :id="field.key === 'organization' ? 'report-settings-first' : undefined" :value="textValue(field.key)" :placeholder="field.key === 'imageWidth' ? 'e.g. 640px or 75%' : undefined" :readonly="field.key === 'logo'" :disabled="busy" :type="field.key === 'accent' ? 'color' : 'text'" @input="setText(field.key, ($event.target as HTMLInputElement).value)">
+						<input :ref="field.key === 'organization' ? setFirstField : undefined" :id="field.key === 'organization' ? 'report-settings-first' : undefined" :value="textValue(field.key)" :placeholder="field.key === 'imageWidth' ? 'e.g. 640px or 75%' : undefined" :readonly="field.key === 'logo' || field.key === 'stylesheet'" :disabled="busy" :type="field.key === 'accent' ? 'color' : 'text'" @input="setText(field.key, ($event.target as HTMLInputElement).value)">
 						<button v-if="field.key === 'logo'" type="button" :disabled="busy" @click="emit('pickLogo', scope)">Browse</button>
+						<button v-if="field.key === 'stylesheet'" type="button" :disabled="busy" @click="emit('pickStylesheet', scope)">Browse</button>
 						<button type="button" class="text-button" :disabled="busy" @click="inherit(field.key)">{{ scope === 'document' ? 'Inherit' : 'Clear' }}</button>
 					</div>
 					<small v-if="field.key === 'imageWidth'">Use 1-4096px or 1-100%. Unset keeps the current fit-to-bounds sizing.</small>
+					<small v-if="field.key === 'stylesheet'">Choose a project-contained .css file. Custom styles apply to previews and HTML exports.</small>
 					<small v-if="scope === 'document' && settings?.effective[field.key] && values[field.key] == null">Inherited: {{ settings.effective[field.key] }}</small>
 				</label>
 				<label class="source-visibility">
