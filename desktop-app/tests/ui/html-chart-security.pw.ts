@@ -222,6 +222,44 @@ test("standalone and desktop preview render offline charts without authored navi
 		expect(await generatedPage.evaluate(() => (window as Window & { __previewNavigationMessages: unknown[] }).__previewNavigationMessages)).toHaveLength(2);
 		expect(generatedOutbound).toEqual([]);
 		await generatedPage.close();
+
+		const scrollPage = await page.context().newPage();
+		await scrollPage.setContent('<iframe id="scroll-preview" sandbox="allow-scripts" style="width:400px;height:200px"></iframe>');
+		await scrollPage.evaluate(({ srcdoc, token }) => {
+			const frame = document.querySelector<HTMLIFrameElement>("#scroll-preview")!;
+			const channel = new MessageChannel();
+			(window as Window & { __previewScrollPort: MessagePort; __previewScrollMessages: unknown[] }).__previewScrollPort = channel.port1;
+			(window as Window & { __previewScrollMessages: unknown[] }).__previewScrollMessages = [];
+			channel.port1.onmessage = event => (window as Window & { __previewScrollMessages: unknown[] }).__previewScrollMessages.push(event.data);
+			channel.port1.start();
+			frame.addEventListener("load", () => {
+				frame.contentWindow!.postMessage({ type: "openamx-preview-init", previewToken: token }, "*", [channel.port2]);
+			}, { once: true });
+			const scrollRows = Array.from({ length: 60 }, (_, index) => `<p>Scroll preview paragraph ${index}</p>`).join("");
+			frame.srcdoc = srcdoc.replace("</body>", `${scrollRows}</body>`);
+		}, { srcdoc: navigationHtml, token: navigationToken });
+		const scrollFrame = scrollPage.frameLocator("#scroll-preview");
+		await expect(scrollFrame.locator("body")).toContainText("Scroll preview paragraph 59");
+		await scrollPage.evaluate(({ token }) => {
+			(window as Window & { __previewScrollPort: MessagePort }).__previewScrollPort.postMessage({
+				version: 1, type: "set-scroll", previewToken: token, progress: 0.5
+			});
+		}, { token: navigationToken });
+		const scrollProgress = () => scrollFrame.locator("body").evaluate(() => {
+			const maximum = document.documentElement.scrollHeight - window.innerHeight;
+			return maximum > 0 ? window.scrollY / maximum : 0;
+		});
+		await expect.poll(scrollProgress).toBeGreaterThan(0.45);
+		await expect.poll(scrollProgress).toBeLessThan(0.55);
+		await scrollFrame.locator("body").evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+		await expect.poll(() => scrollPage.evaluate(() =>
+			(window as Window & { __previewScrollMessages: unknown[] }).__previewScrollMessages
+				.some(message => typeof message === "object" && message !== null
+					&& (message as { type?: unknown; progress?: unknown }).type === "scroll"
+					&& typeof (message as { progress?: unknown }).progress === "number"
+					&& (message as { progress: number }).progress > 0.95)
+		)).toBe(true);
+		await scrollPage.close();
 		await expect(previewFrame.locator('meta[http-equiv="refresh"],form,svg use[href]')).toHaveCount(0);
 		await expect(previewFrame.locator("iframe,object,embed")).toHaveCount(0);
 		await expect(previewFrame.locator(".openamx-chart-plot canvas")).toHaveCount(10);

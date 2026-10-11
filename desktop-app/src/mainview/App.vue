@@ -133,6 +133,25 @@ function isPreviewNavigationMessage(value: unknown): value is { version: 1; type
 		&& typeof data.targetId === "string" && /^[a-f0-9]{32}$/.test(data.targetId);
 }
 
+function isPreviewScrollMessage(value: unknown): value is { version: 1; type: "scroll"; previewToken: string; progress: number } {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+	const data = value as Record<string, unknown>;
+	return Object.keys(data).length === 4
+		&& data.version === 1
+		&& data.type === "scroll"
+		&& typeof data.previewToken === "string" && /^[a-f0-9]{64}$/.test(data.previewToken)
+		&& typeof data.progress === "number" && Number.isFinite(data.progress)
+		&& data.progress >= 0 && data.progress <= 1;
+}
+
+function syncPreviewToCursor() {
+	if (!previewPort || !previewPortToken) return;
+	previewPort.postMessage({
+		version: 1, type: "set-scroll", previewToken: previewPortToken,
+		progress: editorElement.value?.getCursorProgress() ?? 0
+	});
+}
+
 function bindPreviewFrame() {
 	const frame = previewFrame.value;
 	const identity = workbench.value.requestIdentity;
@@ -145,12 +164,16 @@ function bindPreviewFrame() {
 	previewPortToken = token;
 	previewPortIdentity = { ...identity };
 	channel.port1.onmessage = event => {
-		if (!isPreviewNavigationMessage(event.data)
+		if ((!isPreviewNavigationMessage(event.data) && !isPreviewScrollMessage(event.data))
 			|| event.data.previewToken !== token
 			|| previewFrame.value !== frame || !frame.isConnected
 			|| previewPortFrame !== frame || previewPortToken !== token
 			|| token !== previewToken.value
 			|| !samePreviewIdentity(workbench.value.requestIdentity, identity)) return;
+		if (isPreviewScrollMessage(event.data)) {
+			editorElement.value?.scrollToProgress(event.data.progress);
+			return;
+		}
 		const request = ++navigationRequest;
 		void props.rpc.request.openPreviewTarget({ targetId: event.data.targetId, previewToken: token, identity }).then(result => {
 			if (request !== navigationRequest) return;
@@ -162,6 +185,10 @@ function bindPreviewFrame() {
 	};
 	channel.port1.start();
 	frame.contentWindow.postMessage({ type: "openamx-preview-init", previewToken: token }, "*", [channel.port2]);
+	channel.port1.postMessage({
+		version: 1, type: "set-scroll", previewToken: token,
+		progress: editorElement.value?.getCursorProgress() ?? 0
+	});
 }
 
 function mappings(): string[] { return inputOverrides.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean); }
@@ -1265,7 +1292,7 @@ function displayDiagnostic(item: TextDiagnostic): string {
 			<section class="editor-pane" aria-label="Document editor">
 				<WorkbenchTabs :workbench="workbench" @select="selectTab" @close="closeTab" />
 				<div class="pane-header"><strong>{{ document?.label ?? document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><button :disabled="document?.kind !== 'amx' && document?.kind !== 'css'" type="button" @click="editorElement?.openSearch()">Find</button><button :disabled="document?.kind !== 'amx' || pending" type="button" @click="format">Format</button><button :disabled="!document || !document.dirty" type="button" @click="save">Save</button></span></div>
-				<CodeEditor v-if="document?.kind === 'amx'" ref="editorElement" :path="document.path" :text="document.text" :revision="document.revision" :wrap-lines="editorWrapLines" :highlights="staticAnalysis.highlights" :diagnostics="staticAnalysis.diagnostics" :symbols="staticAnalysis.symbols" :actions="staticAnalysis.actions" :complete="requestCompletions" :rename="renameSymbol" @change="updateText" @navigate="navigateSymbol" @references="showReferences" />
+				<CodeEditor v-if="document?.kind === 'amx'" ref="editorElement" :path="document.path" :text="document.text" :revision="document.revision" :wrap-lines="editorWrapLines" :highlights="staticAnalysis.highlights" :diagnostics="staticAnalysis.diagnostics" :symbols="staticAnalysis.symbols" :actions="staticAnalysis.actions" :complete="requestCompletions" :rename="renameSymbol" @change="updateText" @cursor-position="syncPreviewToCursor" @navigate="navigateSymbol" @references="showReferences" />
 				<CodeEditor v-else-if="document?.kind === 'css'" ref="editorElement" :path="document.path" :text="document.text" :revision="document.revision" :wrap-lines="editorWrapLines" @change="updateText" />
 				<DataEditorPane v-else-if="document?.kind === 'csv' || document?.kind === 'json' || document?.kind === 'external-data'" ref="dataEditorElement" :key="document.path" :kind="document.kind === 'external-data' ? document.dataFormat ?? 'json' : document.kind" :text="document.text" :revision="document.revision" :external="document.external" :input-name="dataEditorContexts.get(document.path)?.inputName ?? document.inputName" :schema="dataEditorContexts.get(document.path)?.schema" :diagnostics="dataEditorContexts.get(document.path)?.diagnostics" @change="updateText" @navigate-declaration="navigateMappedDeclaration(document.path)" />
 				<div v-else class="file-kind-shell"><strong>{{ document?.kind ?? "document" }}</strong><p>This file is read-only in the current workbench.</p></div>

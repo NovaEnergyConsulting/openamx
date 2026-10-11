@@ -16,7 +16,7 @@ import type { TextAnalysis, TextDiagnostic } from "../shared/rpc";
 type EditorSymbol = NonNullable<TextAnalysis["symbols"]>[number];
 type EditorAction = NonNullable<TextAnalysis["actions"]>[number];
 const props = defineProps<{ path: string; text: string; revision?: number; wrapLines?: boolean; highlights?: EditorHighlightFact[]; diagnostics?: TextDiagnostic[]; symbols?: EditorSymbol[]; actions?: EditorAction[]; complete?: (offset: number) => Promise<string[]>; rename?: (offset: number, newName: string) => Promise<boolean> }>();
-const emit = defineEmits<{ change: [text: string]; navigate: [path: string, offset: number]; references: [items: EditorSymbol[]] }>();
+const emit = defineEmits<{ change: [text: string]; "cursor-position": [progress: number]; navigate: [path: string, offset: number]; references: [items: EditorSymbol[]] }>();
 const host = ref<HTMLElement | null>(null);
 const renameInput = ref<HTMLInputElement | null>(null);
 const renameTarget = ref<EditorSymbol | null>(null);
@@ -29,6 +29,19 @@ let hasUnacknowledgedEdits = false;
 const wrapping = new Compartment();
 const language = new Compartment();
 const completion = new Compartment();
+
+function cursorProgress(view: CodeMirrorView): number {
+	const lineCount = view.state.doc.lines;
+	return lineCount <= 1 ? 0 : (view.state.doc.lineAt(view.state.selection.main.head).number - 1) / (lineCount - 1);
+}
+
+function getCursorProgress() { return editor ? cursorProgress(editor) : 0; }
+
+function scrollToProgress(progress: number) {
+	if (!editor || !Number.isFinite(progress)) return;
+	const maximum = Math.max(0, editor.scrollDOM.scrollHeight - editor.scrollDOM.clientHeight);
+	editor.scrollDOM.scrollTop = Math.max(0, Math.min(1, progress)) * maximum;
+}
 
 function normalizedEditorText(text: string): string { return text.replace(/\r\n/g, "\n"); }
 function sourceText(editorText: string): string {
@@ -180,6 +193,7 @@ const extensions = [keymap.of([indentWithTab, { key: "F12", run: definitionAt },
 		hasUnacknowledgedEdits = true;
 		emit("change", sourceText(update.state.doc.toString()));
 	}
+	if (update.selectionSet || update.docChanged) emit("cursor-position", cursorProgress(update.view));
 })];
 
 function createState(text: string) {
@@ -234,7 +248,7 @@ function applyAction(action: EditorAction) {
 	editor.focus();
 }
 
-defineExpose({ focus, openSearch, replaceText, selectLocation, selectOffset, getSelectionOffset, applyAction });
+defineExpose({ focus, openSearch, replaceText, selectLocation, selectOffset, getSelectionOffset, getCursorProgress, scrollToProgress, applyAction });
 
 onMounted(() => {
 	editor = new EditorView({

@@ -60,7 +60,7 @@ async function currentSource(page: Page) {
 	return page.evaluate(() => (window as unknown as Window & { __openamxHarnessSnapshot: () => { currentText: string } }).__openamxHarnessSnapshot().currentText);
 }
 
-test("long workbench panes stay bounded and scroll independently", async ({ page }, testInfo) => {
+test("long workbench panes stay bounded with independent explorer and runtime scrolling", async ({ page }, testInfo) => {
 	const viewports = [
 		{ width: 1024, height: 720, name: "1024x720" },
 		{ width: 1440, height: 900, name: "1440x900" },

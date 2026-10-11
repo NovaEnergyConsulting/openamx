@@ -135,6 +135,10 @@ function document(): OpenDocument {
 	return { path: activePath, kind: activePath.endsWith(".css") ? "css" : "amx", text: currentText, diskHash: "fixture", dirty: documentRevision > 0, conflict: false, revision: documentRevision };
 }
 
+function previewBootstrap(token: string): string {
+	return `<script nonce="fixture-nonce">(()=>{const token=${JSON.stringify(token)};let port;let scheduled=false;const progress=()=>{const maximum=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);return maximum>0?Math.max(0,Math.min(1,window.scrollY/maximum)):0};const reportScroll=()=>{if(!port||scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;if(port)port.postMessage({version:1,type:"scroll",previewToken:token,progress:progress()})})};window.addEventListener("scroll",reportScroll,{passive:true});window.addEventListener("message",event=>{const data=event.data;if(event.source!==parent||!data||data.type!=="openamx-preview-init"||data.previewToken!==token||event.ports.length!==1)return;port=event.ports[0];port.onmessage=message=>{const value=message.data;if(!value||typeof value!=="object"||Array.isArray(value)||Object.keys(value).length!==4||value.version!==1||value.type!=="set-scroll"||value.previewToken!==token||typeof value.progress!=="number"||!Number.isFinite(value.progress)||value.progress<0||value.progress>1)return;const maximum=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);window.scrollTo(0,maximum*value.progress)};port.start()},{once:true});document.addEventListener("click",event=>{const source=event.target;if(!(source instanceof Element))return;const link=source.closest("a[data-openamx-target]");if(!link)return;event.preventDefault();if(!event.isTrusted||!navigator.userActivation?.isActive||!port)return;const targetId=link.getAttribute("data-openamx-target");if(!targetId)return;port.postMessage({version:1,type:"navigate",previewToken:token,targetId})},true)})();</script>`;
+}
+
 function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchState["requestIdentity"]>): DesktopJobSnapshot {
 	const jobIdentity: DesktopJobIdentity = { ...requestIdentity, jobId: ++nextJobId };
 	let result: DesktopJobResult | undefined;
@@ -161,10 +165,13 @@ function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchStat
 					: previewSource.includes("Preview AMX link fixture")
 						? `<a href="#" data-openamx-target="ffffffffffffffffffffffffffffffff">Open related AMX</a>`
 					: "";
-				const bootstrap = `<script nonce="fixture-nonce">(()=>{const token=${JSON.stringify(previewToken)};let port;window.addEventListener("message",event=>{const data=event.data;if(event.source!==parent||!data||data.type!=="openamx-preview-init"||data.previewToken!==token||event.ports.length!==1)return;port=event.ports[0];port.start()},{once:true});document.addEventListener("click",event=>{const source=event.target;if(!(source instanceof Element))return;const link=source.closest("a[data-openamx-target]");if(!link)return;event.preventDefault();if(!event.isTrusted||!navigator.userActivation?.isActive||!port)return;const targetId=link.getAttribute("data-openamx-target");if(!targetId)return;port.postMessage({version:1,type:"navigate",previewToken:token,targetId})},true)})();</script>`;
+				const bootstrap = previewBootstrap(previewToken);
+				const scrollRows = previewSource.includes("Scroll sync fixture")
+					? Array.from({ length: 120 }, (_, index) => `<p>scroll preview line ${index}</p>`).join("")
+					: "";
 				pending.result = {
 					kind: "preview", previewToken,
-					html: `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-fixture-nonce'; img-src data:; connect-src 'none'">${bootstrap}</head><body><h1>Current preview</h1><p>${value}</p>${navigation}</body></html>`
+					html: `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-fixture-nonce'; img-src data:; connect-src 'none'">${bootstrap}</head><body><h1>Current preview</h1><p>${value}</p>${navigation}${scrollRows}</body></html>`
 				};
 			}
 		}, 250);
