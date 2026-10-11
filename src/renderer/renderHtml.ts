@@ -13,6 +13,7 @@ import { evaluateExpression } from '../runtime/evaluateExpression';
 import { evaluateDocumentEnvironment } from '../runtime/evaluateDocument';
 import { Environment } from '../runtime/environment';
 import type { ViewDataValue, ViewEmission, TableViewEmission, ChartViewEmission } from '../runtime/environment';
+import { formatAmxValue } from '../runtime/valueSerialization';
 import { formatAmx } from '../formatter/formatAmx';
 import { createChartViewModel, type ChartViewModel } from './chartModel';
 import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeImageWidth, type NarrativeInline, type NarrativeLink } from './narrativeModel';
@@ -256,7 +257,7 @@ function tableCellAlignment(alignment: string | null | undefined): string {
 function renderNarrativeInlines(inlines: readonly NarrativeInline[], context: NarrativeHtmlContext): string {
   return inlines.map(inline => {
     switch (inline.type) {
-      case 'text': return escapeHtml(inline.text);
+      case 'text': return renderNarrativeText(inline.text);
       case 'lineBreak': return '<br>';
       case 'strong': return `<strong>${renderNarrativeInlines(inline.children, context)}</strong>`;
       case 'emphasis': return `<em>${renderNarrativeInlines(inline.children, context)}</em>`;
@@ -370,8 +371,8 @@ function renderTable(emission: TableViewEmission): string {
   const rows = emission.data.filter(isRecordValue);
   const caption = title?.type === 'viewTitleOption' ? title.value : emission.name;
   const header = columns.map(column => `<th scope="col" aria-sort="none"><button type="button" data-sort="${escapeHtml(column.field)}">${escapeHtml(column.label)}</button></th>`).join('');
-  const body = rows.map((row, index) => `<tr data-row-index="${index}">${columns.map(column => `<td>${escapeHtml(valueToString(row[column.field]))}</td>`).join('')}</tr>`).join('');
-  const printBody = rows.map(row => `<tr>${columns.map(column => `<td>${escapeHtml(valueToString(row[column.field]))}</td>`).join('')}</tr>`).join('');
+  const body = rows.map((row, index) => `<tr data-row-index="${index}">${columns.map(column => `<td>${renderNarrativeText(formatAmxValue(row[column.field]))}</td>`).join('')}</tr>`).join('');
+  const printBody = rows.map(row => `<tr>${columns.map(column => `<td>${renderNarrativeText(formatAmxValue(row[column.field]))}</td>`).join('')}</tr>`).join('');
   const payload = safeJson({ columns: columns.map(column => ({ field: column.field, label: column.label })), rows });
   return `<section class="openamx-view openamx-table" data-view="${id}" aria-labelledby="${id}-caption">
   <h2 id="${id}-caption" class="sr-only">${escapeHtml(caption)}</h2>
@@ -398,7 +399,7 @@ function renderChart(emission: ChartViewEmission, identity: Pick<ResolvedReportI
   const zoomControls = browserModel.zoomable
     ? `<div class="openamx-chart-controls" role="group" aria-label="Chart zoom controls"><button type="button" data-zoom="out" aria-label="Zoom out">Zoom out</button><button type="button" data-zoom="in" aria-label="Zoom in">Zoom in</button><button type="button" data-zoom="reset">Reset zoom</button></div>`
     : '';
-  const textRows = model.table.rows.map(row => `<tr>${row.values.map(value => `<td>${escapeHtml(valueToString(value))}</td>`).join('')}</tr>`).join('');
+  const textRows = model.table.rows.map(row => `<tr>${row.values.map(value => `<td>${renderNarrativeText(formatAmxValue(value))}</td>`).join('')}</tr>`).join('');
   const data = safeJson(browserModel);
   return `<figure class="openamx-view openamx-chart" id="${id}-figure" data-openamx-chart aria-labelledby="${titleId}" aria-describedby="${descriptionId} ${summaryId}">
   <figcaption><strong id="${titleId}">${escapeHtml(model.title)}</strong><span id="${descriptionId}">${escapeHtml(model.description)}</span></figcaption>
@@ -606,23 +607,8 @@ function substituteInlines(
     const source = narrativeLine !== undefined ? { line: narrativeLine, column: 1 } : undefined;
     const exprNode = parseExpression(trimmed, source);
     const value = evaluateExpression(exprNode, env, file);
-    return escapeHtml(valueToString(value));
+    return escapeHtml(formatAmxValue(value));
   });
-}
-
-function valueToString(v: unknown): string {
-  if (v === null || v === undefined) return '';
-  if (typeof v === 'string') return v;
-  if (typeof v === 'number') {
-    // Present integers without trailing .0 for natural readability in text.
-    return Number.isInteger(v) ? String(v) : String(v);
-  }
-  if (typeof v === 'boolean') return String(v); // "true" / "false"
-  if (Array.isArray(v)) {
-    // Simple deterministic representation for lists inside narrative text.
-    return v.map(valueToString).join(', ');
-  }
-  return String(v);
 }
 
 function escapeHtml(s: string): string {
@@ -631,4 +617,10 @@ function escapeHtml(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function renderNarrativeText(text: string): string {
+  return escapeHtml(text).replace(/\n( *)/g, (_lineBreak, indentation: string) =>
+    `<br>${'&nbsp;'.repeat(indentation.length)}`
+  );
 }

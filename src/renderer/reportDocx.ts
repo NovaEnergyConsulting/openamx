@@ -27,6 +27,7 @@ import { ChartRun, type ChartAxisGroup, type ChartPoint, type ChartSeries, type 
 import { realpathSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import type { ChartViewEmission, TableViewEmission, ViewDataValue, ViewEmission } from '../runtime/environment';
+import { formatAmxValue } from '../runtime/valueSerialization';
 import { createChartViewModel, type ChartAxisModel, type ChartViewModel } from './chartModel';
 import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeImageWidth, type NarrativeInline, type NarrativeLink } from './narrativeModel';
 import type { PreparedReport } from './reportPreparation';
@@ -431,7 +432,7 @@ function addTable(children: Array<Paragraph | Table>, emission: TableViewEmissio
   children.push(new Paragraph({ text: caption, heading: HeadingLevel.HEADING_2 }));
   const header = new TableRow({ children: columns.map(column => tableCell(column.label, true)) });
   const rows = emission.data.map(value => new TableRow({
-    children: columns.map(column => tableCell(isRecord(value) ? valueToString(value[column.field]) : ''))
+    children: columns.map(column => tableCell(isRecord(value) ? formatAmxValue(value[column.field], '(null)') : ''))
   }));
   children.push(new Table({ rows: [header, ...rows] }));
 }
@@ -599,7 +600,7 @@ function addChartTable(children: Array<Paragraph | Table>, model: ChartViewModel
   });
   const rows = model.table.rows.map(row => new TableRow({
     cantSplit: true,
-    children: row.values.map(value => tableCell(valueToString(value)))
+    children: row.values.map(value => tableCell(formatAmxValue(value, '(null)')))
   }));
   children.push(new Paragraph({ text: model.table.caption, heading: HeadingLevel.HEADING_3 }));
   const columnCount = Math.max(1, model.table.headings.length);
@@ -842,10 +843,4 @@ function headingLevel(level: number): typeof HeadingLevel[keyof typeof HeadingLe
 
 function isRecord(value: ViewDataValue): value is { readonly [field: string]: ViewDataValue } {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function valueToString(value: unknown): string {
-  if (value === null || value === undefined) return '(null)';
-  if (Array.isArray(value)) return value.map(valueToString).join(', ');
-  return String(value);
 }

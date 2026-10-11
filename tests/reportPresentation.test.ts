@@ -26,6 +26,54 @@ afterEach(async () => {
 });
 
 describe('prepared PDF and DOCX presentation', () => {
+  it('pretty-prints object expressions in HTML preview, PDF, and DOCX while preserving arrays', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'openamx-object-serialization-'));
+    directories.push(root);
+    const input = join(root, 'report.amx');
+    await writeFile(input, `\`\`\`amx
+type Details {
+  voltage: Number
+}
+type Device {
+  name: String
+  details: Details
+}
+let myObject: Device = Device { name = "Transformer", details = Details { voltage = 132 } }
+let myArray = [1, 2, 3]
+\`\`\`
+
+Object: {{ myObject }}
+
+Array: {{ myArray }}`);
+
+    const loaded = await loadEntryModule(input);
+    const prepared = await prepareReport(loaded.doc, loaded.env, { file: input, projectRoot: root });
+    const preview = renderPreparedHtml(prepared, { mode: 'preview' });
+    const standalone = renderPreparedHtml(prepared, { mode: 'standalone', sourceDocumentPath: input, projectRoot: root });
+    for (const html of [preview.html, standalone]) {
+      expect(html).not.toContain('[object Object]');
+      expect(html).toContain('&quot;name&quot;: &quot;Transformer&quot;');
+      expect(html).toContain('&quot;voltage&quot;: 132');
+      expect(html).toContain('&nbsp;&nbsp;&quot;name&quot;');
+      expect(html).toContain('Array: 1, 2, 3');
+    }
+
+    const pdf = await serializePdfReport(preparePdfReport(prepared));
+    const pdfText = await reportText(pdf);
+    expect(pdfText).not.toContain('[object Object]');
+    expect(pdfText).toContain('"name"');
+    expect(pdfText).toContain('"voltage"');
+    expect(pdfText).toContain('1, 2, 3');
+
+    const docx = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
+    const documentXml = await docx.file('word/document.xml')?.async('string');
+    expect(documentXml).toBeDefined();
+    expect(documentXml).not.toContain('[object Object]');
+    expect(documentXml).toContain('&quot;name&quot;');
+    expect(documentXml).toContain('&quot;voltage&quot;');
+    expect(documentXml).toContain('1, 2, 3');
+  });
+
   it('renders shared narrative nodes with final-output-relative standalone links and opaque preview targets', async () => {
     const root = await mkdtemp(join(tmpdir(), 'openamx-html-alignment-'));
     directories.push(root);

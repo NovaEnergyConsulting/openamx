@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ChartViewEmission, TableViewEmission, ViewDataValue, ViewEmission } from '../runtime/environment';
+import { formatAmxValue } from '../runtime/valueSerialization';
 import { createChartViewModel, type ChartViewModel } from './chartModel';
 import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeImageWidth, type NarrativeInline, type NarrativeLink } from './narrativeModel';
 import type { PreparedReport } from './reportPreparation';
@@ -355,7 +356,7 @@ function addTable(content: unknown[], emission: TableViewEmission): void {
   const caption = title?.type === 'viewTitleOption' ? title.value : emission.name;
   const body = [
     columns.map(column => ({ text: column.label, bold: true, fillColor: '#e7eee8' })),
-    ...emission.data.map(value => columns.map(column => valueToString(isRecord(value) ? value[column.field] : null)))
+    ...emission.data.map(value => columns.map(column => formatAmxValue(isRecord(value) ? value[column.field] : null)))
   ];
   content.push({ text: caption, style: 'heading' });
   content.push({ table: { headerRows: 1, keepWithHeaderRows: 1, widths: columns.map(() => '*'), body }, layout: 'lightHorizontalLines', fontSize: 8 });
@@ -382,7 +383,7 @@ function addChart(
       widths: model.table.headings.map(() => '*'),
       body: [
         model.table.headings.map(text => ({ text, bold: true, fillColor: '#e7eee8' })),
-        ...model.table.rows.map(row => row.values.map(valueToString))
+        ...model.table.rows.map(row => row.values.map(value => formatAmxValue(value)))
       ]
     },
     layout: 'lightHorizontalLines',
@@ -444,10 +445,4 @@ function assertSupportedSvg(svg: string): void {
 
 function isRecord(value: ViewDataValue): value is { readonly [field: string]: ViewDataValue } {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function valueToString(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (Array.isArray(value)) return value.map(valueToString).join(', ');
-  return String(value);
 }

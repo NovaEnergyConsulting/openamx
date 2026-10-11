@@ -7,7 +7,7 @@ import { formatAmx } from '../formatter/formatAmx';
 import { parseExpression } from '../parser/parseExpression';
 import { evaluateExpression } from '../runtime/evaluateExpression';
 import type { Environment, ViewEmission } from '../runtime/environment';
-import { isMeasurement } from '../runtime/measurement';
+import { formatAmxValue } from '../runtime/valueSerialization';
 import { parseNarrativeImageWidth, prepareNarratives, type NarrativeBlock, type NarrativeDiagnostic, type NarrativeImageWidth } from './narrativeModel';
 import { canonicalDirectory, hasSymlink, isContained } from './reportPaths';
 
@@ -62,7 +62,7 @@ export async function prepareReport(doc: OpenAmxDocument, env: Environment, opti
     projectRoot: options.projectRoot,
     interpolate: (expression, line) => {
       const value = evaluateExpression(parseExpression(expression, line === undefined ? undefined : { line, column: 1 }), env, options.file);
-      return valueToString(value);
+      return formatAmxValue(value);
     }
   });
   const emissionsByNode = new Map<number, ViewEmission[]>();
@@ -180,13 +180,6 @@ async function prepareLogo(path: string, alt: string, projectRoot: string | unde
     if (error instanceof AmxError) throw error;
     fail('AMX6001', 'Report logo is not a supported image', file);
   }
-}
-
-function valueToString(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (Array.isArray(value)) return value.map(valueToString).join(', ');
-  if (isMeasurement(value)) return `${String(value.value)} ${value.unit.text}`;
-  return String(value);
 }
 
 function asRecord(value: unknown, message: string, file?: string): Record<string, unknown> {
