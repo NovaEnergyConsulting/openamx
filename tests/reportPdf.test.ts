@@ -3,7 +3,7 @@ import { afterEach } from 'bun:test';
 import { mkdir, mkdtemp, readdir, rm, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { getDocument, OPS } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import sharp from 'sharp';
 import { parseDocumentText } from '../src/parser/parseDocument';
 import { Environment } from '../src/runtime/environment';
@@ -130,7 +130,7 @@ Literal <strong>HTML</strong> and {{ "**interpolated**" }} stay text.
 <!-- page-break -->
 \`\`\`
 
-![Portrait image](./images/portrait.png)
+Paragraph with ![Portrait image](./images/portrait.png) embedded between text.
 
 ![Landscape image](./images/landscape.png)
 
@@ -202,17 +202,22 @@ ${markdownRows}
     }).promise;
     const pages: string[] = [];
     const annotations: { url?: string; unsafeUrl?: string; dest?: unknown }[] = [];
+    let imagePaints = 0;
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
       const page = await pdf.getPage(pageNumber);
       pages.push((await page.getTextContent()).items.map(item => 'str' in item ? item.str : '').join(' '));
       annotations.push(...await page.getAnnotations());
+      const operators = await page.getOperatorList();
+      imagePaints += operators.fnArray.filter(operator => operator === OPS.paintImageXObject).length;
     }
+    expect(imagePaints).toBe(2);
     const text = pages.join(' ');
     const urls = annotations
       .flatMap(annotation => [annotation.url, annotation.unsafeUrl])
       .filter((url): url is string => typeof url === 'string');
     expect(text).toContain('Main');
     expect(text).toContain('line break');
+    expect(text).toContain('embedded between text');
     expect(text).toContain('<strong>HTML</strong>');
     expect(text).toContain('**interpolated**');
     expect(text).toContain('unsupported');

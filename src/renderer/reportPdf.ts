@@ -104,14 +104,13 @@ function preparePreparedPdfReport(
 function addNarrativeBlocks(content: unknown[], blocks: readonly NarrativeBlock[], context?: PdfExportContext): void {
   for (const block of blocks) {
     if (block.type === 'heading') {
-      content.push({
-        text: inlineRuns(block.children, context),
+      addInlineContent(content, block.children, context, {
         style: block.depth === 1 ? 'title' : 'heading',
         ...(block.depth > 1 ? { fontSize: Math.max(9, 16 - block.depth) } : {}),
         id: block.id
       });
     } else if (block.type === 'paragraph') {
-      content.push({ text: inlineRuns(block.children, context), margin: [0, 0, 0, 7] });
+      addInlineContent(content, block.children, context, { margin: [0, 0, 0, 7] });
     } else if (block.type === 'code') {
       content.push({ text: block.text, style: 'code', preserveLeadingSpaces: true });
     } else if (block.type === 'list') {
@@ -120,10 +119,13 @@ function addNarrativeBlocks(content: unknown[], blocks: readonly NarrativeBlock[
         addNarrativeBlocks(children, item.blocks, context);
         if (item.checked !== undefined && children.length > 0) {
           const first = children[0];
+          const marker = item.checked ? '[x] ' : '[ ] ';
           if (isPlainRecord(first) && Array.isArray(first.text)) {
-            first.text = [{ text: item.checked ? '[x] ' : '[ ] ' }, ...first.text];
+            first.text = [{ text: marker }, ...first.text];
           } else if (isPlainRecord(first) && typeof first.text === 'string') {
-            first.text = `${item.checked ? '[x] ' : '[ ] '}${first.text}`;
+            first.text = `${marker}${first.text}`;
+          } else {
+            children.unshift({ text: marker });
           }
         }
         return children.length === 1 ? children[0] : children;
@@ -136,11 +138,22 @@ function addNarrativeBlocks(content: unknown[], blocks: readonly NarrativeBlock[
       addNarrativeBlocks(quoted, block.blocks, context);
       content.push({ stack: quoted, style: 'blockquote' });
     } else if (block.type === 'table') {
-      const cell = (children: readonly NarrativeInline[], header: boolean, alignment: string | null) => ({
-        text: inlineRuns(children, context),
-        ...(header ? { bold: true, fillColor: '#e7eee8' } : {}),
-        ...(alignment ? { alignment } : {})
-      });
+      const cell = (children: readonly NarrativeInline[], header: boolean, alignment: string | null) => {
+        const segments = splitInlineImages(children, context);
+        const common = {
+          ...(header ? { bold: true, fillColor: '#e7eee8' } : {}),
+          ...(alignment ? { alignment } : {})
+        };
+        if (!segments.some(segment => segment.type === 'image')) {
+          return { text: inlineRuns(children, context), ...common };
+        }
+        return {
+          stack: segments.map(segment => segment.type === 'image'
+            ? imageRun(segment.image, segment.style, { maxWidth: 150, maxHeight: 150 })
+            : { text: inlineRuns(segment.inlines, context) }),
+          ...common
+        };
+      };
       content.push({
         table: {
           headerRows: 1,
@@ -196,22 +209,98 @@ function inlineRuns(
           : { ...style, decoration: 'lineThrough' };
       runs.push(...inlineRuns(inline.children, context, nestedStyle));
     } else if (inline.type === 'link') {
-      const linkStyle: InlineStyle = {
-        ...style,
-        ...(inline.link.type === 'external' ? { link: inline.link.href } : {}),
-        ...(inline.link.type === 'internal' ? { linkToDestination: inline.link.targetId } : {}),
-        ...(inline.link.type === 'local' ? { link: localLinkUri(inline.link, context) } : {})
-      };
+      const linkStyle = pdfLinkStyle(inline.link, context, style);
       runs.push(...inlineRuns(inline.children, context, linkStyle));
-    } else if (inline.type === 'image') {
-      runs.push(imageRun(inline.image, style));
     }
   }
   return runs;
 }
 
-function imageRun(image: NarrativeImage, style: InlineStyle): Record<string, unknown> {
-  const dimensions = fitNarrativeImage(image, { maxWidth: 493, maxHeight: 739 });
+type PdfInlineSegment =
+  | { readonly type: 'text'; readonly inlines: readonly NarrativeInline[] }
+  | { readonly type: 'image'; readonly image: NarrativeImage; readonly style: InlineStyle };
+
+function splitInlineImages(
+  inlines: readonly NarrativeInline[],
+  context?: PdfExportContext,
+  imageStyle: InlineStyle = {}
+): PdfInlineSegment[] {
+  const segments: PdfInlineSegment[] = [];
+  let pending: NarrativeInline[] = [];
+
+  const flushText = () => {
+    if (pending.length > 0) segments.push({ type: 'text', inlines: pending });
+    pending = [];
+  };
+
+  for (const inline of inlines) {
+    if (inline.type === 'image') {
+      flushText();
+      segments.push({ type: 'image', image: inline.image, style: imageStyle });
+    } else if (inline.type === 'strong' || inline.type === 'emphasis' || inline.type === 'delete' || inline.type === 'link') {
+      const childImageStyle = inline.type === 'link'
+        ? pdfLinkStyle(inline.link, context, imageStyle)
+        : imageStyle;
+      for (const child of splitInlineImages(inline.children, context, childImageStyle)) {
+        if (child.type === 'image') {
+          flushText();
+          segments.push(child);
+        } else {
+          pending.push({ ...inline, children: child.inlines });
+        }
+      }
+    } else {
+      pending.push(inline);
+    }
+  }
+
+  flushText();
+  return segments;
+}
+
+function addInlineContent(
+  content: unknown[],
+  inlines: readonly NarrativeInline[],
+  context: PdfExportContext | undefined,
+  options: Record<string, unknown>
+): void {
+  const segments = splitInlineImages(inlines, context);
+  if (segments.length === 0) {
+    content.push({ text: inlineRuns(inlines, context), ...options });
+    return;
+  }
+
+  let first = true;
+  for (const segment of segments) {
+    if (segment.type === 'image') {
+      const node = imageRun(segment.image, segment.style);
+      if (options.id !== undefined && first) node.id = options.id;
+      if (options.margin !== undefined) node.margin = options.margin;
+      content.push(node);
+    } else {
+      const textOptions = { ...options };
+      if (!first) delete textOptions.id;
+      content.push({ text: inlineRuns(segment.inlines, context), ...textOptions });
+    }
+    first = false;
+  }
+}
+
+function pdfLinkStyle(link: NarrativeLink, context: PdfExportContext | undefined, style: InlineStyle): InlineStyle {
+  return {
+    ...style,
+    ...(link.type === 'external' ? { link: link.href } : {}),
+    ...(link.type === 'internal' ? { linkToDestination: link.targetId } : {}),
+    ...(link.type === 'local' ? { link: localLinkUri(link, context) } : {})
+  };
+}
+
+function imageRun(
+  image: NarrativeImage,
+  style: InlineStyle,
+  maximum = { maxWidth: 493, maxHeight: 739 }
+): Record<string, unknown> {
+  const dimensions = fitNarrativeImage(image, maximum);
   return {
     image: image.dataUri,
     width: dimensions.width,
