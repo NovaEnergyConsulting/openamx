@@ -1,5 +1,11 @@
 # Planning Decisions
 
+## V0.13 Sprint 078 Architect Preparation (2026-10-11)
+
+- The V0.13 master plan is the scope authority for Sprint 078. Its exact diagram grammar, diagnostic allocations, safe arbitrary-time browser evaluation approach, rendering representation, and evidence-based resource bounds remain to be established by the gate; this preparation approves none of those product decisions.
+- Sprint 078 is limited to contract artifacts and isolated feasibility probes. Production implementation and any change to existing AMX semantics or desktop-preview security require separate authorization.
+- The current documented AMX standard-function set omits trigonometric functions, while a crank-slider normally requires circular-motion formulas. Sprint 078 must prove a compatible existing-expression approach or request an explicit scope decision; it must not silently add math functions or substitute a different example.
+
 ## V0.12 Sprint 077 Architect Preparation (2026-10-11)
 
 - Sprint 077 is integrated verification and closeout only. No feature/diagnostic/editor contract changes are proposed; Sprints 072-076 and approved decisions remain authoritative.

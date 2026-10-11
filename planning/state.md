@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.13 Sprint 078 Architect Preparation (2026-10-11)
+
+- Prepared the Sprint 078 contract/feasibility-gate pack in `planning/sprints/0078-v13-diagram-contract-feasibility-gate/`: requirements, blueprint, acceptance criteria, and Builder handoff.
+- The pack requires stable valid/invalid diagram fixtures, a source-located diagnostic matrix, requirement-to-test traceability, and an evidence report covering the shared model through HTML, actual desktop preview, PDF, and DOCX.
+- Sprint 078 is contract and isolated feasibility work only. Production implementation, feature documentation/examples, release, and publication remain out of scope; execution still requires explicit authorization and approval of the concrete file plan.
+- Current documented AMX standard functions do not include trigonometric functions. The crank-slider feasibility probe must establish whether its required formula can be expressed within existing AMX semantics; otherwise it must request a product decision rather than add functions or reduce the example scope.
+- No Sprint 078 execution, probe, production change, or feasibility result is claimed by this preparation entry.
+
 ## V0.12 Sprint 077 Architect Preparation (2026-10-11)
 
 - Prepared Sprint 077 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0077-v12-integrated-acceptance-closeout/`.

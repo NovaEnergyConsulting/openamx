@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.13 Sprint 078 Contract and Feasibility Questions (2026-10-11)
+
+- **Open product decision if the feasibility probe confirms the gap:** How should the required crank-slider express circular motion while preserving existing AMX expression/function semantics? The currently documented standard functions do not include `sin` or `cos`. Do not add them or replace the crank-slider with a reduced example without Lead Developer approval.
+- Sprint 078 must recommend and obtain disposition for the exact diagram declaration/property grammar and any new diagnostic identities/messages not already allocated. These are gate outputs, not assumptions made by this preparation.
+- Sprint 078 must establish whether a safe offline evaluator can preserve the confirmed AMX expression/function contract at arbitrary selected times without generated executable source or report-authored JavaScript. If not, request a specific product decision and leave the dependent scope blocked.
+- Sprint 078 must empirically select the interactive/static rendering representation and DOCX accessibility handling across actual output paths, then propose measurable resource bounds from representative evidence. Do not pre-approve SVG, a fallback, or a numeric limit.
+
 ## V0.12 Sprint 077 Builder Disposition Request (2026-10-11)
 
 - **Superseded by explicit Lead Developer disposition (2026-10-11, 10:00 +08): ACCEPTED / CLOSED.** The Lead Developer reports follow-up checks work as expected and states V0.12 is ready for release, accepting the named VS Code Windows EBUSY/path-case, desktop RPC sandbox-count, and automated desktop definition-navigation residuals for closeout.
