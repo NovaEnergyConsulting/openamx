@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.12 Sprint 077 Builder Disposition Request (2026-10-11)
+
+- **Superseded by explicit Lead Developer disposition (2026-10-11, 10:00 +08): ACCEPTED / CLOSED.** The Lead Developer reports follow-up checks work as expected and states V0.12 is ready for release, accepting the named VS Code Windows EBUSY/path-case, desktop RPC sandbox-count, and automated desktop definition-navigation residuals for closeout.
+- The imported dimension/unit identity failure was resolved by correcting the test fixture's platform-dependent paths; the subsequent full root run passed all 461 tests.
+- No software release or publication was performed by Sprint 077; those operations remain separate.
+- No product semantic question is reopened. Any desktop navigation remediation requires separate authorization; Sprint 077 made no production change.
+
 ## V0.12 Sprint 075 Builder Execution (2026-10-10)
 
 - **Resolved by Lead Developer approval:** IF-I02's missing-return diagnostic is AMX3021, `Every possible path in an if expression must return a value`; recorded in `planning/decisions.md`.

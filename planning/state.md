@@ -8,6 +8,17 @@
 - Sprint 076 tested shared desktop editor facts through RPC but did not claim direct V0.12 CodeMirror UI acceptance. Sprint 077 requires direct user-visible editor verification or a BLOCKED/UNAVAILABLE status.
 - Preparation does not authorize Builder execution, V0.12 acceptance/closeout, software release, or publication.
 
+## V0.12 Sprint 077 Builder Execution (2026-10-11)
+
+- The Lead Developer explicitly authorized Sprint 077 and approved the concrete file-by-file verification/evidence plan before test or planning-ledger edits.
+- Added direct Playwright coverage through the existing browser workflow harness. User-visible CodeMirror highlighting, the representative AMX3016 diagnostic mark/location, and enum-member completion pass; definition navigation remains FAIL after a repeated attempt despite valid symbol facts.
+- Root focused suites: 222 passed / 1 failed / 1,051 expectations; root build passed. Full root suite: 460 passed / 1 failed / 2,630 expectations over 461 tests / 35 files. The only failure is the Sprint 076 imported dimension/unit symbol identity assertion at `tests/editor.test.ts:73`.
+- VS Code Development Host first run: 16 passed / 7 failed; retry: 17 passed / 6 failed. Both runs retain the known Windows EBUSY/path-case failure family. The V0.12 host test passed.
+- Desktop typecheck/web build and focused Help UI passed. RPC assertions for V0.12 completed before the inherited sandbox-count failure at `desktop-app/tests/rpc-contract-check.ts:152` (expected 2, found 1).
+- Sprint 077 evidence and matrix are in `planning/sprints/0077-v12-integrated-acceptance-closeout/builder-evidence.md`. Builder recommendation is BLOCKED/OPEN; Lead Developer disposition remains separate and unrecorded.
+- **Lead Developer disposition (2026-10-11): BLOCKED / OPEN pending follow-up.** V0.12 is not accepted or closed. This disposition does not authorize product remediation, release, or publication.
+- **Superseding Lead Developer disposition (2026-10-11, 10:00 +08): ACCEPTED / CLOSED.** After the test fixture path correction, the full root suite passed (461 passed, 0 failed). The Lead Developer confirmed follow-up behavior checks worked as expected, accepted the named VS Code, desktop RPC, and automated desktop navigation residuals for closeout, and stated V0.12 is ready for release. No release or publication operation was performed.
+
 ## V0.12 Sprint 076 Architect Preparation (2026-10-11)
 
 - Prepared Sprint 076 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0076-v12-editor-language-documentation-integration/`.

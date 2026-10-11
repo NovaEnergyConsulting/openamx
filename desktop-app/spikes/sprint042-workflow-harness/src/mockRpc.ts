@@ -1,5 +1,11 @@
 import { ref } from "vue";
-import type { DesktopRPCClient, DesktopJobIdentity, DesktopJobSnapshot, DesktopJobResult, OpenDocument, WorkbenchState } from "../../../src/shared/rpc";
+import { editorCompletionFacts, prepareEditorCompletion } from "../../../../src/editor/completion";
+import { editorHighlightFacts } from "../../../../src/editor/highlighting";
+import type { EditorModuleAnalysis } from "../../../../src/editor/moduleAnalysis";
+import { editorSymbolFacts } from "../../../../src/editor/symbols";
+import { parseDocumentText } from "../../../../src/parser/parseDocument";
+import { checkDocument } from "../../../../src/typechecker/checkDocument";
+import type { DesktopRPCClient, DesktopJobIdentity, DesktopJobSnapshot, DesktopJobResult, OpenDocument, TextAnalysis, TextDiagnostic, WorkbenchState } from "../../../src/shared/rpc";
 
 const projectRoot = "/sprint042-browser-fixture";
 let activePath = `${projectRoot}/report.amx`;
@@ -9,6 +15,7 @@ let generation = 0;
 let inputSettingsRevision = 0;
 let currentText = "# Sprint 042 report\n\n```amx\nexport let result: Number = 3\n```\n";
 let savedText = currentText;
+let lastAnalysis: TextAnalysis | undefined;
 let autosaveDelayMs = 500;
 let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
 let previewCompletions = 0;
@@ -22,6 +29,89 @@ let nextJobId = 0;
 let selectedId = 0;
 const jobs = new Map<number, DesktopJobSnapshot>();
 export const failNextPreview = ref(false);
+
+function analyzeSingleDocument(document: ReturnType<typeof parseDocumentText>, file: string): EditorModuleAnalysis {
+	return {
+		document,
+		importedTypes: new Map(),
+		importedEnums: new Map(),
+		importedFunctions: new Map(),
+		importedBindings: new Map(),
+		importedDimensions: new Map(),
+		importedUnits: new Map(),
+		...checkDocument(document, file, { moduleIdentity: file })
+	};
+}
+
+function locatedDiagnostic(value: unknown, file: string): TextDiagnostic | undefined {
+	if (typeof value !== "object" || value === null) return undefined;
+	const diagnostic = value as { code?: unknown; message?: unknown; file?: unknown; line?: unknown; column?: unknown };
+	if (typeof diagnostic.code !== "string" || typeof diagnostic.message !== "string") return undefined;
+	return {
+		code: diagnostic.code,
+		message: diagnostic.message,
+		file: typeof diagnostic.file === "string" ? diagnostic.file : file,
+		line: typeof diagnostic.line === "number" ? diagnostic.line : undefined,
+		column: typeof diagnostic.column === "number" ? diagnostic.column : undefined
+	};
+}
+
+function analysisDiagnostic(error: unknown, file: string): TextDiagnostic[] {
+	if (typeof error === "object" && error !== null) {
+		const diagnostics = (error as { diagnostics?: unknown }).diagnostics;
+		if (Array.isArray(diagnostics)) {
+			const located = diagnostics.slice(0, 100)
+				.map(item => locatedDiagnostic(item, file))
+				.filter((item): item is TextDiagnostic => item !== undefined);
+			if (located.length) return located;
+		}
+	}
+	const located = locatedDiagnostic(error, file);
+	if (located) return [located];
+	const message = error instanceof Error ? error.message : String(error);
+	const location = message.match(/\bat (\d+):(\d+)/);
+	return [{
+		code: "AMX3001",
+		message,
+		file,
+		line: location ? Number(location[1]) : undefined,
+		column: location ? Number(location[2]) : undefined
+	}];
+}
+
+function analyzeBufferText(text: string, file: string, cursorOffset?: number): TextAnalysis {
+	let moduleAnalysis: EditorModuleAnalysis | undefined;
+	let parsedDocument: ReturnType<typeof parseDocumentText> | undefined;
+	let analysisError: unknown;
+	try {
+		parsedDocument = parseDocumentText(text);
+		try { moduleAnalysis = analyzeSingleDocument(parsedDocument, file); }
+		catch (error) { analysisError = error; }
+	} catch (error) {
+		analysisError = error;
+	}
+
+	let completions: string[] = [];
+	if (cursorOffset !== undefined) {
+		const offset = Math.max(0, Math.min(text.length, cursorOffset));
+		const prepared = prepareEditorCompletion(text, offset);
+		if (prepared) {
+			try {
+				const completionAnalysis = prepared.text === text && moduleAnalysis
+					? moduleAnalysis : analyzeSingleDocument(prepared.document, file);
+				completions = editorCompletionFacts(prepared.text, offset, prepared.document, completionAnalysis, text)
+					.map(item => item.label).slice(0, 200);
+			} catch { completions = []; }
+		}
+	}
+
+	return {
+		diagnostics: analysisError ? analysisDiagnostic(analysisError, file) : [],
+		completions,
+		highlights: parsedDocument ? editorHighlightFacts(text, parsedDocument).slice(0, 20_000) : [],
+		symbols: moduleAnalysis ? editorSymbolFacts(text, file, moduleAnalysis.document, moduleAnalysis).slice(0, 20_000) : []
+	};
+}
 
 function identity(): WorkbenchState["requestIdentity"] {
 	return {
@@ -120,7 +210,11 @@ const request = {
 		return { ok: true as const, state: state() };
 	},
 	async getInputConfiguration() { return { ok: true as const, configuration: { inputs: [], diagnostics: [] } }; },
-	async analyzeBuffer() { return { ok: true as const, analysis: { diagnostics: [], completions: [] } }; },
+	async analyzeBuffer({ cursorOffset }: { path?: string; revision?: number; cursorOffset?: number } = {}) {
+		const analysis = analyzeBufferText(currentText, activePath, cursorOffset);
+		lastAnalysis = analysis;
+		return { ok: true as const, analysis };
+	},
 	async updateBuffer({ text }: { text: string }) {
 		currentText = text;
 		documentRevision++;
@@ -166,5 +260,5 @@ export function setWindowsExplorerPathFixture(enabled: boolean) {
 }
 
 export function harnessSnapshot() {
-	return { currentText, savedText, lastOpenedPath, previewCompletions, previewStartedAt: [...previewStartedAt], previewAutosavedAtCompletion: [...previewAutosavedAtCompletion], previewNavigationCalls: [...previewNavigationCalls] };
+	return { currentText, savedText, lastOpenedPath, lastAnalysis, previewCompletions, previewStartedAt: [...previewStartedAt], previewAutosavedAtCompletion: [...previewAutosavedAtCompletion], previewNavigationCalls: [...previewNavigationCalls] };
 }

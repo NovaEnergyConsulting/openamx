@@ -50,8 +50,8 @@ test("shared module analysis uses supplied unsaved imports without evaluation", 
 });
 
 test("shared editor symbols preserve imported dimension and unit declaration identity", () => {
-	const entryFile = "/project/entry.amx";
-	const moduleFile = "/project/units.amx";
+	const entryFile = resolve("/project/entry.amx");
+	const moduleFile = resolve("/project/units.amx");
 	const moduleText = "```amx\nexport dimension Length\nexport unit meter: Length\n```\n";
 	const text = [
 		"```amx",

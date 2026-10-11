@@ -6,6 +6,15 @@
 - Sprint 076's root, VS Code, and desktop residuals remain recorded failures/partial suite outcomes for Sprint 077 comparison. Direct desktop shared-fact RPC evidence does not substitute for user-visible CodeMirror UI acceptance.
 - Sprint 077 must request a separate Lead Developer closeout disposition. It does not authorize release, publication, or platform certification.
 
+## V0.12 Sprint 077 Builder Evidence (2026-10-11)
+
+- No language, diagnostic, formatter, production-editor, filesystem, or security-boundary decision was made or changed during Sprint 077.
+- Direct desktop CodeMirror coverage is distinct from shared RPC: highlighting, a representative diagnostic, and enum completion passed, while definition navigation remained failed on retry. Treat the navigation outcome as a desktop UI residual, not as a pass inferred from symbol facts or VS Code behavior.
+- Root, VS Code, and desktop RPC aggregate residuals match the named Sprint 076 failure families. They remain failures pending separate Lead Developer disposition; retries do not erase first-run outcomes.
+- Builder recommendation is BLOCKED/OPEN. No V0.12 acceptance/closure, release, publication, or platform-certification decision is recorded.
+- **Lead Developer disposition (2026-10-11): BLOCKED / OPEN pending follow-up.** No remediation, release, publication, or platform-certification authorization follows from this decision.
+- **Superseding Lead Developer disposition (2026-10-11, 10:00 +08): ACCEPTED / CLOSED for V0.12.** The Lead Developer reports that follow-up checks work as expected and assesses V0.12 as ready for release, accepting the named VS Code, desktop RPC, and automated desktop UI residuals for sprint closeout. Sprint 077 did not perform or authorize release/publication or platform certification.
+
 ## V0.12 Sprint 076 Architect Preparation (2026-10-11)
 
 - Sprint 076 follows the confirmed V0.12 master plan and the implemented Sprint 072-075 contracts. No language-semantic, diagnostic, or compatibility change is proposed.
