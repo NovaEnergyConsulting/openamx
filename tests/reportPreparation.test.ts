@@ -7,7 +7,7 @@ import sharp from 'sharp';
 import { parseDocumentText } from '../src/parser/parseDocument';
 import { Environment } from '../src/runtime/environment';
 import { prepareReport } from '../src/renderer/reportPreparation';
-import { fitNarrativeImage, type NarrativeBlock, type NarrativeInline } from '../src/renderer/narrativeModel';
+import { fitNarrativeImage, parseNarrativeImageWidth, type NarrativeBlock, type NarrativeInline } from '../src/renderer/narrativeModel';
 
 const directories: string[] = [];
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
@@ -60,7 +60,7 @@ describe('shared report preparation', () => {
     await writeFile(join(root, '.openamx', 'project.json'), JSON.stringify({
       version: 1,
       inputs: {},
-      report: { organization: 'Project identity', logo: 'logo.png', logoAlt: 'Project logo', sourceVisible: true, accent: '#FFFFFF' }
+      report: { organization: 'Project identity', logo: 'logo.png', logoAlt: 'Project logo', sourceVisible: true, accent: '#FFFFFF', imageWidth: '75%' }
     }));
     const doc = parseDocumentText(`---
 title: Prepared report
@@ -68,6 +68,7 @@ report:
   organization: "Frontmatter identity"
   author: "A. Analyst"
   sourceVisible: false
+  imageWidth: 640px
 ---
 
 Narrative {{ value }}
@@ -81,12 +82,18 @@ let value = 7
     expect(prepared.title).toBe('Prepared report');
     expect(prepared.identity.organization).toBe('Frontmatter identity');
     expect(prepared.identity.sourceVisible).toBe(false);
+    expect(prepared.identity.imageWidth).toEqual({ value: 640, unit: 'px' });
     expect(prepared.identity.accent).toBe('#146C94');
     expect(prepared.identity.logo?.dataUri).toStartWith('data:image/png;base64,');
     expect(prepared.items).toHaveLength(1);
     expect(prepared.items[0]).toMatchObject({ type: 'narrative' });
     expect(prepared.items[0]?.type === 'narrative' && prepared.items[0].text.trim()).toBe('Narrative 7');
     expect(Object.isFrozen(prepared.items)).toBe(true);
+    const inherited = await prepareReport(parseDocumentText('# Inherited sizing'), environment, {
+      file: join(root, 'inherited.amx'),
+      projectRoot: root
+    });
+    expect(inherited.identity.imageWidth).toEqual({ value: 75, unit: '%' });
   });
 
   it('normalizes Markdown, headings, links, line breaks, code, HTML, and interpolation once', async () => {
@@ -219,6 +226,14 @@ Raw HTML line two
     expect(fitNarrativeImage({ width: 80, height: 40 }, { maxWidth: 800, maxHeight: 400 })).toEqual({ width: 80, height: 40 });
     expect(fitNarrativeImage({ width: 2400, height: 1200 }, { maxWidth: 600, maxHeight: 600 })).toEqual({ width: 600, height: 300 });
     expect(fitNarrativeImage({ width: 1200, height: 2400 }, { maxWidth: 600, maxHeight: 600 })).toEqual({ width: 300, height: 600 });
+    expect(fitNarrativeImage({ width: 200, height: 100 }, { maxWidth: 800, maxHeight: 400 }, { value: 600, unit: 'px' }))
+      .toEqual({ width: 600, height: 300 });
+    expect(fitNarrativeImage({ width: 200, height: 100 }, { maxWidth: 800, maxHeight: 400 }, { value: 75, unit: '%' }))
+      .toEqual({ width: 600, height: 300 });
+    expect(parseNarrativeImageWidth('75%')).toEqual({ value: 75, unit: '%' });
+    expect(parseNarrativeImageWidth('640px')).toEqual({ value: 640, unit: 'px' });
+    expect(parseNarrativeImageWidth('101%')).toBeUndefined();
+    expect(parseNarrativeImageWidth('640pt')).toBeUndefined();
   });
 
   it('rejects unsafe, missing, deceptive, unsupported, and over-limit narrative images', async () => {
@@ -343,6 +358,8 @@ Raw HTML line two
     const root = await fixtureRoot();
     const invalidFrontmatter = [
       '---\nreport:\n  sourceVisible: "false"\n---\n# Report',
+      '---\nreport:\n  imageWidth: 101%\n---\n# Report',
+      '---\nreport:\n  imageWidth: 640pt\n---\n# Report',
       '---\nreport:\n  unknownField: "value"\n---\n# Report'
     ];
     for (const text of invalidFrontmatter) {

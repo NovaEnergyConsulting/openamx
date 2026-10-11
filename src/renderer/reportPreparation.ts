@@ -8,11 +8,11 @@ import { parseExpression } from '../parser/parseExpression';
 import { evaluateExpression } from '../runtime/evaluateExpression';
 import type { Environment, ViewEmission } from '../runtime/environment';
 import { isMeasurement } from '../runtime/measurement';
-import { prepareNarratives, type NarrativeBlock, type NarrativeDiagnostic } from './narrativeModel';
+import { parseNarrativeImageWidth, prepareNarratives, type NarrativeBlock, type NarrativeDiagnostic, type NarrativeImageWidth } from './narrativeModel';
 import { canonicalDirectory, hasSymlink, isContained } from './reportPaths';
 
-const REPORT_FIELDS = new Set(['organization', 'logo', 'logoAlt', 'accent', 'author', 'status', 'classification', 'footer', 'sourceVisible']);
-const TEXT_LIMITS: Record<string, number> = { organization: 120, logoAlt: 120, author: 120, status: 80, classification: 80, footer: 300 };
+const REPORT_FIELDS = new Set(['organization', 'logo', 'logoAlt', 'accent', 'author', 'status', 'classification', 'footer', 'sourceVisible', 'imageWidth']);
+const TEXT_LIMITS: Record<string, number> = { organization: 120, logoAlt: 120, author: 120, status: 80, classification: 80, footer: 300, imageWidth: 16 };
 
 export interface PreparedLogo {
   readonly bytes: Uint8Array;
@@ -28,6 +28,7 @@ export interface ResolvedReportIdentity {
   readonly status?: string;
   readonly classification?: string;
   readonly footer?: string;
+  readonly imageWidth?: NarrativeImageWidth;
   readonly sourceVisible: boolean;
 }
 
@@ -131,6 +132,9 @@ function validateReport(report: Record<string, unknown>, location: string, file?
     const text = value.trim();
     if (!text || /[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/u.test(text)) fail('AMX6001', `Report ${key} contains invalid text`, file ?? location);
     if (TEXT_LIMITS[key] !== undefined && [...text].length > TEXT_LIMITS[key]) fail('AMX6001', `Report ${key} exceeds its length limit`, file ?? location);
+    if (key === 'imageWidth' && !parseNarrativeImageWidth(text)) {
+      fail('AMX6001', 'Report imageWidth must be a positive pixel width up to 4096px or a percentage from 1% to 100%', file ?? location);
+    }
   }
   if (report.logoAlt !== undefined && report.logo === undefined) fail('AMX6001', 'Report logoAlt requires a logo', file ?? location);
   if (report.accent !== undefined && (typeof report.accent !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(report.accent))) fail('AMX6001', 'Report accent must use #RRGGBB', file ?? location);
@@ -149,6 +153,7 @@ async function resolveIdentity(projectReport: Record<string, unknown>, frontMatt
     status: text(merged.status),
     classification: text(merged.classification),
     footer: text(merged.footer),
+    imageWidth: typeof merged.imageWidth === 'string' ? parseNarrativeImageWidth(merged.imageWidth) : undefined,
     sourceVisible: merged.sourceVisible === undefined ? true : merged.sourceVisible as boolean
   });
 }

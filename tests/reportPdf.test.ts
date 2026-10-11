@@ -105,7 +105,12 @@ describe('report PDF adapter', () => {
     }).png().toBuffer());
 
     const markdownRows = Array.from({ length: 70 }, (_value, index) => `| Markdown row ${index + 1} | Value ${index + 1} |`).join('\n');
-    await writeFile(input, `# Main **heading**
+    await writeFile(input, `---
+report:
+  imageWidth: 640px
+---
+
+# Main **heading**
 
 Paragraph with **bold *nested***, *emphasis*, ~~deleted~~, \`inline code\`, and a soft
 line break. It links to [HTTP](http://example.com/target), [HTTPS](https://example.com/target), [companion](./companions/asset%20one.txt?download=1#excerpt%20part), [appendix](#appendix), [duplicate](#appendix-2), [missing](#missing), and [unsupported](javascript:alert(1)).
@@ -191,6 +196,7 @@ ${markdownRows}
       expect(image.alt).toBeTruthy();
       expect(image.image).toStartWith('data:image/png;base64,');
     }
+    expect(images.map(image => image.width)).toEqual([480, 480]);
     expect(Number(images[0].width) / Number(images[0].height)).toBeCloseTo(1200 / 1800, 5);
     expect(Number(images[1].width) / Number(images[1].height)).toBeCloseTo(2400 / 1350, 5);
     expect(() => preparePdfReport(report)).toThrow('validated source-document and final-destination context');

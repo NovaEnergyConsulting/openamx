@@ -28,7 +28,7 @@ import { realpathSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import type { ChartViewEmission, TableViewEmission, ViewDataValue, ViewEmission } from '../runtime/environment';
 import { createChartViewModel, type ChartAxisModel, type ChartViewModel } from './chartModel';
-import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeInline, type NarrativeLink } from './narrativeModel';
+import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeImageWidth, type NarrativeInline, type NarrativeLink } from './narrativeModel';
 import type { PreparedReport } from './reportPreparation';
 
 export interface PreparedDocxReport {
@@ -42,6 +42,7 @@ export interface DocxExportContext {
 
 interface NarrativeRenderContext {
   readonly exportContext?: DocxExportContext;
+  readonly imageWidth?: NarrativeImageWidth;
   readonly bookmarks: ReadonlyMap<string, string>;
   readonly numbering: Array<INumberingOptions['config'][number]>;
   readonly quoteDepth: number;
@@ -96,6 +97,7 @@ function preparePreparedDocxReport(report: PreparedReport, exportContext?: DocxE
     if (item.type === 'narrative') {
       const context: NarrativeRenderContext = {
         exportContext,
+        imageWidth: identity.imageWidth,
         bookmarks,
         numbering,
         quoteDepth: 0,
@@ -304,7 +306,7 @@ function inlineChildren(
         children.push(new ExternalHyperlink({ link: localLinkUri(link, context.exportContext), children: linkChildren }));
       }
     } else if (inline.type === 'image') {
-      children.push(narrativeImageRun(inline.image));
+      children.push(narrativeImageRun(inline.image, context.imageWidth));
     }
   }
   return children;
@@ -324,8 +326,8 @@ function codeChildren(text: string): ParagraphChild[] {
   return runs.length > 0 ? runs : [new TextRun({ text: '', font: 'Consolas', size: 18 })];
 }
 
-function narrativeImageRun(image: NarrativeImage): ImageRun {
-  const dimensions = fitNarrativeImage(image, { maxWidth: IMAGE_WIDTH_PIXELS, maxHeight: IMAGE_HEIGHT_PIXELS });
+function narrativeImageRun(image: NarrativeImage, imageWidth?: NarrativeImageWidth): ImageRun {
+  const dimensions = fitNarrativeImage(image, { maxWidth: IMAGE_WIDTH_PIXELS, maxHeight: IMAGE_HEIGHT_PIXELS }, imageWidth);
   return new ImageRun({
     type: image.format === 'jpeg' ? 'jpg' : 'png',
     data: image.dataUri,

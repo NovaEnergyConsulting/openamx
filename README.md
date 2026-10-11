@@ -363,6 +363,13 @@ tables, code, rules, and visible source line breaks; authored raw HTML remains
 inert text. Narrative images must be project-contained PNG or JPEG files with
 nonempty alternative text, no more than 4 MiB and 4,000,000 decoded pixels per
 image. They are sanitized and embedded, so reports do not fetch remote images.
+Image width is optional in Report Settings at either project-default or
+current-document scope. Enter a fixed width such as `640px` or a content-width
+percentage such as `75%`; for example, `.openamx/project.json` may contain
+`"report": { "imageWidth": "75%" }`, while document front matter may contain
+`report: { imageWidth: 640px }`. Images keep their aspect ratio; widths are
+clamped to the available report/page bounds. Fixed CSS pixels map to 0.75 PDF
+points. With no width setting, the existing fit-to-bounds sizing is used.
 External links are limited to HTTP(S); local companion links in reports are
 limited to PDF, PNG, JPEG, TXT, CSV, and JSON targets contained by the project.
 They are relative to the final report location, and companion files are not

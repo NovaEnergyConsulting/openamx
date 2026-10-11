@@ -39,7 +39,12 @@ describe('prepared PDF and DOCX presentation', () => {
     const image = await sharp({ create: { width: 1200, height: 600, channels: 3, background: '#336699' } }).png().toBuffer();
     await writeFile(join(sourceDirectory, 'wide.png'), image);
     const input = join(sourceDirectory, 'report.amx');
-    await writeFile(input, `# Heading
+    await writeFile(input, `---
+report:
+  imageWidth: 75%
+---
+
+# Heading
 
 Soft
 line with **nested _emphasis_** and \`code\`.
@@ -72,7 +77,8 @@ line with **nested _emphasis_** and \`code\`.
     expect(standalone).toContain('<a href="../source/companions/asset%20one.txt?download=1#section">Companion</a>');
     expect(standalone).toContain('Related analysis');
     expect(standalone).not.toContain('href="../related.amx"');
-    expect(standalone).toContain('alt="A wide test image" width="1024" height="512"');
+    expect(standalone).toContain('alt="A wide test image" width="768" height="384"');
+    expect(standalone).toContain('.openamx-narrative-image{display:block;width:75%;max-width:min(100%,1024px);max-height:768px;height:auto}');
     expect(standalone).toContain('data:image/png;base64,');
     expect(standalone).toContain('<table class="openamx-narrative-table">');
     expect(standalone).toContain('<th scope="col" align="left">Name</th>');
@@ -93,6 +99,9 @@ line with **nested _emphasis_** and \`code\`.
     expect(preview.html).not.toContain('https://example.invalid/report');
     expect(preview.html).not.toContain('asset%20one.txt');
     expect(preview.html).not.toContain('related.amx');
+    expect(preview.html).toContain('.openamx-narrative-image{display:block;width:75%;max-width:min(100%,1024px);max-height:768px;height:auto}');
+    expect(preview.html).toContain('<style nonce="');
+    expect(preview.html).not.toContain('style="width:75%');
     expect(preview.html).not.toContain(root);
     expect(preview.html).toContain("connect-src 'none'");
     expect(preview.html).not.toContain('allow-same-origin');
@@ -106,6 +115,7 @@ line with **nested _emphasis_** and \`code\`.
     }).definition;
     expect(JSON.stringify(pdfDefinition.content)).toContain('Related analysis');
     expect(JSON.stringify(pdfDefinition.content)).not.toContain('related.amx');
+    expect(JSON.stringify(pdfDefinition.content)).toContain('"width":369.75');
 
     const docxArchive = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared, {
       sourceDocumentPath: input,
@@ -115,6 +125,7 @@ line with **nested _emphasis_** and \`code\`.
     const relationshipsXml = await docxArchive.file('word/_rels/document.xml.rels')?.async('string');
     expect(documentXml).toContain('Related analysis');
     expect(relationshipsXml).not.toContain('related.amx');
+    expect(documentXml).toContain('cx="4293394"');
   });
 
   it('uses the same safe identity and ordered source decision in both formats', async () => {

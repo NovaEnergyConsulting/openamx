@@ -58,6 +58,11 @@ export interface NarrativeImage {
   readonly alt: string;
 }
 
+export interface NarrativeImageWidth {
+  readonly value: number;
+  readonly unit: 'px' | '%';
+}
+
 export interface PreparedNarrative {
   readonly text: string;
   readonly blocks: readonly NarrativeBlock[];
@@ -146,7 +151,8 @@ export async function prepareNarratives(
 
 export function fitNarrativeImage(
   image: Pick<NarrativeImage, 'width' | 'height'>,
-  bounds: { readonly maxWidth: number; readonly maxHeight: number }
+  bounds: { readonly maxWidth: number; readonly maxHeight: number },
+  width?: NarrativeImageWidth
 ): { readonly width: number; readonly height: number } {
   if (!Number.isFinite(bounds.maxWidth) || !Number.isFinite(bounds.maxHeight) || bounds.maxWidth <= 0 || bounds.maxHeight <= 0) {
     throw new RangeError('Narrative image bounds must be finite positive numbers');
@@ -154,8 +160,23 @@ export function fitNarrativeImage(
   if (!Number.isFinite(image.width) || !Number.isFinite(image.height) || image.width <= 0 || image.height <= 0) {
     throw new RangeError('Narrative image dimensions must be finite positive numbers');
   }
-  const scale = Math.min(1, bounds.maxWidth / image.width, bounds.maxHeight / image.height);
+  const targetWidth = width === undefined
+    ? image.width
+    : width.unit === '%'
+      ? bounds.maxWidth * width.value / 100
+      : width.value;
+  const scale = Math.min(targetWidth / image.width, bounds.maxWidth / image.width, bounds.maxHeight / image.height);
   return Object.freeze({ width: image.width * scale, height: image.height * scale });
+}
+
+export function parseNarrativeImageWidth(value: string): NarrativeImageWidth | undefined {
+  const match = value.trim().match(/^(\d+)(px|%)$/);
+  if (!match) return undefined;
+  const width = Number(match[1]);
+  if (!Number.isSafeInteger(width) || width <= 0) return undefined;
+  if (match[2] === '%' && width > 100) return undefined;
+  if (match[2] === 'px' && width > 4096) return undefined;
+  return { value: width, unit: match[2] === '%' ? '%' : 'px' };
 }
 
 function interpolateSource(

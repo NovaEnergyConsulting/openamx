@@ -35,7 +35,7 @@ const MAX_HTML = 8_000_000;
 const MAX_FILES = 5000;
 const MAX_FOLDERS = 5000;
 const IGNORED = new Set(["node_modules", "build", "dist", "artifacts", "generated", "out"]);
-const REPORT_SETTING_KEYS: ReportSettingKey[] = ["organization", "logo", "logoAlt", "accent", "author", "status", "classification", "footer", "sourceVisible"];
+const REPORT_SETTING_KEYS: ReportSettingKey[] = ["organization", "logo", "logoAlt", "accent", "author", "status", "classification", "footer", "sourceVisible", "imageWidth"];
 const PREVIEW_LOCAL_EXTENSIONS = new Set([".pdf", ".png", ".jpg", ".jpeg", ".txt", ".csv", ".json"]);
 
 function hash(text: string): string {

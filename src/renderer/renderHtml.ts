@@ -15,7 +15,7 @@ import { Environment } from '../runtime/environment';
 import type { ViewDataValue, ViewEmission, TableViewEmission, ChartViewEmission } from '../runtime/environment';
 import { formatAmx } from '../formatter/formatAmx';
 import { createChartViewModel, type ChartViewModel } from './chartModel';
-import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeInline, type NarrativeLink } from './narrativeModel';
+import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeImageWidth, type NarrativeInline, type NarrativeLink } from './narrativeModel';
 import { hasSymlink, isContained } from './reportPaths';
 import type { PreparedReport } from './reportPreparation';
 
@@ -93,6 +93,7 @@ export interface RenderedPreviewHtml {
 
 interface NarrativeHtmlContext {
   readonly mode: 'standalone' | 'preview';
+  readonly imageWidth?: NarrativeImageWidth;
   readonly sourceDocumentPath?: string;
   readonly projectRoot?: string;
   readonly outputPath?: string;
@@ -176,6 +177,7 @@ export function renderPreparedHtml(report: PreparedReport, options: StandaloneHt
   const previewToken = isPreview ? randomBytes(32).toString('hex') : undefined;
   const context: NarrativeHtmlContext = {
     mode: isPreview ? 'preview' : 'standalone',
+    imageWidth: report.identity.imageWidth,
     ...(previewToken ? { previewToken } : {}),
     ...(!isPreview && options.sourceDocumentPath ? { sourceDocumentPath: options.sourceDocumentPath } : {}),
     ...(!isPreview && options.projectRoot ? { projectRoot: options.projectRoot } : {}),
@@ -205,7 +207,7 @@ export function renderPreparedHtml(report: PreparedReport, options: StandaloneHt
   const nonce = hasViews || identity.accent !== '#146C94' || hasNarrativeAssets || isPreview ? randomBytes(18).toString('base64') : '';
   const accentStyle = safeAccentStyle(identity.accent, nonce);
   const viewAssets = hasViews ? renderViewAssets(nonce) : '';
-  const narrativeAssets = hasNarrativeAssets ? renderNarrativeAssets(nonce) : '';
+  const narrativeAssets = hasNarrativeAssets ? renderNarrativeAssets(nonce, identity.imageWidth) : '';
   const previewNavigation = previewToken ? renderPreviewNavigationBootstrap(nonce, previewToken) : '';
   const html = `<!doctype html>
 <html>
@@ -260,14 +262,14 @@ function renderNarrativeInlines(inlines: readonly NarrativeInline[], context: Na
       case 'emphasis': return `<em>${renderNarrativeInlines(inline.children, context)}</em>`;
       case 'delete': return `<del>${renderNarrativeInlines(inline.children, context)}</del>`;
       case 'inlineCode': return `<code>${escapeHtml(inline.text)}</code>`;
-      case 'image': return renderNarrativeImage(inline.image, inline.title);
+      case 'image': return renderNarrativeImage(inline.image, inline.title, context.imageWidth);
       case 'link': return renderNarrativeLink(inline.link, inline.children, context);
     }
   }).join('');
 }
 
-function renderNarrativeImage(image: NarrativeImage, title: string | undefined): string {
-  const dimensions = fitNarrativeImage(image, { maxWidth: 1024, maxHeight: 768 });
+function renderNarrativeImage(image: NarrativeImage, title: string | undefined, imageWidth?: NarrativeImageWidth): string {
+  const dimensions = fitNarrativeImage(image, { maxWidth: 1024, maxHeight: 768 }, imageWidth);
   return `<img class="openamx-narrative-image" src="${escapeHtml(image.dataUri)}" alt="${escapeHtml(image.alt)}" width="${Math.round(dimensions.width)}" height="${Math.round(dimensions.height)}"${title === undefined ? '' : ` title="${escapeHtml(title)}"`}>`;
 }
 
@@ -338,8 +340,13 @@ function hasInlineHtmlAssets(inlines: readonly NarrativeInline[]): boolean {
       && hasInlineHtmlAssets(inline.children));
 }
 
-function renderNarrativeAssets(nonce: string): string {
-  return `<style nonce="${nonce}">.openamx-narrative-image{display:block;max-width:100%;height:auto}.openamx-narrative-table{border-collapse:collapse;width:100%;margin:1rem 0}.openamx-narrative-table th,.openamx-narrative-table td{border:1px solid #a8b3bd;padding:.4rem;text-align:left}.openamx-page-break{break-before:page;page-break-before:always}@media screen{.openamx-page-break{border-top:1px dashed #a8b3bd;margin:1.5rem 0}}</style>`;
+function renderNarrativeAssets(nonce: string, imageWidth?: NarrativeImageWidth): string {
+  const imageSizing = imageWidth === undefined
+    ? 'max-width:100%;'
+    : imageWidth.unit === '%'
+      ? `width:${imageWidth.value}%;max-width:min(100%,1024px);max-height:768px;`
+      : `width:${imageWidth.value}px;max-width:100%;max-height:768px;`;
+  return `<style nonce="${nonce}">.openamx-narrative-image{display:block;${imageSizing}height:auto}.openamx-narrative-table{border-collapse:collapse;width:100%;margin:1rem 0}.openamx-narrative-table th,.openamx-narrative-table td{border:1px solid #a8b3bd;padding:.4rem;text-align:left}.openamx-page-break{break-before:page;page-break-before:always}@media screen{.openamx-page-break{border-top:1px dashed #a8b3bd;margin:1.5rem 0}}</style>`;
 }
 
 function renderPreviewNavigationBootstrap(nonce: string, previewToken: string): string {

@@ -1,7 +1,7 @@
 import { parseDocument as parseYamlDocument } from "yaml";
 
 export type ReportSettingsValues = Partial<Record<
-	"organization" | "logo" | "logoAlt" | "accent" | "author" | "status" | "classification" | "footer" | "sourceVisible",
+	"organization" | "logo" | "logoAlt" | "accent" | "author" | "status" | "classification" | "footer" | "sourceVisible" | "imageWidth",
 	string | boolean | null
 >>;
 

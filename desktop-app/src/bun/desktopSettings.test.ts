@@ -10,12 +10,12 @@ import { updateReportFrontmatter } from "./desktopSettings";
 describe("current-buffer report settings edits", () => {
 	it("preserves narrative, unrelated YAML keys, comments, and line endings", () => {
 		const source = "---\r\ntitle: Existing title\r\n# keep this note\r\ncustom: value\r\nreport:\r\n  author: Old\r\n---\r\n# Body\r\n";
-		const updated = updateReportFrontmatter(source, { author: "New", sourceVisible: false });
+		const updated = updateReportFrontmatter(source, { author: "New", sourceVisible: false, imageWidth: "75%" });
 		expect(updated).toContain("# keep this note\r\n");
 		expect(updated).toContain("custom: value\r\n");
 		expect(updated.endsWith("---\r\n# Body\r\n")).toBe(true);
 		expect(parseFrontMatter(updated).metadata).toEqual({
-			title: "Existing title", custom: "value", report: { author: "New", sourceVisible: false }
+			title: "Existing title", custom: "value", report: { author: "New", sourceVisible: false, imageWidth: "75%" }
 		});
 	});
 
@@ -154,11 +154,11 @@ describe("Sprint 039 trusted settings RPC", () => {
 			const initial = await service.request.getReportSettings();
 			expect(initial.ok).toBe(true);
 			if (!initial.ok) throw new Error(initial.error.message);
-			const projectUpdated = await service.request.setProjectReportSettings({ values: { organization: "North" }, expectedRevision: initial.settings.projectRevision });
+			const projectUpdated = await service.request.setProjectReportSettings({ values: { organization: "North", imageWidth: "75%" }, expectedRevision: initial.settings.projectRevision });
 			expect(projectUpdated.ok).toBe(true);
 			if (!projectUpdated.ok) throw new Error(projectUpdated.error.message);
 			expect(JSON.parse(readFileSync(join(stateDirectory, "project.json"), "utf8"))).toEqual({
-				version: 1, inputs: { rows: "data/rows.csv" }, report: { footer: "Preserve me", organization: "North" }
+				version: 1, inputs: { rows: "data/rows.csv" }, report: { footer: "Preserve me", organization: "North", imageWidth: "75%" }
 			});
 			const beforeConflict = projectUpdated.settings.projectRevision;
 			writeFileSync(join(stateDirectory, "project.json"), JSON.stringify({ version: 1, inputs: { rows: "data/rows.csv" }, report: { footer: "External edit" } }));
@@ -168,13 +168,14 @@ describe("Sprint 039 trusted settings RPC", () => {
 			const current = await service.request.getReportSettings();
 			expect(current.ok).toBe(true);
 			if (!current.ok) throw new Error(current.error.message);
-			const updatedDocument = await service.request.setDocumentReportSettings({ values: { author: "Current author", sourceVisible: false }, expectedRevision: current.settings.documentRevision });
+			const updatedDocument = await service.request.setDocumentReportSettings({ values: { author: "Current author", sourceVisible: false, imageWidth: "640px" }, expectedRevision: current.settings.documentRevision });
 			expect(updatedDocument.ok).toBe(true);
 			if (!updatedDocument.ok) throw new Error(updatedDocument.error.message);
 			expect(updatedDocument.document.text).toContain("# Preserve this comment\r\n");
 			expect(updatedDocument.document.text).toContain("custom: untouched\r\n");
 			expect(updatedDocument.document.text.endsWith(`---\r\n${body}`)).toBe(true);
-			expect(parseFrontMatter(updatedDocument.document.text).metadata.report).toEqual({ author: "Current author", sourceVisible: false });
+			expect(parseFrontMatter(updatedDocument.document.text).metadata.report).toEqual({ author: "Current author", sourceVisible: false, imageWidth: "640px" });
+			expect(updatedDocument.settings.effective.imageWidth).toBe("640px");
 			const staleDocument = await service.request.setDocumentReportSettings({ values: { organization: "Stale" }, expectedRevision: current.settings.documentRevision });
 			expect(staleDocument.ok).toBe(false);
 			expect(readFileSync(entry, "utf8")).toBe(originalText);

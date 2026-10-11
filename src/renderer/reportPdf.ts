@@ -6,7 +6,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ChartViewEmission, TableViewEmission, ViewDataValue, ViewEmission } from '../runtime/environment';
 import { createChartViewModel, type ChartViewModel } from './chartModel';
-import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeInline, type NarrativeLink } from './narrativeModel';
+import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeImageWidth, type NarrativeInline, type NarrativeLink } from './narrativeModel';
 import type { PreparedReport } from './reportPreparation';
 
 export interface PreparedPdfReport {
@@ -76,7 +76,7 @@ function preparePreparedPdfReport(
     });
   }
   for (const item of report.items) {
-    if (item.type === 'narrative') addNarrativeBlocks(content, item.markdown, context);
+    if (item.type === 'narrative') addNarrativeBlocks(content, item.markdown, context, identity.imageWidth);
     else if (item.type === 'source') content.push({ text: item.text, style: 'source' });
     else addEmission(content, item.emission, identity, renderChart);
   }
@@ -101,22 +101,27 @@ function preparePreparedPdfReport(
   };
 }
 
-function addNarrativeBlocks(content: unknown[], blocks: readonly NarrativeBlock[], context?: PdfExportContext): void {
+function addNarrativeBlocks(
+  content: unknown[],
+  blocks: readonly NarrativeBlock[],
+  context: PdfExportContext | undefined,
+  imageWidth?: NarrativeImageWidth
+): void {
   for (const block of blocks) {
     if (block.type === 'heading') {
-      addInlineContent(content, block.children, context, {
+      addInlineContent(content, block.children, context, imageWidth, {
         style: block.depth === 1 ? 'title' : 'heading',
         ...(block.depth > 1 ? { fontSize: Math.max(9, 16 - block.depth) } : {}),
         id: block.id
       });
     } else if (block.type === 'paragraph') {
-      addInlineContent(content, block.children, context, { margin: [0, 0, 0, 7] });
+      addInlineContent(content, block.children, context, imageWidth, { margin: [0, 0, 0, 7] });
     } else if (block.type === 'code') {
       content.push({ text: block.text, style: 'code', preserveLeadingSpaces: true });
     } else if (block.type === 'list') {
       const items = block.items.map(item => {
         const children: unknown[] = [];
-        addNarrativeBlocks(children, item.blocks, context);
+        addNarrativeBlocks(children, item.blocks, context, imageWidth);
         if (item.checked !== undefined && children.length > 0) {
           const first = children[0];
           const marker = item.checked ? '[x] ' : '[ ] ';
@@ -135,7 +140,7 @@ function addNarrativeBlocks(content: unknown[], blocks: readonly NarrativeBlock[
         : { ul: items, margin: [0, 0, 0, 7] });
     } else if (block.type === 'blockquote') {
       const quoted: unknown[] = [];
-      addNarrativeBlocks(quoted, block.blocks, context);
+      addNarrativeBlocks(quoted, block.blocks, context, imageWidth);
       content.push({ stack: quoted, style: 'blockquote' });
     } else if (block.type === 'table') {
       const cell = (children: readonly NarrativeInline[], header: boolean, alignment: string | null) => {
@@ -149,7 +154,7 @@ function addNarrativeBlocks(content: unknown[], blocks: readonly NarrativeBlock[
         }
         return {
           stack: segments.map(segment => segment.type === 'image'
-            ? imageRun(segment.image, segment.style, { maxWidth: 150, maxHeight: 150 })
+            ? imageRun(segment.image, segment.style, { maxWidth: 150, maxHeight: 150 }, imageWidth)
             : { text: inlineRuns(segment.inlines, context) }),
           ...common
         };
@@ -262,6 +267,7 @@ function addInlineContent(
   content: unknown[],
   inlines: readonly NarrativeInline[],
   context: PdfExportContext | undefined,
+  imageWidth: NarrativeImageWidth | undefined,
   options: Record<string, unknown>
 ): void {
   const segments = splitInlineImages(inlines, context);
@@ -273,7 +279,7 @@ function addInlineContent(
   let first = true;
   for (const segment of segments) {
     if (segment.type === 'image') {
-      const node = imageRun(segment.image, segment.style);
+      const node = imageRun(segment.image, segment.style, undefined, imageWidth);
       if (options.id !== undefined && first) node.id = options.id;
       if (options.margin !== undefined) node.margin = options.margin;
       content.push(node);
@@ -298,9 +304,13 @@ function pdfLinkStyle(link: NarrativeLink, context: PdfExportContext | undefined
 function imageRun(
   image: NarrativeImage,
   style: InlineStyle,
-  maximum = { maxWidth: 493, maxHeight: 739 }
+  maximum = { maxWidth: 493, maxHeight: 739 },
+  imageWidth?: NarrativeImageWidth
 ): Record<string, unknown> {
-  const dimensions = fitNarrativeImage(image, maximum);
+  const pdfWidth = imageWidth?.unit === 'px'
+    ? { value: imageWidth.value * 0.75, unit: 'px' as const }
+    : imageWidth;
+  const dimensions = fitNarrativeImage(image, maximum, pdfWidth);
   return {
     image: image.dataUri,
     width: dimensions.width,

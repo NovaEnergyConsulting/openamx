@@ -88,7 +88,7 @@ export interface InputConfiguration {
 	diagnostics: TextDiagnostic[];
 	revisions?: { local: string; project: string };
 }
-export type ReportSettingKey = "organization" | "logo" | "logoAlt" | "accent" | "author" | "status" | "classification" | "footer" | "sourceVisible";
+export type ReportSettingKey = "organization" | "logo" | "logoAlt" | "accent" | "author" | "status" | "classification" | "footer" | "sourceVisible" | "imageWidth";
 export type ReportSettingsValues = Partial<Record<ReportSettingKey, string | boolean | null>>;
 export interface ReportSettingsSnapshot {
 	project: ReportSettingsValues;
