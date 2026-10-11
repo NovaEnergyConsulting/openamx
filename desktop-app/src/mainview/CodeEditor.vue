@@ -4,6 +4,7 @@ import { basicSetup, EditorView } from "codemirror";
 import { indentWithTab } from "@codemirror/commands";
 import { autocompletion, startCompletion, type CompletionContext } from "@codemirror/autocomplete";
 import { markdown } from "@codemirror/lang-markdown";
+import { css, cssLanguage } from "@codemirror/lang-css";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { Compartment, EditorSelection, EditorState, StateEffect, StateField } from "@codemirror/state";
@@ -27,6 +28,7 @@ let applyingExternal = false;
 let hasUnacknowledgedEdits = false;
 const wrapping = new Compartment();
 const language = new Compartment();
+const completion = new Compartment();
 
 function normalizedEditorText(text: string): string { return text.replace(/\r\n/g, "\n"); }
 function sourceText(editorText: string): string {
@@ -135,7 +137,7 @@ async function confirmRename() {
 
 const extensions = [keymap.of([indentWithTab, { key: "F12", run: definitionAt }, { key: "Shift-F12", run: referencesAt }, { key: "F2", run: beginRename },
 	{ key: "Ctrl-Space", run: startCompletion }, { key: "Cmd-Space", run: startCompletion }]),
-	basicSetup, language.of(props.path.endsWith(".css") ? [] : markdown()), syntaxHighlighting(HighlightStyle.define([
+	basicSetup, language.of(props.path.endsWith(".css") ? css() : markdown()), syntaxHighlighting(HighlightStyle.define([
 		{ tag: tags.heading, color: "var(--shell-accent)", fontWeight: "bold" },
 		{ tag: tags.link, color: "var(--shell-link)", textDecoration: "underline" },
 		{ tag: tags.emphasis, fontStyle: "italic" },
@@ -144,7 +146,16 @@ const extensions = [keymap.of([indentWithTab, { key: "F12", run: definitionAt },
 		{ tag: [tags.string, tags.number, tags.atom], color: "var(--amx-token-literal)" },
 		{ tag: tags.comment, color: "var(--shell-muted)", fontStyle: "italic" },
 		{ tag: tags.invalid, color: "var(--shell-danger)" }
-	])), wrapping.of(props.wrapLines === false ? [] : EditorView.lineWrapping), highlightField, autocompletion({ override: [completionSource] }),
+	])), syntaxHighlighting(HighlightStyle.define([
+		{ tag: [tags.tagName, tags.className, tags.labelName, tags.namespace, tags.attributeName], color: "var(--amx-token-type)" },
+		{ tag: [tags.propertyName, tags.variableName], color: "var(--amx-token-field)" },
+		{ tag: [tags.keyword, tags.modifier, tags.operatorKeyword], color: "var(--amx-token-keyword)" },
+		{ tag: [tags.string, tags.number, tags.atom, tags.color, tags.unit], color: "var(--amx-token-literal)" },
+		{ tag: tags.comment, color: "var(--shell-muted)", fontStyle: "italic" },
+		{ tag: [tags.punctuation, tags.operator], color: "var(--shell-ink)" },
+		{ tag: tags.invalid, color: "var(--shell-danger)" }
+	], { scope: cssLanguage })), wrapping.of(props.wrapLines === false ? [] : EditorView.lineWrapping), highlightField,
+	completion.of(autocompletion(props.path.endsWith(".css") ? {} : { override: [completionSource] })),
 	hoverTooltip((_view, position) => {
 		const symbol = symbolAt(position);
 		if (!symbol) return null;
@@ -243,7 +254,8 @@ watch(() => [props.path, props.text, props.revision] as const, ([path, text], [o
 		editor.setState(saved?.doc.toString() === text ? saved : createState(text));
 		editor.dispatch({ effects: [
 			wrapping.reconfigure(props.wrapLines === false ? [] : EditorView.lineWrapping),
-			language.reconfigure(path.endsWith(".css") ? [] : markdown())
+			language.reconfigure(path.endsWith(".css") ? css() : markdown()),
+			completion.reconfigure(autocompletion(path.endsWith(".css") ? {} : { override: [completionSource] }))
 		] });
 		editor.scrollDOM.scrollTop = scrollPositions.get(path) ?? 0;
 		applyEditorFacts();
