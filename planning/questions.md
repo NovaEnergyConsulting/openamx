@@ -7,6 +7,18 @@
 - PDF `/StructTreeRoot` and `/Alt` are absent in the inspected artifact; formal PDF/UA and screen-reader acceptance are unsupported by current evidence. Manual assistive-technology review, minimum-host/cross-platform qualification, and broader AMX AST/value/performance coverage also remain open unless directly completed during Sprint 083.
 - Sprint 083 must request a separate Lead Developer closeout disposition based on the completed matrix. No V0.13 acceptance, release, publication, or platform certification is inferred in advance.
 
+## V0.13 Sprint 083 Builder Follow-up Questions (2026-10-13)
+
+- **Resolved by separate Lead Developer disposition (user selection, 2026-10-13): V0.13 ACCEPTED / CLOSED WITH RECORDED RESIDUALS.** The Builder recommendation remains BLOCKED/OPEN; individual evidence statuses are unchanged. No release, publication, version change, or platform certification is implied.
+- **Native desktop UAT — owner: Lead Developer / Windows desktop reviewer.** Provide/configure the approved `OPENAMX_NATIVE_CDP_URL` test-only WebView2 endpoint, then run the actual packaged preview for both examples, playback/errors, stale-message lifecycle, and the repeated-emission workload. The Vite/RPC harness and local package build are not native preview evidence.
+- **DOCX visible page flow — owner: Lead Developer / Word reviewer.** Inspect both generated documents read-only in Word Print Layout and record page count, figure placement and screenshots. Word COM `ExportAsFixedFormat` did not complete within the bounded attempt; OOXML and embedded-PNG inspection do not close the visible Word-view criterion.
+- **Battery PDF figure page — owner: Lead Developer / PDF reviewer.** Inspect and retain the actual battery PDF page 3 visual in an approved viewer. PDF.js page count/text extraction passed, but the browser capture remained on pages 1–2.
+- **Accessibility — owner: Product/accessibility reviewer.** The inspected PDFs have no `/StructTreeRoot` or `/Alt`; no PDF/UA, tagged-PDF, or screen-reader claim is supported. Manual screen-reader review remains NOT RUN.
+- **Windows suites — owner: extension and desktop test maintainers.** Retain the VS Code 17/24 outcome (five EBUSY cleanup failures, two drive-letter case assertions) and desktop sandbox-occurrence assertion (`expected 2`, `found 1`) without changing path, sandbox, or test assertions. Both match recorded Sprint 082 residuals.
+- **Package-artifact preservation — owner: Lead Developer.** The pre-build contents of ignored `desktop-app\build\stable-win-x64` were not captured before the authorized local build. The current seven-file package is preserved in the worktree/session snapshot, but whether the build replaced pre-existing ignored bytes is unknown; decide whether recovery/additional review is required.
+- **Broader qualification — owner: core/platform owners.** Minimum-host/low-memory, cross-platform, exhaustive AMX AST/value/function parity and high-rate evaluation remain NOT RUN or unqualified.
+- These are residual follow-ups accepted for Sprint 083 closeout, not passed or waived tests. The Lead Developer may request or authorize separately scoped follow-up without changing the statuses recorded in Sprint 083 evidence.
+
 ## V0.13 Sprint 082 Builder Execution (2026-10-13)
 
 - **Resolved by Lead Developer direction:** Sprint 082 adds a collapsible

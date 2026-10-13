@@ -7,6 +7,16 @@
 - Preserve separate statuses for every surface and residual. No failure is accepted, waived, or converted to PASS by this preparation.
 - A Builder recommendation is not the Lead Developer disposition. Any V0.13 acceptance/closeout decision must be separately recorded; release/publication remains separate.
 
+## V0.13 Sprint 083 Builder Evidence and Disposition Request (2026-10-13)
+
+- The Lead Developer authorized Sprint 083 and approved its concrete verification/evidence file plan before repository changes. No product semantics, diagnostics, tests, security policy, dependencies, or versions changed.
+- Root full suite and focused suite both pass (502/0 and 312/0 respectively). The VS Code Development Host remains 17 passed / 7 failed with the Sprint 082 Windows EBUSY/path-case family. Desktop RPC retains the inherited sandbox-occurrence failure; desktop typecheck, web build, package build, and focused Vite UI tests passed as separately recorded.
+- Standalone HTML controls/security/resource evidence and production PDF/DOCX generation/OOXML evidence are independent. Native packaged preview is BLOCKED/UNAVAILABLE, Word page-flow and the battery PDF figure-page visual are BLOCKED/UNAVAILABLE, and PDF tagging/PDF/UA/screen-reader support is not established.
+- The user authorized continuation while explicitly recording the unverified preservation state of the ignored `desktop-app\build\stable-win-x64` directory that the package build wrote. The current post-build package is preserved; no claim is made that prior ignored bytes were preserved.
+- Builder recommendation: **BLOCKED / OPEN**.
+- **Lead Developer disposition (user selection, 2026-10-13): V0.13 ACCEPTED / CLOSED WITH RECORDED RESIDUALS.** The disposition accepts the closeout with, and does not relabel, these residuals: VS Code 17/24 Windows suite failures; desktop RPC sandbox-occurrence failure; native packaged preview unavailable; Word-rendered DOCX page flow unavailable; battery PDF figure-page visual unavailable; missing tagged-PDF structure and unrun assistive-technology, minimum-host, cross-platform, exhaustive evaluator/performance checks; and uncertainty about pre-build ignored stable-package bytes.
+- No product semantics, test assertion, renderer, sandbox, or package version changed. This is not release, publication, package release, or platform certification authorization.
+
 ## V0.13 Sprint 082 Builder Execution (2026-10-13)
 
 - The Lead Developer explicitly authorized Sprint 082 execution and approved
