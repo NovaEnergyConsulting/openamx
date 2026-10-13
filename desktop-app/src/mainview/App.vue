@@ -44,6 +44,7 @@ let settingsInvoker: HTMLElement | null = null;
 const preview = ref("");
 const previewToken = ref("");
 const previewFrame = ref<HTMLIFrameElement | null>(null);
+const previewDiagramErrors = ref<Array<{ diagramId: string; diagnostic: TextDiagnostic }>>([]);
 const previewPaused = ref(false);
 const analysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
 const staticAnalysis = ref<TextAnalysis>({ diagnostics: [], completions: [] });
@@ -144,6 +145,33 @@ function isPreviewScrollMessage(value: unknown): value is { version: 1; type: "s
 		&& data.progress >= 0 && data.progress <= 1;
 }
 
+type PreviewDiagramMessage =
+	| { version: 1; type: "diagram-recovered"; previewToken: string; diagramId: string }
+	| { version: 1; type: "diagram-error"; previewToken: string; diagramId: string; code: string; message: string; file?: string; line?: number; column?: number };
+
+function isPreviewDiagramMessage(value: unknown): value is PreviewDiagramMessage {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+	const data = value as Record<string, unknown>;
+	const allowedKeys = ["version", "type", "previewToken", "diagramId", "code", "message", "file", "line", "column"];
+	if (Object.keys(data).some(key => !allowedKeys.includes(key))
+		|| data.version !== 1
+		|| typeof data.previewToken !== "string" || !/^[a-f0-9]{64}$/.test(data.previewToken)
+		|| typeof data.diagramId !== "string" || !/^openamx-diagram-[0-9]+$/.test(data.diagramId)) return false;
+	if (data.type === "diagram-recovered") {
+		return Object.keys(data).length === 4;
+	}
+	if (data.type !== "diagram-error" || typeof data.code !== "string"
+		|| !["AMXD009", "AMXD010", "AMXD011", "DIAGRAM_RUNTIME"].includes(data.code)
+		|| typeof data.message !== "string" || data.message.length > 1000
+		|| (data.file !== undefined && (typeof data.file !== "string" || data.file.length > 4096))
+		|| (data.line !== undefined && (!Number.isSafeInteger(data.line) || Number(data.line) < 1))
+		|| (data.column !== undefined && (!Number.isSafeInteger(data.column) || Number(data.column) < 1))) return false;
+	if (data.code === "AMXD010" && data.message !== "Infinity value calculated for time upper bound") return false;
+	if (data.code === "AMXD011" && data.message !== "Expression produces an infinite result") return false;
+	if (data.code === "AMXD009" && !data.message.startsWith("Frame evaluation leads to invalid results. The underlying error is: ")) return false;
+	return true;
+}
+
 function syncPreviewToCursor() {
 	if (!previewPort || !previewPortToken) return;
 	previewPort.postMessage({
@@ -164,12 +192,40 @@ function bindPreviewFrame() {
 	previewPortToken = token;
 	previewPortIdentity = { ...identity };
 	channel.port1.onmessage = event => {
-		if ((!isPreviewNavigationMessage(event.data) && !isPreviewScrollMessage(event.data))
+		if ((!isPreviewNavigationMessage(event.data) && !isPreviewScrollMessage(event.data) && !isPreviewDiagramMessage(event.data))
 			|| event.data.previewToken !== token
 			|| previewFrame.value !== frame || !frame.isConnected
 			|| previewPortFrame !== frame || previewPortToken !== token
 			|| token !== previewToken.value
 			|| !samePreviewIdentity(workbench.value.requestIdentity, identity)) return;
+		if (isPreviewDiagramMessage(event.data)) {
+			const activePreview = document.value?.path ? lastGoodPreviews.get(document.value.path) : undefined;
+			if (previewState.value !== "success" || activePreview?.previewToken !== token || activePreview.stale) return;
+			if (event.data.type === "diagram-recovered") {
+				const remaining = previewDiagramErrors.value.filter(item => item.diagramId !== event.data.diagramId);
+				previewDiagramErrors.value = remaining;
+				if (status.value.startsWith(`Diagram ${event.data.diagramId} frame failed:`)) {
+					const next = remaining.at(-1);
+					status.value = next
+						? `Diagram ${next.diagramId} frame failed: ${next.diagnostic.code}.`
+						: "Preview reflects the current buffer.";
+				}
+				return;
+			}
+			const diagnostic: TextDiagnostic = {
+				code: event.data.code,
+				message: event.data.message,
+				...(event.data.file === undefined ? {} : { file: event.data.file }),
+				...(event.data.line === undefined ? {} : { line: event.data.line }),
+				...(event.data.column === undefined ? {} : { column: event.data.column })
+			};
+			previewDiagramErrors.value = [
+				...previewDiagramErrors.value.filter(item => item.diagramId !== event.data.diagramId),
+				{ diagramId: event.data.diagramId, diagnostic }
+			];
+			status.value = `Diagram ${event.data.diagramId} frame failed: ${event.data.code}.`;
+			return;
+		}
 		if (isPreviewScrollMessage(event.data)) {
 			editorElement.value?.scrollToProgress(event.data.progress);
 			return;
@@ -756,6 +812,7 @@ function clearView() {
 	staticRequest++;
 	preview.value = "";
 	previewToken.value = "";
+	previewDiagramErrors.value = [];
 	previewState.value = "idle";
 	analysis.value = { diagnostics: [], completions: [] };
 	staticAnalysis.value = { diagnostics: [], completions: [] };
@@ -1083,6 +1140,7 @@ async function refresh() {
 		}
 		preview.value = rendered.result.html ?? "";
 		previewToken.value = rendered.result.previewToken;
+		previewDiagramErrors.value = [];
 		lastGoodPreviews.set(document.value.path, {
 			html: preview.value, previewToken: previewToken.value, revision: document.value.revision,
 			projectGeneration: workbench.value.generation, settingsRevision: workbench.value.inputSettingsRevision, stale: false
@@ -1354,9 +1412,10 @@ function displayDiagnostic(item: TextDiagnostic): string {
 				<div v-if="runtimeExpanded" class="runtime-details">
 					<p v-for="(item, index) in staticAnalysis.diagnostics" :key="`static-${item.code}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Static {{ item.code }}: {{ displayDiagnostic(item) }}</button></p>
 					<p v-for="(item, index) in analysis.diagnostics" :key="`run-${item.code}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Run {{ item.code }}: {{ displayDiagnostic(item) }}</button></p>
+					<p v-for="item in previewDiagramErrors" :key="item.diagramId" role="alert">{{ item.diagnostic.code }} · {{ item.diagnostic.message }}<small v-if="item.diagnostic.file || item.diagnostic.line"> ({{ item.diagnostic.file }}<template v-if="item.diagnostic.line">:{{ item.diagnostic.line }}<template v-if="item.diagnostic.column">:{{ item.diagnostic.column }}</template></template>)</small></p>
 					<p v-for="item in summary.values" :key="item.name"><code>{{ item.name }}</code> {{ item.value }}</p>
 					<p v-for="item in inputConfiguration.diagnostics" :key="`input-${item.code}-${item.inputName}`"><button class="diagnostic-link" :disabled="!item.line && !item.inputName" @click="navigateInputDiagnostic(item)">Input {{ item.code }}: {{ displayDiagnostic(item) }}</button></p>
-					<p v-if="!analysis.diagnostics.length && !staticAnalysis.diagnostics.length && !summary.values.length && !inputConfiguration.diagnostics.length" class="muted">No runtime details.</p>
+					<p v-if="!analysis.diagnostics.length && !staticAnalysis.diagnostics.length && !previewDiagramErrors.length && !summary.values.length && !inputConfiguration.diagnostics.length" class="muted">No runtime details.</p>
 				</div>
 			</section>
 		</div>

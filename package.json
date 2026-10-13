@@ -8,7 +8,7 @@
     "openamx": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "bun run scripts/build-diagram-runtime.ts && tsc",
     "test": "bun test",
     "release:prepare": "bun run scripts/release.ts prepare",
     "release:check": "bun run scripts/release.ts check",

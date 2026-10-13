@@ -1,12 +1,20 @@
 # Planning State
 
+## V0.13 Sprint 080 Builder Execution (2026-10-13)
+
+- The Lead Developer approved the concrete Sprint 080 file plan and explicitly authorized execution. A separate amendment approved the root Bun-built browser runtime asset rather than Vite/esbuild, and a resource disposition approved fail-fast rejection above 1 MiB through the existing desktop job error path.
+- Implemented standalone HTML and the desktop preview with the shared immutable diagram model, the bundled application-owned AMX evaluator, gzip/base64 inert context data, SVG-in-DOM, independent playback controls, and token-bound per-diagram errors. No grammar, evaluator semantics, authored caps, desktop sandbox policy, or chart/PDF/DOCX behavior was changed.
+- The repeated-emission workload (17 diagrams/544 elements from one authored declaration with 32 elements) passed in the stable packaged WebView2 preview: 185,065 UTF-8 HTML bytes, 1,149 combined page/iframe DOM nodes, 2.5 ms p95 synchronous multi-diagram frame work, and 2,577,456 incremental JS heap bytes. A separate headless Chromium run also passed its measured thresholds.
+- Root focused diagram/renderer tests passed (43 tests, 382 expectations); desktop worker tests passed (7 tests, 39 expectations); desktop typecheck, web build, and stable package build passed. Focused Playwright security/freshness/diagram tests passed. The actual stable package payload was run in WebView2 and exercised through its packaged worker. The desktop RPC contract script still has a pre-existing sandbox-occurrence assertion mismatch on this worktree.
+- Evidence, screenshots, retries, limitations, and exact outcomes are in `planning/sprints/0080-v13-interactive-html-desktop-preview/builder-evidence.md`. Manual screen-reader review, minimum-host/cross-platform qualification, and exhaustive existing-AMX evaluator parity remain unavailable/untested. Sprint 080 completion does not accept or release V0.13 end to end.
+
 ## V0.13 Sprint 080 Architect Preparation (2026-10-13)
 
 - Prepared Sprint 080 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0080-v13-interactive-html-desktop-preview/`.
 - Sprint 079 Builder evidence reports the language/model increment implemented; focused verification passed (206 tests, 922 expectations across five files) and the root build passed. Broader AMX AST/value combinations, high-rate performance, and rendering/platform integration remain residuals; no full root suite or final Lead Developer closeout is claimed in that evidence.
 - Sprint 080 integrates standalone HTML and actual desktop preview using the shared diagram model. It must preserve the approved controls/diagnostics/security contract and measure the accepted resource limits.
 - Sprint 079's authored-declaration caps do not bound the number of runtime model instances emitted by nested loop/conditional execution. This is recorded as a resource-policy question for Sprint 080; no truncation or new cap is authorized by this preparation.
-- Sprint 080 production work has not begun. Separate explicit execution authorization and an approved file-by-file plan are required.
+- At preparation time Sprint 080 production work had not begun. The Lead Developer subsequently approved the file-by-file plan and explicitly authorized execution, as recorded in the Builder Execution section above.
 
 ## V0.13 Sprint 079 Architect Preparation (2026-10-13)
 

@@ -9,7 +9,7 @@ import { AmxError } from '../src/diagnostics/errors';
 import { parseDocumentText } from '../src/parser/parseDocument';
 import { checkDocument } from '../src/typechecker/checkDocument';
 import { evaluateDocumentEnvironment } from '../src/runtime/evaluateDocument';
-import { evaluateDiagramFrame } from '../src/runtime/diagramModel';
+import { deserializeDiagramSceneModel, evaluateDiagramFrame, serializeDiagramSceneModel } from '../src/runtime/diagramModel';
 import { loadEntryModule } from '../src/runtime/moduleLoader';
 import type { DiagramSceneModel } from '../src/runtime/diagramModel';
 
@@ -65,6 +65,9 @@ describe('diagram language and shared scene model', () => {
     ]);
     expect(crankPin).toMatchObject({ primitive: 'circle', cx: 70, cy: 66, r: 6 });
     expect(evaluateDiagramFrame(crank, 2).time).toBe(2);
+    const browserRoundTrip = deserializeDiagramSceneModel(serializeDiagramSceneModel(crank));
+    expect(evaluateDiagramFrame(browserRoundTrip, 1.5).elements.find(element => element.name === 'crankPin'))
+      .toMatchObject({ primitive: 'circle', cx: 70, cy: 66, r: 6 });
     const declaration = crankDocument.nodes.find(node => node.type === 'executableCodeBlock')?.statements
       .find(statement => statement.type === 'diagramDeclaration');
     const title = declaration?.type === 'diagramDeclaration'
@@ -200,12 +203,15 @@ describe('diagram language and shared scene model', () => {
       await writeFile(entryPath, `\`\`\`amx\n${entry}\n\`\`\`\n`);
       const loaded = await loadEntryModule(entryPath);
       const model = loaded.env.diagramEmissions[0].model;
+      const browserRoundTrip = deserializeDiagramSceneModel(serializeDiagramSceneModel(model));
       const initial = model.initialFrame.elements.find(element => element.name === 'sample');
       const interior = evaluateDiagramFrame(model, 0.25).elements.find(element => element.name === 'sample');
+      const browserInterior = evaluateDiagramFrame(browserRoundTrip, 0.25).elements.find(element => element.name === 'sample');
       const upper = evaluateDiagramFrame(model, 1).elements.find(element => element.name === 'sample');
       const label = evaluateDiagramFrame(model, 0.25).elements.find(element => element.name === 'label');
       expect(initial).toMatchObject({ primitive: 'circle', cx: 12 });
       expect(interior).toMatchObject({ primitive: 'circle', cx: 15 });
+      expect(browserInterior).toMatchObject({ primitive: 'circle', cx: 15 });
       expect(upper).toMatchObject({ primitive: 'circle', cx: 24 });
       expect(label).toMatchObject({ primitive: 'text', value: '15 null' });
       expect(Object.isFrozen(model)).toBe(true);

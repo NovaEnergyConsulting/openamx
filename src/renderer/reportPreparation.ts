@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import sharp from 'sharp';
 import type { OpenAmxDocument } from '../ast/types';
@@ -6,10 +6,11 @@ import { AmxError } from '../diagnostics/errors';
 import { formatAmx } from '../formatter/formatAmx';
 import { parseExpression } from '../parser/parseExpression';
 import { evaluateExpression } from '../runtime/evaluateExpression';
-import type { Environment, ViewEmission } from '../runtime/environment';
+import type { DiagramEmission, Environment, ViewEmission } from '../runtime/environment';
 import { formatAmxValue } from '../runtime/valueSerialization';
 import { parseNarrativeImageWidth, prepareNarratives, type NarrativeBlock, type NarrativeDiagnostic, type NarrativeImageWidth } from './narrativeModel';
 import { canonicalDirectory, hasSymlink, isContained } from './reportPaths';
+import type { DiagramSceneModel } from '../runtime/diagramModel';
 
 const REPORT_FIELDS = new Set(['organization', 'logo', 'logoAlt', 'stylesheet', 'accent', 'author', 'status', 'classification', 'footer', 'sourceVisible', 'imageWidth']);
 const TEXT_LIMITS: Record<string, number> = { organization: 120, logoAlt: 120, stylesheet: 240, author: 120, status: 80, classification: 80, footer: 300, imageWidth: 16 };
@@ -39,10 +40,17 @@ export type PreparedReportItem =
   | { readonly type: 'source'; readonly text: string }
   | { readonly type: 'view'; readonly emission: ViewEmission };
 
+export interface PreparedDiagramEmission {
+  readonly model: DiagramSceneModel;
+  readonly beforeItemIndex: number;
+  readonly order: number;
+}
+
 export interface PreparedReport {
   readonly title: string;
   readonly identity: ResolvedReportIdentity;
   readonly items: readonly PreparedReportItem[];
+  readonly diagrams?: readonly PreparedDiagramEmission[];
 }
 
 export interface ReportPreparationOptions {
@@ -75,8 +83,24 @@ export async function prepareReport(doc: OpenAmxDocument, env: Environment, opti
     emissions.push(emission);
     emissionsByNode.set(emission.documentNodeIndex, emissions);
   }
+  const diagramsByNode = new Map<number, DiagramSceneModel[]>();
+  const importedDiagrams: DiagramSceneModel[] = [];
+  const entryPath = options.file ? canonicalFilePath(options.file) : undefined;
+  for (const emission of env.diagramEmissions as readonly DiagramEmission[]) {
+    const model = emission.model;
+    if (entryPath && model.file && canonicalFilePath(model.file) !== entryPath) {
+      importedDiagrams.push(model);
+      continue;
+    }
+    const diagrams = diagramsByNode.get(model.documentNodeIndex) ?? [];
+    diagrams.push(model);
+    diagramsByNode.set(model.documentNodeIndex, diagrams);
+  }
+  const firstExecutableNode = doc.nodes.findIndex(node => node.type === 'executableCodeBlock');
 
   const items: PreparedReportItem[] = [];
+  const diagrams: PreparedDiagramEmission[] = [];
+  let diagramOrder = 0;
   let narrativeIndex = 0;
   for (const [index, node] of doc.nodes.entries()) {
     if (node.type === 'narrative') {
@@ -92,11 +116,33 @@ export async function prepareReport(doc: OpenAmxDocument, env: Environment, opti
     }
     if (node.type !== 'executableCodeBlock') continue;
     if (identity.sourceVisible) items.push(Object.freeze({ type: 'source', text: formatAmx(node.content) }));
-    for (const emission of emissionsByNode.get(index) ?? []) items.push(Object.freeze({ type: 'view', emission }));
+    if (index === firstExecutableNode) {
+      for (const model of importedDiagrams) {
+        diagrams.push(Object.freeze({ model, beforeItemIndex: items.length, order: diagramOrder++ }));
+      }
+    }
+    const blockEmissions = [
+      ...(emissionsByNode.get(index) ?? []).map(emission => ({ type: 'view' as const, emission, statementIndex: emission.statementIndex })),
+      ...(diagramsByNode.get(index) ?? []).map(model => ({ type: 'diagram' as const, model, statementIndex: model.statementIndex }))
+    ].sort((left, right) => left.statementIndex - right.statementIndex);
+    for (const emission of blockEmissions) {
+      if (emission.type === 'view') items.push(Object.freeze({ type: 'view', emission: emission.emission }));
+      else diagrams.push(Object.freeze({ model: emission.model, beforeItemIndex: items.length, order: diagramOrder++ }));
+    }
   }
   const metadata = doc.metadata ?? {};
   const title = typeof metadata.title === 'string' && metadata.title.trim() ? metadata.title.trim() : 'OpenAMX Document';
-  return Object.freeze({ title, identity, items: Object.freeze(items) });
+  return Object.freeze({
+    title,
+    identity,
+    items: Object.freeze(items),
+    ...(diagrams.length ? { diagrams: Object.freeze(diagrams) } : {})
+  });
+}
+
+function canonicalFilePath(file: string): string {
+  const path = existsSync(file) ? realpathSync(file) : resolve(file);
+  return process.platform === 'win32' ? path.toLocaleLowerCase('en-US') : path;
 }
 
 function readProjectReport(projectRoot?: string): Record<string, unknown> {

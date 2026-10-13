@@ -68,6 +68,208 @@ export interface DiagramSceneModel {
 
 const capturedContexts = new WeakMap<DiagramSceneModel, Environment>();
 
+type SerializedValue =
+  | readonly ['undefined']
+  | readonly ['null']
+  | readonly ['boolean', boolean]
+  | readonly ['number', number | 'nan' | 'positive-infinity' | 'negative-infinity']
+  | readonly ['string', string]
+  | readonly ['array', readonly SerializedValue[]]
+  | readonly ['object', readonly (readonly [string, SerializedValue])[]]
+  | readonly ['map', readonly (readonly [SerializedValue, SerializedValue])[]]
+  | readonly ['set', readonly SerializedValue[]];
+
+interface SerializedDiagramSceneModel {
+  readonly version: 1;
+  readonly model: SerializedValue;
+  readonly context: SerializedValue;
+}
+
+function serializeValue(value: unknown, ancestors = new Set<object>()): SerializedValue {
+  if (value === undefined) return ['undefined'];
+  if (value === null) return ['null'];
+  if (typeof value === 'boolean') return ['boolean', value];
+  if (typeof value === 'number') {
+    return ['number', Number.isNaN(value) ? 'nan'
+      : value === Infinity ? 'positive-infinity'
+        : value === -Infinity ? 'negative-infinity' : value];
+  }
+  if (typeof value === 'string') return ['string', value];
+  if (typeof value !== 'object') throw new Error(`Unsupported diagram context value: ${typeof value}`);
+  if (ancestors.has(value)) throw new Error('Diagram context contains a cyclic value and cannot be serialized.');
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) return ['array', value.map(item => serializeValue(item, ancestors))];
+    if (value instanceof Map) {
+      return ['map', [...value].map(([key, item]) => [serializeValue(key, ancestors), serializeValue(item, ancestors)] as const)];
+    }
+    if (value instanceof Set) return ['set', [...value].map(item => serializeValue(item, ancestors))];
+    return ['object', Object.entries(value).map(([key, item]) => [key, serializeValue(item, ancestors)] as const)];
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+function deserializeValue(value: unknown): unknown {
+  if (!Array.isArray(value) || typeof value[0] !== 'string') throw new Error('Invalid serialized diagram value.');
+  switch (value[0]) {
+    case 'undefined':
+      if (value.length !== 1) throw new Error('Invalid serialized undefined diagram value.');
+      return undefined;
+    case 'null':
+      if (value.length !== 1) throw new Error('Invalid serialized null diagram value.');
+      return null;
+    case 'boolean':
+      if (value.length !== 2 || typeof value[1] !== 'boolean') throw new Error('Invalid serialized boolean diagram value.');
+      return value[1];
+    case 'number':
+      if (value.length !== 2) throw new Error('Invalid serialized number diagram value.');
+      if (value[1] === 'nan') return NaN;
+      if (value[1] === 'positive-infinity') return Infinity;
+      if (value[1] === 'negative-infinity') return -Infinity;
+      if (typeof value[1] !== 'number') throw new Error('Invalid serialized number diagram value.');
+      return value[1];
+    case 'string':
+      if (value.length !== 2 || typeof value[1] !== 'string') throw new Error('Invalid serialized string diagram value.');
+      return value[1];
+    case 'array':
+      if (value.length !== 2 || !Array.isArray(value[1])) throw new Error('Invalid serialized array diagram value.');
+      return value[1].map(deserializeValue);
+    case 'object': {
+      if (value.length !== 2 || !Array.isArray(value[1])) throw new Error('Invalid serialized object diagram value.');
+      const entries = value[1].map(entry => {
+        if (!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string') {
+          throw new Error('Invalid serialized object entry in diagram value.');
+        }
+        return [entry[0], deserializeValue(entry[1])] as const;
+      });
+      return Object.fromEntries(entries);
+    }
+    case 'map':
+      if (value.length !== 2 || !Array.isArray(value[1])) throw new Error('Invalid serialized map diagram value.');
+      return new Map(value[1].map(entry => {
+        if (!Array.isArray(entry) || entry.length !== 2) throw new Error('Invalid serialized map entry in diagram value.');
+        return [deserializeValue(entry[0]), deserializeValue(entry[1])];
+      }));
+    case 'set':
+      if (value.length !== 2 || !Array.isArray(value[1])) throw new Error('Invalid serialized set diagram value.');
+      return new Set(value[1].map(deserializeValue));
+    default:
+      throw new Error('Unknown serialized diagram value type.');
+  }
+}
+
+function mapValue<T>(value: unknown, field: string): Map<string, T> {
+  if (!(value instanceof Map)) throw new Error(`Invalid serialized diagram context map '${field}'.`);
+  for (const key of value.keys()) if (typeof key !== 'string') throw new Error(`Invalid key in serialized diagram context map '${field}'.`);
+  return value as Map<string, T>;
+}
+
+export function serializeDiagramSceneModel(model: DiagramSceneModel): string {
+  const env = capturedContexts.get(model);
+  if (!env) throw new Error('Diagram model has no captured AMX evaluation context');
+  const context = {
+    values: env.toObject(),
+    immutableValues: Object.entries(env.toObject()).filter(([, value]) => env.isImmutable(value)).map(([name]) => name),
+    recordTypes: env.recordTypes,
+    enumDeclarations: env.enumDeclarations,
+    enumValues: env.enumValues,
+    functions: env.functions,
+    bindingTypes: env.bindingTypes,
+    dimensionRegistry: env.dimensionRegistry,
+    validationMode: env.validationMode,
+    declarationRegistries: {
+      records: [...env.recordTypes].map(([name, declaration]) => ({
+        name,
+        declaration: fieldRegistry(declaration, env.dimensionRegistry),
+        fields: (declaration.declaredFields ?? declaration.fields)
+          .map(field => fieldRegistry(field, env.dimensionRegistry))
+      })),
+      functions: [...env.functions].map(([name, declaration]) => ({
+        name,
+        declaration: fieldRegistry(declaration, env.dimensionRegistry)
+      }))
+    }
+  };
+  const payload: SerializedDiagramSceneModel = {
+    version: 1,
+    model: serializeValue(model),
+    context: serializeValue(context)
+  };
+  return JSON.stringify(payload);
+}
+
+export function deserializeDiagramSceneModel(serialized: string): DiagramSceneModel {
+  const payload: unknown = JSON.parse(serialized);
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)
+    || !('version' in payload) || payload.version !== 1
+    || !('model' in payload) || !('context' in payload)) {
+    throw new Error('Invalid serialized diagram model envelope.');
+  }
+  const modelValue = deserializeValue(payload.model);
+  const contextValue = deserializeValue(payload.context);
+  if (!modelValue || typeof modelValue !== 'object' || Array.isArray(modelValue)
+    || !contextValue || typeof contextValue !== 'object' || Array.isArray(contextValue)) {
+    throw new Error('Invalid serialized diagram model or evaluation context.');
+  }
+  const model = freezeData(modelValue as DiagramSceneModel);
+  const context = contextValue as {
+    values: Record<string, unknown>;
+    immutableValues: string[];
+    recordTypes: unknown;
+    enumDeclarations: unknown;
+    enumValues: unknown;
+    functions: unknown;
+    bindingTypes: unknown;
+    dimensionRegistry?: Environment['dimensionRegistry'];
+    validationMode: Environment['validationMode'];
+    declarationRegistries: {
+      records: Array<{ name: string; declaration?: ReturnType<typeof fieldRegistry>; fields: Array<ReturnType<typeof fieldRegistry>> }>;
+      functions: Array<{ name: string; declaration?: ReturnType<typeof fieldRegistry> }>;
+    };
+  };
+  if (!context.values || typeof context.values !== 'object' || Array.isArray(context.values)
+    || !Array.isArray(context.immutableValues) || !context.declarationRegistries
+    || !Array.isArray(context.declarationRegistries.records) || !Array.isArray(context.declarationRegistries.functions)
+    || (context.validationMode !== 'aggregate' && context.validationMode !== 'fail-fast')) {
+    throw new Error('Invalid serialized diagram evaluation context.');
+  }
+  const recordTypes = mapValue<Environment['recordTypes'] extends Map<string, infer T> ? T : never>(context.recordTypes, 'recordTypes');
+  const functions = mapValue<Environment['functions'] extends Map<string, infer T> ? T : never>(context.functions, 'functions');
+  const env = new Environment(recordTypes, functions, context.dimensionRegistry);
+  env.validationMode = context.validationMode;
+  for (const [name, value] of Object.entries(context.values)) {
+    env.set(name, value);
+    if (context.immutableValues.includes(name)) env.markImmutable(value);
+  }
+  for (const [name, value] of mapValue<Environment['enumDeclarations'] extends Map<string, infer T> ? T : never>(context.enumDeclarations, 'enumDeclarations')) {
+    env.enumDeclarations.set(name, value);
+  }
+  for (const [name, value] of mapValue<Environment['enumValues'] extends Map<string, infer T> ? T : never>(context.enumValues, 'enumValues')) {
+    env.enumValues.set(name, value);
+  }
+  for (const [name, value] of mapValue<Environment['bindingTypes'] extends Map<string, infer T> ? T : never>(context.bindingTypes, 'bindingTypes')) {
+    env.bindingTypes.set(name, value);
+  }
+  for (const item of context.declarationRegistries.records) {
+    const declaration = recordTypes.get(item.name);
+    if (!declaration || !Array.isArray(item.fields)) throw new Error('Invalid serialized record declaration registry.');
+    if (item.declaration) setDeclaringRegistry(declaration, item.declaration);
+    const fields = declaration.declaredFields ?? declaration.fields;
+    if (fields.length !== item.fields.length) throw new Error('Serialized record field registry does not match its declaration.');
+    item.fields.forEach((registry, index) => {
+      if (registry) setDeclaringRegistry(fields[index]!, registry);
+    });
+  }
+  for (const item of context.declarationRegistries.functions) {
+    const declaration = functions.get(item.name);
+    if (!declaration) throw new Error('Invalid serialized function declaration registry.');
+    if (item.declaration) setDeclaringRegistry(declaration, item.declaration);
+  }
+  capturedContexts.set(model, env);
+  return model;
+}
+
 function cloneData<T>(value: T, seen = new Map<object, unknown>()): T {
   if (!value || typeof value !== 'object') return value;
   const existing = seen.get(value);

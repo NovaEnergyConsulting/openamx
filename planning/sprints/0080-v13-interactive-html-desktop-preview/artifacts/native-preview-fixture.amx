@@ -1,0 +1,33 @@
+---
+title: Native preview frame failure
+---
+```amx
+diagram bad {
+  title: "Interior frame failure"
+  description: "A selected interior time makes the radius infinite."
+  width: 100
+  height: 100
+  time t from 0 to 2 duration 2
+  circle point {
+    cx: 10
+    cy: 10
+    r: 1 / ((t - 1) * (t - 1))
+    stroke: "#263238"
+    lineWidth: 1
+  }
+}
+diagram independent {
+  title: "Independent diagram"
+  description: "This second diagram remains usable."
+  width: 100
+  height: 60
+  time t from 0 to 1 duration 1
+  circle independentPoint {
+    cx: 10 + 30 * t
+    cy: 30
+    r: 4
+    stroke: "#263238"
+    lineWidth: 1
+  }
+}
+```

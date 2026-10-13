@@ -2,9 +2,10 @@
 
 ## V0.13 Sprint 080 Architect Preparation (2026-10-13)
 
-- **Open product decision:** Sprint 079's 16-diagram/512-element limits count authored declarations. Valid nested `if`/`for` execution can emit more than 16 diagram instances and 512 rendered element instances. How should Sprint 080 handle a valid report whose repeated emissions would exceed the approved 1 MiB HTML, 16.7 ms p95 frame-work, 8 MiB incremental heap, or 2,000 DOM-node limits? Do not truncate or alter the approved authored-declaration semantics. Propose and obtain approval for an explicit fail-fast/resource-exhaustion behavior and any required diagnostic identity/message before enforcing an additional cap.
+- **Resolved by Lead Developer (2026-10-13):** fail fast when diagram-enabled HTML exceeds 1,048,576 UTF-8 bytes using the existing desktop job error path (`DESKTOP_JOB`). Do not truncate output, add an emitted-instance cap, or change the approved authored-declaration semantics.
+- **Residual resource question:** authored counts do not bound nested/loop emissions. The measured 17-diagram/544-element workload is within all accepted limits, but higher valid emission counts, especially those that could exceed DOM/frame-work/heap limits while remaining below 1 MiB HTML, were not exhaustively measured. Do not add another runtime rejection threshold or weaken a bound without explicit product disposition.
 - Sprint 080 must define and test the narrow trusted desktop frame-error channel needed to surface AMXD009/AMXD010/AMXD011 while retaining iframe sandboxing, preview-token freshness, and stale-message rejection. No message protocol may trust or render report-authored HTML.
-- Sprint 079's broader AMX AST/value parity and high-rate performance residuals remain test work. Native desktop UAT and screen-reader review must be reported directly or marked BLOCKED/UNAVAILABLE; harness and DOM-only evidence are not substitutes.
+- Sprint 079's broader AMX AST/value parity and high-rate performance residuals remain test work. Builder evidence now includes the actual stable package's WebView2 preview path; manual screen-reader/assistive-technology review remains **UNAVAILABLE** and must not be inferred from DOM assertions.
 - Sprint 078 approved the output representation, controls, error behavior, security constraints, and numeric resource bounds. This preparation does not reopen those decisions; the repeated-emission question concerns reconciling those approved bounds with Sprint 079's authored-declaration behavior.
 
 ## V0.13 Sprint 079 Architect Preparation (2026-10-13)

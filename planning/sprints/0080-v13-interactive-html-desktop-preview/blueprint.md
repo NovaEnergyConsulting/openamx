@@ -61,12 +61,19 @@ surfaces include:
 
 - `src/renderer/renderHtml.ts` and, if required,
   `src/renderer/reportPreparation.ts`
-- A new focused diagram SVG/HTML adapter or trusted static runtime module
-  under `src/renderer/`, reusing `src/runtime/diagramModel.ts`
+- `src/runtime/diagramModel.ts` for safe serialization of the captured typed
+  evaluation context, plus `src/renderer/diagramHtml.ts`,
+  `src/renderer/diagramBrowserEntry.ts`, and generated
+  `src/renderer/diagramBrowserRuntime.ts`
+- `scripts/build-diagram-runtime.ts` and the root `package.json` build script
+  for the Bun-built browser bundle; no dependency or lockfile change
 - `desktop-app/src/bun/jobWorker.ts`, `desktop-app/src/bun/desktopService.ts`,
   `desktop-app/src/shared/rpc.ts`, and `desktop-app/src/mainview/App.vue` only
   where required for safe frame-error delivery and preview lifecycle
 - Existing root renderer tests plus focused diagram HTML/playback tests
+- `tests/diagram.test.ts`, new `tests/diagramHtml.test.ts`, and
+  `desktop-app/src/bun/jobWorker.test.ts` for context transport and output
+  bounds
 - Existing desktop security, preview-freshness, and navigation UI tests;
   add focused `desktop-app/tests/ui/diagram-playback.pw.ts` if existing
   coverage does not directly exercise user-visible diagram controls/errors
@@ -100,3 +107,10 @@ production report or desktop-preview pipelines. The 079 implementation added
 the shared runtime model and preserved authored-source caps across imports
 and nested execution. Sprint 080 must integrate those results without
 replacing their semantics or overstating earlier probe evidence.
+
+The Lead Developer approved a narrow build-plan amendment on 2026-10-13:
+generate the static browser bundle with Bun and embed it as an application-owned
+TypeScript string module so standalone HTML and the packaged desktop worker use
+it without runtime file lookup. The Lead Developer also approved fail-fast
+rejection of diagram-enabled HTML above 1 MiB through the existing desktop job
+error path; this does not authorize an emitted-instance cap or truncation.

@@ -146,6 +146,124 @@ test("trusted worker keeps preview targets opaque and standalone HTML links rela
 	}
 });
 
+test("trusted worker renders shared diagram models into preview and standalone HTML", async () => {
+	const root = mkdtempSync(join(tmpdir(), "openamx-worker-diagram-"));
+	const entryPath = join(root, "report.amx");
+	const source = `# Mechanism
+
+\`\`\`amx
+diagram crank {
+  title: "Crank"
+  description: "A moving crank pin"
+  width: 100
+  height: 60
+  time t from 0 to 1 duration 1
+  circle pin {
+    cx: 10 + 20 * t
+    cy: 30
+    r: 4
+    stroke: "#263238"
+    fill: "#F3B64B"
+    lineWidth: 1
+  }
+}
+\`\`\`
+`;
+	writeFileSync(entryPath, source);
+	const run = async (jobId: number, operation: "preview" | "html", htmlDestinationPath?: string) => {
+		const worker = new Worker(new URL("./jobWorker.ts", import.meta.url).href);
+		try {
+			const completed = new Promise<WorkerJobMessage>((resolve, reject) => {
+				const timer = setTimeout(() => reject(new Error("diagram HTML worker job timed out")), 5000);
+				worker.addEventListener("message", event => {
+					const message = event.data as WorkerJobMessage;
+					if (message.kind !== "complete" && message.kind !== "failed") return;
+					clearTimeout(timer);
+					if (message.kind === "failed") reject(new Error(message.diagnostics[0]?.message ?? "Diagram HTML worker failed."));
+					else resolve(message);
+				});
+				worker.addEventListener("error", event => reject(new Error(event.message)), { once: true });
+			});
+			worker.postMessage({
+				kind: "start", jobId, operation, entryPath, entryText: source,
+				projectRoot: root, sourceOverlay: [], inputMappings: [], validation: "aggregate",
+				...(htmlDestinationPath ? { htmlDestinationPath } : {})
+			} satisfies WorkerJobRequest);
+			return await completed;
+		} finally {
+			worker.terminate();
+		}
+	};
+	try {
+		const preview = await run(61, "preview");
+		expect(preview.kind).toBe("complete");
+		if (preview.kind !== "complete" || preview.result.kind !== "preview") throw new Error("Expected diagram preview output.");
+		expect(preview.result.html).toContain('data-openamx-diagram="openamx-diagram-0"');
+		expect(preview.result.html).not.toContain("allow-same-origin");
+		expect(preview.result.previewToken).toMatch(/^[a-f0-9]{64}$/);
+
+		const standalone = await run(62, "html", join(root, "report.html"));
+		expect(standalone.kind).toBe("complete");
+		if (standalone.kind !== "complete" || standalone.result.kind !== "export") throw new Error("Expected standalone diagram HTML.");
+		expect(standalone.result.data).toContain('data-openamx-diagram="openamx-diagram-0"');
+		expect(standalone.result.data).toContain('type="range" data-diagram-scrubber min="0" max="1" step="any" value="0"');
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("trusted worker fails explicitly when diagram HTML exceeds one MiB", async () => {
+	const root = mkdtempSync(join(tmpdir(), "openamx-worker-diagram-size-"));
+	const entryPath = join(root, "report.amx");
+	const source = `# ${"x".repeat(1_050_000)}
+
+\`\`\`amx
+diagram bounded {
+  title: "Bounded"
+  description: "Output-size guard"
+  width: 100
+  height: 60
+  time t from 0 to 1 duration 1
+  circle point {
+    cx: 10
+    cy: 20
+    r: 4
+    stroke: "#263238"
+    lineWidth: 1
+  }
+}
+\`\`\`
+`;
+	writeFileSync(entryPath, source);
+	const worker = new Worker(new URL("./jobWorker.ts", import.meta.url).href);
+	try {
+		const completed = new Promise<WorkerJobMessage>((resolve, reject) => {
+			const timer = setTimeout(() => reject(new Error("oversized diagram HTML worker job timed out")), 15_000);
+			worker.addEventListener("message", event => {
+				const message = event.data as WorkerJobMessage;
+				if (message.kind !== "complete" && message.kind !== "failed") return;
+				clearTimeout(timer);
+				resolve(message);
+			});
+			worker.addEventListener("error", event => reject(new Error(event.message)), { once: true });
+		});
+		worker.postMessage({
+			kind: "start", jobId: 63, operation: "preview", entryPath, entryText: source,
+			projectRoot: root, sourceOverlay: [], inputMappings: [], validation: "aggregate"
+		} satisfies WorkerJobRequest);
+		const result = await completed;
+		expect(result.kind).toBe("failed");
+		if (result.kind !== "failed") throw new Error("Expected an explicit oversized HTML failure.");
+		expect(result.diagnostics[0]).toMatchObject({
+			code: "DESKTOP_JOB",
+			message: expect.stringContaining("Interactive diagram HTML exceeds the 1048576-byte limit")
+		});
+	} finally {
+		worker.terminate();
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
 test("trusted worker rejects an invalid untyped program before returning a run result", async () => {
 	const root = mkdtempSync(join(tmpdir(), "openamx-job-invalid-"));
 	const entryPath = join(root, "report.amx");

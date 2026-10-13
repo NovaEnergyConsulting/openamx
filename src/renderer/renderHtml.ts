@@ -16,9 +16,12 @@ import type { ViewDataValue, ViewEmission, TableViewEmission, ChartViewEmission 
 import { formatAmxValue } from '../runtime/valueSerialization';
 import { formatAmx } from '../formatter/formatAmx';
 import { createChartViewModel, type ChartViewModel } from './chartModel';
+import diagramBrowserRuntime from './diagramBrowserRuntime';
+import { assertDiagramHtmlSize, renderDiagramAssets, renderDiagramFigure } from './diagramHtml';
 import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeImageWidth, type NarrativeInline, type NarrativeLink } from './narrativeModel';
 import { hasSymlink, isContained } from './reportPaths';
-import type { PreparedReport } from './reportPreparation';
+import type { PreparedDiagramEmission, PreparedReport } from './reportPreparation';
+import type { DiagramSceneModel } from '../runtime/diagramModel';
 
 const REPORT_MARKDOWN_POLICY: sanitizeHtml.IOptions = {
   allowedTags: [
@@ -122,8 +125,22 @@ export function renderHtml(doc: OpenAmxDocument, file?: string, env?: Environmen
     emissions.push(emission);
     emissionsByNode.set(emission.documentNodeIndex, emissions);
   }
+  const diagramsByNode = new Map<number, DiagramSceneModel[]>();
+  const importedDiagrams: DiagramSceneModel[] = [];
+  const entryFile = file ? canonicalReportFile(file) : undefined;
+  for (const { model } of environment.diagramEmissions) {
+    if (entryFile && model.file && canonicalReportFile(model.file) !== entryFile) {
+      importedDiagrams.push(model);
+      continue;
+    }
+    const diagrams = diagramsByNode.get(model.documentNodeIndex) ?? [];
+    diagrams.push(model);
+    diagramsByNode.set(model.documentNodeIndex, diagrams);
+  }
 
   const bodyFragments: string[] = [];
+  let diagramIndex = 0;
+  const firstExecutableNode = doc.nodes.findIndex(node => node.type === 'executableCodeBlock');
   const sourceVisible = resolvedReport.sourceVisible !== false;
   const header = renderReportHeader(resolvedReport, file);
 
@@ -141,8 +158,18 @@ export function renderHtml(doc: OpenAmxDocument, file?: string, env?: Environmen
         const formatted = formatAmx(node.content);
         bodyFragments.push(`<pre><code class="language-amx">${escapeHtml(formatted)}</code></pre>`);
       }
-      for (const emission of emissionsByNode.get(nodeIndex) ?? []) {
-        bodyFragments.push(renderViewEmission(emission, resolvedReport));
+      if (nodeIndex === firstExecutableNode) {
+        for (const model of importedDiagrams) {
+          bodyFragments.push(renderDiagramFigure(model, `openamx-diagram-${diagramIndex++}`));
+        }
+      }
+      const blockEmissions = [
+        ...(emissionsByNode.get(nodeIndex) ?? []).map(emission => ({ type: 'view' as const, emission, statementIndex: emission.statementIndex })),
+        ...(diagramsByNode.get(nodeIndex) ?? []).map(model => ({ type: 'diagram' as const, model, statementIndex: model.statementIndex }))
+      ].sort((left, right) => left.statementIndex - right.statementIndex);
+      for (const emission of blockEmissions) {
+        if (emission.type === 'view') bodyFragments.push(renderViewEmission(emission.emission, resolvedReport));
+        else bodyFragments.push(renderDiagramFigure(emission.model, `openamx-diagram-${diagramIndex++}`));
       }
     }
   }
@@ -155,20 +182,24 @@ export function renderHtml(doc: OpenAmxDocument, file?: string, env?: Environmen
   const bodyHtml = bodyFragments.join('');
   const escapedTitle = escapeHtml(title);
   const hasViews = environment.viewEmissions.length > 0;
-  const nonce = hasViews || !!resolvedReport.accent ? randomBytes(18).toString('base64') : '';
+  const hasDiagrams = environment.diagramEmissions.length > 0;
+  const nonce = hasViews || hasDiagrams || !!resolvedReport.accent ? randomBytes(18).toString('base64') : '';
   const accentStyle = safeAccentStyle(resolvedReport.accent, nonce);
   const viewAssets = hasViews ? renderViewAssets(nonce) : '';
+  const diagramAssets = hasDiagrams ? renderDiagramAssets(nonce, diagramBrowserRuntime) : '';
 
-  return `<!doctype html>
+  const html = `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
-  ${renderContentSecurityPolicy(nonce, hasViews)}
-  <title>${escapedTitle}</title>${accentStyle ? `\n${accentStyle}` : ''}${viewAssets ? `\n${viewAssets}` : ''}
+  ${renderContentSecurityPolicy(nonce, hasViews || hasDiagrams)}
+  <title>${escapedTitle}</title>${accentStyle ? `\n${accentStyle}` : ''}${viewAssets ? `\n${viewAssets}` : ''}${diagramAssets ? `\n${diagramAssets}` : ''}
 </head>
 <body>
 ${bodyHtml}</body>
 </html>`;
+  assertDiagramHtmlSize(html, hasDiagrams);
+  return html;
 }
 
 export function renderPreparedHtml(report: PreparedReport, options?: StandaloneHtmlOptions): string;
@@ -186,6 +217,7 @@ export function renderPreparedHtml(report: PreparedReport, options: StandaloneHt
     targets: {}
   };
   const bodyFragments: string[] = [];
+  let diagramIndex = 0;
   const identity = report.identity;
   const metadata = [
     identity.organization,
@@ -197,17 +229,32 @@ export function renderPreparedHtml(report: PreparedReport, options: StandaloneHt
     const logo = identity.logo ? `<img class="openamx-report-logo" src="${escapeHtml(identity.logo.dataUri)}" alt="${escapeHtml(identity.logo.alt)}" />` : '';
     bodyFragments.push(`<header class="openamx-report-header"><div class="openamx-report-identity">${logo}<div class="openamx-report-meta">${metadata.map(value => `<div class="openamx-report-attr">${escapeHtml(value)}</div>`).join('')}</div></div></header>`);
   }
-  for (const item of report.items) {
+  const diagramsByPosition = new Map<number, PreparedDiagramEmission[]>();
+  for (const diagram of report.diagrams ?? []) {
+    const diagrams = diagramsByPosition.get(diagram.beforeItemIndex) ?? [];
+    diagrams.push(diagram);
+    diagramsByPosition.set(diagram.beforeItemIndex, diagrams);
+  }
+  const renderDiagramsAt = (itemIndex: number): void => {
+    for (const diagram of (diagramsByPosition.get(itemIndex) ?? []).sort((left, right) => left.order - right.order)) {
+      bodyFragments.push(renderDiagramFigure(diagram.model, `openamx-diagram-${diagramIndex++}`));
+    }
+  };
+  for (const [itemIndex, item] of report.items.entries()) {
+    renderDiagramsAt(itemIndex);
     if (item.type === 'narrative') bodyFragments.push(renderNarrativeBlocks(item.markdown, context));
     else if (item.type === 'source') bodyFragments.push(`<pre><code class="language-amx">${escapeHtml(item.text)}</code></pre>`);
-    else bodyFragments.push(renderViewEmission(item.emission, identity));
+    else if (item.type === 'view') bodyFragments.push(renderViewEmission(item.emission, identity));
   }
+  renderDiagramsAt(report.items.length);
   if (identity.footer) bodyFragments.push(`<footer class="openamx-report-footer">${escapeHtml(identity.footer)}</footer>`);
   const hasViews = report.items.some(item => item.type === 'view');
+  const hasDiagrams = !!report.diagrams?.length;
   const hasNarrativeAssets = report.items.some(item => item.type === 'narrative' && hasHtmlAssets(item.markdown));
-  const nonce = hasViews || identity.accent !== '#146C94' || hasNarrativeAssets || identity.stylesheetCss !== undefined || isPreview ? randomBytes(18).toString('base64') : '';
+  const nonce = hasViews || hasDiagrams || identity.accent !== '#146C94' || hasNarrativeAssets || identity.stylesheetCss !== undefined || isPreview ? randomBytes(18).toString('base64') : '';
   const accentStyle = safeAccentStyle(identity.accent, nonce);
   const viewAssets = hasViews ? renderViewAssets(nonce) : '';
+  const diagramAssets = hasDiagrams ? renderDiagramAssets(nonce, diagramBrowserRuntime) : '';
   const narrativeAssets = hasNarrativeAssets ? renderNarrativeAssets(nonce, identity.imageWidth) : '';
   const stylesheet = identity.stylesheetCss === undefined ? '' : renderCustomStylesheet(identity.stylesheetCss, nonce);
   const previewNavigation = previewToken ? renderPreviewNavigationBootstrap(nonce, previewToken) : '';
@@ -215,18 +262,24 @@ export function renderPreparedHtml(report: PreparedReport, options: StandaloneHt
 <html>
 <head>
   <meta charset="utf-8">
-  ${renderContentSecurityPolicy(nonce, hasViews, isPreview)}
-  <title>${escapeHtml(report.title)}</title>${accentStyle ? `\n${accentStyle}` : ''}${narrativeAssets ? `\n${narrativeAssets}` : ''}${viewAssets ? `\n${viewAssets}` : ''}${stylesheet ? `\n${stylesheet}` : ''}${previewNavigation ? `\n${previewNavigation}` : ''}
+  ${renderContentSecurityPolicy(nonce, hasViews || hasDiagrams, isPreview)}
+  <title>${escapeHtml(report.title)}</title>${accentStyle ? `\n${accentStyle}` : ''}${narrativeAssets ? `\n${narrativeAssets}` : ''}${viewAssets ? `\n${viewAssets}` : ''}${diagramAssets ? `\n${diagramAssets}` : ''}${stylesheet ? `\n${stylesheet}` : ''}${previewNavigation ? `\n${previewNavigation}` : ''}
 </head>
 <body>
 ${bodyFragments.join('')}</body>
 </html>`;
+  assertDiagramHtmlSize(html, hasDiagrams);
   if (previewToken) return { html, previewToken, targets: context.targets };
   return html;
 }
 
 function renderCustomStylesheet(css: string, nonce: string): string {
   return `<style nonce="${nonce}">${css.replace(/</g, '\\3C ')}</style>`;
+}
+
+function canonicalReportFile(file: string): string {
+  const path = existsSync(file) ? realpathSync(file) : resolve(file);
+  return process.platform === 'win32' ? path.toLowerCase() : path;
 }
 
 function renderNarrativeBlocks(blocks: readonly NarrativeBlock[], context: NarrativeHtmlContext): string {
@@ -357,7 +410,7 @@ function renderNarrativeAssets(nonce: string, imageWidth?: NarrativeImageWidth):
 
 function renderPreviewNavigationBootstrap(nonce: string, previewToken: string): string {
   const token = JSON.stringify(previewToken);
-  return `<script nonce="${nonce}">(()=>{const token=${token};let port;let scheduled=false;const progress=()=>{const maximum=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);return maximum>0?Math.max(0,Math.min(1,window.scrollY/maximum)):0};const reportScroll=()=>{if(!port||scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;if(port)port.postMessage({version:1,type:"scroll",previewToken:token,progress:progress()})})};window.addEventListener("scroll",reportScroll,{passive:true});window.addEventListener("message",event=>{const data=event.data;if(event.source!==parent||!data||data.type!=="openamx-preview-init"||data.previewToken!==token||event.ports.length!==1)return;port=event.ports[0];port.onmessage=message=>{const value=message.data;if(!value||typeof value!=="object"||Array.isArray(value)||Object.keys(value).length!==4||value.version!==1||value.type!=="set-scroll"||value.previewToken!==token||typeof value.progress!=="number"||!Number.isFinite(value.progress)||value.progress<0||value.progress>1)return;const maximum=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);window.scrollTo(0,maximum*value.progress)};port.start()},{once:true});document.addEventListener("click",event=>{const source=event.target;if(!(source instanceof Element))return;const link=source.closest("a[data-openamx-target]");if(!link)return;event.preventDefault();if(!event.isTrusted||!navigator.userActivation?.isActive||!port)return;const targetId=link.getAttribute("data-openamx-target");if(!targetId)return;port.postMessage({version:1,type:"navigate",previewToken:token,targetId})},true)})();</script>`;
+  return `<script nonce="${nonce}">(()=>{const token=${token};let port;let scheduled=false;const pending=[];const validDiagramEvent=value=>{if(!value||typeof value!=="object"||Array.isArray(value)||value.version!==1||typeof value.diagramId!=="string"||!/^openamx-diagram-[0-9]+$/.test(value.diagramId))return false;if(value.type==="diagram-recovered")return Object.keys(value).length===3;if(value.type!=="diagram-error"||typeof value.code!=="string"||value.code.length>32||typeof value.message!=="string"||value.message.length>1000)return false;return Object.keys(value).every(key=>["version","type","diagramId","code","message","file","line","column"].includes(key))&&(value.file===undefined||typeof value.file==="string"&&value.file.length<=4096)&&(value.line===undefined||Number.isSafeInteger(value.line)&&value.line>0)&&(value.column===undefined||Number.isSafeInteger(value.column)&&value.column>0)};const forwardDiagramEvent=value=>{if(!validDiagramEvent(value))return;const outgoing={...value,previewToken:token};if(port)port.postMessage(outgoing);else pending.push(outgoing)};window.addEventListener("openamx-diagram-frame",event=>forwardDiagramEvent(event.detail));const progress=()=>{const maximum=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);return maximum>0?Math.max(0,Math.min(1,window.scrollY/maximum)):0};const reportScroll=()=>{if(!port||scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;if(port)port.postMessage({version:1,type:"scroll",previewToken:token,progress:progress()})})};window.addEventListener("scroll",reportScroll,{passive:true});window.addEventListener("message",event=>{const data=event.data;if(event.source!==parent||!data||data.type!=="openamx-preview-init"||data.previewToken!==token||event.ports.length!==1)return;port=event.ports[0];port.onmessage=message=>{const value=message.data;if(!value||typeof value!=="object"||Array.isArray(value)||Object.keys(value).length!==4||value.version!==1||value.type!=="set-scroll"||value.previewToken!==token||typeof value.progress!=="number"||!Number.isFinite(value.progress)||value.progress<0||value.progress>1)return;const maximum=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);window.scrollTo(0,maximum*value.progress)};port.start();for(const message of pending.splice(0))port.postMessage(message)},{once:true});document.addEventListener("click",event=>{const source=event.target;if(!(source instanceof Element))return;const link=source.closest("a[data-openamx-target]");if(!link)return;event.preventDefault();if(!event.isTrusted||!navigator.userActivation?.isActive||!port)return;const targetId=link.getAttribute("data-openamx-target");if(!targetId)return;port.postMessage({version:1,type:"navigate",previewToken:token,targetId})},true)})();</script>`;
 }
 
 function renderViewEmission(emission: ViewEmission, identity: Pick<ResolvedReportIdentity, 'accent'>): string {
