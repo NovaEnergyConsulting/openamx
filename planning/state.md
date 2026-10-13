@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.13 Sprint 079 Architect Preparation (2026-10-13)
+
+- Prepared Sprint 079 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0079-v13-diagram-language-shared-scene-model/`.
+- Sprint 078 is recorded GO/CLOSED with implementation residuals. Its approved grammar, AMXD001-AMXD011 and AMX3001/AMX3002 mappings, source-location/formatter conventions, fixtures, and resource bounds are the Sprint 079 contract.
+- Sprint 079 covers core AST/parser/type checking/runtime/formatter and the immutable shared diagram model only. HTML/desktop playback, PDF/DOCX integration, and editor/documentation work remain assigned to Sprints 080-082.
+- Production implementation has not begun under this preparation. Sprint 079 still requires separate explicit execution authorization and approval of the concrete file-by-file plan.
+- The diagnostic identity/message for exceeding the approved 16-diagram/512-element limits is unallocated and recorded as an implementation entry item; no code or message is inferred.
+
 ## V0.13 Sprint 078 Architect Preparation (2026-10-11)
 
 - Prepared the Sprint 078 contract/feasibility-gate pack in `planning/sprints/0078-v13-diagram-contract-feasibility-gate/`: requirements, blueprint, acceptance criteria, and Builder handoff.

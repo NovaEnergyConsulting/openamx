@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.13 Sprint 079 Architect Preparation (2026-10-13)
+
+- **Open approval needed before cap diagnostics are finalized:** What diagnostic identity and exact message should report exceeding the approved limit of 16 diagrams or 512 semantic primitive elements per report? Sprint 078 approved the numeric limits but did not allocate a diagnostic. Do not reuse AMXD001-AMXD011 or AMX3001/AMX3002 without explicit approval.
+- Sprint 079 must preserve full existing expression/function semantics and expand typed-context acceptance beyond the Sprint 078 probe. The probe's imported function that directly referenced an enum identifier raised existing AMX1004; preserve and document that current behavior unless the Lead Developer separately authorizes a runtime change.
+- Native desktop UAT and production per-frame error delivery are not Sprint 079 blockers: they remain deferred to post-implementation UAT and Sprint 080's preview integration, respectively. Do not mark them as passed based on Sprint 078's isolated harness.
+- The V0.13 grammar, diagnostic mapping for D-NEG-01–24, source-location convention, formatter contract, and resource limits were resolved in Sprint 078 and are not reopened by this preparation.
+
 ## V0.13 Sprint 078 Contract and Feasibility Questions (2026-10-11)
 
 - **Open product decision if the feasibility probe confirms the gap:** How should the required crank-slider express circular motion while preserving existing AMX expression/function semantics? The currently documented standard functions do not include `sin` or `cos`. Do not add them or replace the crank-slider with a reduced example without Lead Developer approval.

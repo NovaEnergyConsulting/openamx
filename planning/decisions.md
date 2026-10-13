@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.13 Sprint 079 Architect Preparation (2026-10-13)
+
+- Sprint 079 inherits the approved V0.13 grammar, formatter contract, source-location convention, fixture suite, and diagnostic allocations recorded by Sprint 078. This preparation makes no new product-semantic decision.
+- The approved limits are 16 diagrams/report and 512 semantic primitive elements/report. The Lead Developer-approved output/runtime limits (1 MiB HTML, 16.7 ms p95 frame work, 8 MiB incremental preview heap, and 2,000 whole-page DOM nodes) belong to the interactive HTML/desktop-preview implementation and acceptance in Sprint 080.
+- Sprint 079 owns parsing, type checking, existing-runtime frame evaluation, formatting, and the immutable destination-neutral scene model. It does not integrate destination renderers or editor clients.
+- Sprint 078's GO is readiness only. Sprint 079 production edits require separate explicit execution authorization and an approved file-by-file plan.
+
 ## V0.13 Sprint 078 Architect Preparation (2026-10-11)
 
 - The V0.13 master plan is the scope authority for Sprint 078. Its exact diagram grammar, diagnostic allocations, safe arbitrary-time browser evaluation approach, rendering representation, and evidence-based resource bounds remain to be established by the gate; this preparation approves none of those product decisions.
