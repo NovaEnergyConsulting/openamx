@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.13 Sprint 081 Architect Preparation (2026-10-13)
+
+- Prepared Sprint 081 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0081-v13-static-pdf-docx-diagrams/`.
+- Sprint 079 supplies the shared immutable model and ordered `PreparedReport.diagrams`; its Builder evidence reports focused tests and build passing but retains broader AMX parity/performance residuals.
+- Sprint 080 Builder evidence reports standalone HTML and actual packaged WebView2 preview implementation, resource measurements within approved bounds for the tested 17/544-emission case, and passing focused checks/package build. The desktop RPC contract script retains a pre-existing sandbox-occurrence assertion mismatch; screen-reader and minimum-host/cross-platform reviews remain unavailable/untested.
+- Sprint 081 is limited to static PDF/DOCX rendering at the interval lower bound using approved inline SVG and embedded PNG representations. It does not inherit interactive HTML/desktop evidence as export acceptance.
+- Sprint 081 production work has not begun under this preparation and still requires separate explicit execution authorization and an approved file-by-file plan.
+
 ## V0.13 Sprint 080 Builder Execution (2026-10-13)
 
 - The Lead Developer approved the concrete Sprint 080 file plan and explicitly authorized execution. A separate amendment approved the root Bun-built browser runtime asset rather than Vite/esbuild, and a resource disposition approved fail-fast rejection above 1 MiB through the existing desktop job error path.

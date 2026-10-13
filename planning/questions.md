@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.13 Sprint 081 Architect Preparation (2026-10-13)
+
+- Sprint 078 approved static SVG in PDF and embedded PNG in DOCX; Sprint 081 must verify actual artifact behavior, title/description, proportions, reading order, and DOCX image alt metadata. If the PDF library cannot retain SVG accessibility metadata, preserve the description as accessible text in logical reading order and record any limitation; do not claim formal PDF/UA or screen-reader compliance without direct evidence.
+- Sprint 080's manual screen-reader review and minimum-host/cross-platform qualification remain unavailable/untested. They do not establish or block static export behavior by inference; Sprint 081 must report its own artifact and accessibility metadata evidence.
+- The Sprint 080 desktop RPC sandbox-occurrence assertion remains a recorded pre-existing failure. Do not alter sandbox policy or classify it as a PDF/DOCX result.
+- No static output representation change or scope expansion is proposed. If actual PDF/DOCX artifacts cannot meet the approved visual/accessibility contract or atomic failure behavior, stop and request a specific Lead Developer disposition rather than substituting a fallback.
+
 ## V0.13 Sprint 080 Architect Preparation (2026-10-13)
 
 - **Resolved by Lead Developer (2026-10-13):** fail fast when diagram-enabled HTML exceeds 1,048,576 UTF-8 bytes using the existing desktop job error path (`DESKTOP_JOB`). Do not truncate output, add an emitted-instance cap, or change the approved authored-declaration semantics.
