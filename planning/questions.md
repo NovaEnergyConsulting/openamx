@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.13 Sprint 080 Architect Preparation (2026-10-13)
+
+- **Open product decision:** Sprint 079's 16-diagram/512-element limits count authored declarations. Valid nested `if`/`for` execution can emit more than 16 diagram instances and 512 rendered element instances. How should Sprint 080 handle a valid report whose repeated emissions would exceed the approved 1 MiB HTML, 16.7 ms p95 frame-work, 8 MiB incremental heap, or 2,000 DOM-node limits? Do not truncate or alter the approved authored-declaration semantics. Propose and obtain approval for an explicit fail-fast/resource-exhaustion behavior and any required diagnostic identity/message before enforcing an additional cap.
+- Sprint 080 must define and test the narrow trusted desktop frame-error channel needed to surface AMXD009/AMXD010/AMXD011 while retaining iframe sandboxing, preview-token freshness, and stale-message rejection. No message protocol may trust or render report-authored HTML.
+- Sprint 079's broader AMX AST/value parity and high-rate performance residuals remain test work. Native desktop UAT and screen-reader review must be reported directly or marked BLOCKED/UNAVAILABLE; harness and DOM-only evidence are not substitutes.
+- Sprint 078 approved the output representation, controls, error behavior, security constraints, and numeric resource bounds. This preparation does not reopen those decisions; the repeated-emission question concerns reconciling those approved bounds with Sprint 079's authored-declaration behavior.
+
 ## V0.13 Sprint 079 Architect Preparation (2026-10-13)
 
 - **Resolved by Lead Developer (2026-10-13):** AMXD012 reports more than 16 diagrams per report with `A single report can have up to 16 diagrams maximum.`; AMXD013 reports more than 512 semantic primitive elements total per report with `A single report can have up to 512 elements maximum.` The 512 limit is report-wide, not per diagram.

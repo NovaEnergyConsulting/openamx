@@ -1,5 +1,13 @@
 # Planning Decisions
 
+## V0.13 Sprint 080 Architect Preparation (2026-10-13)
+
+- Sprint 080 follows the master plan and approved Sprint 078/079 contracts. It owns interactive HTML and desktop live-preview integration; PDF/DOCX and editor/documentation integration remain Sprints 081 and 082.
+- Reuse the Sprint 079 immutable model and existing evaluator. The approved interactive representation is SVG-in-DOM; the offline runtime is application-owned code with inert serialized data, not generated author code.
+- Preserve the exact playback defaults/endpoints, AMXD009-AMXD011 frame-error distinctions, desktop sandbox/lifecycle behavior, and approved resource limits from Sprint 078.
+- Sprint 079 caps count authored declarations, while repeated control-flow execution can emit more model instances. No output-instance cap or truncation policy is approved; Sprint 080 must surface evidence and request a product decision if necessary to reconcile resource limits.
+- Sprint 079's Builder reports implementation complete with residuals; this evidence does not establish full V0.13 acceptance or authorize Sprint 080 execution.
+
 ## V0.13 Sprint 079 Architect Preparation (2026-10-13)
 
 - Sprint 079 inherits the approved V0.13 grammar, formatter contract, source-location convention, fixture suite, and diagnostic allocations recorded by Sprint 078. This preparation makes no new product-semantic decision.

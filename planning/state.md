@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.13 Sprint 080 Architect Preparation (2026-10-13)
+
+- Prepared Sprint 080 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0080-v13-interactive-html-desktop-preview/`.
+- Sprint 079 Builder evidence reports the language/model increment implemented; focused verification passed (206 tests, 922 expectations across five files) and the root build passed. Broader AMX AST/value combinations, high-rate performance, and rendering/platform integration remain residuals; no full root suite or final Lead Developer closeout is claimed in that evidence.
+- Sprint 080 integrates standalone HTML and actual desktop preview using the shared diagram model. It must preserve the approved controls/diagnostics/security contract and measure the accepted resource limits.
+- Sprint 079's authored-declaration caps do not bound the number of runtime model instances emitted by nested loop/conditional execution. This is recorded as a resource-policy question for Sprint 080; no truncation or new cap is authorized by this preparation.
+- Sprint 080 production work has not begun. Separate explicit execution authorization and an approved file-by-file plan are required.
+
 ## V0.13 Sprint 079 Architect Preparation (2026-10-13)
 
 - Prepared Sprint 079 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0079-v13-diagram-language-shared-scene-model/`.
