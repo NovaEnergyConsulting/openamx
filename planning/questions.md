@@ -1,5 +1,12 @@
 # Planning Questions (Sprint 002)
 
+## V0.13 Sprint 083 Architect Preparation (2026-10-13)
+
+- Sprint 082 reports the native packaged preview of its two examples as UNAVAILABLE because `OPENAMX_NATIVE_CDP_URL` was not configured. Sprint 083 must directly provide/verify the approved host path or retain BLOCKED/UNAVAILABLE with the missing prerequisite; mocked RPC and Vite harness results are not substitutes.
+- The VS Code Development Host aggregate has seven Windows path/temporary-directory failures despite passing V0.13-specific tests; desktop `bun run test` retains the sandbox-occurrence mismatch; the full root suite was not run. Sprint 083 must rerun and disposition these against the current baseline without weakening platform or security behavior.
+- PDF `/StructTreeRoot` and `/Alt` are absent in the inspected artifact; formal PDF/UA and screen-reader acceptance are unsupported by current evidence. Manual assistive-technology review, minimum-host/cross-platform qualification, and broader AMX AST/value/performance coverage also remain open unless directly completed during Sprint 083.
+- Sprint 083 must request a separate Lead Developer closeout disposition based on the completed matrix. No V0.13 acceptance, release, publication, or platform certification is inferred in advance.
+
 ## V0.13 Sprint 082 Builder Execution (2026-10-13)
 
 - **Resolved by Lead Developer direction:** Sprint 082 adds a collapsible

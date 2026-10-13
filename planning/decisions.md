@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.13 Sprint 083 Architect Preparation (2026-10-13)
+
+- Sprint 083 follows the master plan and approved Sprint 078 contract; it owns integrated evidence and the V0.13 closeout request, not feature changes.
+- Sprints 079-082 Builder evidence reports their respective increments implemented but records residuals. Sprint 082's full VS Code aggregate remains 17 passed/7 Windows failures, desktop RPC retains its inherited sandbox-occurrence assertion mismatch, the full root suite was not run, and native packaged example preview was unavailable.
+- Preserve separate statuses for every surface and residual. No failure is accepted, waived, or converted to PASS by this preparation.
+- A Builder recommendation is not the Lead Developer disposition. Any V0.13 acceptance/closeout decision must be separately recorded; release/publication remains separate.
+
 ## V0.13 Sprint 082 Builder Execution (2026-10-13)
 
 - The Lead Developer explicitly authorized Sprint 082 execution and approved

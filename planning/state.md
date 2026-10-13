@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.13 Sprint 083 Architect Preparation (2026-10-13)
+
+- Prepared Sprint 083 integrated acceptance/closeout requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0083-v13-integrated-acceptance-closeout/`.
+- Sprint 082 is reported implemented with focused root checks/build, V0.13-specific VS Code/desktop editor checks, specification/help, and example HTML/PDF/DOCX artifacts. Its aggregate VS Code run retained seven Windows path/cleanup failures; desktop RPC retained the sandbox-occurrence mismatch; the full root suite was not run; native packaged preview of the two examples was unavailable.
+- Sprint 081 Builder evidence includes actual CLI PDF/DOCX artifacts, focused checks, desktop export tests, and atomic invalid-frame checks. PDF tagging/accessibility, formal accessibility, platform qualification, and full-suite checks remain unproven.
+- Sprint 080 packaged WebView2 evidence and resource measurements cover the tested workload only; minimum-host/cross-platform, screen-reader and exhaustive evaluator coverage remain residuals. Sprint 079 broader evaluator parity/performance is likewise not exhaustive.
+- Sprint 083 is verification and closeout only. Its execution requires separate explicit authorization and approval of the concrete file-by-file verification/evidence plan. No V0.13 milestone acceptance, release, or publication is recorded by this preparation.
+
 ## V0.13 Sprint 082 Builder Execution (2026-10-13)
 
 - The Lead Developer explicitly authorized execution and approved the concrete
