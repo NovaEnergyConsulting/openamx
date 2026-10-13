@@ -29,6 +29,7 @@ import type { CheckedType } from '../typechecker/checkDocument';
 import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
 import { fieldRegistry } from '../typechecker/declarationRegistry';
 import { canonicalUnit, composeUnits, isMeasurement, measurement, powerUnit, sqrtMeasurement, unitFromMetadata, type MeasurementUnit, type MeasurementValue } from './measurement';
+import { createDiagramModel } from './diagramModel';
 
 function validateRuntimeValue(
   value: unknown,
@@ -847,6 +848,17 @@ function evaluateStatement(statement: StatementNode, env: Environment, file?: st
       return;
     case 'tableDeclaration': case 'chartDeclaration':
       env.viewDefinitions.set(statement.name, statement);
+      return;
+    case 'diagramDeclaration':
+      env.diagramEmissions.push({
+        model: createDiagramModel(
+          statement,
+          env,
+          file,
+          env.currentDocumentNodeIndex,
+          env.currentStatementIndex
+        )
+      });
       return;
     case 'showStatement':
       env.viewEmissions.push(snapshotView(statement.name, env, file, statement.source));

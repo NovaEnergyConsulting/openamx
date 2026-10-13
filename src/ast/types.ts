@@ -208,6 +208,49 @@ export interface ChartDeclarationNode {
   source?: SourceLocation;
 }
 
+export interface DiagramPropertyNode {
+  name: string;
+  expression: V02ExpressionNode;
+  rawValue: string;
+  nameSource?: SourceLocation;
+  valueSource?: SourceLocation;
+  source?: SourceLocation;
+}
+
+export interface DiagramTimeNode {
+  name: string;
+  nameSource?: SourceLocation;
+  from: V02ExpressionNode;
+  fromText: string;
+  fromSource?: SourceLocation;
+  to: V02ExpressionNode;
+  toText: string;
+  toSource?: SourceLocation;
+  duration: V02ExpressionNode;
+  durationText: string;
+  durationSource?: SourceLocation;
+  source?: SourceLocation;
+}
+
+export interface DiagramElementNode {
+  type: 'diagramElement';
+  primitive: string;
+  name: string;
+  nameSource?: SourceLocation;
+  properties: DiagramPropertyNode[];
+  source?: SourceLocation;
+}
+
+export interface DiagramDeclarationNode {
+  type: 'diagramDeclaration';
+  name: string;
+  nameSource?: SourceLocation;
+  properties: DiagramPropertyNode[];
+  times: DiagramTimeNode[];
+  elements: DiagramElementNode[];
+  source?: SourceLocation;
+}
+
 export interface ShowStatementNode {
   type: 'showStatement';
   name: string;
@@ -439,6 +482,7 @@ export type StatementNode =
   | InputDeclarationNode
   | TableDeclarationNode
   | ChartDeclarationNode
+  | DiagramDeclarationNode
   | ShowStatementNode
   | VariableDeclarationNode
   | AssignmentStatementNode

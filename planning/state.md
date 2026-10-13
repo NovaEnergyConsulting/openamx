@@ -8,6 +8,20 @@
 - Production implementation has not begun under this preparation. Sprint 079 still requires separate explicit execution authorization and approval of the concrete file-by-file plan.
 - The diagnostic identity/message for exceeding the approved 16-diagram/512-element limits is unallocated and recorded as an implementation entry item; no code or message is inferred.
 
+## V0.13 Sprint 079 Builder Authorization (2026-10-13)
+
+- The Lead Developer explicitly authorized Sprint 079 execution and approved the concrete file-by-file plan before source or test edits. A narrow amendment was approved to include the canvas-height diagnostic AMXD014 in the same approved files.
+- Resource limits remain 16 diagrams and 512 semantic primitive elements total per report. The Lead Developer allocated AMXD012 `A single report can have up to 16 diagrams maximum.`, AMXD013 `A single report can have up to 512 elements maximum.`, and AMXD014 `Canvas height is invalid`.
+- Scope remains the core AST, parser, type checker, runtime/shared immutable model, formatter, focused tests, approved diagnostic-matrix additions, planning ledgers, and Builder evidence. Rendering surfaces, editors, exports, examples/specification, release/versioning, and certification remain excluded.
+
+## V0.13 Sprint 079 Builder Execution (2026-10-13)
+
+- Implemented the approved diagram AST, parser, type checker, immutable shared scene model, arbitrary-time runtime evaluation, source-located failures, canonical formatter, and imported-module emission aggregation. Added complete fixture-driven coverage for D-CRANK-01, D-BATTERY-01, D-NEG-01–24, limits, source ranges, typed context, nested execution, immutability, formatting, and module aggregation.
+- Lead Developer allocations AMXD012–AMXD015 and the D-NEG-18 source correction to `10:15` are recorded in the Sprint 078 diagnostic matrix and decisions ledger. Empty diagrams follow the approved EBNF. Nested `if`/`for` diagrams emit per execution; structural limits count authored declarations only.
+- Focused verification: 206 tests passed, 0 failed, 922 expectations across 5 files. Root `bun run build` passed. A `functions.runTests` invocation timed out without returning; direct Bun execution completed successfully. No full root suite or renderer/platform integration was run.
+- Residual: broader AMX AST/value combinations and high-rate/performance limits remain unexhausted. Authored-declaration caps do not bound repeated emitted model instances; this is the Lead Developer-approved behavior and must remain visible to later surface integrations.
+- Sprint 079 delivers the language/model increment only. HTML/desktop, PDF/DOCX, editor, native UAT, publication, release, and platform certification remain unaccepted/out of scope.
+
 ## V0.13 Sprint 078 Architect Preparation (2026-10-11)
 
 - Prepared the Sprint 078 contract/feasibility-gate pack in `planning/sprints/0078-v13-diagram-contract-feasibility-gate/`: requirements, blueprint, acceptance criteria, and Builder handoff.

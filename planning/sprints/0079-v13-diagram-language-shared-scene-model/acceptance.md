@@ -10,8 +10,8 @@ contract without changing existing AMX behavior.
 - Executable AMX accepts the approved `diagram Identifier` declaration with
   required non-empty String-literal title and accessible description, finite
   positive Number-expression canvas width/height, exactly one local numeric
-  time variable, and one or more supported elements as required by the
-  approved grammar.
+  time variable, and zero or more supported elements, as specified by the
+  approved EBNF.
 - The parser/type checker accept the approved `line`, `rectangle`, `circle`,
   and `text` forms and reject unsupported primitives/properties, missing
   fields, wrong value types, invalid arrow literals, and animated style
@@ -59,9 +59,17 @@ contract without changing existing AMX behavior.
   order, logical canvas dimensions and coordinate convention, title,
   accessible description, interval, duration, source attribution, validated
   dynamic expressions, and static styles.
+- When evaluating an entry module, aggregate diagram emissions from each
+  distinct resolved imported module and the entry document in deterministic
+  dependency/source order. Apply the authored-declaration caps across that
+  complete module graph.
 - Each frame is evaluated from the selected time and captured document
   context. Model construction/evaluation does not mutate authored values or
   reuse a previously evaluated frame as a success fallback.
+- A diagram nested in an existing `if` or `for` body is emitted once per
+  execution of that declaration, using that execution's captured context. The
+  16-diagram and 512-element caps count authored declarations, not repeated
+  executions.
 - Host evaluation preserves existing AMX semantics for supported values and
   functions. Tests include references to surrounding document values and
   pure functions, imported-function/context behavior, and typed cases for

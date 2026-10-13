@@ -1,4 +1,4 @@
-import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, DimensionDeclarationNode, EnumDeclarationNode, ExportNamesDeclarationNode, FunctionDeclarationNode, InputDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TableDeclarationNode, TypeDeclarationNode, TypeReferenceNode, UnitDeclarationNode, V02ExpressionNode, VisualizationOptionNode } from '../ast/types';
+import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, DiagramDeclarationNode, DiagramElementNode, DiagramPropertyNode, DimensionDeclarationNode, EnumDeclarationNode, ExportNamesDeclarationNode, FunctionDeclarationNode, InputDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TableDeclarationNode, TypeDeclarationNode, TypeReferenceNode, UnitDeclarationNode, V02ExpressionNode, VisualizationOptionNode } from '../ast/types';
 import { moduleError, staticError } from '../diagnostics/errors';
 import type { DimensionMetadata, DimensionUnitRegistry, UnitMetadata } from './dimensionTypes';
 import { fieldRegistry, setDeclaringRegistry } from './declarationRegistry';
@@ -130,6 +130,55 @@ function bodyContainsForStatements(statements: StatementNode[]): boolean {
   });
 }
 
+function expressionReferencesIdentifier(expression: V02ExpressionNode, name: string): boolean {
+  switch (expression.type) {
+    case 'identifier': return expression.name === name;
+    case 'binaryExpression': return expressionReferencesIdentifier(expression.left, name) || expressionReferencesIdentifier(expression.right, name);
+    case 'measurementAttachment': case 'measurementConversion': return expressionReferencesIdentifier(expression.value, name);
+    case 'unaryExpression': return expressionReferencesIdentifier(expression.argument, name);
+    case 'conditionalExpression': return expressionReferencesIdentifier(expression.test, name)
+      || expressionReferencesIdentifier(expression.consequent, name)
+      || expressionReferencesIdentifier(expression.alternate, name);
+    case 'bracedIfExpression': return expressionReferencesIdentifier(expression.test, name)
+      || bodyReferencesIdentifier(expression.consequent, name)
+      || bodyReferencesIdentifier(expression.alternate, name);
+    case 'stringInterpolation': return expression.parts.some(part => typeof part !== 'string' && expressionReferencesIdentifier(part, name));
+    case 'matchExpression': return expressionReferencesIdentifier(expression.expression, name)
+      || expression.cases.some(item => expressionReferencesIdentifier(item.expression, name))
+      || expressionReferencesIdentifier(expression.defaultExpression, name);
+    case 'rangeExpression': return expressionReferencesIdentifier(expression.start, name) || expressionReferencesIdentifier(expression.end, name);
+    case 'functionCall': return expression.arguments.some(argument => expressionReferencesIdentifier(argument, name));
+    case 'listLiteral': return expression.elements.some(element => expressionReferencesIdentifier(element, name));
+    case 'forExpression': return expressionReferencesIdentifier(expression.iterable, name)
+      || bodyReferencesIdentifier(expression.body, name);
+    case 'recordConstructor': return expression.fields.some(field => expressionReferencesIdentifier(field.expression, name));
+    case 'fieldAccess': return expressionReferencesIdentifier(expression.receiver, name);
+    case 'listAccess': return expressionReferencesIdentifier(expression.receiver, name)
+      || expressionReferencesIdentifier(expression.index, name);
+    default: return false;
+  }
+}
+
+function bodyReferencesIdentifier(statements: StatementNode[], name: string): boolean {
+  return statements.some(statement => {
+    switch (statement.type) {
+      case 'variableDeclaration': return expressionReferencesIdentifier(statement.expression, name);
+      case 'assignmentStatement': case 'compoundAssignmentStatement': return expressionReferencesIdentifier(statement.expression, name);
+      case 'returnStatement': return expressionReferencesIdentifier(statement.expression, name);
+      case 'addStatement': return expressionReferencesIdentifier(statement.value, name)
+        || !!statement.index && expressionReferencesIdentifier(statement.index, name);
+      case 'removeStatement': return expressionReferencesIdentifier(statement.count, name)
+        || !!statement.index && expressionReferencesIdentifier(statement.index, name);
+      case 'forStatement': return expressionReferencesIdentifier(statement.iterable, name)
+        || bodyReferencesIdentifier(statement.body, name);
+      case 'bracedIfStatement': return expressionReferencesIdentifier(statement.test, name)
+        || bodyReferencesIdentifier(statement.consequent, name)
+        || !!statement.alternate && bodyReferencesIdentifier(statement.alternate, name);
+      default: return false;
+    }
+  });
+}
+
 function constantValue(expression: V02ExpressionNode): unknown | undefined {
   switch (expression.type) {
     case 'numberLiteral': return Number.isFinite(expression.value) ? expression.value : undefined;
@@ -204,15 +253,20 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   const exportedUnits = new Map<string, UnitMetadata>();
   const exportedNames = new Set<string>();
   const views = new Map<string, TableDeclarationNode | ChartDeclarationNode>();
+  const diagramNames = new Set<string>();
+  const diagramElementNames = new Set<string>();
+  let diagramCount = 0;
+  let diagramElementCount = 0;
   let loopDepth = 0;
   let allowListMutation = true;
-  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010' | 'AMX3011' | 'AMX3012' | 'AMX3013' | 'AMX3014' | 'AMX3015' | 'AMX3016' | 'AMX3017' | 'AMX3018' | 'AMX3019' | 'AMX3020' | 'AMX3021', message: string, source?: SourceLocation, declarationSource?: SourceLocation): never => staticError(code, message, source, file, declarationSource);
+  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010' | 'AMX3011' | 'AMX3012' | 'AMX3013' | 'AMX3014' | 'AMX3015' | 'AMX3016' | 'AMX3017' | 'AMX3018' | 'AMX3019' | 'AMX3020' | 'AMX3021' | 'AMXD001' | 'AMXD002' | 'AMXD003' | 'AMXD004' | 'AMXD005' | 'AMXD006' | 'AMXD007' | 'AMXD008' | 'AMXD009' | 'AMXD010' | 'AMXD011' | 'AMXD012' | 'AMXD013' | 'AMXD014' | 'AMXD015', message: string, source?: SourceLocation, declarationSource?: SourceLocation): never => staticError(code, message, source, file, declarationSource);
   const failDeclaration = (message: string, source?: SourceLocation, declarationSource?: SourceLocation): never =>
     staticError('AMX3008', message, source, file, declarationSource);
 
   function hasName(name: string): boolean {
     return primitives.has(name) || stdlibNames.has(name) || types.has(name) || enums.has(name) || functions.has(name)
-      || bindings.has(name) || views.has(name) || dimensions.has(name) || units.has(name);
+      || bindings.has(name) || views.has(name) || diagramNames.has(name) || diagramElementNames.has(name)
+      || dimensions.has(name) || units.has(name);
   }
 
   function normalizedVector(vector: Map<string, number>): ReadonlyMap<string, number> {
@@ -1090,6 +1144,113 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     fail('AMX3003', `Unsupported ${view.kind} chart data shape`, view.bindingSource);
   }
 
+  function checkDiagram(diagram: DiagramDeclarationNode): void {
+    if (hasName(diagram.name)) fail('AMX3005', `Duplicate declaration '${diagram.name}'`, diagram.nameSource ?? diagram.source);
+    diagramNames.add(diagram.name);
+    diagramCount++;
+    if (diagramCount > 16) {
+      fail('AMXD012', 'A single report can have up to 16 diagrams maximum.', diagram.source);
+    }
+
+    const diagramProperties = new Map<string, DiagramPropertyNode>();
+    const diagramPropertyNames = new Set(['title', 'description', 'width', 'height']);
+    for (const property of diagram.properties) {
+      if (!diagramPropertyNames.has(property.name)) fail('AMXD002', 'Unknown diagram property', property.nameSource ?? property.source);
+      if (diagramProperties.has(property.name)) fail('AMX3005', `Repeated diagram property '${property.name}'`, property.nameSource ?? property.source);
+      diagramProperties.set(property.name, property);
+    }
+    const requiredDiagramProperty = (name: string): DiagramPropertyNode => {
+      const property = diagramProperties.get(name);
+      if (!property) fail('AMXD001', `Missing required field: ${name}`, diagram.source);
+      return property!;
+    };
+    const title = requiredDiagramProperty('title');
+    const description = requiredDiagramProperty('description');
+    const width = requiredDiagramProperty('width');
+    const height = requiredDiagramProperty('height');
+    if (title.expression.type !== 'stringLiteral') {
+      requireType(infer(title.expression), named('String'), title.valueSource ?? title.source);
+      return fail('AMXD001', 'Missing required field: title', diagram.source);
+    }
+    if (description.expression.type !== 'stringLiteral') {
+      requireType(infer(description.expression), named('String'), description.valueSource ?? description.source);
+      return fail('AMXD001', 'Missing required field: description', diagram.source);
+    }
+    if (!title.expression.value.trim()) fail('AMXD001', 'Missing required field: title', diagram.source);
+    if (!description.expression.value.trim()) fail('AMXD001', 'Missing required field: description', diagram.source);
+    requireType(infer(width.expression), named('Number'), width.valueSource ?? width.source);
+    requireType(infer(height.expression), named('Number'), height.valueSource ?? height.source);
+
+    if (diagram.times.length === 0) fail('AMXD001', 'Missing required field: time', diagram.source);
+    if (diagram.times.length > 1) {
+      fail('AMX3005', 'Repeated diagram time declaration', diagram.times[1].source ?? diagram.source);
+    }
+    const time = diagram.times[0];
+    requireType(infer(time.from), named('Number'), time.fromSource ?? time.source);
+    requireType(infer(time.to), named('Number'), time.toSource ?? time.source);
+    requireType(infer(time.duration), named('Number'), time.durationSource ?? time.source);
+
+    const outerBindings = bindings;
+    const localBindings = new Map(bindings);
+    localBindings.set(time.name, named('Number'));
+    bindings = localBindings;
+    try {
+      for (const element of diagram.elements) {
+        diagramElementCount++;
+        if (diagramElementCount > 512) {
+          fail('AMXD013', 'A single report can have up to 512 elements maximum.', element.source);
+        }
+        if (hasName(element.name)) fail('AMX3005', `Duplicate declaration '${element.name}'`, element.nameSource ?? element.source);
+        diagramElementNames.add(element.name);
+        const requirements: Record<string, { required: string[]; optional: string[]; numberProperties: string[]; stringProperties: string[] }> = {
+          line: { required: ['x1', 'y1', 'x2', 'y2', 'stroke', 'lineWidth'], optional: ['arrow'], numberProperties: ['x1', 'y1', 'x2', 'y2'], stringProperties: [] },
+          rectangle: { required: ['x', 'y', 'width', 'height', 'stroke', 'lineWidth'], optional: ['fill'], numberProperties: ['x', 'y', 'width', 'height'], stringProperties: [] },
+          circle: { required: ['cx', 'cy', 'r', 'stroke', 'lineWidth'], optional: ['fill'], numberProperties: ['cx', 'cy', 'r'], stringProperties: [] },
+          text: { required: ['x', 'y', 'value', 'fill'], optional: [], numberProperties: ['x', 'y'], stringProperties: ['value'] }
+        };
+        const requirement = requirements[element.primitive];
+        if (!requirement) fail('AMXD002', 'Unknown diagram property', element.source);
+        const allowed = new Set([...requirement.required, ...requirement.optional]);
+        const elementProperties = new Map<string, DiagramPropertyNode>();
+        for (const property of element.properties) {
+          if (!allowed.has(property.name)) fail('AMXD002', 'Unknown diagram property', property.nameSource ?? property.source);
+          if (elementProperties.has(property.name)) fail('AMX3005', `Repeated diagram property '${property.name}'`, property.nameSource ?? property.source);
+          elementProperties.set(property.name, property);
+        }
+        for (const name of requirement.required) {
+          if (!elementProperties.has(name)) fail('AMXD001', `Missing required field: ${name}`, element.source);
+        }
+        for (const property of element.properties) {
+          if ((property.name === 'stroke' || property.name === 'fill' || property.name === 'lineWidth' || property.name === 'arrow')
+            && expressionReferencesIdentifier(property.expression, time.name)) {
+            fail('AMXD006', 'Inconsistent time style', property.valueSource ?? property.source);
+          }
+          if (requirement.numberProperties.includes(property.name)) {
+            requireType(infer(property.expression), named('Number'), property.valueSource ?? property.source);
+          } else if (requirement.stringProperties.includes(property.name)) {
+            requireType(infer(property.expression), named('String'), property.valueSource ?? property.source);
+          } else if (property.name === 'stroke' || property.name === 'fill') {
+            if (property.expression.type !== 'stringLiteral'
+              || !(property.expression.value === 'none' || /^#[0-9a-fA-F]{6}$/.test(property.expression.value))) {
+              fail('AMXD015', 'Invalid diagram style specified', property.valueSource ?? property.source);
+            }
+          } else if (property.name === 'lineWidth') {
+            if (property.expression.type !== 'numberLiteral' || !Number.isFinite(property.expression.value) || property.expression.value <= 0) {
+              fail('AMXD015', 'Invalid diagram style specified', property.valueSource ?? property.source);
+            }
+          } else if (property.name === 'arrow') {
+            if (property.expression.type !== 'stringLiteral'
+              || !['none', 'start', 'end', 'both'].includes(property.expression.value)) {
+              fail('AMXD007', 'Unsupported arrow literal', property.valueSource ?? property.source);
+            }
+          }
+        }
+      }
+    } finally {
+      bindings = outerBindings;
+    }
+  }
+
   function checkStatement(statement: StatementNode): void {
     switch (statement.type) {
       case 'importDeclaration':
@@ -1291,6 +1452,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
       }
       case 'tableDeclaration': checkTable(statement); return;
       case 'chartDeclaration': checkChart(statement); return;
+      case 'diagramDeclaration': checkDiagram(statement); return;
       case 'showStatement':
         if (loopDepth > 0) fail('AMX3005', 'Show statements may only occur at module top level', statement.source);
         if (context?.isEntryModule === false) fail('AMX3005', 'Show statements may only occur in the entry module', statement.source);

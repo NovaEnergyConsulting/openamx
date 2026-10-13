@@ -2,6 +2,7 @@ import { throwUndefinedIdentifier } from '../diagnostics/errors';
 import { ChartDeclarationNode, EnumDeclarationNode, FunctionDeclarationNode, SourceLocation, TableDeclarationNode, TypeDeclarationNode } from '../ast/types';
 import type { CheckedType } from '../typechecker/checkDocument';
 import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
+import type { DiagramSceneModel } from './diagramModel';
 
 export type ViewDataValue = string | number | boolean | null | readonly ViewDataValue[]
   | { readonly [field: string]: ViewDataValue };
@@ -43,6 +44,10 @@ export interface ChartMeasurementUnitDescriptor {
 
 export type ViewEmission = TableViewEmission | ChartViewEmission;
 
+export interface DiagramEmission {
+  readonly model: DiagramSceneModel;
+}
+
 /**
  * Runtime environment for variable storage during evaluation.
  * Variables are stored in declaration order (source order).
@@ -58,6 +63,7 @@ export class Environment {
   dimensionRegistry?: DimensionUnitRegistry;
   readonly viewDefinitions = new Map<string, TableDeclarationNode | ChartDeclarationNode>();
   readonly viewEmissions: ViewEmission[] = [];
+  readonly diagramEmissions: DiagramEmission[] = [];
   private immutableValues = new WeakSet<object>();
   currentDocumentNodeIndex = -1;
   currentStatementIndex = -1;
@@ -153,5 +159,6 @@ export class Environment {
     this.immutableValues = new WeakSet<object>();
     this.viewDefinitions.clear();
     this.viewEmissions.length = 0;
+    this.diagramEmissions.length = 0;
   }
 }

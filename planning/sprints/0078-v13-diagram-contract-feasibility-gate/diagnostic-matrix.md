@@ -1,6 +1,6 @@
 # V0.13 Diagram Diagnostic Matrix
 
-**Allocation status: AMXD001–AMXD011 and reuses AMX3001/AMX3002 recorded
+**Allocation status: AMXD001–AMXD015 and reuses AMX3001/AMX3002 recorded
 (2026-10-13).** The
 `D-NEG-*` strings below identify fixtures, not diagnostic codes. Production
 AMX implementation and editor/preview delivery remain future work. Probe
@@ -27,7 +27,21 @@ in the final column, or approved existing-code reuse. Do not use the
 | AMXD009 — `Frame evaluation leads to invalid results. The underlying error is: <base amx error>` | D-NEG-15 | Stop and clear that diagram when expression evaluation throws an AMX error; include the underlying error and source location. |
 | AMXD010 — `Infinity value calculated for time upper bound` | D-NEG-22 | Stop and clear when geometry evaluates to Infinity at the declared upper-bound time without a thrown AMX error. |
 | AMXD011 — `Expression produces an infinite result` | D-NEG-24 | Stop and clear when geometry evaluates to Infinity at an interior selected time without a thrown AMX error. |
+| AMXD012 — `A single report can have up to 16 diagrams maximum.` | Report-wide cap | Reject the first diagram declaration beyond 16 diagrams in a report. |
+| AMXD013 — `A single report can have up to 512 elements maximum.` | Report-wide cap | Reject the first semantic primitive element beyond 512 total elements in a report. |
+| AMXD014 — `Canvas height is invalid` | Canvas validation | Reject non-positive or non-finite evaluated canvas height. |
+| AMXD015 — `Invalid diagram style specified` | Style validation | Reject stroke/fill values outside the approved static literal set and non-positive or non-finite line width. |
 | Reuse AMX3001 (`Unknown identifier 't'`) | D-NEG-16 | Preserve the existing undefined-identifier diagnostic for diagram-local time outside its scope. |
+
+The 512-element limit counts `line`, `rectangle`, `circle`, and `text`
+authored declarations across the entire report; repeated runtime executions
+of a declaration do not add to these structural counts. For an entry report,
+count each distinct resolved imported module once, followed by the entry
+document, in dependency/source order. AMXD012 points to the first excess
+diagram declaration; AMXD013 points to the first excess semantic element.
+AMXD014 points to the invalid height expression, consistent with the width
+location convention for AMXD003. AMXD015 points to the invalid style literal
+or line-width value.
 
 AMXD009 applies when expression evaluation throws a base AMX error; for
 example, D-NEG-15's negative `sqrt` carries existing AMX2005. AMXD010 is the
@@ -91,7 +105,7 @@ live-preview path rather than retain stale output.
 | D-NEG-15 | Radius is valid at t=0 but `sqrt` fails at t=2; stop and clear. | Geometry expression `14:8` (`sqrt(1 - t)`) | — | AMXD009 template; underlying AMX2005 `sqrt` error |
 | D-NEG-16 | Diagram-local `t` escapes its diagram scope; reject reference. | Identifier `t` in `18:23` | Local time declaration `10:3` in the diagram | Reuse AMX3001 `Unknown identifier 't'` |
 | D-NEG-17 | Canvas width expression evaluates non-finite; reject. | Width expression `8:10` (`1 / 0`) | — | AMXD003 `Canvas width is invalid` |
-| D-NEG-18 | Timeline start evaluates non-finite; reject before frame evaluation. | Start expression `10:16` (`1 / 0`) | — | AMXD004 `Invalid time bounds` |
+| D-NEG-18 | Timeline start evaluates non-finite; reject before frame evaluation. | Start expression `10:15` (`1 / 0`) | — | AMXD004 `Invalid time bounds` |
 | D-NEG-19 | Rectangle width is not positive; reject element. | Width literal `14:12` (`-1`) | — | AMXD008 `Invalid primitive geometry` |
 | D-NEG-20 | Required line endpoint `x2` is missing; reject element. | Incomplete element declaration `11:3` | — | AMXD001 `Missing required field: <field_name>` |
 | D-NEG-21 | Arrow value is outside supported literal set; reject element. | Arrow literal `18:12` (`"sideways"`) | — | AMXD007 `Unsupported arrow literal` |

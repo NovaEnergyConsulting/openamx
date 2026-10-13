@@ -7,6 +7,25 @@
 - Sprint 079 owns parsing, type checking, existing-runtime frame evaluation, formatting, and the immutable destination-neutral scene model. It does not integrate destination renderers or editor clients.
 - Sprint 078's GO is readiness only. Sprint 079 production edits require separate explicit execution authorization and an approved file-by-file plan.
 
+## V0.13 Sprint 079 Lead Developer Authorization and Diagnostic Allocation (2026-10-13)
+
+- The Lead Developer explicitly authorized Sprint 079 execution and approved the file-by-file plan, including the approved amendment for the canvas-height diagnostic. This authorization does not extend to Sprints 080-083, release, publication, or certification.
+- The approved report-wide limits are 16 diagrams and 512 semantic primitive elements total. AMXD012 is allocated with exact message `A single report can have up to 16 diagrams maximum.`; AMXD013 is allocated with exact message `A single report can have up to 512 elements maximum.` The 512-element count is across the report, not per diagram.
+- AMXD014 is allocated with exact message `Canvas height is invalid` for non-positive or non-finite canvas height. AMXD003 remains reserved for width failures with its existing exact message.
+- AMXD015 is allocated with exact message `Invalid diagram style specified` for invalid stroke/fill literals and non-positive or non-finite `lineWidth`. AMXD006 and AMXD007 retain their separate time-dependent-style and arrow-literal meanings.
+- Add these allocations to the Sprint 078 diagnostic matrix without changing existing D-NEG-01–24 mappings. Above-limit diagnostics identify the first over-limit declaration in original-document coordinates.
+- The Lead Developer resolved the EBNF/acceptance discrepancy in favor of the approved `Element*` grammar: diagrams may contain zero elements. The Sprint 079 acceptance criterion was amended accordingly; no new diagnostic is needed.
+- The Lead Developer corrected D-NEG-18's allocated source location from `10:16` to `10:15`; column 15 is the first character of `1 / 0` in the fixture, consistent with the original-document source contract.
+- Diagrams nested in existing `if`/`for` bodies emit once per execution using that execution's context. The 16-diagram and 512-element caps count authored declarations only; repeated executions do not increase the structural counts.
+- The Lead Developer approved aggregating emissions from each distinct resolved imported module into the entry report in dependency/source order. The authored 16/512 caps apply across that module graph; existing `viewEmissions` behavior is unchanged.
+
+## V0.13 Sprint 079 Builder Execution (2026-10-13)
+
+- Implemented the language/model increment through the core AST, parser, type checker, runtime, and formatter. The shared model captures a cloned AMX context and validated AST, evaluates each requested frame from a fresh environment, and is deeply frozen.
+- Focused command `bun test tests\parser.test.ts tests\evaluator.test.ts tests\formatter.test.ts tests\modules.test.ts tests\diagram.test.ts`: 205 passed, 0 failed, 910 expectations across 5 files. `bun run build`: passed. The initial `functions.runTests` request timed out without a result; no Bun test process remained, and direct Bun runs produced the reported results.
+- Lead Developer decisions are honored: AMXD012–AMXD015, D-NEG-18 at `10:15`, empty diagrams valid per `Element*`, and nested diagrams emit per execution while caps count authored declarations. A 17-execution loop therefore emits 17 models from one authored declaration and does not trigger AMXD012; this does not establish an output-instance/resource bound.
+- The increment does not claim full AMX AST/value parity, imported-module diagram aggregation, high-rate performance limits, renderer integration, native UAT, editor or export acceptance.
+
 ## V0.13 Sprint 078 Architect Preparation (2026-10-11)
 
 - The V0.13 master plan is the scope authority for Sprint 078. Its exact diagram grammar, diagnostic allocations, safe arbitrary-time browser evaluation approach, rendering representation, and evidence-based resource bounds remain to be established by the gate; this preparation approves none of those product decisions.

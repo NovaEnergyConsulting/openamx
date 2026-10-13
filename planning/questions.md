@@ -2,10 +2,18 @@
 
 ## V0.13 Sprint 079 Architect Preparation (2026-10-13)
 
-- **Open approval needed before cap diagnostics are finalized:** What diagnostic identity and exact message should report exceeding the approved limit of 16 diagrams or 512 semantic primitive elements per report? Sprint 078 approved the numeric limits but did not allocate a diagnostic. Do not reuse AMXD001-AMXD011 or AMX3001/AMX3002 without explicit approval.
+- **Resolved by Lead Developer (2026-10-13):** AMXD012 reports more than 16 diagrams per report with `A single report can have up to 16 diagrams maximum.`; AMXD013 reports more than 512 semantic primitive elements total per report with `A single report can have up to 512 elements maximum.` The 512 limit is report-wide, not per diagram.
+- **Resolved by Lead Developer (2026-10-13):** AMXD014 reports non-positive or non-finite canvas height with `Canvas height is invalid`; AMXD003 remains for canvas width.
+- **Resolved by Lead Developer (2026-10-13):** AMXD015 reports invalid stroke/fill literals and non-positive or non-finite `lineWidth` with `Invalid diagram style specified`.
+- **Resolved by Lead Developer (2026-10-13):** D-NEG-18's primary location is `10:15`, the actual first character of the non-finite `from` expression.
+- **Resolved by Lead Developer (2026-10-13):** diagrams nested in `if`/`for` bodies emit per execution. AMXD012/AMXD013 count authored declarations only, not repeated runtime emissions.
+- **Resolved by Lead Developer (2026-10-13):** follow the approved EBNF `Element*`; empty diagrams are valid. The Sprint 079 acceptance wording was corrected to match.
 - Sprint 079 must preserve full existing expression/function semantics and expand typed-context acceptance beyond the Sprint 078 probe. The probe's imported function that directly referenced an enum identifier raised existing AMX1004; preserve and document that current behavior unless the Lead Developer separately authorizes a runtime change.
 - Native desktop UAT and production per-frame error delivery are not Sprint 079 blockers: they remain deferred to post-implementation UAT and Sprint 080's preview integration, respectively. Do not mark them as passed based on Sprint 078's isolated harness.
 - The V0.13 grammar, diagnostic mapping for D-NEG-01–24, source-location convention, formatter contract, and resource limits were resolved in Sprint 078 and are not reopened by this preparation.
+- **Implementation coverage residual:** full combinations of the existing AMX AST/value/function inventory and high-rate evaluation/resource budgets remain BLOCKED/untested; the Sprint 079 fixture suite does not claim exhaustive semantic parity.
+- **Resolved by Lead Developer (2026-10-13):** aggregate diagram emissions from each distinct resolved imported module and the entry report in dependency/source order. The report-wide authored declaration caps include that module graph; no diagram export/placement mechanism is added.
+- The approved structural caps count authored declarations; repeated `if`/`for` execution can produce more than 16 emitted models or 512 emitted element instances. This consequence is explicitly approved and remains a resource-boundary risk for later rendering integrations.
 
 ## V0.13 Sprint 078 Contract and Feasibility Questions (2026-10-11)
 

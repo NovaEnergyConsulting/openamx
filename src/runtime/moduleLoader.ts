@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import {
+  DiagramDeclarationNode,
   FunctionDeclarationNode,
   ImportDeclarationNode,
   OpenAmxDocument,
@@ -15,7 +16,7 @@ import { Environment } from './environment';
 import { AmxError, moduleError, staticError, throwInputErrors, type AmxDiagnostic } from '../diagnostics/errors';
 import { describeInputSchema, loadInputValues, validateInputText, type InputSchema, type InputTextFormat, ValidationMode } from './inputData';
 import { describeOutputSchemas, prepareOutputs, type OutputSchema, PreparedOutput } from './outputData';
-import type { ViewEmission } from './environment';
+import type { DiagramEmission, ViewEmission } from './environment';
 import type { DimensionMetadata, DimensionUnitRegistry, UnitMetadata } from '../typechecker/dimensionTypes';
 
 /**
@@ -47,6 +48,7 @@ export interface LoadedEntryModule {
   env: Environment;
   outputs: PreparedOutput[];
   viewEmissions: readonly ViewEmission[];
+  diagramEmissions: readonly DiagramEmission[];
   inputInspection?: EntryInputInspection;
   outputSchemas?: OutputSchema[];
   registry: DimensionUnitRegistry;
@@ -76,6 +78,54 @@ function flattenStatements(doc: OpenAmxDocument): StatementNode[] {
     if (node.type === 'executableCodeBlock') statements.push(...node.statements);
   }
   return statements;
+}
+
+function collectDiagramDeclarations(statements: StatementNode[], output: DiagramDeclarationNode[]): void {
+  for (const statement of statements) {
+    if (statement.type === 'diagramDeclaration') output.push(statement);
+    else if (statement.type === 'forStatement') collectDiagramDeclarations(statement.body, output);
+    else if (statement.type === 'bracedIfStatement') {
+      collectDiagramDeclarations(statement.consequent, output);
+      if (statement.alternate) collectDiagramDeclarations(statement.alternate, output);
+    }
+  }
+}
+
+function reportDiagramDeclarations(doc: OpenAmxDocument): DiagramDeclarationNode[] {
+  const declarations: DiagramDeclarationNode[] = [];
+  for (const node of doc.nodes) {
+    if (node.type === 'executableCodeBlock') collectDiagramDeclarations(node.statements, declarations);
+  }
+  return declarations;
+}
+
+function validateReportDiagramCaps(records: ModuleRecord[]): void {
+  let diagramCount = 0;
+  let elementCount = 0;
+  for (const record of records) {
+    for (const declaration of reportDiagramDeclarations(record.doc)) {
+      diagramCount++;
+      if (diagramCount > 16) {
+        staticError(
+          'AMXD012',
+          'A single report can have up to 16 diagrams maximum.',
+          declaration.source,
+          record.canonicalPath
+        );
+      }
+      for (const element of declaration.elements) {
+        elementCount++;
+        if (elementCount > 512) {
+          staticError(
+            'AMXD013',
+            'A single report can have up to 512 elements maximum.',
+            element.source,
+            record.canonicalPath
+          );
+        }
+      }
+    }
+  }
 }
 
 function validateImportPathSyntax(importNode: ImportDeclarationNode, file: string): void {
@@ -280,6 +330,8 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
 
   await visit(realEntry, undefined);
 
+  validateReportDiagramCaps(evaluationOrder.map(canonicalPath => resolved.get(canonicalPath)!));
+
   const entryRecord = resolved.get(realEntry)!;
   const registry: DimensionUnitRegistry = {
     dimensions: entryRecord.checkResult.dimensions,
@@ -326,6 +378,7 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
       env: new Environment(entryTypes, new Map(), registry),
       outputs,
       viewEmissions: [],
+      diagramEmissions: [],
       registry,
       inputInspection: {
         schema: describeInputSchema(declaration, entryTypes, registry),
@@ -336,7 +389,15 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     };
   }
   if (options.outputInspection) {
-    return { doc: entryRecord.doc, env: new Environment(entryTypes, new Map(), registry), outputs, viewEmissions: [], outputSchemas: outputSchemas ?? [], registry };
+    return {
+      doc: entryRecord.doc,
+      env: new Environment(entryTypes, new Map(), registry),
+      outputs,
+      viewEmissions: [],
+      diagramEmissions: [],
+      outputSchemas: outputSchemas ?? [],
+      registry
+    };
   }
   const inputValues = await loadInputValues(
     inputDeclarations,
@@ -385,5 +446,16 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
   }
 
   const entryEnv = evaluatedEnvironments.get(realEntry)!;
-  return { doc: resolved.get(realEntry)!.doc, env: entryEnv, outputs, viewEmissions: entryEnv.viewEmissions, registry };
+  const diagramEmissions = Object.freeze(evaluationOrder.flatMap(canonicalPath =>
+    evaluatedEnvironments.get(canonicalPath)!.diagramEmissions
+  ));
+  entryEnv.diagramEmissions.splice(0, entryEnv.diagramEmissions.length, ...diagramEmissions);
+  return {
+    doc: resolved.get(realEntry)!.doc,
+    env: entryEnv,
+    outputs,
+    viewEmissions: entryEnv.viewEmissions,
+    diagramEmissions,
+    registry
+  };
 }

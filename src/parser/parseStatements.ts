@@ -1,4 +1,4 @@
-import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, EnumDeclarationNode, FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, InputDeclarationNode, SourceLocation, StatementNode, TableDeclarationNode, TypeReferenceNode, VariableDeclarationNode, VisualizationOptionNode } from '../ast/types';
+import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, DiagramDeclarationNode, DiagramElementNode, DiagramPropertyNode, DiagramTimeNode, EnumDeclarationNode, FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, InputDeclarationNode, SourceLocation, StatementNode, TableDeclarationNode, TypeReferenceNode, VariableDeclarationNode, VisualizationOptionNode } from '../ast/types';
 import { parseExpression } from './parseExpression';
 import { parseForStatement } from './parseFor';
 import { parseBracedIfStatement } from './parseIf';
@@ -174,6 +174,13 @@ export function parseStatements(
           column: offset + 1
         });
       }
+    }
+
+    if (/^\s*diagram\b/.test(rawLine)) {
+      const parsed = parseDiagramDeclaration(lines, i, source);
+      statements.push(parsed.statement);
+      i = parsed.endIndex;
+      continue;
     }
 
     if (/^\s*(table|chart)\b/.test(rawLine)) {
@@ -536,6 +543,150 @@ function parseVisualization(
       bindingSource, options, ...(exported ? { exported } : {}), source
     },
     endIndex
+  };
+}
+
+function parseDiagramDeclaration(
+  lines: string[],
+  startIndex: number,
+  source: SourceLocation
+): { statement: DiagramDeclarationNode; endIndex: number } {
+  const headerLine = lines[startIndex];
+  const header = headerLine.match(/^\s*diagram\s+([A-Za-z][A-Za-z0-9_]*)\s*\{\s*$/);
+  if (!header) syntaxError('Invalid diagram declaration', source);
+
+  const name = header[1];
+  const statement: DiagramDeclarationNode = {
+    type: 'diagramDeclaration',
+    name,
+    nameSource: { line: source.line, column: headerLine.indexOf(name) + 1 },
+    properties: [],
+    times: [],
+    elements: [],
+    source
+  };
+
+  let index = startIndex + 1;
+  while (index < lines.length) {
+    const line = lines[index];
+    if (/^\s*}\s*$/.test(line)) return { statement, endIndex: index };
+    if (!line.trim()) { index++; continue; }
+    const lineSource = {
+      line: source.line + index - startIndex,
+      column: line.length - line.trimStart().length + 1
+    };
+
+    const timeHeader = line.match(/^\s*time\s+([A-Za-z][A-Za-z0-9_]*)\s+from\s+(.+)$/);
+    if (timeHeader) {
+      const tail = timeHeader[2];
+      const tailOffset = line.indexOf(tail);
+      const durationKeyword = findTopLevelKeyword(tail, 'duration');
+      if (!durationKeyword) syntaxError('Invalid diagram time declaration', lineSource);
+      const bounds = tail.slice(0, durationKeyword.start).trim();
+      const toKeyword = findTopLevelKeyword(bounds, 'to');
+      if (!toKeyword) syntaxError('Invalid diagram time declaration', lineSource);
+      const fromText = bounds.slice(0, toKeyword.start).trim();
+      const toText = bounds.slice(toKeyword.end).trim();
+      const durationText = tail.slice(durationKeyword.end).trim();
+      if (!fromText || !toText || !durationText) syntaxError('Invalid diagram time declaration', lineSource);
+      const expressionSource = (offset: number) =>
+        locationAtOffset(tail, offset, {
+          line: lineSource.line,
+          column: tailOffset + 1
+        });
+      const fromSource = expressionSource(tail.indexOf(fromText));
+      const toSource = expressionSource(tail.indexOf(toText, toKeyword.end));
+      const durationSource = expressionSource(tail.indexOf(durationText, durationKeyword.end));
+      const time: DiagramTimeNode = {
+        name: timeHeader[1],
+        nameSource: { line: lineSource.line, column: line.indexOf(timeHeader[1]) + 1 },
+        from: parseExpression(fromText, fromSource),
+        fromText,
+        fromSource,
+        to: parseExpression(toText, toSource),
+        toText,
+        toSource,
+        duration: parseExpression(durationText, durationSource),
+        durationText,
+        durationSource,
+        source: lineSource
+      };
+      statement.times.push(time);
+      index++;
+      continue;
+    }
+
+    const elementHeader = line.match(/^\s*([A-Za-z][A-Za-z0-9_]*)\s+([A-Za-z][A-Za-z0-9_]*)\s*\{\s*$/);
+    if (elementHeader) {
+      const primitive = elementHeader[1];
+      const elementName = elementHeader[2];
+      const element: DiagramElementNode = {
+        type: 'diagramElement',
+        primitive,
+        name: elementName,
+        nameSource: { line: lineSource.line, column: line.indexOf(elementName) + 1 },
+        properties: [],
+        source: { line: lineSource.line, column: lineSource.column }
+      };
+      index++;
+      let elementClosed = false;
+      while (index < lines.length) {
+        const propertyLine = lines[index];
+        if (/^\s*}\s*$/.test(propertyLine)) {
+          elementClosed = true;
+          index++;
+          break;
+        }
+        if (!propertyLine.trim()) { index++; continue; }
+        const property = parseDiagramProperty(lines, index, source.line + index - startIndex);
+        element.properties.push(property.node);
+        index += property.lineCount;
+      }
+      if (!elementClosed) syntaxError('Unclosed diagram element', element.source);
+      statement.elements.push(element);
+      continue;
+    }
+
+    const property = parseDiagramProperty(lines, index, source.line + index - startIndex);
+    statement.properties.push(property.node);
+    index += property.lineCount;
+  }
+
+  syntaxError('Unclosed diagram declaration', source);
+}
+
+function parseDiagramProperty(
+  lines: string[],
+  index: number,
+  lineNumber: number
+): { node: DiagramPropertyNode; lineCount: number } {
+  const line = lines[index];
+  const match = line.match(/^\s*([A-Za-z][A-Za-z0-9_]*)\s*:\s*(.*)$/);
+  const source = {
+    line: lineNumber,
+    column: line.length - line.trimStart().length + 1
+  };
+  if (!match) syntaxError('Invalid diagram property', source);
+  const name = match[1];
+  const initialValue = match[2];
+  if (!initialValue.trim()) syntaxError('Invalid diagram property value', source);
+  const collected = collectDelimitedExpression(lines, index, initialValue);
+  const rawValue = collected.text.trim();
+  const valueOffset = line.indexOf(initialValue) + initialValue.indexOf(initialValue.trim());
+  const valueSource = locationAtOffset(rawValue, 0, {
+    line: source.line,
+    column: valueOffset + 1
+  });
+  return {
+    node: {
+      name,
+      expression: parseExpression(rawValue, valueSource),
+      rawValue,
+      nameSource: { line: source.line, column: line.indexOf(name) + 1 },
+      valueSource,
+      source
+    },
+    lineCount: collected.lineCount
   };
 }
 
