@@ -1,5 +1,13 @@
 # Planning State
 
+## V0.13 Sprint 082 Architect Preparation (2026-10-13)
+
+- Prepared Sprint 082 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0082-v13-editor-examples-documentation/`.
+- Sprint 079-081 Builder evidence reports implementation in each sprint's scope. Sprint 081's focused root suites/build and desktop export checks passed; actual PDF/DOCX artifacts were inspected, and invalid lower-bound exports preserved existing destinations. The inspected PDF has no tagged structure tree or `/Alt`; formal accessibility remains unclaimed.
+- Sprint 082 integrates shared editor services with VS Code and desktop authoring surfaces, publishes the V0.13 language specification/help, and adds the two approved runnable examples validated through HTML/PDF/DOCX paths.
+- Existing Sprint 079-081 residuals (broader evaluator parity/performance, full test/RPC failures or omissions, screen-reader/PDF accessibility, minimum-host/cross-platform qualification) remain visible and are not inferred as passes.
+- Sprint 082 production work has not begun under this preparation and requires separate explicit execution authorization and approval of the concrete file-by-file plan.
+
 ## V0.13 Sprint 081 Builder Execution (2026-10-13)
 
 - Implemented static diagram integration in the production PDF and DOCX adapters under the approved file plan. Both adapters merge ordered `PreparedReport.diagrams` at `beforeItemIndex`/`order` and evaluate the same frame at `model.timeline.from`; PDF uses inline SVG and DOCX embeds PNG rasterized from that SVG with visible title/description and image alt metadata.

@@ -1,5 +1,11 @@
 # Planning Questions (Sprint 002)
 
+## V0.13 Sprint 082 Architect Preparation (2026-10-13)
+
+- Sprint 081's production PDF inspection found no tagged structure tree or `/Alt`; visible searchable title/description and SVG `<title>`/`<desc>` are documented but do not establish PDF/UA or screen-reader compliance. Sprint 082 specification/help must state this accurately; any request to expand PDF accessibility remains a separate product decision.
+- Sprint 079 broader AMX value/AST parity and high-rate performance, Sprint 080 minimum-host/cross-platform and screen-reader review, Sprint 081 formal accessibility/full-suite/platform checks, and the pre-existing desktop RPC sandbox-occurrence assertion remain recorded residuals. Sprint 082 must neither hide nor silently remediate them.
+- No semantic decision is reopened. If editor integration or either required example appears to require a contract change or an unallocated diagnostic, stop and request a specific Lead Developer decision rather than changing the approved V0.13 behavior.
+
 ## V0.13 Sprint 081 Builder Execution (2026-10-13)
 
 - **PDF accessibility metadata limitation recorded:** direct PDF.js/binary inspection of the production artifact found no `/StructTreeRoot`, `/Alt`, or page structure tree. The PDF still exposes the title and description as visible, searchable text in reading order and the source SVG has `<title>`/`<desc>`. This is not formal PDF/UA or screen-reader evidence.

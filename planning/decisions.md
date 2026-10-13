@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.13 Sprint 082 Architect Preparation (2026-10-13)
+
+- Sprint 082 follows the approved V0.13 diagram contract and owns editor-service/VS Code/desktop-authoring integration, language specification/help, and the two runnable examples. It does not alter parser/runtime/model/rendering semantics.
+- Validate examples against the implemented output paths from Sprints 080-081, while keeping their residuals distinct from Sprint 082's direct evidence.
+- Preserve the Sprint 081 PDF accessibility finding: visible, searchable title/description and SVG metadata are present, but the inspected PDF has no tagged structure tree or `/Alt`; formal PDF/UA or screen-reader support is not claimed.
+- Sprint 079-081 Builder evidence does not itself record a V0.13 end-to-end acceptance. Sprint 083 remains the integrated closeout gate. Sprint 082 execution requires separate explicit authorization and a concrete approved file plan.
+
 ## V0.13 Sprint 081 Builder Execution (2026-10-13)
 
 - Static rendering reuses `evaluateDiagramFrame(model, model.timeline.from)` and one static SVG serializer for both formats. The PDF adapter embeds that SVG inline; the DOCX adapter rasterizes the same SVG to an embedded PNG. No interactive HTML/desktop behavior, grammar, model semantics, or approved representation changed.
