@@ -19,7 +19,7 @@ function fixture() {
 }
 
 async function completedJob(service: DesktopRPCClient, job: DesktopJobSnapshot): Promise<DesktopJobSnapshot> {
-	for (let attempt = 0; job.status === "running" && attempt < 200; attempt++) {
+	for (let attempt = 0; (job.status === "running" || job.status === "committing") && attempt < 200; attempt++) {
 		await new Promise(resolve => setTimeout(resolve, 10));
 		const result = await service.request.getJob({ jobId: job.identity.jobId });
 		if (!result.ok) throw new Error(result.error.message);
