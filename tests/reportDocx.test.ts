@@ -26,6 +26,78 @@ afterEach(async () => {
 });
 
 describe('report DOCX adapter', () => {
+  it('embeds one proportionate lower-bound PNG with visible text and image alt metadata', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'openamx-docx-diagram-'));
+    temporaryDirectories.push(directory);
+    const input = join(directory, 'diagram-report.amx');
+    await writeFile(input, `# Before figure
+
+\`\`\`amx
+diagram movingPart {
+  title: "Static <diagram>"
+  description: "Offline & safe"
+  width: 100
+  height: 50
+  time t from 0 to 2 duration 2
+  circle marker {
+    cx: 20 + 30 * t
+    cy: 25
+    r: 8
+    stroke: "#263238"
+    fill: "#FF0000"
+    lineWidth: 1
+  }
+  text selectedFrame {
+    x: 5
+    y: 10
+    value: "Frame \${round(t, 0)}"
+    fill: "#263238"
+  }
+}
+\`\`\`
+
+# After figure
+`);
+    const loaded = await loadEntryModule(input);
+    const report = await prepareReport(loaded.doc, loaded.env, { file: input });
+    const bytes = await serializeDocxReport(await prepareDocxReport(report));
+    const archive = await JSZip.loadAsync(bytes);
+    const names = Object.keys(archive.files);
+    const imageNames = names.filter(name => name.startsWith('word/media/') && name.endsWith('.png'));
+    const documentXml = await archive.file('word/document.xml')?.async('string') ?? '';
+    const relationships = await archive.file('word/_rels/document.xml.rels')?.async('string') ?? '';
+    const extent = documentXml.match(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/);
+
+    expect(imageNames).toHaveLength(1);
+    expect(documentXml.indexOf('Before figure')).toBeLessThan(documentXml.indexOf('Static &lt;diagram&gt;'));
+    expect(documentXml.indexOf('Static &lt;diagram&gt;')).toBeLessThan(documentXml.indexOf('Offline &amp; safe'));
+    expect(documentXml.indexOf('Offline &amp; safe')).toBeLessThan(documentXml.indexOf('After figure'));
+    expect(documentXml).toContain('title="Static &lt;diagram&gt;"');
+    expect(documentXml).toContain('descr="Offline &amp; safe"');
+    expect(relationships).toMatch(/Target="media\/[^"]+\.png"/);
+    expect(relationships).not.toContain('TargetMode="External"');
+    expect(names.some(name => name.startsWith('word/media/') && name.endsWith('.svg'))).toBe(false);
+    expect(names.some(name => /vbaProject|macros/i.test(name))).toBe(false);
+    expect(extent).not.toBeNull();
+
+    const width = Number(extent?.[1]);
+    const height = Number(extent?.[2]);
+    expect(width).toBeLessThanOrEqual(9_026 * 635);
+    expect(width / height).toBeCloseTo(2, 2);
+
+    const pngBytes = await archive.file(imageNames[0]!)!.async('uint8array');
+    const { data, info } = await sharp(Buffer.from(pngBytes)).raw().toBuffer({ resolveWithObject: true });
+    const pixelAt = (x: number, y: number) => {
+      const offset = (y * info.width + x) * info.channels;
+      return [data[offset], data[offset + 1], data[offset + 2]];
+    };
+    const lowerBoundPixel = pixelAt(Math.floor(info.width * 0.2), Math.floor(info.height * 0.5));
+    const upperBoundPixel = pixelAt(Math.floor(info.width * 0.8), Math.floor(info.height * 0.5));
+    expect(upperBoundPixel[0]).toBeLessThan(100);
+    expect(lowerBoundPixel[0]).toBeGreaterThan(200);
+    expect(lowerBoundPixel[1]).toBeLessThan(80);
+  });
+
   it('preserves semantic order and editable report content', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'openamx-docx-'));
     temporaryDirectories.push(directory);
@@ -41,7 +113,7 @@ describe('report DOCX adapter', () => {
     ].join('\n');
     await Bun.write(input, source);
     const loaded = await loadEntryModule(input);
-    const parts = await packageParts(await serializeDocxReport(prepareDocxReport(await prepareReport(loaded.doc, loaded.env, { file: input }))));
+    const parts = await packageParts(await serializeDocxReport(await prepareDocxReport(await prepareReport(loaded.doc, loaded.env, { file: input }))));
     const documentXml = parts.get('word/document.xml') ?? '';
     const relsXml = parts.get('word/_rels/document.xml.rels') ?? '';
     expect(documentXml).toContain('w:val="Heading1"');
@@ -147,7 +219,7 @@ show scatter
 \`\`\``);
     const loaded = await loadEntryModule(input);
     const prepared = await prepareReport(loaded.doc, loaded.env, { file: input });
-    const archive = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
+    const archive = await JSZip.loadAsync(await serializeDocxReport(await prepareDocxReport(prepared)));
     const names = Object.keys(archive.files);
     const chartNames = names.filter(name => /^word\/charts\/chart\d+\.xml$/.test(name));
     const workbooks = names.filter(name => name.startsWith('word/embeddings/') && name.endsWith('.xlsx'));
@@ -258,7 +330,7 @@ show mixedGroups
 \`\`\``);
     const loaded = await loadEntryModule(input);
     const prepared = await prepareReport(loaded.doc, loaded.env, { file: input });
-    const archive = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
+    const archive = await JSZip.loadAsync(await serializeDocxReport(await prepareDocxReport(prepared)));
     const names = Object.keys(archive.files);
     const documentXml = await archive.file('word/document.xml')?.async('string') ?? '';
     expect(names.some(name => /^word\/charts\/chart\d+\.xml$/.test(name))).toBe(false);
@@ -299,7 +371,7 @@ show trend
 \`\`\``);
     const loaded = await loadEntryModule(input);
     const prepared = await prepareReport(loaded.doc, loaded.env, { file: input });
-    const archive = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
+    const archive = await JSZip.loadAsync(await serializeDocxReport(await prepareDocxReport(prepared)));
     const chartXml = await archive.file('word/charts/chart1.xml')?.async('string') ?? '';
     const documentXml = await archive.file('word/document.xml')?.async('string') ?? '';
     expect(chartXml).toContain('<c:scatterChart>');
@@ -355,7 +427,7 @@ show threeAxes
 \`\`\``);
     const loaded = await loadEntryModule(input);
     const prepared = await prepareReport(loaded.doc, loaded.env, { file: input });
-    const archive = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
+    const archive = await JSZip.loadAsync(await serializeDocxReport(await prepareDocxReport(prepared)));
     const chartNames = Object.keys(archive.files).filter(name => /^word\/charts\/chart\d+\.xml$/.test(name));
     const documentXml = await archive.file('word/document.xml')?.async('string') ?? '';
     expect(chartNames).toHaveLength(1);
@@ -433,7 +505,7 @@ show threeAxes
     const loaded = await loadEntryModule(input);
     const prepared = await prepareReport(loaded.doc, loaded.env, { file: input });
     await unlink(imagePath);
-    const bytes = await serializeDocxReport(prepareDocxReport(prepared, {
+    const bytes = await serializeDocxReport(await prepareDocxReport(prepared, {
       sourceDocumentPath: input,
       destinationPath: destination
     }));
@@ -486,7 +558,7 @@ show threeAxes
     ].join('\n'));
     const loaded = await loadEntryModule(input);
     const report = await prepareReport(loaded.doc, loaded.env, { file: input });
-    const parts = await packageParts(await serializeDocxReport(prepareDocxReport(report)));
+    const parts = await packageParts(await serializeDocxReport(await prepareDocxReport(report)));
     const documentXml = parts.get('word/document.xml') ?? '';
     expect(documentXml).toContain('<w:tblHeader');
     expect(documentXml.match(/<w:tr>/g)).toHaveLength(101);
@@ -509,7 +581,7 @@ show threeAxes
         throw new Error('injected native chart serialization failure');
       };
       await expect(async () => {
-        const bytes = await serializeDocxReport(prepareDocxReport(report));
+        const bytes = await serializeDocxReport(await prepareDocxReport(report));
         await writeDocxAtomically(destination, bytes);
       }).toThrow('injected native chart serialization failure');
     } finally {

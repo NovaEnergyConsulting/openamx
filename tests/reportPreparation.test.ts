@@ -6,7 +6,9 @@ import { tmpdir } from 'node:os';
 import sharp from 'sharp';
 import { parseDocumentText } from '../src/parser/parseDocument';
 import { Environment } from '../src/runtime/environment';
+import { loadEntryModule } from '../src/runtime/moduleLoader';
 import { prepareReport } from '../src/renderer/reportPreparation';
+import { orderedReportSequence } from '../src/renderer/reportSequence';
 import { fitNarrativeImage, parseNarrativeImageWidth, type NarrativeBlock, type NarrativeInline } from '../src/renderer/narrativeModel';
 
 const directories: string[] = [];
@@ -54,6 +56,60 @@ afterEach(async () => {
 });
 
 describe('shared report preparation', () => {
+  it('preserves imported and entry diagram insertion order around report items', async () => {
+    const root = await fixtureRoot();
+    const input = join(root, 'report.amx');
+    const diagram = (name: string, title: string) => `diagram ${name} {
+  title: "${title}"
+  description: "${title} figure"
+  width: 100
+  height: 50
+  time t from 0 to 1 duration 1
+  circle ${name}Marker {
+    cx: 20 + 20 * t
+    cy: 25
+    r: 5
+    stroke: "#263238"
+    lineWidth: 1
+  }
+}`;
+    await writeFile(join(root, 'assets.amx'), `\`\`\`amx
+export let signal: Number = 1
+${diagram('imported', 'Imported')}
+\`\`\`
+`);
+    await writeFile(input, `---
+report:
+  sourceVisible: true
+---
+# Before
+
+\`\`\`amx
+import { signal } from "./assets.amx"
+${diagram('entryFirst', 'Entry first')}
+let copy: Number = signal
+${diagram('entrySecond', 'Entry second')}
+\`\`\`
+
+# After
+`);
+
+    const loaded = await loadEntryModule(input);
+    const report = await prepareReport(loaded.doc, loaded.env, { file: input });
+    const diagrams = report.diagrams ?? [];
+    expect(diagrams.map(({ model, beforeItemIndex, order }) => [
+      model.title, model.file === input, beforeItemIndex, order
+    ])).toEqual([
+      ['Imported', false, 2, 0],
+      ['Entry first', true, 2, 1],
+      ['Entry second', true, 2, 2]
+    ]);
+    expect(orderedReportSequence(report).map(entry => entry.type === 'diagram'
+      ? entry.diagram.model.title
+      : entry.item.type === 'narrative' ? entry.item.text.trim() : entry.item.type))
+      .toEqual(['# Before', 'source', 'Imported', 'Entry first', 'Entry second', '# After']);
+  });
+
   it('loads project-relative CSS and rejects unsafe stylesheet paths', async () => {
     const root = await fixtureRoot();
     await mkdir(join(root, 'assets'));

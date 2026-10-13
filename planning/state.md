@@ -1,5 +1,15 @@
 # Planning State
 
+## V0.13 Sprint 081 Builder Execution (2026-10-13)
+
+- Implemented static diagram integration in the production PDF and DOCX adapters under the approved file plan. Both adapters merge ordered `PreparedReport.diagrams` at `beforeItemIndex`/`order` and evaluate the same frame at `model.timeline.from`; PDF uses inline SVG and DOCX embeds PNG rasterized from that SVG with visible title/description and image alt metadata.
+- Root focused command `bun test tests\reportSequence.test.ts tests\reportPreparation.test.ts tests\reportPdf.test.ts tests\reportDocx.test.ts tests\reportPresentation.test.ts tests\pdfCli.test.ts tests\docxCli.test.ts` passed: 45 tests, 0 failed, 495 expectations across 7 files. `bun run build` passed.
+- Desktop focused command `bun test src\bun\desktopPdfExport.test.ts src\bun\desktopDocxExport.test.ts` from `desktop-app` passed: 3 tests, 0 failed, 29 expectations. `bun run typecheck` and `bun run build:web` passed; the Vite >500 kB chunk advisory remained non-failing.
+- Production CLI exports generated the Sprint 081 fixture artifacts. PDF.js reported 5 PDF pages; Microsoft Word Print Layout reported 2 DOCX pages. Visual captures and artifact-level text/order/dimension/alt metadata inspection are recorded in `planning/sprints/0081-v13-static-pdf-docx-diagrams/builder-evidence.md`.
+- CLI invalid-lower-bound tests returned AMXD008 for both formats and preserved existing destinations byte-for-byte with no temporary files. Destination validation/atomic writers and offline resource restrictions were not weakened.
+- PDF.js inspection of the actual PDF found no `/StructTreeRoot` or `/Alt`; `getStructTree()` returned null. Diagram title/description are visible and searchable as ordered text and the source SVG includes title/description metadata. No PDF/UA or screen-reader claim is made.
+- The DOCX was directly inspected in Word Print Layout. Automated Word PDF export did not produce a separate PDF; the direct Word screenshot satisfies the visual inspection path. Formal accessibility review, full root suite, full desktop RPC contract, platform qualification, and end-to-end V0.13 acceptance/release remain unperformed. See Sprint 081 `builder-evidence.md` for commands, artifacts, and residuals.
+
 ## V0.13 Sprint 081 Architect Preparation (2026-10-13)
 
 - Prepared Sprint 081 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0081-v13-static-pdf-docx-diagrams/`.

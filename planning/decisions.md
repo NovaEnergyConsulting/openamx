@@ -1,5 +1,12 @@
 # Planning Decisions
 
+## V0.13 Sprint 081 Builder Execution (2026-10-13)
+
+- Static rendering reuses `evaluateDiagramFrame(model, model.timeline.from)` and one static SVG serializer for both formats. The PDF adapter embeds that SVG inline; the DOCX adapter rasterizes the same SVG to an embedded PNG. No interactive HTML/desktop behavior, grammar, model semantics, or approved representation changed.
+- A shared ordered-report sequence consumes `PreparedReport.items` with diagrams by `beforeItemIndex` and `order`; invalid positions/orders fail explicitly instead of silently dropping diagrams.
+- DOCX preparation is asynchronous because rasterization uses the existing Sharp dependency. The CLI and desktop worker await it; existing atomic destination commits still occur only after complete serialization.
+- PDFMake emitted no tagged structure tree or `/Alt` metadata in the inspected artifact. The approved fallback is visible, searchable title/description text in logical report order plus title/description metadata in the input SVG; formal PDF/UA and screen-reader compliance are not claimed. No new product-semantic decision was made.
+
 ## V0.13 Sprint 081 Architect Preparation (2026-10-13)
 
 - Sprint 081 uses the approved PDF inline-SVG and DOCX embedded-PNG static representations from Sprint 078. Static frames use each diagram's lower-bound time; DOCX diagrams remain non-editable graphics.

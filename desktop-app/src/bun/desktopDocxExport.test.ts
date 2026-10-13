@@ -14,7 +14,28 @@ test("desktop DOCX export uses the validated final destination for local links",
 	const output = join(outputDirectory, "report.docx");
 	mkdirSync(companionDirectory, { recursive: true });
 	mkdirSync(outputDirectory);
-	writeFileSync(entry, "# Desktop report\n\n[Companion](./companions/asset%20one.txt?download=1#page)\n");
+	writeFileSync(entry, `# Desktop report
+
+[Companion](./companions/asset%20one.txt?download=1#page)
+
+\`\`\`amx
+diagram desktopFigure {
+	title: "Desktop static diagram"
+	description: "Offline desktop export figure"
+	width: 100
+	height: 50
+	time t from 0 to 1 duration 1
+	circle marker {
+	cx: 20 + 40 * t
+	cy: 25
+	r: 8
+	stroke: "#263238"
+	fill: "#146C94"
+	lineWidth: 1
+	}
+}
+\`\`\`
+`);
 	writeFileSync(join(companionDirectory, "asset one.txt"), "portable companion");
 
 	const service = createDesktopService(root, {
@@ -37,7 +58,7 @@ test("desktop DOCX export uses the validated final destination for local links",
 		if (!started.ok) throw new Error(started.error.message);
 
 		let job = started.job;
-		for (let attempt = 0; job.status === "running" && attempt < 1000; attempt++) {
+		for (let attempt = 0; (job.status === "running" || job.status === "committing") && attempt < 1000; attempt++) {
 			await new Promise(resolve => setTimeout(resolve, 10));
 			const polled = await service.request.getJob({ jobId: job.identity.jobId });
 			if (!polled.ok) throw new Error(polled.error.message);
@@ -48,6 +69,11 @@ test("desktop DOCX export uses the validated final destination for local links",
 		const documentXml = await archive.file("word/document.xml")?.async("string");
 		const relationships = await archive.file("word/_rels/document.xml.rels")?.async("string");
 		expect(documentXml).toContain("Desktop report");
+		expect(documentXml).toContain("Desktop static diagram");
+		expect(documentXml).toContain("Offline desktop export figure");
+		expect(documentXml).toContain('title="Desktop static diagram"');
+		expect(documentXml).toContain('descr="Offline desktop export figure"');
+		expect(Object.keys(archive.files).filter(name => name.startsWith("word/media/") && name.endsWith(".png"))).toHaveLength(1);
 		expect(relationships).toContain('Target="../source/companions/asset%20one.txt?download=1#page"');
 		expect(relationships).not.toContain(root);
 		expect(relationships).not.toContain(".tmp");
@@ -96,7 +122,7 @@ show scores
 		if (!started.ok) throw new Error(started.error.message);
 
 		let job = started.job;
-		for (let attempt = 0; job.status === "running" && attempt < 1000; attempt++) {
+		for (let attempt = 0; (job.status === "running" || job.status === "committing") && attempt < 1000; attempt++) {
 			await new Promise(resolve => setTimeout(resolve, 10));
 			const polled = await service.request.getJob({ jobId: job.identity.jobId });
 			if (!polled.ok) throw new Error(polled.error.message);

@@ -9,6 +9,8 @@ import { formatAmxValue } from '../runtime/valueSerialization';
 import { createChartViewModel, type ChartViewModel } from './chartModel';
 import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeImageWidth, type NarrativeInline, type NarrativeLink } from './narrativeModel';
 import type { PreparedReport } from './reportPreparation';
+import { orderedReportSequence } from './reportSequence';
+import { renderStaticDiagramSvg } from './staticDiagram';
 
 export interface PreparedPdfReport {
   definition: Record<string, unknown>;
@@ -76,7 +78,25 @@ function preparePreparedPdfReport(
       margin: [0, 0, 0, 16]
     });
   }
-  for (const item of report.items) {
+  for (const entry of orderedReportSequence(report)) {
+    if (entry.type === 'diagram') {
+      const model = entry.diagram.model;
+      const rendered = renderStaticDiagramSvg(model);
+      const dimensions = fitNarrativeImage(
+        { width: rendered.width, height: rendered.height },
+        { maxWidth: 493, maxHeight: 650 }
+      );
+      content.push({
+        stack: [
+          { text: model.title, style: 'heading' },
+          { text: model.description, style: 'caption' },
+          { svg: rendered.svg, width: dimensions.width }
+        ],
+        unbreakable: true
+      });
+      continue;
+    }
+    const item = entry.item;
     if (item.type === 'narrative') addNarrativeBlocks(content, item.markdown, context, identity.imageWidth);
     else if (item.type === 'source') content.push({ text: item.text, style: 'source' });
     else addEmission(content, item.emission, identity, renderChart);

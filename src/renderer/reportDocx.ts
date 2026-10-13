@@ -31,6 +31,9 @@ import { formatAmxValue } from '../runtime/valueSerialization';
 import { createChartViewModel, type ChartAxisModel, type ChartViewModel } from './chartModel';
 import { fitNarrativeImage, type NarrativeBlock, type NarrativeImage, type NarrativeImageWidth, type NarrativeInline, type NarrativeLink } from './narrativeModel';
 import type { PreparedReport } from './reportPreparation';
+import type { DiagramSceneModel } from '../runtime/diagramModel';
+import { orderedReportSequence } from './reportSequence';
+import { rasterizeStaticDiagramSvg, renderStaticDiagramSvg } from './staticDiagram';
 
 export interface PreparedDocxReport {
   document: Document;
@@ -65,11 +68,12 @@ type DocxContent = Paragraph | Table;
 const TABLE_WIDTH_TWIPS = 9_026;
 // ChartRun uses 15 twips per CSS pixel; leave one pixel of page-width clearance.
 const DOCX_CHART_WIDTH_PIXELS = Math.floor(TABLE_WIDTH_TWIPS / 15) - 1;
+const DOCX_DIAGRAM_MAX_HEIGHT_PIXELS = 700;
 const IMAGE_WIDTH_PIXELS = 601;
 const IMAGE_HEIGHT_PIXELS = 864;
 const MAX_BOOKMARK_NAME_LENGTH = 40;
 
-export function prepareDocxReport(report: PreparedReport, context?: DocxExportContext): PreparedDocxReport {
+export async function prepareDocxReport(report: PreparedReport, context?: DocxExportContext): Promise<PreparedDocxReport> {
   return preparePreparedDocxReport(report, context);
 }
 
@@ -77,7 +81,7 @@ export async function serializeDocxReport(report: PreparedDocxReport): Promise<U
   return Uint8Array.from(await Packer.toBuffer(report.document));
 }
 
-function preparePreparedDocxReport(report: PreparedReport, exportContext?: DocxExportContext): PreparedDocxReport {
+async function preparePreparedDocxReport(report: PreparedReport, exportContext?: DocxExportContext): Promise<PreparedDocxReport> {
   const children: DocxContent[] = [];
   const identity = report.identity;
   if (identity.logo || identity.organization || identity.author || identity.status || identity.classification) {
@@ -94,7 +98,12 @@ function preparePreparedDocxReport(report: PreparedReport, exportContext?: DocxE
   );
   const numbering: Array<INumberingOptions['config'][number]> = [];
   let nextListReference = 0;
-  for (const item of report.items) {
+  for (const entry of orderedReportSequence(report)) {
+    if (entry.type === 'diagram') {
+      children.push(...await renderDiagram(entry.diagram.model));
+      continue;
+    }
+    const item = entry.item;
     if (item.type === 'narrative') {
       const context: NarrativeRenderContext = {
         exportContext,
@@ -118,6 +127,26 @@ function preparePreparedDocxReport(report: PreparedReport, exportContext?: DocxE
       sections: [{ children, footers: identity.footer ? { default: new Footer({ children: [new Paragraph({ text: identity.footer })] }) } : undefined }]
     })
   };
+}
+
+async function renderDiagram(model: DiagramSceneModel): Promise<Paragraph[]> {
+  const rendered = renderStaticDiagramSvg(model);
+  const png = await rasterizeStaticDiagramSvg(rendered.svg);
+  const transformation = fitNarrativeImage(
+    { width: png.width, height: png.height },
+    { maxWidth: DOCX_CHART_WIDTH_PIXELS, maxHeight: DOCX_DIAGRAM_MAX_HEIGHT_PIXELS }
+  );
+  const image = new ImageRun({
+    type: 'png',
+    data: png.bytes,
+    transformation,
+    altText: { name: model.name, title: model.title, description: model.description }
+  });
+  return [
+    new Paragraph({ text: model.title, heading: HeadingLevel.HEADING_2, keepNext: true }),
+    new Paragraph({ text: model.description, keepNext: true }),
+    new Paragraph({ children: [image], alignment: AlignmentType.CENTER, keepLines: true })
+  ];
 }
 
 function renderBlocks(

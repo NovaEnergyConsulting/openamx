@@ -1,5 +1,11 @@
 # Planning Questions (Sprint 002)
 
+## V0.13 Sprint 081 Builder Execution (2026-10-13)
+
+- **PDF accessibility metadata limitation recorded:** direct PDF.js/binary inspection of the production artifact found no `/StructTreeRoot`, `/Alt`, or page structure tree. The PDF still exposes the title and description as visible, searchable text in reading order and the source SVG has `<title>`/`<desc>`. This is not formal PDF/UA or screen-reader evidence.
+- The actual DOCX was visually inspected in Microsoft Word Print Layout; OOXML image alt title/description, internal PNG relationships, visible titles/descriptions, page order, and extents were verified. Word's automated PDF conversion did not complete, so no Word-rendered PDF was retained; the direct Word screenshot is the rendered-DOCX evidence.
+- Screen-reader/assistive-technology review, minimum-host/cross-platform qualification, full root test suite, and end-to-end V0.13 acceptance remain unavailable or unperformed. The existing Sprint 080 RPC assertion mismatch remains unrelated and was not rerun or changed.
+
 ## V0.13 Sprint 081 Architect Preparation (2026-10-13)
 
 - Sprint 078 approved static SVG in PDF and embedded PNG in DOCX; Sprint 081 must verify actual artifact behavior, title/description, proportions, reading order, and DOCX image alt metadata. If the PDF library cannot retain SVG accessibility metadata, preserve the description as accessible text in logical reading order and record any limitation; do not claim formal PDF/UA or screen-reader compliance without direct evidence.

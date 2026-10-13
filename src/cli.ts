@@ -89,7 +89,7 @@ cli
           validation: options.validation as "aggregate" | "fail-fast" | undefined
         });
         const report = await prepareReport(doc, env, { file: input, projectRoot: options.projectRoot, includeStylesheet: false });
-        const bytes = await serializeDocxReport(prepareDocxReport(report, {
+        const bytes = await serializeDocxReport(await prepareDocxReport(report, {
           sourceDocumentPath: input,
           destinationPath: destination.path
         }));

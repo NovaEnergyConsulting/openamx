@@ -45,6 +45,64 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 describe('report PDF adapter', () => {
+  it('embeds an ordered, lower-bound static SVG with visible and escaped metadata', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'openamx-pdf-diagram-'));
+    temporaryDirectories.push(directory);
+    const input = join(directory, 'diagram-report.amx');
+    await writeFile(input, `# Before figure
+
+\`\`\`amx
+diagram movingPart {
+  title: "Static <diagram>"
+  description: "Offline & safe"
+  width: 100
+  height: 50
+  time t from 0 to 2 duration 2
+  circle marker {
+    cx: 20 + 30 * t
+    cy: 25
+    r: 8
+    stroke: "#263238"
+    fill: "#FF0000"
+    lineWidth: 1
+  }
+  text selectedFrame {
+    x: 5
+    y: 10
+    value: "Frame \${round(t, 0)}"
+    fill: "#263238"
+  }
+}
+\`\`\`
+
+# After figure
+`);
+    const loaded = await loadEntryModule(input);
+    const report = await prepareReport(loaded.doc, loaded.env, { file: input });
+    const prepared = preparePdfReport(report);
+    const bytes = await serializePdfReport(prepared);
+    const pages = await textByPage(bytes);
+    const text = pages.join(' ');
+    const records = collectRecords(prepared.definition.content);
+    const figure = records.find(record => typeof record.svg === 'string'
+      && (record.svg as string).includes('diagram-title'));
+    const svg = figure?.svg;
+    if (typeof svg !== 'string') throw new Error('Prepared PDF did not contain the static diagram SVG.');
+
+    expect(text.indexOf('Before figure')).toBeLessThan(text.indexOf('Static <diagram>'));
+    expect(text.indexOf('Static <diagram>')).toBeLessThan(text.indexOf('Offline & safe'));
+    expect(text.indexOf('Offline & safe')).toBeLessThan(text.indexOf('After figure'));
+    expect(svg).toContain('cx="20"');
+    expect(svg).not.toContain('cx="50"');
+    expect(svg).toContain('Frame 0');
+    expect(svg).not.toContain('Frame 1');
+    expect(svg).toContain('<title id="diagram-title">Static &lt;diagram&gt;</title>');
+    expect(svg).toContain('<desc id="diagram-description">Offline &amp; safe</desc>');
+    expect(svg).not.toMatch(/<script|<button|data-diagram-/i);
+    expect(figure?.width).toBeLessThanOrEqual(493);
+    expect(pages.length).toBeGreaterThanOrEqual(1);
+  });
+
   it('serializes searchable report content, static chart data, and an explicit page break', async () => {
     const doc = parseDocumentText(`# Report\n\nNarrative text\n\n<!-- page-break -->\n\n## Appendix`);
     const prepared = await prepareReport(doc, new Environment());

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import JSZip from 'jszip';
@@ -31,11 +31,43 @@ describe('export docx CLI', () => {
     const directory = await fixtureDirectory();
     const input = join(directory, 'report.amx');
     const output = join(directory, 'report.docx');
-    await Bun.write(input, '# Report\n\nNarrative\n');
+    await Bun.write(input, `# Report
+
+Narrative before
+
+\`\`\`amx
+diagram cliFigure {
+  title: "CLI diagram"
+  description: "Static offline figure"
+  width: 100
+  height: 50
+  time t from 0 to 1 duration 1
+  circle marker {
+    cx: 20 + 40 * t
+    cy: 25
+    r: 8
+    stroke: "#263238"
+    fill: "#146C94"
+    lineWidth: 1
+  }
+}
+\`\`\`
+
+Narrative after
+`);
     const result = await runCli('export', 'docx', input, '--out', output);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Exported DOCX');
     expect((await Bun.file(output).arrayBuffer()).byteLength).toBeGreaterThan(1000);
+    const archive = await JSZip.loadAsync(await Bun.file(output).arrayBuffer());
+    const documentXml = await archive.file('word/document.xml')?.async('string') ?? '';
+    const imageNames = Object.keys(archive.files).filter(name => name.startsWith('word/media/') && name.endsWith('.png'));
+    expect(documentXml.indexOf('Narrative before')).toBeLessThan(documentXml.indexOf('CLI diagram'));
+    expect(documentXml.indexOf('CLI diagram')).toBeLessThan(documentXml.indexOf('Static offline figure'));
+    expect(documentXml.indexOf('Static offline figure')).toBeLessThan(documentXml.indexOf('Narrative after'));
+    expect(documentXml).toContain('title="CLI diagram"');
+    expect(documentXml).toContain('descr="Static offline figure"');
+    expect(imageNames).toHaveLength(1);
   });
 
   it('serializes local links relative to the validated final DOCX directory', async () => {
@@ -82,5 +114,34 @@ describe('export docx CLI', () => {
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr).toContain('AMX2004');
     expect(await Bun.file(output).text()).toBe('keep this DOCX placeholder');
+  });
+
+  it('preserves an existing destination and removes temporaries when lower-bound diagram geometry fails', async () => {
+    const directory = await fixtureDirectory();
+    const input = join(directory, 'invalid-diagram.amx');
+    const output = join(directory, 'report.docx');
+    await Bun.write(input, `\`\`\`amx
+diagram invalidFrame {
+  title: "Invalid frame"
+  description: "Must fail explicitly"
+  width: 100
+  height: 50
+  time t from 0 to 1 duration 1
+  circle marker {
+    cx: 1 / 0
+    cy: 25
+    r: 8
+    stroke: "#263238"
+    lineWidth: 1
+  }
+}
+\`\`\`
+`);
+    await Bun.write(output, 'preserve existing DOCX bytes');
+    const result = await runCli('export', 'docx', input, '--out', output);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('AMXD008');
+    expect(await Bun.file(output).text()).toBe('preserve existing DOCX bytes');
+    expect((await readdir(directory)).sort()).toEqual(['invalid-diagram.amx', 'report.docx']);
   });
 });

@@ -227,7 +227,7 @@ async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
 	} else {
 		const destinationPath = request.docxDestinationPath;
 		if (!destinationPath) throw new Error("DOCX worker request requires a validated final destination path.");
-		bytes = await serializeDocxReport(prepareDocxReport(prepared, {
+		bytes = await serializeDocxReport(await prepareDocxReport(prepared, {
 			sourceDocumentPath: request.entryPath,
 			destinationPath
 		}));

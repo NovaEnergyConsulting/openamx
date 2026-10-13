@@ -97,7 +97,7 @@ Array: {{ myArray }}`);
     expect(pdfText).toContain('"voltage"');
     expect(pdfText).toContain('1, 2, 3');
 
-    const docx = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
+    const docx = await JSZip.loadAsync(await serializeDocxReport(await prepareDocxReport(prepared)));
     const documentXml = await docx.file('word/document.xml')?.async('string');
     expect(documentXml).toBeDefined();
     expect(documentXml).not.toContain('[object Object]');
@@ -197,7 +197,7 @@ line with **nested _emphasis_** and \`code\`.
     expect(JSON.stringify(pdfDefinition.content)).not.toContain('related.amx');
     expect(JSON.stringify(pdfDefinition.content)).toContain('"width":369.75');
 
-    const docxArchive = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared, {
+    const docxArchive = await JSZip.loadAsync(await serializeDocxReport(await prepareDocxReport(prepared, {
       sourceDocumentPath: input,
       destinationPath: join(outputDirectory, 'final.docx')
     })));
@@ -240,7 +240,7 @@ let value = 7
     expect(pdfText).toContain('Narrative text');
     expect(pdfText).not.toContain('let value = 7');
 
-    const docx = await serializeDocxReport(prepareDocxReport(prepared));
+    const docx = await serializeDocxReport(await prepareDocxReport(prepared));
     const archive = await JSZip.loadAsync(docx);
     const documentXml = await archive.file('word/document.xml')?.async('string');
     const footerXml = await archive.file('word/footer1.xml')?.async('string');
@@ -304,7 +304,7 @@ Narrative after captured emissions.
     expect(pdf.indexOf('Distances')).toBeLessThan(pdf.indexOf('Distance trend'));
     expect(pdf.indexOf('Distance trend')).toBeLessThan(pdf.indexOf('Narrative after captured emissions'));
 
-    const archive = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
+    const archive = await JSZip.loadAsync(await serializeDocxReport(await prepareDocxReport(prepared)));
     const documentXml = await archive.file('word/document.xml')?.async('string');
     expect(documentXml).toContain('1 kilometer');
     expect(documentXml).toContain('500 meter');
@@ -374,7 +374,7 @@ show nullChart
     const chartBlocks = pdfContent.filter(item => Array.isArray(item.stack));
     expect(chartBlocks.flatMap(item => item.stack as Array<Record<string, unknown>>).filter(item => 'svg' in item)).toHaveLength(2);
 
-    const docx = await JSZip.loadAsync(await serializeDocxReport(prepareDocxReport(prepared)));
+    const docx = await JSZip.loadAsync(await serializeDocxReport(await prepareDocxReport(prepared)));
     const documentXml = await docx.file('word/document.xml')?.async('string');
     expect(documentXml.match(/Chart not shown: no plottable data/g)?.length).toBe(2);
     expect(documentXml).toContain('(null)');

@@ -15,7 +15,28 @@ test("desktop PDF export materializes local links from the validated final desti
 	let allowOverwrite = true;
 	mkdirSync(companionDirectory, { recursive: true });
 	mkdirSync(outputDirectory);
-	writeFileSync(entry, "# Desktop report\n\n[Companion](./companions/asset%20one.txt)\n");
+	writeFileSync(entry, `# Desktop report
+
+[Companion](./companions/asset%20one.txt)
+
+\`\`\`amx
+diagram desktopFigure {
+	title: "Desktop static diagram"
+	description: "Offline desktop export figure"
+	width: 100
+	height: 50
+	time t from 0 to 1 duration 1
+	circle marker {
+		cx: 20 + 40 * t
+		cy: 25
+		r: 8
+		stroke: "#263238"
+		fill: "#146C94"
+		lineWidth: 1
+	}
+}
+\`\`\`
+`);
 	writeFileSync(join(companionDirectory, "asset one.txt"), "portable companion");
 
 	const service = createDesktopService(root, {
@@ -38,7 +59,7 @@ test("desktop PDF export materializes local links from the validated final desti
 		if (!started.ok) throw new Error(started.error.message);
 
 		let job = started.job;
-		for (let attempt = 0; job.status === "running" && attempt < 1000; attempt++) {
+		for (let attempt = 0; (job.status === "running" || job.status === "committing") && attempt < 1000; attempt++) {
 			await new Promise(resolve => setTimeout(resolve, 10));
 			const polled = await service.request.getJob({ jobId: job.identity.jobId });
 			if (!polled.ok) throw new Error(polled.error.message);
@@ -50,6 +71,11 @@ test("desktop PDF export materializes local links from the validated final desti
 			useSystemFonts: true,
 			disableFontFace: true
 		}).promise;
+		const page = await pdf.getPage(1);
+		const textContent = await page.getTextContent();
+		const text = textContent.items.map(item => "str" in item ? item.str : "").join(" ");
+		expect(text).toContain("Desktop static diagram");
+		expect(text).toContain("Offline desktop export figure");
 		const annotations: { url?: string; unsafeUrl?: string }[] = [];
 		for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
 			annotations.push(...await (await pdf.getPage(pageNumber)).getAnnotations());

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
@@ -10,6 +10,17 @@ async function fixtureDirectory(): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), 'openamx-pdf-'));
   directories.push(directory);
   return directory;
+}
+
+async function textByPage(bytes: Uint8Array): Promise<string[]> {
+  const pdf = await getDocument({ data: bytes, useSystemFonts: true, disableFontFace: true }).promise;
+  const pages: string[] = [];
+  for (let index = 1; index <= pdf.numPages; index++) {
+    const page = await pdf.getPage(index);
+    const content = await page.getTextContent();
+    pages.push(content.items.map(item => 'str' in item ? item.str : '').join(' '));
+  }
+  return pages;
 }
 
 async function runCli(...arguments_: string[]) {
@@ -31,11 +42,39 @@ describe('export pdf CLI', () => {
     const directory = await fixtureDirectory();
     const input = join(directory, 'report.amx');
     const output = join(directory, 'report.pdf');
-    await Bun.write(input, '# Report\n\nNarrative\n');
+    await Bun.write(input, `# Report
+
+Narrative before
+
+\`\`\`amx
+diagram cliFigure {
+  title: "CLI diagram"
+  description: "Static offline figure"
+  width: 100
+  height: 50
+  time t from 0 to 1 duration 1
+  circle marker {
+    cx: 20 + 40 * t
+    cy: 25
+    r: 8
+    stroke: "#263238"
+    fill: "#146C94"
+    lineWidth: 1
+  }
+}
+\`\`\`
+
+Narrative after
+`);
     const result = await runCli('export', 'pdf', input, '--out', output);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Exported PDF');
     expect((await Bun.file(output).arrayBuffer()).byteLength).toBeGreaterThan(1000);
+    const pages = await textByPage(new Uint8Array(await Bun.file(output).arrayBuffer()));
+    const text = pages.join(' ');
+    expect(text.indexOf('Narrative before')).toBeLessThan(text.indexOf('CLI diagram'));
+    expect(text.indexOf('CLI diagram')).toBeLessThan(text.indexOf('Static offline figure'));
+    expect(text.indexOf('Static offline figure')).toBeLessThan(text.indexOf('Narrative after'));
   });
 
   it('materializes local PDF links relative to the validated final output directory', async () => {
@@ -96,5 +135,34 @@ describe('export pdf CLI', () => {
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr).toContain('AMX2004');
     expect(await Bun.file(output).text()).toBe('keep this PDF placeholder');
+  });
+
+  it('preserves an existing destination and removes temporaries when lower-bound diagram geometry fails', async () => {
+    const directory = await fixtureDirectory();
+    const input = join(directory, 'invalid-diagram.amx');
+    const output = join(directory, 'report.pdf');
+    await Bun.write(input, `\`\`\`amx
+diagram invalidFrame {
+  title: "Invalid frame"
+  description: "Must fail explicitly"
+  width: 100
+  height: 50
+  time t from 0 to 1 duration 1
+  circle marker {
+    cx: 1 / 0
+    cy: 25
+    r: 8
+    stroke: "#263238"
+    lineWidth: 1
+  }
+}
+\`\`\`
+`);
+    await Bun.write(output, 'preserve existing PDF bytes');
+    const result = await runCli('export', 'pdf', input, '--out', output);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('AMXD008');
+    expect(await Bun.file(output).text()).toBe('preserve existing PDF bytes');
+    expect((await readdir(directory)).sort()).toEqual(['invalid-diagram.amx', 'report.pdf']);
   });
 });
