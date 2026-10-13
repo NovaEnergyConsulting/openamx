@@ -1,0 +1,411 @@
+{
+  "environment": {
+    "platform": "win32",
+    "architecture": "x64",
+    "bun": "1.4.2",
+    "node": "v26.3.0",
+    "windows": "11 Home 10.0.26300 build 26300",
+    "cpu": "Intel Core Ultra 9 285H",
+    "logicalProcessors": 16,
+    "physicalMemoryGiB": 63.6,
+    "chromium": "153.0.8010.12"
+  },
+  "probe": {
+    "modelCount": 2,
+    "primitiveCounts": [
+      {
+        "id": "crank-slider",
+        "count": 8
+      },
+      {
+        "id": "battery-resistor",
+        "count": 13
+      }
+    ],
+    "timeSamples": [
+      {
+        "id": "crank-slider",
+        "times": [
+          0,
+          1,
+          2
+        ]
+      },
+      {
+        "id": "battery-resistor",
+        "times": [
+          0,
+          2,
+          4
+        ]
+      }
+    ],
+    "evaluatedFrameCount": 6,
+    "hostEvaluationMs": 3.449,
+    "browserEvaluatorBundleBytes": 28926,
+    "browserEvaluatorBundleBuildMs": 48.628,
+    "htmlBuildMs": 0.168,
+    "pdfSerializeMs": 44.249,
+    "docxSerializeMs": 41.211,
+    "sourceFixtureBytes": 4066,
+    "typedContextParity": {
+      "bindings": 3,
+      "functions": 1,
+      "records": 1,
+      "enums": 1,
+      "dimensions": 1,
+      "units": 2,
+      "baseUnits": 1,
+      "hostFrames": [
+        {
+          "time": 0,
+          "x": 6
+        },
+        {
+          "time": 0.25,
+          "x": 7.5
+        },
+        {
+          "time": 1,
+          "x": 12
+        }
+      ],
+      "browser": {
+        "frames": [
+          {
+            "time": 0,
+            "x": 6
+          },
+          {
+            "time": 0.25,
+            "x": 7.5
+          },
+          {
+            "time": 1,
+            "x": 12
+          }
+        ],
+        "serializedContextBytes": 6155,
+        "externalRequests": [],
+        "resourceEntries": 0,
+        "pageErrors": []
+      }
+    },
+    "invalidProbeSource": {
+      "initial": {
+        "file": "crank-slider.amx",
+        "line": 58,
+        "column": 8
+      },
+      "later": {
+        "file": "crank-slider.amx",
+        "line": 58,
+        "column": 8
+      }
+    },
+    "docxAccessibleImageCount": 2,
+    "docxVisibleTextOrder": [
+      {
+        "id": "crank-slider",
+        "titleOffset": 2439,
+        "descriptionOffset": 2515
+      },
+      {
+        "id": "battery-resistor",
+        "titleOffset": 3924,
+        "descriptionOffset": 4005
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "artifacts\\diagrams.html",
+        "bytes": 62770
+      },
+      {
+        "path": "artifacts\\diagrams.pdf",
+        "bytes": 18187
+      },
+      {
+        "path": "artifacts\\diagrams.docx",
+        "bytes": 14976
+      }
+    ],
+    "resourceSweep": [
+      {
+        "elements": 24,
+        "htmlBytes": 62276,
+        "setContentMs": 27.661,
+        "renderMs": 2.4,
+        "domNodes": 49,
+        "svgNodes": 25,
+        "resources": 0
+      },
+      {
+        "elements": 72,
+        "htmlBytes": 84548,
+        "setContentMs": 23.417,
+        "renderMs": 2.1,
+        "domNodes": 97,
+        "svgNodes": 73,
+        "resources": 0
+      },
+      {
+        "elements": 264,
+        "htmlBytes": 173792,
+        "setContentMs": 26.441,
+        "renderMs": 3.1,
+        "domNodes": 289,
+        "svgNodes": 265,
+        "resources": 0
+      },
+      {
+        "elements": 512,
+        "htmlBytes": 289112,
+        "setContentMs": 31.544,
+        "renderMs": 4.2,
+        "domNodes": 537,
+        "svgNodes": 513,
+        "resources": 0
+      },
+      {
+        "elements": 1032,
+        "htmlBytes": 530936,
+        "setContentMs": 41.255,
+        "renderMs": 7.2,
+        "domNodes": 1057,
+        "svgNodes": 1033,
+        "resources": 0
+      }
+    ],
+    "multipleDiagramSweep": [
+      {
+        "diagrams": 2,
+        "primitiveCount": 26,
+        "htmlBytes": 56428,
+        "setContentMs": 8.094,
+        "renderMs": 2.2,
+        "domNodes": 67,
+        "svgNodes": 30,
+        "resources": 0
+      },
+      {
+        "diagrams": 8,
+        "primitiveCount": 104,
+        "htmlBytes": 103726,
+        "setContentMs": 10.293,
+        "renderMs": 2.6,
+        "domNodes": 235,
+        "svgNodes": 120,
+        "resources": 0
+      },
+      {
+        "diagrams": 16,
+        "primitiveCount": 208,
+        "htmlBytes": 166804,
+        "setContentMs": 13.001,
+        "renderMs": 4,
+        "domNodes": 459,
+        "svgNodes": 240,
+        "resources": 0
+      },
+      {
+        "diagrams": 32,
+        "primitiveCount": 416,
+        "htmlBytes": 292964,
+        "setContentMs": 19.103,
+        "renderMs": 5.4,
+        "domNodes": 907,
+        "svgNodes": 480,
+        "resources": 0
+      }
+    ],
+    "arbitraryFrameLatencySweep": [
+      {
+        "elements": 24,
+        "count": 60,
+        "p50Ms": 0.1,
+        "p95Ms": 0.5,
+        "maxMs": 2,
+        "initialRenderMs": 2.3
+      },
+      {
+        "elements": 504,
+        "count": 60,
+        "p50Ms": 1.1,
+        "p95Ms": 1.6,
+        "maxMs": 2.1,
+        "initialRenderMs": 4.5
+      },
+      {
+        "elements": 1032,
+        "count": 60,
+        "p50Ms": 2.1,
+        "p95Ms": 2.7,
+        "maxMs": 3.4,
+        "initialRenderMs": 13
+      }
+    ]
+  },
+  "browser": {
+    "fileLoadMs": 94.136,
+    "initial": {
+      "figures": 2,
+      "times": [
+        "0",
+        "0"
+      ],
+      "loops": [
+        false,
+        false
+      ],
+      "steps": [
+        "any",
+        "any"
+      ],
+      "resources": 0,
+      "ratios": [
+        1.6,
+        1.6
+      ]
+    },
+    "arbitraryCrankFrame": {
+      "time": 1.5,
+      "cx": 70,
+      "cy": 66,
+      "label": "t = 1.5 s",
+      "host": {
+        "cx": 70,
+        "cy": 66,
+        "r": 6
+      }
+    },
+    "narrowViewport": {
+      "width": 316,
+      "height": 197.5,
+      "ratio": 1.6
+    },
+    "invalidLaterFrame": "Frame evaluation failed at crank-slider.amx:66:8: sqrt of negative value at line 66",
+    "consoleErrors": [],
+    "outboundRequests": []
+  },
+  "desktop": {
+    "surface": "Sprint 042 Vite workflow harness running App.vue live-preview iframe; native Electrobun app not started",
+    "nativeElectrobunHostVerified": false,
+    "standardPreview": {
+      "preview": {
+        "sandbox": "allow-scripts",
+        "allowSameOrigin": false,
+        "diagramCount": 2,
+        "previewBytes": 62770,
+        "timeStep": "any",
+        "childResources": 0
+      },
+      "resourcesBefore": {
+        "Documents": 8,
+        "Frames": 6,
+        "Nodes": 489,
+        "JSHeapUsedSize": 16576632,
+        "JSHeapTotalSize": 23011328
+      },
+      "resourcesAfter": {
+        "Documents": 10,
+        "Frames": 7,
+        "Nodes": 605,
+        "JSHeapUsedSize": 21757720,
+        "JSHeapTotalSize": 27324416
+      },
+      "delta": {
+        "Documents": 2,
+        "Frames": 1,
+        "Nodes": 116,
+        "JSHeapUsedSize": 5181088,
+        "JSHeapTotalSize": 4313088
+      },
+      "playback": [
+        1.5,
+        0
+      ]
+    },
+    "acceptedBoundProbeFresh": {
+      "method": "App.vue sandbox harness with fresh page, HeapProfiler.collectGarbage before/after measurement",
+      "diagrams": 16,
+      "primitiveElements": 512,
+      "svgDescendants": 528,
+      "htmlBytes": 306050,
+      "initialRenderMs": 4.9,
+      "childResourceEntries": 0,
+      "before": {
+        "Documents": 2,
+        "Frames": 2,
+        "Nodes": 378,
+        "JSHeapUsedSize": 12869676
+      },
+      "after": {
+        "Documents": 2,
+        "Frames": 2,
+        "Nodes": 1361,
+        "JSHeapUsedSize": 14917652
+      },
+      "delta": {
+        "Documents": 0,
+        "Frames": 0,
+        "Nodes": 983,
+        "JSHeapUsedSize": 2047976
+      },
+      "independentNativeUat": false
+    },
+    "sequentialReplacementObservation": {
+      "baseline": {
+        "Documents": 8,
+        "Frames": 6,
+        "Nodes": 489,
+        "JSHeapUsedSize": 16576632,
+        "JSHeapTotalSize": 23011328
+      },
+      "afterTwoDiagramPreview": {
+        "Documents": 10,
+        "Frames": 7,
+        "Nodes": 605,
+        "JSHeapUsedSize": 21757720,
+        "JSHeapTotalSize": 27324416
+      },
+      "afterBoundPreview": {
+        "Documents": 12,
+        "Frames": 8,
+        "Nodes": 1630,
+        "JSHeapUsedSize": 25858516,
+        "JSHeapTotalSize": 33927168
+      },
+      "deltaFromBaseline": {
+        "Documents": 4,
+        "Frames": 2,
+        "Nodes": 1141,
+        "JSHeapUsedSize": 9281884,
+        "JSHeapTotalSize": 10915840
+      },
+      "note": "Measured after sequential srcdoc replacements without forced garbage collection; retains replacement/high-water effects and is not the isolated active-preview heap bound."
+    },
+    "consoleErrors": [],
+    "outboundRequests": [],
+    "screenshots": [
+      "artifacts\\desktop-preview-crank-slider.png",
+      "artifacts\\desktop-preview-battery-resistor.png"
+    ]
+  },
+  "pdfVisualInspection": {
+    "method": "pdfjs-dist 6.3.289 rendered candidate PDF in local Chromium",
+    "pages": 1,
+    "width": 833,
+    "height": 1178,
+    "text": "Crank-slider mechanism  A crank pin follows one full circular path and drives a piston through a fixed-length connecting rod.  t = 0 s  Battery-resistor DC circuit  A 9 volt battery drives a 15 ohm resistor; the arrow travels clockwise to indicate conventional current.  9 V 15 ohm I = 0.6 A",
+    "screenshot": "artifacts\\pdf-page.png"
+  },
+  "docxVisualInspection": {
+    "method": "Microsoft Word 365 COM, read-only Print Layout with full-page fit",
+    "wordVersion": "16.0",
+    "pageCount": 1,
+    "embeddedImageCount": 2,
+    "screenshot": "artifacts\\docx-page.png",
+    "accessibilityAltVerifiedInDocumentXml": true
+  }
+}

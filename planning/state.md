@@ -8,6 +8,58 @@
 - Current documented AMX standard functions do not include trigonometric functions. The crank-slider feasibility probe must establish whether its required formula can be expressed within existing AMX semantics; otherwise it must request a product decision rather than add functions or reduce the example scope.
 - No Sprint 078 execution, probe, production change, or feasibility result is claimed by this preparation entry.
 
+## V0.13 Sprint 078 Builder Execution (2026-10-11)
+
+- The Lead Developer explicitly authorized Sprint 078 and approved the concrete contract, ledger, probe-source, and artifact paths before any file changes. The work remained limited to those paths; production parser, runtime, formatter, renderers, editors, desktop behavior, dependencies, and manifests were not changed.
+- Added candidate grammar/examples for 23 stable invalid fixture IDs and the two exact valid probe documents; added a source-positioned diagnostic matrix with all diagram-specific identities/messages explicitly UNALLOCATED, plus a requirement/evidence map and detailed feasibility report.
+- The isolated candidate model exercised the existing Number/String expression interpreter, pure AMX functions, and direct arbitrary-time geometry/label evaluation. A statically bundled application-owned interpreter with serialized AST/data (not compiled authored expressions or authored JavaScript) matched the host evaluator on the tested Number subset; complete existing-value/function semantics remain unproved, especially runtime measurement capture/JSON transport.
+- Both examples render through the same typed probe model to standalone offline HTML, the `App.vue` live-preview iframe inside the Sprint 042 Vite workflow harness, PDF SVG and static DOCX PNGs. Standalone Chromium, sandbox preview, PDF.js and Word-visible output were inspected. This is candidate adapter evidence, not production pipeline acceptance; actual native Electrobun package/host remains unverified.
+- Evidence includes explicit initial and later invalid-frame failures, output bytes, render/update timings, HTML/DOM/resource sweeps, preview heap deltas, screenshots and Word/PDF visible artifacts in `planning/sprints/0078-v13-diagram-contract-feasibility-gate/probe/artifacts/`.
+- Two required-example meanings remain unresolved: the crank traces a complete circle with non-uniform angular velocity; the battery example's current magnitude is constant while its direction arrow moves. The safe browser evaluator is proven only for the Number-based cases; source-span ends, grammar/formatter, diagnostics, full value transport, DOCX accessibility disposition and native preview error channel remain open.
+- The initial Builder recommendation was **BLOCKED / NO-GO for Sprint 079 readiness** while decisions and evidence were pending. **Superseded by the Sprint 078 closeout below:** the Lead Developer disposition is GO for Sprint 079 readiness, with implementation residuals. No release, publication, versioning, or platform-certification operation was performed. No production build/full test suite was claimed.
+
+## V0.13 Sprint 078 Lead Developer Clarification (2026-10-12)
+
+- The Lead Developer accepted both required example interpretations: the crank-slider's non-uniform angular progress is correct for its authored equations, and the constant 0.6 A battery example's moving current-direction arrow meets scope. No trigonometric standard-library change is authorized.
+- The proposed V0.13 grammar is approved as adequate for this version, with future expansion deferred to a later version. The DOCX PNG representation is accepted. The six measured resource bounds proposed by the Builder are accepted. These decisions freeze the contract direction but do not implement it.
+- Actual desktop-app UAT is deferred until the diagram feature has been implemented; the Lead Developer will perform that UAT then. Sprint 078's Vite component-harness preview is not native packaged-app acceptance. Production acceptance tests remain pending implementation.
+- `probe/diagram-model.ts` and `probe/run-probe.ts` were extended on 2026-10-12 to JSON-serialize/reconstruct the existing evaluator context. In a sandboxed local Chromium page, an imported AMX pure function over a 2-kilometer measurement and typed record/enum value matched the host evaluator at `t=0`, `0.25`, and `1` (results `6`, `7.5`, `12`); the serialized context was 6,155 bytes and generated no external requests. This closes the original Number/String-only evidence gap for that typed case, but not the full AMX AST/value inventory or evaluation-budget tests. See the updated feasibility report and `probe/artifacts/measurements.json`.
+- The user requested allocation for 14 diagnostic categories listed in the updated `diagnostic-matrix.md`. A later 2026-10-13 allocation is recorded below. D-NEG labels are fixture IDs, not diagnostic identities. Exact source-range end conventions and the production frame-error channel remain open.
+- Lead Developer example, grammar, DOCX PNG and resource-bound decisions are recorded above and in `planning/decisions.md`. Native desktop UAT is deferred until after implementation; no native/package pass or production acceptance test is claimed. Acceptance tests remain pending implementation.
+- Sprint 079 readiness still has no explicit GO / NO-GO / BLOCKED Lead Developer disposition. Builder recommendation remains BLOCKED / NO-GO until the open contract/evaluator/diagnostic items are resolved and the Lead Developer records a separate disposition.
+
+## V0.13 Sprint 078 Evaluator Follow-up (2026-10-12)
+
+- Extended the approved probe source to exercise a JSON typed-context serializer/hydrator with an imported AMX function, `Length` measurement value, `meter`/`kilometer` unit registry, `Profile` record, and enum-valued field. The static application-owned browser interpreter matched the document host at `t=0`, `0.25`, and `1` (Number results 6, 7.5, 12) with zero browser resource requests; context payload was 6,155 bytes.
+- This adds positive evidence beyond the Number-only examples but does not exhaust the full existing AMX AST/value inventory, list/nullable cases, larger import graphs, or high-rate evaluation bounds. No expression contract narrowing is proposed.
+- One exploratory imported function that directly referenced its enum identifier raised existing AMX1004 in a function call frame. The successful parity case passes the enum value as a record field and compares it with a literal, preserving current host behavior; no production runtime change was made.
+- The Lead Developer's request for diagnostic identities is answered by the 14-category allocation/reuse checklist in `diagnostic-matrix.md`. Numeric codes/exact new messages and overall Sprint 079 disposition remain unrecorded.
+
+## V0.13 Sprint 078 Lead Developer Diagnostic Allocation (2026-10-13)
+
+- Allocated AMXD001–AMXD009 with exact messages in `diagnostic-matrix.md`, and approved AMX3002 reuse for D-NEG-03/07 and AMX3001 reuse for D-NEG-16. AMX3006 parser-code reuse was not selected.
+- AMXD009's `<base amx error>` remains ambiguous when later geometry becomes non-finite without a thrown AMX error (D-NEG-22). Do not invent a substitute.
+- Numeric diagnostic allocation is recorded; exact source-range end convention, AMXD009 non-finite wording, remaining evaluator acceptance coverage, and overall Sprint 079 disposition remain open.
+
+## V0.13 Sprint 078 AMXD010 Allocation (2026-10-13)
+
+- **Superseding diagnostic allocation:** the Lead Developer assigned D-NEG-22 to AMXD010 with exact message `Infinity value calculated for time upper bound`. AMXD009 remains for a later frame failure that includes a thrown base AMX error.
+- This resolves the earlier AMXD009 `<base amx error>` question for upper-bound `Infinity`. The diagnostic matrix records all mappings. Exact source-range end conventions, production error delivery, remaining AMX expression coverage, and the separate overall Sprint 079 readiness disposition remain open.
+
+## V0.13 Sprint 078 Closeout and Readiness (2026-10-13)
+
+- The Lead Developer allocated AMXD011 for D-NEG-24 with exact message `Expression produces an infinite result`; the diagnostic matrix now covers AMXD001–AMXD011 and approved AMX3001/AMX3002 reuse.
+- The source-location contract uses 1-based original-document line/UTF-16 columns, exclusive diagnostic ends, and the existing zero-based half-open `EditorRange` conversion. V0.13 grammar, declaration/property/time/style behavior, formatter order/indentation, examples, DOCX PNG, and resource bounds are recorded as approved.
+- **Lead Developer direction/disposition: GO for Sprint 079 readiness and close Sprint 078 with recorded implementation residuals.** The Builder recommends GO for readiness. This does not authorize Sprint 079 code changes; Sprint 079 still needs its own explicit execution authorization and approved file-by-file plan.
+- Native desktop UAT and production acceptance tests remain pending until implementation. The probe does not claim exhaustive AST/value parity, production error delivery, release, publication, versioning, or platform certification.
+
+## V0.13 Sprint 078 Closeout (2026-10-13)
+
+- **Sprint 078 disposition: GO / CLOSED WITH RECORDED IMPLEMENTATION RESIDUALS.** The Lead Developer directed closeout and transition toward Sprint 079. Builder recommendation is GO for Sprint 079 readiness.
+- The diagnostic contract now includes AMXD001–AMXD011 plus the approved AMX3001/AMX3002 reuse. The approved line/column source locations are 1-based against the original document, UTF-16 columns; UI spans reuse zero-based half-open `EditorRange` offsets.
+- The probe passed typed browser parity for the required examples and an imported measurement/record/enum/function context. It does not claim production implementation, exhaustive AST/value coverage, actual native desktop UAT, or platform certification.
+- Native desktop UAT and production acceptance tests are deferred until implementation. Sprint 079 code changes still require a separate execution authorization and file-by-file plan. No release, publication or version operation was performed.
+
 ## V0.12 Sprint 077 Architect Preparation (2026-10-11)
 
 - Prepared Sprint 077 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0077-v12-integrated-acceptance-closeout/`.

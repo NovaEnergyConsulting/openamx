@@ -7,6 +7,49 @@
 - Sprint 078 must establish whether a safe offline evaluator can preserve the confirmed AMX expression/function contract at arbitrary selected times without generated executable source or report-authored JavaScript. If not, request a specific product decision and leave the dependent scope blocked.
 - Sprint 078 must empirically select the interactive/static rendering representation and DOCX accessibility handling across actual output paths, then propose measurable resource bounds from representative evidence. Do not pre-approve SVG, a fallback, or a numeric limit.
 
+## V0.13 Sprint 078 Builder Decision Request (2026-10-11)
+
+- **Required example interpretation:** Does a crank-slider that traces one full circle with non-uniform angular velocity satisfy the master-plan requirement, and does a battery-resistor circuit with constant 0.6 A and a moving conventional-current direction arrow satisfy “time-varying current indicator”? If either is inadequate, what specific mathematical input/behavior should be used while retaining existing AMX expression/function semantics? Do not add `sin`/`cos` or weaken either example without the Lead Developer decision.
+- **Safe expression contract:** Which complete existing AMX runtime value/function forms must survive capture and JSON/browser transport at arbitrary selected time? The interpreter probe passes existing Number expressions/pure functions, but does not define transport for measurement values/units, imported functions, or other non-JSON runtime objects. Preserve the confirmed scope unless an explicit product decision changes it.
+- **Grammar and formatter:** Approve/revise/freeze the proposed declaration, property spellings/order, allowed static color/arrow literals, required fields, local-time shadowing/scope, positive dimensions and canonical formatting order. The current parser and formatter do not accept the candidate `diagram` syntax.
+- **Diagnostic allocation and source spans:** Allocate unique codes and exact messages for missing/unknown/wrong-type fields, invalid bounds/style/geometry, out-of-interval frames and later playback errors. Approve start/end range conventions; current `SourceLocation` has only start line/column. Probe-only messages are not allocations.
+- **DOCX representation/accessibility:** Is a static PNG embedded image, with an OOXML image alt description plus visible title/description, acceptable? Name the required accessibility reviewer and any fallback/contrast/screen-reader criterion.
+- **Native preview error channel:** Decide how a runtime frame failure is reported in the actual desktop iframe/worker protocol, stopped, cleared, and associated with its source range. The Vite harness exercised the sandbox component but not a native Electrobun package.
+- **Resource bounds:** Review or revise the evidence-based provisional proposals in the feasibility report (16 diagrams, 512 total elements, 1 MiB output, 16.7 ms p95 frame work, 8 MiB incremental heap and 2,000 page DOM nodes). They need validation on the minimum supported packaged host; no bound is approved.
+- **Disposition:** Lead Developer must separately record GO / NO-GO / BLOCKED for Sprint 079 after resolving the required decisions and residuals. Builder recommendation is BLOCKED / NO-GO; Sprint 079 readiness is not claimed.
+
+## V0.13 Sprint 078 Lead Developer Responses (2026-10-12)
+
+- **Resolved: example interpretations.** Both probe examples satisfy scope. The crank-slider's non-uniform angular motion is produced by its equations; model correctness is the diagram author's responsibility, with correctly mapped model time and consistent animation step spacing. The battery's constant 0.6 A and moving current-direction arrow are acceptable. No new trigonometric standard-library functions are authorized.
+- **Resolved: current-version grammar.** The proposed grammar is adequate for V0.13; future expansion is deferred to a later version. This is not implementation authorization.
+- **Resolved: DOCX representation.** The static PNG representation is adequate for DOCX.
+- **Resolved: proposed resource bounds.** The Lead Developer accepts 16 diagrams/report, 512 total elements, 1 MiB HTML, 16.7 ms p95 frame work, 8 MiB incremental preview heap, and 2,000 whole-page DOM nodes.
+- **Deferred: native desktop UAT.** The Lead Developer will perform UAT after the feature is implemented. Sprint 078's Vite harness does not count as native app/package acceptance; integration acceptance tests remain pending implementation.
+- **Diagnostic identities/messages allocated (2026-10-13):** AMXD001–AMXD010 cover the diagram validation/frame groups in `diagnostic-matrix.md`; AMX3001 is reused for the out-of-scope `t` reference; AMX3002 is reused for type mismatch. D-NEG-22's non-finite upper-bound result is AMXD010 with `Infinity value calculated for time upper bound`; AMXD009 remains for failures carrying an underlying AMX error.
+- **Clarification provided; feasibility proof extended.** The evaluator gap concerns transporting the existing interpreter's checked context (unit/dimension registries, record/enum/type metadata and imported functions) as inert data to a browser. Raw JSON drops Map entries and formatting a measurement as text would not preserve measurement arithmetic. A typed serializer/hydrator probe now passed an imported function over a measurement, record, enum-valued field and registry; host and browser produced identical values at three selected times. The product-scope default remains full existing semantics; lists/nullability and broader AST combinations remain implementation acceptance tests. No scope narrowing is proposed.
+- **Still open: source ranges and frame-error reporting.** Confirm end-boundary/range expectations and the production live-preview channel/stop/clear behavior for a failed selected frame.
+- **Status at this response checkpoint (superseded by the closeout below):** Sprint 079 readiness had not yet been dispositioned; the Builder recommendation was BLOCKED / NO-GO pending resolution of the remaining gate decisions.
+
+### Typed-context and diagnostic allocation follow-up (2026-10-13)
+
+- The serialized context contained three bindings, one imported function, one record type, one enum, one dimension, two units, and one base unit (6,155 JSON bytes). The tested function returned the same host/browser results (`6`, `7.5`, `12`) at `t=0`, `0.25`, and `1`; the browser made zero resource requests. This is additional evidence, not proof of every AMX AST/type combination or a production transport.
+- At this allocation checkpoint, the mapped diagnostics were AMXD001–AMXD010 and AMX3001/AMX3002 reuse. The subsequent closeout adds AMXD011 for D-NEG-24; AMXD010 remains upper-bound `Infinity`, and AMXD009 applies to a thrown base AMX error.
+- An exploratory imported function that directly referenced an enum identifier raised existing AMX1004 in the current function call frame. The parity probe passes the enum value into a record field instead, matching current host behavior. This existing runtime edge was not changed.
+
+## V0.13 Sprint 078 Closeout and Readiness (2026-10-13)
+
+- **Resolved: interior-time non-finite diagnostic.** The Lead Developer assigned D-NEG-24 to AMXD011 with exact message `Expression produces an infinite result`; AMXD010 remains the upper-bound-specific message and AMXD009 requires a base AMX error.
+- **Resolved: source-location and formatter conventions.** Source positions are 1-based against the complete document with UTF-16 columns and exclusive ends; UI ranges use the existing zero-based half-open `EditorRange` conversion. The approved grammar records canonical property order and two-space indentation.
+- **Disposition: GO for Sprint 079 readiness; close Sprint 078 with recorded implementation residuals.** Native desktop UAT and production acceptance are deferred until implementation. Broader evaluator coverage and production error delivery remain implementation work, not Sprint 078 passes.
+- This disposition does not authorize Sprint 079 implementation. Obtain its separate explicit execution authorization and approved file-by-file plan before production edits.
+
+## V0.13 Sprint 078 Closeout and Sprint 079 Readiness (2026-10-13)
+
+- **Resolved: AMXD009/AMXD010 boundary.** AMXD009 wraps an error carrying a base AMX diagnostic. AMXD010 handles `Infinity` at the declared upper bound. D-NEG-24's interior selected-time `Infinity` receives AMXD011, `Expression produces an infinite result`.
+- Diagnostic mappings are complete for D-NEG-01–24: AMXD001–AMXD011, plus AMX3002 reuse for type mismatch and AMX3001 reuse for an out-of-scope local time identifier.
+- **Lead Developer disposition: GO for Sprint 079 readiness; Sprint 078 CLOSED WITH RECORDED IMPLEMENTATION RESIDUALS.** The remaining acceptance tests and native desktop UAT are deferred until the diagram feature is implemented. Sprint 079 implementation still needs its own explicit authorization and file-by-file plan.
+- Broader AMX expression/value combinations and production frame-error delivery remain implementation test work. No scope narrowing, release or platform-certification claim is authorized.
+
 ## V0.12 Sprint 077 Builder Disposition Request (2026-10-11)
 
 - **Superseded by explicit Lead Developer disposition (2026-10-11, 10:00 +08): ACCEPTED / CLOSED.** The Lead Developer reports follow-up checks work as expected and states V0.12 is ready for release, accepting the named VS Code Windows EBUSY/path-case, desktop RPC sandbox-count, and automated desktop definition-navigation residuals for closeout.
