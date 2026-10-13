@@ -8,15 +8,6 @@ version: 0.2
 ```amx
 let assetName = "Transformer TX-001"
 let riskScore = 15
-
-diagram crank {
-  title: "My Diagram"
-  description: "A digagram to demo stuff"
-  width: 100
-  height: 100
-  time t from 0 to 100 duration 1
-  
-}
 ```
 
 The asset under review is {{ assetName }}.
