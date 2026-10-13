@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { basicSetup, EditorView } from "codemirror";
 import { indentWithTab } from "@codemirror/commands";
 import { autocompletion, startCompletion, type CompletionContext } from "@codemirror/autocomplete";
@@ -21,6 +21,7 @@ const host = ref<HTMLElement | null>(null);
 const renameInput = ref<HTMLInputElement | null>(null);
 const renameTarget = ref<EditorSymbol | null>(null);
 const renameValue = ref("");
+const outlineOpen = ref(false);
 const states = new Map<string, EditorState>();
 const scrollPositions = new Map<string, number>();
 let editor: EditorView | undefined;
@@ -29,6 +30,31 @@ let hasUnacknowledgedEdits = false;
 const wrapping = new Compartment();
 const language = new Compartment();
 const completion = new Compartment();
+
+function identityKey(identity: { file: string; from: number; to: number }): string {
+	return `${identity.file}\0${identity.from}\0${identity.to}`;
+}
+
+const outlineEntries = computed(() => {
+	const declarations = (props.symbols ?? []).filter(symbol => symbol.file === props.path && symbol.declaration);
+	const byTarget = new Map(declarations.map(symbol => [identityKey(symbol.target), symbol]));
+	const children = new Map<string, EditorSymbol[]>();
+	for (const symbol of declarations) {
+		if (!symbol.parent) continue;
+		const parentKey = identityKey(symbol.parent);
+		if (!byTarget.has(parentKey)) continue;
+		const items = children.get(parentKey) ?? [];
+		items.push(symbol);
+		children.set(parentKey, items);
+	}
+	const roots = declarations
+		.filter(symbol => !symbol.parent || !byTarget.has(identityKey(symbol.parent)))
+		.sort((left, right) => left.from - right.from);
+	return roots.map(symbol => ({
+		symbol,
+		children: (children.get(identityKey(symbol.target)) ?? []).sort((left, right) => left.from - right.from)
+	}));
+});
 
 function cursorProgress(view: CodeMirrorView): number {
 	const lineCount = view.state.doc.lines;
@@ -229,15 +255,17 @@ function selectLocation(line: number, column: number) {
 	if (!editor || !Number.isSafeInteger(line) || line < 1 || line > editor.state.doc.lines) return;
 	const sourceLine = editor.state.doc.line(line);
 	const offset = Math.min(sourceLine.to, sourceLine.from + Math.max(0, column - 1));
-	editor.dispatch({ selection: { anchor: toEditorOffset(offset) }, scrollIntoView: true });
+	editor.dispatch({ selection: { anchor: offset }, scrollIntoView: true });
 	editor.focus();
 }
 
 function selectOffset(offset: number) {
 	if (!editor || !Number.isSafeInteger(offset) || offset < 0 || offset > props.text.length) return;
-	editor.dispatch({ selection: { anchor: offset }, scrollIntoView: true });
+	editor.dispatch({ selection: { anchor: toEditorOffset(offset) }, scrollIntoView: true });
 	editor.focus();
 }
+
+function selectOutlineSymbol(symbol: EditorSymbol) { selectOffset(symbol.from); }
 
 function getSelectionOffset() { return editor ? toSourceOffset(editor.state.selection.main.head) : undefined; }
 
@@ -300,7 +328,30 @@ onUnmounted(() => { editor?.destroy(); editor = undefined; });
 </script>
 
 <template>
-	<div ref="host" class="code-editor" :aria-label="path.endsWith('.css') ? 'CSS source editor' : 'OpenAMX source editor'"></div>
+	<button v-if="path.endsWith('.amx')" class="editor-outline-toggle" type="button"
+		:aria-expanded="outlineOpen" aria-controls="openamx-document-outline"
+		@click="outlineOpen = !outlineOpen">{{ outlineOpen ? "Hide outline" : "Show outline" }}</button>
+	<div class="editor-workspace">
+		<div ref="host" class="code-editor" :aria-label="path.endsWith('.css') ? 'CSS source editor' : 'OpenAMX source editor'"></div>
+		<nav v-show="outlineOpen" id="openamx-document-outline" class="editor-outline" aria-label="Document outline">
+			<strong>Document outline</strong>
+			<ul v-if="outlineEntries.length">
+				<li v-for="entry in outlineEntries" :key="identityKey(entry.symbol.target)">
+					<button type="button" :aria-label="`Go to ${entry.symbol.kind} ${entry.symbol.name}`" @click="selectOutlineSymbol(entry.symbol)">
+						<span>{{ entry.symbol.name }}</span><small>{{ entry.symbol.kind }}</small>
+					</button>
+					<ul v-if="entry.children.length">
+						<li v-for="child in entry.children" :key="identityKey(child.target)">
+							<button type="button" :aria-label="`Go to ${child.kind} ${child.name}`" @click="selectOutlineSymbol(child)">
+								<span>{{ child.name }}</span><small>{{ child.kind }}</small>
+							</button>
+						</li>
+					</ul>
+				</li>
+			</ul>
+			<p v-else>No symbols in this document.</p>
+		</nav>
+	</div>
 	<div v-if="actions?.length" class="editor-code-actions" role="group" aria-label="Code actions">
 		<button v-for="action in actions" :key="`${action.code}-${action.from}-${action.revision}`" type="button" @click="applyAction(action)">{{ action.title }}</button>
 	</div>
@@ -311,6 +362,23 @@ onUnmounted(() => { editor?.destroy(); editor = undefined; });
 </template>
 
 <style scoped>
+.editor-workspace { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.editor-outline { flex: 0 1 230px; width: 230px; max-width: 38%; min-width: 150px; overflow: auto; border-left: 1px solid var(--shell-line); padding: 8px; background: var(--shell-bg); color: var(--shell-ink); font: 11px "DM Sans", sans-serif; }
+.editor-outline > strong { display: block; padding: 2px 4px 7px; }
+.editor-outline ul { list-style: none; margin: 0; padding: 0; }
+.editor-outline ul ul { padding-left: 12px; }
+.editor-outline li { min-width: 0; }
+.editor-outline li button { display: flex; width: 100%; min-height: 28px; align-items: center; justify-content: space-between; gap: 6px; border: 0; border-radius: 3px; padding: 4px; background: transparent; color: var(--shell-ink); text-align: left; font: 11px "DM Mono", monospace; }
+.editor-outline li button:hover, .editor-outline li button:focus-visible { outline: 2px solid var(--shell-focus); outline-offset: -1px; background: var(--shell-raised); }
+.editor-outline li button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-outline li button small { flex: 0 0 auto; color: var(--shell-muted); font: 9px "DM Sans", sans-serif; }
+.editor-outline > p { margin: 4px; color: var(--shell-muted); }
+.editor-outline-toggle { align-self: flex-end; min-height: 26px; margin: 4px 8px; padding: 3px 8px; border: 1px solid var(--shell-line); border-radius: 3px; background: var(--shell-surface); color: var(--shell-ink); font: 11px "DM Sans", sans-serif; }
+.editor-outline-toggle:focus-visible { outline: 2px solid var(--shell-focus); outline-offset: 1px; }
+@media (max-width: 760px) {
+	.editor-outline { min-width: 110px; padding: 5px; }
+	.editor-outline li button small { display: none; }
+}
 .code-editor :deep(.amx-token-keyword) { color: var(--amx-token-keyword); font-weight: 600; }
 .code-editor :deep(.amx-token-declaration) { color: var(--amx-token-declaration); font-weight: 600; }
 .code-editor :deep(.amx-token-reference) { color: var(--amx-token-reference); }

@@ -10,6 +10,11 @@ targets do not navigate. It requires VS Code 1.85.0 or newer. Editor analysis do
 not run documents or load CSV/JSON inputs; runtime validation remains a CLI
 concern.
 
+The [V0.13 diagram language specification](../docs/language-spec-v0.13.md) and
+the [crank-slider](../examples/v0.13-crank-slider.amx) and
+[battery-resistor](../examples/v0.13-battery-resistor.amx) examples describe
+the approved authoring contract and its recorded limits.
+
 The root package is the release version authority; the current extension
 package version is `0.8.0` and its publisher is `EngineersTools`. The quick fix rechecks document version,
 token and live diagnostic when the action is resolved, but VS Code 1.85

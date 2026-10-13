@@ -1,0 +1,135 @@
+---
+title: Battery-resistor DC circuit
+---
+# Battery-resistor DC circuit
+
+This schematic shows a 9 V source and a 15 ohm resistor. The indicated
+conventional current is constant at `9 / 15 = 0.6 A`. The red
+arrow moves clockwise along the upper wire to indicate direction; its motion
+does not represent a changing current magnitude.
+
+```amx
+let supplyVoltage: Number = 9
+let resistance: Number = 15
+let current: Number = supplyVoltage / resistance
+fn indicatorX(t: Number): Number = 58 + 25 * t
+diagram batteryResistor {
+  title: "Battery-resistor DC circuit"
+  description: "A 9 volt battery drives a 15 ohm resistor; the arrow travels clockwise to indicate conventional current."
+  width: 320
+  height: 200
+  time t from 0 to 4 duration 4
+  line upperLeftWire {
+    x1: 50
+    y1: 130
+    x2: 188
+    y2: 130
+    stroke: "#52616B"
+    lineWidth: 3
+    arrow: "none"
+  }
+  line upperRightWire {
+    x1: 218
+    y1: 130
+    x2: 250
+    y2: 130
+    stroke: "#52616B"
+    lineWidth: 3
+    arrow: "none"
+  }
+  line leftUpperWire {
+    x1: 50
+    y1: 130
+    x2: 50
+    y2: 98
+    stroke: "#52616B"
+    lineWidth: 3
+    arrow: "none"
+  }
+  line leftLowerWire {
+    x1: 50
+    y1: 68
+    x2: 50
+    y2: 50
+    stroke: "#52616B"
+    lineWidth: 3
+    arrow: "none"
+  }
+  line rightWire {
+    x1: 250
+    y1: 130
+    x2: 250
+    y2: 50
+    stroke: "#52616B"
+    lineWidth: 3
+    arrow: "none"
+  }
+  line lowerWire {
+    x1: 250
+    y1: 50
+    x2: 50
+    y2: 50
+    stroke: "#52616B"
+    lineWidth: 3
+    arrow: "none"
+  }
+  line positivePlate {
+    x1: 39
+    y1: 92
+    x2: 61
+    y2: 92
+    stroke: "#263238"
+    lineWidth: 4
+    arrow: "none"
+  }
+  line negativePlate {
+    x1: 43
+    y1: 74
+    x2: 57
+    y2: 74
+    stroke: "#263238"
+    lineWidth: 3
+    arrow: "none"
+  }
+  rectangle resistor {
+    x: 188
+    y: 118
+    width: 30
+    height: 24
+    stroke: "#263238"
+    fill: "#FFF5E6"
+    lineWidth: 2
+  }
+  line currentIndicator {
+    x1: indicatorX(t)
+    y1: 130
+    x2: indicatorX(t) + 14
+    y2: 130
+    stroke: "#D04A3A"
+    lineWidth: 4
+    arrow: "end"
+  }
+  text voltageLabel {
+    x: 20
+    y: 24
+    value: "9 V"
+    fill: "#263238"
+  }
+  text resistanceLabel {
+    x: 180
+    y: 156
+    value: "15 ohm"
+    fill: "#263238"
+  }
+  text currentLabel {
+    x: 88
+    y: 154
+    value: "I = ${round(current, 2)} A"
+    fill: "#263238"
+  }
+}
+```
+
+The horizontal position of the arrow varies with diagram-local time. The
+current magnitude remains the computed value `0.6 A` throughout the displayed
+interval.

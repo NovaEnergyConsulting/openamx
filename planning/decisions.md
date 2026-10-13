@@ -1,5 +1,58 @@
 # Planning Decisions
 
+## V0.13 Sprint 082 Builder Execution (2026-10-13)
+
+- The Lead Developer explicitly authorized Sprint 082 execution and approved
+  the Builder's concrete file-by-file plan before any production or test edits.
+- The approved scope includes a collapsible desktop CodeMirror outline for
+  AMX symbols, with diagram declarations containing their time variable and
+  elements; the outline is implemented inside the existing editor component,
+  without a workbench-shell redesign.
+- Approved shared-service files: `src/editor/highlighting.ts`,
+  `src/editor/completion.ts`, `src/editor/sourceRanges.ts`,
+  `src/editor/symbols.ts`, `src/editor/refactoring.ts`, and
+  `tests/editor.test.ts`.
+- Approved VS Code files: `vscode-extension/amx.tmGrammar.json`,
+  `vscode-extension/src/providers/navigation.ts`,
+  `vscode-extension/src/test/providers.host.ts`, and
+  `vscode-extension/README.md`.
+- Approved desktop files: `desktop-app/src/mainview/CodeEditor.vue`,
+  `desktop-app/src/shared/rpc.ts`,
+  `desktop-app/tests/ui/v13-language-editor.pw.ts`,
+  `desktop-app/src/mainview/components/help-content.json`, and
+  `desktop-app/tests/ui/help-center.pw.ts`.
+- Approved test-plan amendment (2026-10-13): add
+  `desktop-app/spikes/sprint042-workflow-harness/src/mockRpc.ts` solely to
+  implement the existing `formatBuffer` mock by delegating to the canonical
+  formatter, enabling a direct visible desktop Format-button test. No
+  production RPC or formatter behavior changes.
+- Approved documentation/example files: `README.md`, new
+  `docs/language-spec-v0.13.md`, new
+  `examples/v0.13-crank-slider.amx`, new
+  `examples/v0.13-battery-resistor.amx`, and `tests/examples.test.ts`.
+- Approved evidence/ledger outputs: Sprint 082 `builder-evidence.md` and
+  owned `artifacts/`, plus updates to `planning/state.md`,
+  `planning/decisions.md`, and `planning/questions.md`.
+- The plan excludes changes to parser/runtime/model/formatter semantics,
+  renderers/exports, preview security/sandbox, package manifests, release
+  files, publication, and Sprint 083 closeout. Any necessary scope change
+  requires a separately approved amendment.
+- Implemented the approved plan and the narrowly approved mock-formatting
+  amendment. `desktop-app/src/mainview/CodeEditor.vue` renders the outline
+  inside the existing CodeMirror pane; its symbol facts preserve parent and
+  local-time identities. The test mock delegates only to the canonical
+  formatter and does not replace production RPC behavior.
+- Both examples were confirmed as written in the approved grammar; the
+  battery narrative avoids a renderer-visible escaped-apostrophe artifact
+  while preserving the approved constant-current/moving-arrow interpretation.
+- Static PDF/DOCX frames use the lower-bound time. Word inspection confirmed
+  one DOCX page and one embedded PNG per example with the approved accessible
+  description in image alt metadata. Current PDFs still have no tagged
+  structure tree or `/Alt`; no PDF/UA or screen-reader claim is made.
+- Sprint 079-081 semantics, desktop iframe sandbox, preview limits, and
+  static/interactive rendering behavior were preserved. No V0.13 milestone
+  acceptance or release decision was made.
+
 ## V0.13 Sprint 082 Architect Preparation (2026-10-13)
 
 - Sprint 082 follows the approved V0.13 diagram contract and owns editor-service/VS Code/desktop-authoring integration, language specification/help, and the two runnable examples. It does not alter parser/runtime/model/rendering semantics.

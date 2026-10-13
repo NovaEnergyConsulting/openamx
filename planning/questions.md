@@ -1,5 +1,23 @@
 # Planning Questions (Sprint 002)
 
+## V0.13 Sprint 082 Builder Execution (2026-10-13)
+
+- **Resolved by Lead Developer direction:** Sprint 082 adds a collapsible
+  desktop outline for AMX symbols, including diagram-local time and elements,
+  within the CodeMirror editor. It does not redesign the workbench shell.
+- **Resolved by Lead Developer approval:** the Vite harness mock may implement
+  its missing `formatBuffer` response using the canonical formatter, solely to
+  exercise the existing desktop Format button in a host-level test.
+- No language, diagnostic, source-range, renderer, accessibility, or platform
+  contract question is reopened. Existing Sprint 079-081 residuals remain
+  unchanged and must be reported in Sprint 082 evidence.
+- The Sprint 082 native packaged-preview example check remains UNAVAILABLE
+  because the test-only WebView2 CDP endpoint is not configured. Native
+  screen-reader review, PDF/UA/tagged-PDF support, minimum-host/cross-platform
+  qualification, and the full root suite remain NOT RUN or unsupported.
+  Sprint 083 owns integrated acceptance and residual disposition; no Sprint
+  082 change masks these limits or the inherited Windows suite failures.
+
 ## V0.13 Sprint 082 Architect Preparation (2026-10-13)
 
 - Sprint 081's production PDF inspection found no tagged structure tree or `/Alt`; visible searchable title/description and SVG `<title>`/`<desc>` are documented but do not establish PDF/UA or screen-reader compliance. Sprint 082 specification/help must state this accurately; any request to expand PDF accessibility remains a separate product decision.

@@ -1,0 +1,96 @@
+---
+title: Crank-slider mechanism
+---
+# Crank-slider mechanism
+
+This schematic shows a crank pin following one full circular path and driving
+a piston through a fixed-length connecting rod. Its time parameterization is
+non-uniform; the equations use only existing AMX arithmetic, `abs`, conditional
+expressions, and `sqrt`, with no trigonometric functions.
+
+```amx
+let crankRadius: Number = 34
+let rodLength: Number = 105
+let pivotX: Number = 70
+fn crankX(t: Number, r: Number): Number = r * (1 - 2 * abs(t - 1))
+fn crankY(t: Number, r: Number): Number = if t <= 1 then sqrt(r * r - crankX(t, r) * crankX(t, r)) else -sqrt(r * r - crankX(t, r) * crankX(t, r))
+fn sliderX(t: Number, pivot: Number, r: Number, rod: Number): Number = pivot + crankX(t, r) + sqrt(rod * rod - crankY(t, r) * crankY(t, r))
+diagram crankSlider {
+  title: "Crank-slider mechanism"
+  description: "A crank pin follows one full circular path and drives a piston through a fixed-length connecting rod."
+  width: 320
+  height: 200
+  time t from 0 to 2 duration 4
+  line lowerGuide {
+    x1: 115
+    y1: 88
+    x2: 260
+    y2: 88
+    stroke: "#52616B"
+    lineWidth: 2
+    arrow: "none"
+  }
+  line upperGuide {
+    x1: 115
+    y1: 112
+    x2: 260
+    y2: 112
+    stroke: "#52616B"
+    lineWidth: 2
+    arrow: "none"
+  }
+  line connectingRod {
+    x1: pivotX + crankX(t, crankRadius)
+    y1: 100 + crankY(t, crankRadius)
+    x2: sliderX(t, pivotX, crankRadius, rodLength)
+    y2: 100
+    stroke: "#D07A32"
+    lineWidth: 5
+    arrow: "none"
+  }
+  line crank {
+    x1: pivotX
+    y1: 100
+    x2: pivotX + crankX(t, crankRadius)
+    y2: 100 + crankY(t, crankRadius)
+    stroke: "#6950A1"
+    lineWidth: 4
+    arrow: "none"
+  }
+  circle pivot {
+    cx: pivotX
+    cy: 100
+    r: 7
+    stroke: "#263238"
+    fill: "#FFFFFF"
+    lineWidth: 2
+  }
+  circle crankPin {
+    cx: pivotX + crankX(t, crankRadius)
+    cy: 100 + crankY(t, crankRadius)
+    r: 6
+    stroke: "#263238"
+    fill: "#F3B64B"
+    lineWidth: 2
+  }
+  rectangle piston {
+    x: sliderX(t, pivotX, crankRadius, rodLength) - 12
+    y: 90
+    width: 24
+    height: 20
+    stroke: "#263238"
+    fill: "#DCE8F0"
+    lineWidth: 2
+  }
+  text timeLabel {
+    x: 18
+    y: 24
+    value: "t = ${round(t, 2)} s"
+    fill: "#263238"
+  }
+}
+```
+
+The crank equations parameterize a complete revolution over `t = 0` to `t = 2`.
+The rod-length constraint determines the slider position directly for every
+selected time; the document does not model accumulated simulation state.

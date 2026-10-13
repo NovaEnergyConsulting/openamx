@@ -94,6 +94,7 @@ function symbolKind(statement: StatementNode): vscode.SymbolKind {
     case 'functionDeclaration': return vscode.SymbolKind.Function;
     case 'inputDeclaration': return vscode.SymbolKind.Variable;
     case 'tableDeclaration': case 'chartDeclaration': return vscode.SymbolKind.Object;
+    case 'diagramDeclaration': return vscode.SymbolKind.Object;
     default: return vscode.SymbolKind.Variable;
   }
 }
@@ -134,6 +135,15 @@ export function registerNavigationProviders(): vscode.Disposable[] {
             for (const member of statement.members) {
               const memberRange = tokenRange(document, member.nameSource, member.name);
               if (memberRange) symbol.children.push(new vscode.DocumentSymbol(member.name, '', vscode.SymbolKind.EnumMember, memberRange, memberRange));
+            }
+          } else if (statement.type === 'diagramDeclaration') {
+            for (const time of statement.times) {
+              const timeRange = tokenRange(document, time.nameSource, time.name);
+              if (timeRange) symbol.children.push(new vscode.DocumentSymbol(time.name, 'diagram-local time', vscode.SymbolKind.Variable, timeRange, timeRange));
+            }
+            for (const element of statement.elements) {
+              const elementRange = tokenRange(document, element.nameSource, element.name);
+              if (elementRange) symbol.children.push(new vscode.DocumentSymbol(element.name, element.primitive, vscode.SymbolKind.Object, elementRange, elementRange));
             }
           }
           if (symbol.children.length) symbol.range = new vscode.Range(range.start, symbol.children[symbol.children.length - 1].range.end);

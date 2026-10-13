@@ -246,6 +246,15 @@
                     "include": "#amx-enum-declaration"
                 },
                 {
+                    "include": "#amx-diagram-declaration"
+                },
+                {
+                    "include": "#amx-diagram-time"
+                },
+                {
+                    "include": "#amx-diagram-element"
+                },
+                {
                     "include": "#amx-view-declaration"
                 },
                 {
@@ -432,10 +441,43 @@
                 }
             }
         },
+        "amx-diagram-declaration": {
+            "match": "\\b(diagram)(\\s+)([A-Za-z][A-Za-z0-9_]*)(?=\\s*(?:\\{|$))",
+            "captures": {
+                "1": {
+                    "name": "keyword.declaration.diagram.amx"
+                },
+                "3": {
+                    "name": "entity.name.diagram.amx"
+                }
+            }
+        },
+        "amx-diagram-time": {
+            "match": "\\b(time)(\\s+)([A-Za-z][A-Za-z0-9_]*)(?=\\s+from\\b|$)",
+            "captures": {
+                "1": {
+                    "name": "keyword.control.amx"
+                },
+                "3": {
+                    "name": "variable.other.diagram-time.amx"
+                }
+            }
+        },
+        "amx-diagram-element": {
+            "match": "\\b(line|rectangle|circle|text)(\\s+)([A-Za-z][A-Za-z0-9_]*)(?=\\s*(?:\\{|$))",
+            "captures": {
+                "1": {
+                    "name": "keyword.declaration.diagram-element.amx"
+                },
+                "3": {
+                    "name": "entity.name.diagram-element.amx"
+                }
+            }
+        },
         "amx-keywords": {
             "patterns": [
                 {
-                    "match": "\\b(export|import|from|input|let|type|enum|extends|override|fn|return|for|in|if|then|else|match|case|default|show|table|chart|dimension|unit|add|remove|at)\\b",
+                    "match": "\\b(export|import|from|input|let|type|enum|extends|override|fn|return|for|in|if|then|else|match|case|default|show|table|chart|dimension|unit|add|remove|at|diagram|time)\\b",
                     "name": "keyword.control.amx"
                 },
                 {
@@ -444,6 +486,10 @@
                 },
                 {
                     "match": "\\b(title|description|column|as|category|x|y|group|labels|series)\\b",
+                    "name": "keyword.other.option.amx"
+                },
+                {
+                    "match": "\\b(width|height|duration|x1|y1|x2|y2|cx|cy|r|stroke|fill|lineWidth|arrow|value)\\b(?=\\s*(?::|$))",
                     "name": "keyword.other.option.amx"
                 },
                 {

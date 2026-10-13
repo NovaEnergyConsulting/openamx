@@ -79,7 +79,7 @@ export interface TextAnalysis {
 	diagnostics: TextDiagnostic[];
 	completions: string[];
 	highlights?: Array<{ from: number; to: number; kind: "keyword" | "declaration" | "reference" | "field" | "type" | "literal" }>;
-	symbols?: Array<{ from: number; to: number; file: string; name: string; kind: string; detail: string; declaration: boolean; target: { file: string; from: number; to: number }; origin?: string }>;
+	symbols?: Array<{ from: number; to: number; file: string; name: string; kind: string; detail: string; declaration: boolean; target: { file: string; from: number; to: number }; parent?: { file: string; from: number; to: number }; origin?: string }>;
 	actions?: Array<{ from: number; to: number; expected: string; replacement: string; title: string; code: string; revision: number }>;
 }
 export interface RunSummary { values: Array<{ name: string; value: string | number | boolean | null }>; }

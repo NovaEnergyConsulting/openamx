@@ -370,3 +370,169 @@ test("shared editor analysis preserves V0.12 diagnostic identities and original 
 		expect(coordinates[1]).toEqual(coordinates[0]);
 	}
 });
+
+test("V0.13 shared editor facts recognize diagram syntax without leaking inert text", () => {
+			const text = [
+				"Narrative diagram fake { title: \"inert\" }",
+				"```js",
+				"diagram inert {",
+				"```",
+				"```amx",
+				"let crankRadius: Number = 10",
+				"diagram crankSlider {",
+				'  title: "Crank slider"',
+				'  description: "A pin moves on a crank."',
+				"  width: 100",
+				"  height: 80",
+				"  time t from 0 to 2 duration 4",
+				"  line rod {",
+				"    x1: crankRadius",
+				"    y1: 10",
+				"    x2: crankRadius + t",
+				"    y2: 20",
+				'    stroke: "#263238"',
+				"    lineWidth: 2",
+				"  }",
+				"  text timer {",
+				"    x: 2",
+				"    y: 2",
+				'    value: "t = ${round(t, 2)}"',
+				'    fill: "#263238"',
+				"  }",
+				"}",
+				"```",
+				""
+			].join("\n");
+			const analysis = analyzeEditorModules(text, "/project/diagram.amx");
+			const highlights = editorHighlightFacts(text, analysis.document);
+			const hasToken = (name: string, kind?: string) => highlights.some(fact =>
+				text.slice(fact.from, fact.to) === name && (!kind || fact.kind === kind)
+			);
+
+			expect(hasToken("diagram", "keyword")).toBe(true);
+			expect(hasToken("crankSlider", "declaration")).toBe(true);
+			expect(hasToken("time", "keyword")).toBe(true);
+			expect(hasToken("t", "declaration")).toBe(true);
+			expect(hasToken("line", "keyword")).toBe(true);
+			expect(hasToken("rod", "declaration")).toBe(true);
+			expect(hasToken("x1", "field")).toBe(true);
+			expect(hasToken("crankRadius", "reference")).toBe(true);
+			expect(hasToken("2", "literal")).toBe(true);
+			expect(highlights.some(fact => text.slice(fact.from, fact.to) === "inert")).toBe(false);
+			expect(highlights.some(fact => text.slice(fact.from, fact.to) === "fake")).toBe(false);
+
+			const symbols = editorSymbolFacts(text, "/project/diagram.amx", analysis.document, analysis);
+			const diagram = symbols.find(fact => fact.declaration && fact.name === "crankSlider");
+			const time = symbols.find(fact => fact.declaration && fact.name === "t");
+			const rod = symbols.find(fact => fact.declaration && fact.name === "rod");
+			const timer = symbols.find(fact => fact.declaration && fact.name === "timer");
+			const timeReferences = symbols.filter(fact => !fact.declaration && fact.name === "t");
+			expect(diagram).toBeDefined();
+			expect(time?.parent).toEqual(diagram?.target);
+			expect(rod?.parent).toEqual(diagram?.target);
+			expect(timer?.parent).toEqual(diagram?.target);
+			expect(timeReferences).toHaveLength(2);
+			expect(timeReferences.every(fact => fact.target.from === time?.from && fact.target.to === time?.to)).toBe(true);
+			expect(editorRenameFact(symbols, "/project/diagram.amx", time!.from)?.edits).toHaveLength(3);
+			expect(isSafeRenameIdentifier("diagram")).toBe(false);
+		});
+
+		test("V0.13 diagram completion is contextual and keeps diagram time local", () => {
+			const text = [
+				"```amx",
+				"let radius: Number = 10",
+				"diagram motion {",
+				'  title: "Motion"',
+				'  description: "A moving rod."',
+				"  width: 100",
+				"  height: 80",
+				"  time t from 0 to 2 duration 4",
+				"  ",
+				"  line rod {",
+				"    x1: radius",
+				"    y1: 10",
+				"    x2: radius + t",
+				"    y2: 20",
+				'    stroke: "#263238"',
+				"    lineWidth: 2",
+				"    ",
+				"  }",
+				"  text timer {",
+				"    x: 2",
+				"    y: 2",
+				'    value: "t = ${round(t, 2)}"',
+				'    fill: "#263238"',
+				"  }",
+				"}",
+				"let after = radius",
+				"```",
+				""
+			].join("\n");
+			const prepared = prepareEditorCompletion(text, text.indexOf("  \n  line rod"));
+			expect(prepared).toBeDefined();
+			const topCursor = text.indexOf("  \n  line rod") + 2;
+			const topLabels = editorCompletionFacts(text, topCursor, prepared!.document, undefined, text).map(item => item.label);
+			expect(topLabels).toContain("line");
+			expect(topLabels).not.toContain("time");
+			expect(topLabels).not.toContain("stroke");
+
+			const expressionCursor = text.indexOf("x2: radius + ") + "x2: radius + ".length;
+			const expressionPrepared = prepareEditorCompletion(text, expressionCursor);
+			expect(expressionPrepared).toBeDefined();
+			const expressionLabels = editorCompletionFacts(text, expressionCursor, expressionPrepared!.document, undefined, text).map(item => item.label);
+			expect(expressionLabels).toContain("radius");
+			expect(expressionLabels).toContain("t");
+
+			const propertyCursor = text.indexOf("    \n  }", text.indexOf("line rod")) + 4;
+			const propertyPrepared = prepareEditorCompletion(text, propertyCursor);
+			expect(propertyPrepared).toBeDefined();
+			const propertyLabels = editorCompletionFacts(text, propertyCursor, propertyPrepared!.document, undefined, text).map(item => item.label);
+			expect(propertyLabels).toContain("arrow");
+			expect(propertyLabels).not.toContain("fill");
+
+			const arrowText = text.replace('    lineWidth: 2\n', '    lineWidth: 2\n    arrow: ""\n');
+			const arrowCursor = arrowText.indexOf('arrow: "') + 'arrow: "'.length;
+			const arrowPrepared = prepareEditorCompletion(arrowText, arrowCursor);
+			expect(arrowPrepared).toBeDefined();
+			const arrowLabels = editorCompletionFacts(arrowText, arrowCursor, arrowPrepared!.document, undefined, arrowText).map(item => item.label);
+			expect(arrowLabels).toEqual(['"none"', '"start"', '"end"', '"both"']);
+
+			const afterCursor = text.indexOf("let after = ") + "let after = ".length;
+			const afterPrepared = prepareEditorCompletion(text, afterCursor);
+			expect(afterPrepared).toBeDefined();
+			expect(editorCompletionFacts(text, afterCursor, afterPrepared!.document, undefined, text).map(item => item.label)).not.toContain("t");
+		});
+
+		test("V0.13 diagnostics retain source coordinates across LF, CRLF, and UTF-16 text", () => {
+			for (const newline of ["\n", "\r\n"]) {
+				const text = [
+					"😀 narrative",
+					"```amx",
+					"diagram draft {",
+					'  title: "Draft"',
+					'  description: "Incomplete line."',
+					"  width: 100",
+					"  height: 80",
+					"  time t from 0 to 1 duration 1",
+					"  line unfinished {",
+					"    x1: 0",
+					"  }",
+					"}",
+					"```",
+					""
+				].join(newline);
+				try {
+					analyzeEditorModules(text, "/project/incomplete-diagram.amx");
+					throw new Error("Expected an incomplete-line diagnostic");
+				} catch (error) {
+					expect(error).toMatchObject({ code: "AMXD001", file: "/project/incomplete-diagram.amx" });
+					const diagnostic = error as { line: number; column: number };
+					expect(text.split(/\r?\n/)[diagnostic.line - 1]?.slice(diagnostic.column - 1, diagnostic.column)).toBe("l");
+					expect(diagnostic.line).toBe(9);
+					expect(diagnostic.column).toBe(3);
+					const range = sourceTokenRange(text, { line: diagnostic.line, column: diagnostic.column }, "line");
+					expect(range).toBeDefined();
+					expect(text.slice(range!.from, range!.to)).toBe("line");
+				}
+			}
+		});

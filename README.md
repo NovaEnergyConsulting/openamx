@@ -181,6 +181,10 @@ opt-in examples, not domain-certified standards.
 The [V0.12 language specification](docs/language-spec-v0.12.md) documents the
 current additive language contract. Try the [record inheritance and enums](examples/v0.12-records-and-enums.amx)
 and [braced conditional](examples/v0.12-braced-if.amx) examples. The
+[V0.13 diagram specification](docs/language-spec-v0.13.md) records the approved
+diagram syntax and its implementation limits. Try the
+[crank-slider](examples/v0.13-crank-slider.amx) and
+[battery-resistor](examples/v0.13-battery-resistor.amx) examples.
 [V0.9 language specification](docs/language-spec-v0.9.md) and [V0.9 migration guide](docs/migrating-to-v0.9.md)
 remain historical references for the earlier language contract and its approved compatibility changes. Earlier specifications describe
 the language's evolution: [V0.5](docs/language-spec-v0.5.md),

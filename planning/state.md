@@ -1,5 +1,35 @@
 # Planning State
 
+## V0.13 Sprint 082 Builder Execution (2026-10-13)
+
+- The Lead Developer explicitly authorized execution and approved the concrete
+  file-by-file plan, including a collapsible outline inside the existing
+  desktop CodeMirror editor.
+- A narrow test-plan amendment was approved to add the existing desktop Vite
+  harness `mockRpc.ts` format response so the visible Format button can be
+  tested without changing production RPC behavior.
+- Preparation began on clean branch `feat/create-v0.13`; no pre-existing
+  worktree changes or artifacts were present. Execution is now in progress.
+- Implemented the shared diagram editor facts, VS Code grammar/navigation,
+  desktop CodeMirror outline, searchable Help, V0.13 specification, and both
+  approved runnable examples. No parser/runtime/model/renderer/security
+  behavior or release files changed.
+- Root focused tests passed: 66 tests, 0 failures, 679 expectations across 5
+  files; `bun run build` passed. The V0.13 Development Host/desktop editor
+  UI checks pass. The full VS Code suite retains 7 Windows path/cleanup
+  failures; the full desktop RPC script retains its inherited sandbox-count
+  mismatch. See Sprint 082 `builder-evidence.md`.
+- Both examples passed analysis and CLI run/render/PDF/DOCX. HTML, PDF, DOCX,
+  Word-rendered pages, embedded DOCX PNG/alt metadata, and initial frames were
+  inspected and retained under Sprint 082 `artifacts/`.
+- The native packaged desktop preview was unavailable because no
+  `OPENAMX_NATIVE_CDP_URL` endpoint was configured. Screen-reader review,
+  PDF/UA, minimum-host/cross-platform qualification, and the full root suite
+  remain NOT RUN or unsupported as documented.
+- Sprint 082 evidence is recorded, but V0.13 integrated acceptance, release,
+  publication, platform certification, and Sprint 083 closeout are not
+  claimed.
+
 ## V0.13 Sprint 082 Architect Preparation (2026-10-13)
 
 - Prepared Sprint 082 requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0082-v13-editor-examples-documentation/`.

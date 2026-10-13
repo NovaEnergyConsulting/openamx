@@ -48,6 +48,19 @@
       ]
     },
     {
+      "id": "language-v0.13",
+      "title": "V0.13 animated diagrams",
+      "summary": "Author formula-driven 2D diagrams with a local time variable.",
+      "terms": "language v0.13 diagram animated animation time canvas crank slider battery resistor line rectangle circle text arrow playback scrub loop AMXD PDF DOCX accessibility offline",
+      "steps": [
+        "Declare diagrams inside executable AMX fences with a title, text description, positive canvas size, and one local time interval. Lines, rectangles, circles, and text use approved static styling; geometry and labels may use existing AMX expressions.",
+        "HTML and desktop preview start paused at the interval's lower bound. Play, pause, reset, scrubbing, and an optional loop control change only the selected time.",
+        "PDF and DOCX contain a static frame at the interval's lower bound. DOCX uses an embedded PNG with alternative text; PDF titles and descriptions are visible and searchable, but tagged PDF/PDF/UA and screen-reader support are not established.",
+        "Preview uses application-owned code and inert model data without remote resources. Tested accessibility and resource results are bounded to their recorded environments; no screen-reader, minimum-host, or cross-platform qualification is claimed.",
+        "See docs/language-spec-v0.13.md for the approved syntax, diagnostics, limits, and exclusions. V0.13 integration and release acceptance remain pending."
+      ]
+    },
+    {
       "id": "language-v0.9",
       "title": "V0.9 language features",
       "summary": "Review V0.9 syntax and its compatibility changes.",

@@ -23,7 +23,10 @@ export interface EditorRenameFact {
 const reservedNames = new Set([
 	"let", "for", "in", "to", "return", "match", "case", "default", "if", "then", "else", "and", "or", "not", "dimension", "unit", "extends", "override", "enum",
 	"true", "false", "null", "type", "fn", "import", "from", "input", "export", "table", "chart", "show",
-	"title", "description", "column", "category", "x", "y", "group", "labels", "series", "as",
+	"diagram", "time", "line", "rectangle", "circle", "text",
+	"title", "description", "column", "category", "x", "y", "width", "height", "duration",
+	"x1", "y1", "x2", "y2", "cx", "cy", "r", "stroke", "fill", "lineWidth", "arrow", "value",
+	"group", "labels", "series", "as",
 	"Number", "String", "Boolean", "DateTime"
 ]);
 

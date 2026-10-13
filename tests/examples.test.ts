@@ -4,6 +4,7 @@ import { tmpdir } from "os";
 import * as path from "path";
 import { parseDocument } from "../src/parser/parseDocument";
 import { evaluateDocument } from "../src/runtime/evaluateDocument";
+import { analyzeEditorModules } from "../src/editor/moduleAnalysis";
 import { renderHtml } from "../src/renderer/renderHtml";
 
 async function runCli(...arguments_: string[]) {
@@ -65,6 +66,62 @@ describe("V0.12 language documentation and examples", () => {
     const conditional = evaluateDocument(await parseDocument(ifPath), ifPath);
     expect(conditional.description).toBe("high");
     expect(conditional.adjustedPriority).toBe(8);
+  });
+});
+
+describe("V0.13 diagram documentation and examples", () => {
+  it("links the approved specification and indexes the desktop and VS Code help", async () => {
+    const readme = await Bun.file("README.md").text();
+    const extensionHelp = await Bun.file("vscode-extension/README.md").text();
+    const specification = await Bun.file("docs/language-spec-v0.13.md").text();
+    const normalizedSpecification = specification.replace(/\s+/g, " ");
+    const help = JSON.parse(await Bun.file("desktop-app/src/mainview/components/help-content.json").text()) as {
+      topics: Array<{ id: string; terms: string; steps: string[] }>;
+    };
+    const topic = help.topics.find(item => item.id === "language-v0.13");
+
+    expect(readme).toContain("[V0.13 diagram specification](docs/language-spec-v0.13.md)");
+    expect(readme).toContain("[crank-slider](examples/v0.13-crank-slider.amx)");
+    expect(readme).toContain("[battery-resistor](examples/v0.13-battery-resistor.amx)");
+    expect(extensionHelp).toContain("../docs/language-spec-v0.13.md");
+    expect(specification).toContain("AMXD015");
+    expect(specification).toContain("16.7 ms p95 frame-work limit");
+    expect(normalizedSpecification).toContain("no tagged structure tree or `/Alt`");
+    expect(normalizedSpecification).toContain("do **not** establish tagged PDF, PDF/UA, or");
+    expect(topic?.terms).toContain("battery resistor");
+    expect(topic?.steps.join(" ")).toContain("screen-reader support are not established");
+    expect(new Set(help.topics.map(item => item.id)).size).toBe(help.topics.length);
+  });
+
+  it("analyzes and renders both runnable examples with their approved meanings", async () => {
+    const examples = [
+      { path: "examples/v0.13-crank-slider.amx", title: "Crank-slider mechanism" },
+      { path: "examples/v0.13-battery-resistor.amx", title: "Battery-resistor DC circuit" }
+    ];
+    for (const example of examples) {
+      const source = await Bun.file(example.path).text();
+      const analysis = analyzeEditorModules(source, example.path);
+      const values = evaluateDocument(analysis.document, example.path);
+      const html = renderHtml(analysis.document, example.path);
+      const cliRun = await runCli("run", example.path);
+
+      expect(cliRun.exitCode).toBe(0);
+      expect(cliRun.stderr).toBe("");
+      expect(html).toContain(`id="openamx-diagram-0-title">${example.title}`);
+      expect(html).toContain('data-openamx-diagram="openamx-diagram-0"');
+      expect(html).toContain('type="range" data-diagram-scrubber');
+      expect(html).toContain("data-diagram-model data-encoding=\"gzip-base64\"");
+      expect(Buffer.byteLength(html, "utf8")).toBeLessThan(1024 * 1024);
+      if (example.path.endsWith("crank-slider.amx")) {
+        expect(values.crankRadius).toBe(34);
+        expect(values.rodLength).toBe(105);
+        expect(source).not.toMatch(/\b(?:sin|cos)\s*\(/);
+      } else {
+        expect(values.current).toBe(0.6);
+        expect(source).toContain("arrow: \"end\"");
+        expect(source).toContain("x1: indicatorX(t)");
+      }
+    }
   });
 });
 

@@ -3,6 +3,7 @@ import { editorCompletionFacts, prepareEditorCompletion } from "../../../../src/
 import { editorHighlightFacts } from "../../../../src/editor/highlighting";
 import type { EditorModuleAnalysis } from "../../../../src/editor/moduleAnalysis";
 import { editorSymbolFacts } from "../../../../src/editor/symbols";
+import { formatAmxDocument } from "../../../../src/formatter/formatAmx";
 import { parseDocumentText } from "../../../../src/parser/parseDocument";
 import { checkDocument } from "../../../../src/typechecker/checkDocument";
 import type { DesktopRPCClient, DesktopJobIdentity, DesktopJobSnapshot, DesktopJobResult, OpenDocument, TextAnalysis, TextDiagnostic, WorkbenchState } from "../../../src/shared/rpc";
@@ -215,6 +216,7 @@ const request = {
 	async getRecovery() { return { ok: true as const, available: false, items: [] }; },
 	async setAutosave({ enabled, delayMs }: { enabled: boolean; delayMs: number }) { autosaveDelayMs = delayMs; return { ok: true as const, enabled, delayMs }; },
 	async readDocument() { return { ok: true as const, document: document() }; },
+	async formatBuffer() { return { ok: true as const, text: formatAmxDocument(currentText) }; },
 	async openDocument({ path }: { path: string }) {
 		activePath = path;
 		lastOpenedPath = path;

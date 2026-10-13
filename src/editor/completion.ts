@@ -2,6 +2,8 @@ import type {
 	DocumentNode,
 	BracedIfExpressionNode,
 	BracedIfStatementNode,
+	DiagramDeclarationNode,
+	DiagramElementNode,
 	EnumDeclarationNode,
 	ForExpressionNode,
 	ForStatementNode,
@@ -29,8 +31,18 @@ const v04Keywords = ["table", "chart", "show", "title", "description", "column",
 const v09ListKeywords = ["add", "remove", "at"];
 const v09UnitKeywords = ["dimension", "unit"];
 const v12Keywords = ["enum", "extends", "override"];
+const v13Keywords = ["diagram"];
 const standardFunctions = ["sum", "min", "max", "mean", "round", "abs", "sqrt", "pow"];
 const primitiveTypes = ["Number", "String", "Boolean", "DateTime"];
+const diagramProperties = ["title", "description", "width", "height"];
+const diagramElements = ["line", "rectangle", "circle", "text"];
+const elementProperties: Record<string, string[]> = {
+	line: ["x1", "y1", "x2", "y2", "stroke", "lineWidth", "arrow"],
+	rectangle: ["x", "y", "width", "height", "stroke", "fill", "lineWidth"],
+	circle: ["cx", "cy", "r", "stroke", "fill", "lineWidth"],
+	text: ["x", "y", "value", "fill"]
+};
+const arrowValues = ['"none"', '"start"', '"end"', '"both"'];
 
 function cursorInsideOpenAmxFence(text: string, cursorOffset: number): boolean {
 	const frontMatter = parseFrontMatter(text);
@@ -124,6 +136,89 @@ function statementEndOffset(text: string, statement: StatementNode): number {
 		else if (character === "\n" && depth <= 0) return offset;
 	}
 	return text.length;
+}
+
+function blockBounds(text: string, source: StatementNode["source"]): { open: number; close: number } | undefined {
+	const start = sourceOffset(text, source);
+	if (start === undefined) return undefined;
+	let open = -1;
+	let depth = 0;
+	for (let offset = start; offset < text.length; offset++) {
+		if (text[offset] === '"' || text[offset] === "'") {
+			const end = findStringLiteralEnd(text, offset);
+			if (end === undefined) return open < 0 ? undefined : { open, close: text.length };
+			offset = end;
+		} else if (text[offset] === "{") {
+			if (open < 0) open = offset;
+			depth++;
+		} else if (text[offset] === "}" && open >= 0 && --depth === 0) return { open, close: offset };
+	}
+	return open < 0 ? undefined : { open, close: text.length };
+}
+
+function diagramAt(
+	text: string,
+	parsed: OpenAmxDocument,
+	cursorOffset: number
+): { diagram: DiagramDeclarationNode; element?: DiagramElementNode } | undefined {
+	for (const diagram of statementsOf(parsed).filter((statement): statement is DiagramDeclarationNode => statement.type === "diagramDeclaration")) {
+		const bounds = blockBounds(text, diagram.source);
+		if (!bounds || cursorOffset <= bounds.open || cursorOffset > bounds.close) continue;
+		const element = diagram.elements.find(candidate => {
+			const elementBounds = blockBounds(text, candidate.source);
+			return !!elementBounds && cursorOffset > elementBounds.open && cursorOffset <= elementBounds.close;
+		});
+		return { diagram, element };
+	}
+	return undefined;
+}
+
+function diagramCompletionFacts(
+	text: string,
+	contextText: string,
+	cursorOffset: number,
+	parsed: OpenAmxDocument,
+	visible: VisibleSymbols
+): EditorCompletionFact[] | undefined {
+	const active = diagramAt(text, parsed, cursorOffset);
+	if (!active) return undefined;
+	const contextCursor = Math.max(0, Math.min(cursorOffset, contextText.length));
+	const lineStart = contextText.lastIndexOf("\n", Math.max(0, contextCursor - 1)) + 1;
+	const prefix = contextText.slice(lineStart, contextCursor);
+	const propertyValue = prefix.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*/);
+	if (propertyValue) {
+		if (active.element?.primitive === "line" && propertyValue[1] === "arrow") {
+			return arrowValues.map(label => ({ label, kind: "keyword" }));
+		}
+		const variables = new Set(visible.variables);
+		if (active.element && active.diagram.times.length === 1) variables.add(active.diagram.times[0]!.name);
+		const fieldReceiver = prefix.match(/\b([A-Za-z][A-Za-z0-9_]*)\.\w*$/)?.[1];
+		const fields = fieldReceiver
+			? visible.enums.get(fieldReceiver)?.members.map(member => member.name)
+				?? visible.recordTypes.get(fieldReceiver)?.fields.map(field => field.name) ?? []
+			: [];
+		return [
+			...standardFunctions.map(label => ({ label, kind: "function" as const })),
+			...[...visible.functions].map(label => ({ label, kind: "function" as const })),
+			...[...visible.types].map(label => ({ label, kind: "class" as const })),
+			...[...variables].map(label => ({ label, kind: "variable" as const })),
+			...[...visible.views].map(label => ({ label, kind: "reference" as const })),
+			...fields.map(label => ({ label, kind: "field" as const }))
+		];
+	}
+
+	const partialProperty = prefix.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)?$/);
+	if (!partialProperty) return [];
+	const existing = active.element
+		? active.element.properties.map(property => property.name)
+		: [...active.diagram.properties.map(property => property.name), ...(active.diagram.times.length ? ["time"] : [])];
+	const available = active.element
+		? elementProperties[active.element.primitive] ?? []
+		: [...diagramProperties, "time", ...diagramElements];
+	return available.filter(name => !existing.includes(name)).map(label => ({
+		label,
+		kind: diagramElements.includes(label) || label === "time" ? "keyword" : "field"
+	}));
 }
 
 function loopBounds(text: string, loop: ForStatementNode | ForExpressionNode): { open: number; close: number } | undefined {
@@ -336,7 +431,7 @@ export function editorCompletionFacts(
 			?? visible.recordTypes.get(fieldReceiver)?.fields.map(field => field.name) ?? []
 		: [];
 	const facts: EditorCompletionFact[] = [
-		...[...v02Keywords, ...v03Keywords, ...v04Keywords, ...v09ListKeywords, ...v09UnitKeywords, ...v12Keywords].map(label => ({ label, kind: "keyword" as const })),
+		...[...v02Keywords, ...v03Keywords, ...v04Keywords, ...v09ListKeywords, ...v09UnitKeywords, ...v12Keywords, ...v13Keywords].map(label => ({ label, kind: "keyword" as const })),
 		...standardFunctions.map(label => ({ label, kind: "function" as const })),
 		...[...visible.functions].map(label => ({ label, kind: "function" as const })),
 		...[...visible.types].map(label => ({ label, kind: "class" as const })),
@@ -344,6 +439,8 @@ export function editorCompletionFacts(
 		...[...visible.views].map(label => ({ label, kind: "reference" as const })),
 		...fields.map(label => ({ label, kind: "field" as const }))
 	];
+	const diagramFacts = diagramCompletionFacts(text, contextText, cursor, parsed, visible);
+	if (diagramFacts) return diagramFacts;
 	return facts;
 }
 

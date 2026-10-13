@@ -365,7 +365,7 @@ suite('OpenAMX providers', () => {
       assert.ok(!outsideLabels.has(fn), fn);
     }
   });
-  test('tokenizes V0.9 and V0.12 syntax with the actual TextMate grammar and preserves Markdown boundaries', async () => {
+  test('tokenizes V0.9-V0.13 syntax with the actual TextMate grammar and preserves Markdown boundaries', async () => {
     const extension = vscode.extensions.getExtension('EngineersTools.openamx-vscode');
     assert.ok(extension);
     const wasm = await fs.readFile(require.resolve('vscode-oniguruma/release/onig.wasm'));
@@ -414,6 +414,25 @@ suite('OpenAMX providers', () => {
       '  return 0',
       '}',
       'let record = Sample { distance = 2 meter }',
+      'diagram motion {',
+      '  title: "Motion"',
+      '  description: "A moving rod."',
+      '  width: 100',
+      '  height: 80',
+      '  time t from 0 to 2 duration 4',
+      '  line rod {',
+      '    x1: 1',
+      '    y1: 2',
+      '    x2: 3',
+      '    y2: 4',
+      '    stroke: "#263238"',
+      '    lineWidth: 2',
+      '    arrow: "end"',
+      '  }',
+      '}',
+      'diagram unfinished',
+      'time localTime',
+      'line partialRod',
       'let label = "escaped \\${notCode}; value ${second}"',
       'let draft = (2 meter',
       'let malformedInterpolation = "${second + }"',
@@ -452,6 +471,20 @@ suite('OpenAMX providers', () => {
     hasScope('let selected = if status == 2 {', 'if', 'keyword.control.amx');
     hasScope('  return 1', 'return', 'keyword.control.amx');
     hasScope('let record = Sample { distance = 2 meter }', '= 2', 'keyword.operator.amx');
+    hasScope('diagram motion {', 'diagram', 'keyword.declaration.diagram.amx');
+    hasScope('diagram motion {', 'motion', 'entity.name.diagram.amx');
+    hasScope('  time t from 0 to 2 duration 4', 'time', 'keyword.control.amx');
+    hasScope('  time t from 0 to 2 duration 4', 't from', 'variable.other.diagram-time.amx');
+    hasScope('  line rod {', 'line', 'keyword.declaration.diagram-element.amx');
+    hasScope('  line rod {', 'rod', 'entity.name.diagram-element.amx');
+    hasScope('    x1: 1', 'x1', 'keyword.other.option.amx');
+    hasScope('    arrow: "end"', '"end"', 'string.quoted.double.amx');
+    hasScope('diagram unfinished', 'diagram', 'keyword.declaration.diagram.amx');
+    hasScope('diagram unfinished', 'unfinished', 'entity.name.diagram.amx');
+    hasScope('time localTime', 'time', 'keyword.control.amx');
+    hasScope('time localTime', 'localTime', 'variable.other.diagram-time.amx');
+    hasScope('line partialRod', 'line', 'keyword.declaration.diagram-element.amx');
+    hasScope('line partialRod', 'partialRod', 'entity.name.diagram-element.amx');
     hasScope('let label = "escaped \\${notCode}; value ${second}"', '\\${', 'constant.character.escape.amx');
     lacksScope('let label = "escaped \\${notCode}; value ${second}"', '\\${', 'meta.interpolation.string.amx');
     hasScope('let label = "escaped \\${notCode}; value ${second}"', '${second}', 'meta.interpolation.string.amx');
@@ -598,6 +631,119 @@ suite('OpenAMX providers', () => {
     const closingBrace = invalid.positionAt(invalidContent.lastIndexOf('}'));
     assert.equal(missingReturn.range.start.line, closingBrace.line);
     assert.equal(missingReturn.range.start.character, closingBrace.character);
+  });
+
+  test('provides V0.13 completion, outline, navigation, formatting, and source ranges', async () => {
+    const content = [
+      '😀 narrative',
+      '```amx',
+      'let radius: Number = 10',
+      'diagram motion {',
+      ' title: "Motion"',
+      ' description: "A moving rod."',
+      ' width: 100',
+      ' height: 80',
+      ' time t from 0 to 2 duration 4',
+      ' line rod {',
+      '  x1: radius',
+      '  y1: 10',
+      '  x2: radius + t',
+      '  y2: 20',
+      '  stroke: "#263238"',
+      '  lineWidth: 2',
+      '  ',
+      ' }',
+      ' text timer {',
+      '  x: 2',
+      '  y: 2',
+      '  value: "t = ${round(t, 2)}"',
+      '  fill: "#263238"',
+      ' }',
+      '}',
+      '```'
+    ].join('\r\n');
+    const document = await vscode.workspace.openTextDocument({ language: 'amx', content });
+    await vscode.window.showTextDocument(document);
+    assert.equal((await waitForDiagnostics(document.uri, false)).length, 0);
+
+    const lineNumber = content.split(/\r?\n/).findIndex(line => line === '  ');
+    const completions = await vscode.commands.executeCommand<vscode.CompletionList>(
+      'vscode.executeCompletionItemProvider', document.uri, new vscode.Position(lineNumber, 2)
+    );
+    const labels = new Set(completions?.items.map(item => String(item.label)) ?? []);
+    assert.ok(labels.has('arrow'));
+    assert.ok(!labels.has('fill'));
+
+    const arrowContent = content.replace('  lineWidth: 2', '  lineWidth: 2\n  arrow: ""');
+    const arrowDocument = await vscode.workspace.openTextDocument({ language: 'amx', content: arrowContent });
+    await vscode.window.showTextDocument(arrowDocument);
+    assert.equal((await waitForDiagnostics(arrowDocument.uri, true))[0].code, 'AMXD007');
+    const arrowOffset = arrowContent.indexOf('arrow: "') + 'arrow: "'.length;
+    const arrowCompletions = await vscode.commands.executeCommand<vscode.CompletionList>(
+      'vscode.executeCompletionItemProvider', arrowDocument.uri, arrowDocument.positionAt(arrowOffset)
+    );
+    assert.deepEqual(
+      arrowCompletions?.items.map(item => String(item.label)).sort(),
+      ['"none"', '"start"', '"end"', '"both"'].sort()
+    );
+
+    const formatting = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+      'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 2, insertSpaces: true }
+    );
+    assert.ok(formatting && formatting.length > 0);
+    const workspaceEdit = new vscode.WorkspaceEdit();
+    formatting.forEach(edit => workspaceEdit.replace(document.uri, edit.range, edit.newText));
+    assert.ok(await vscode.workspace.applyEdit(workspaceEdit));
+    assert.equal((await vscode.commands.executeCommand<vscode.TextEdit[]>(
+      'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 2, insertSpaces: true }
+    ))?.length ?? 0, 0);
+
+    const formatted = document.getText();
+    const outline = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+      'vscode.executeDocumentSymbolProvider', document.uri
+    );
+    const diagram = outline?.find(symbol => symbol.name === 'motion');
+    assert.equal(diagram?.kind, vscode.SymbolKind.Object);
+    assert.deepEqual(diagram?.children.map(symbol => symbol.name), ['t', 'rod', 'timer']);
+    const time = diagram?.children.find(symbol => symbol.name === 't');
+    const timeUseOffset = formatted.indexOf('radius + t') + 'radius + '.length;
+    const definition = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeDefinitionProvider', document.uri, document.positionAt(timeUseOffset)
+    );
+    assert.equal(definition?.length, 1);
+    assert.deepEqual(definition?.[0].range, time?.selectionRange);
+    const references = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeReferenceProvider', document.uri, document.positionAt(timeUseOffset)
+    );
+    assert.equal(references?.length, 3);
+
+    const invalidContent = [
+      '😀 narrative',
+      '```amx',
+      'diagram broken {',
+      '  title: "Broken"',
+      '  description: "Missing one endpoint."',
+      '  width: 100',
+      '  height: 80',
+      '  time t from 0 to 1 duration 1',
+      '  line rod {',
+      '    x1: 0',
+      '    y1: 0',
+      '    y2: 1',
+      '  }',
+      '}',
+      '```'
+    ].join('\r\n');
+    const invalid = await vscode.workspace.openTextDocument({ language: 'amx', content: invalidContent });
+    await vscode.window.showTextDocument(invalid);
+    const diagnostics = await waitForDiagnostics(invalid.uri, true);
+    const missingEndpoint = diagnostics.find(item => item.code === 'AMXD001');
+    assert.ok(missingEndpoint);
+    const line = invalidContent.split(/\r?\n/).findIndex(value => value.includes('line rod'));
+    assert.equal(missingEndpoint.range.start.line, line);
+    assert.equal(missingEndpoint.range.start.character, 2);
+    assert.equal(missingEndpoint.range.end.character, 3);
+    assert.equal(invalid.getText(missingEndpoint.range), 'l');
   });
 
   test('completes V0.3 types, inputs, functions, imported exports, and known record fields', async () => {

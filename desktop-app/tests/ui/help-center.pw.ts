@@ -1,13 +1,14 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 const expectedTopicIds = [
-	"getting-started", "starters", "language", "language-v0.12", "language-v0.9", "documents", "data",
+	"getting-started", "starters", "language", "language-v0.12", "language-v0.13", "language-v0.9", "documents", "data",
 	"preview-export", "recovery", "diagnostics", "release-notes"
 ];
 const expectedSearchTerms = [
 	["getting-started", "welcome first project starter create open"],
 	["starters", "example templates hello asset management operation note"],
 	["language", "language syntax code fence markdown let type function import export input record table chart cli"],
+	["language-v0.13", "language v0.13 diagram animated animation time canvas crank slider battery resistor line rectangle circle text arrow playback scrub loop AMXD PDF DOCX accessibility offline"],
 	["language-v0.12", "language v0.12 record inheritance extends override effective fields enum enumeration primitive values braced if expression statement return AMX3011 AMX3021"],
 	["language-v0.9", "v0.9 migration record constructor equals = colon annotation string escape interpolation list index dimension unit measurement conversion JSON CSV"],
 	["documents", "active tab import source editor save intelligence rename"],
@@ -69,6 +70,13 @@ test("bundled help keeps stable topics, local search, registry shortcuts, routin
 	await expect(page.locator(".help-content")).toContainText("numbering starts at 1");
 	await expect(page.locator(".help-content")).toContainText("explicit value return on every path");
 	await expect(page.locator(".help-content")).toContainText("Branch declarations stay local");
+	await search.fill("loop");
+	const v013Topic = page.locator(".help-topics [data-topic-id='language-v0.13']");
+	await expect(v013Topic).toBeVisible();
+	await v013Topic.click();
+	await expect(page.locator(".help-content")).toContainText("start paused at the interval's lower bound");
+	await expect(page.locator(".help-content")).toContainText("PDF titles and descriptions are visible and searchable");
+	await expect(page.locator(".help-content")).toContainText("no screen-reader, minimum-host, or cross-platform qualification");
 	await search.fill("measurement conversion");
 	await expect(v09Topic).toBeVisible();
 	await v09Topic.click();

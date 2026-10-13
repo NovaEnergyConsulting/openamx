@@ -108,7 +108,7 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 			variableDeclaration: "let", typeDeclaration: "type", enumDeclaration: "enum", functionDeclaration: "fn",
 			dimensionDeclaration: "dimension", unitDeclaration: "unit",
 			inputDeclaration: "input", importDeclaration: "import", tableDeclaration: "table",
-			chartDeclaration: "chart", showStatement: "show", forStatement: "for",
+			chartDeclaration: "chart", diagramDeclaration: "diagram", showStatement: "show", forStatement: "for",
 			assignmentStatement: "", compoundAssignmentStatement: "", bracedIfStatement: "if", returnStatement: "return",
 			addStatement: "add", removeStatement: "remove"
 		};
@@ -130,6 +130,27 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 		}
 		if (node.type === "importDeclaration") for (const item of node.names) add(item.source, item.name, "reference");
 		if (node.type === "inputDeclaration") typeReference(node.annotation);
+		if (node.type === "diagramDeclaration") {
+			for (const property of node.properties) {
+				add(property.nameSource, property.name, "field");
+				expression(property.expression);
+			}
+			for (const time of node.times) {
+				add(time.source, "time", "keyword");
+				add(time.nameSource, time.name, "declaration");
+				expression(time.from);
+				expression(time.to);
+				expression(time.duration);
+			}
+			for (const element of node.elements) {
+				add(element.source, element.primitive, "keyword");
+				add(element.nameSource, element.name, "declaration");
+				for (const property of element.properties) {
+					add(property.nameSource, property.name, "field");
+					expression(property.expression);
+				}
+			}
+		}
 		if (node.type === "typeDeclaration") {
 			const firstParent = node.parents?.[0];
 			const typeOffset = sourceOffset(text, node.source);

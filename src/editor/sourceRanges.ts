@@ -14,7 +14,8 @@ const declarationKeywords: Partial<Record<StatementNode["type"], string>> = {
 	inputDeclaration: "input",
 	variableDeclaration: "let",
 	tableDeclaration: "table",
-	chartDeclaration: "chart"
+	chartDeclaration: "chart",
+	diagramDeclaration: "diagram"
 };
 
 export function sourceOffset(text: string, source: SourceLocation | undefined): number | undefined {

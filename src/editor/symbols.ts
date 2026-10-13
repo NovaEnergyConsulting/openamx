@@ -13,6 +13,7 @@ export interface EditorSymbolFact extends EditorRange {
 	file: string;
 	name: string;
 	target: EditorSymbolIdentity;
+	parent?: EditorSymbolIdentity;
 	declaration: boolean;
 	kind: string;
 	detail: string;
@@ -80,11 +81,13 @@ export function editorSymbolFacts(
 			for (const member of declarationNode.members) {
 				const range = sourceTokenRange(moduleText, member.nameSource, member.name);
 				if (!range) continue;
+				const parent = declaration(moduleText, file, declarationNode)?.target;
 				enumMemberTargets.set(`${file}\0${declarationNode.name}\0${member.name}`, {
 					...range,
 					file,
 					name: member.name,
 					target: { file, ...range },
+					parent,
 					declaration: true,
 					kind: "enumMember",
 					detail: `enum member ${declarationNode.name}.${member.name}`
@@ -109,23 +112,23 @@ export function editorSymbolFacts(
 			const range = sourceTokenRange(moduleText, source, name);
 			if (range) result.push({ ...target, ...range, file, declaration: false });
 		};
-		const expression = (node: V02ExpressionNode): void => {
+		const expression = (node: V02ExpressionNode, scope = visible): void => {
 			if (!analysis && statements.some(statement => statement.type === "importDeclaration")) return;
 			switch (node.type) {
-				case "stringInterpolation": node.parts.forEach(part => { if (typeof part !== "string") expression(part); }); break;
-				case "identifier": add(node.source, node.name, visible.get(node.name)); break;
-				case "functionCall": add(node.source, node.callee, visible.get(node.callee)); node.arguments.forEach(expression); break;
-				case "recordConstructor": add(node.source, node.name, visible.get(node.name)); node.fields.forEach(field => expression(field.expression)); break;
-				case "binaryExpression": expression(node.left); expression(node.right); break;
+				case "stringInterpolation": node.parts.forEach(part => { if (typeof part !== "string") expression(part, scope); }); break;
+				case "identifier": add(node.source, node.name, scope.get(node.name)); break;
+				case "functionCall": add(node.source, node.callee, scope.get(node.callee)); node.arguments.forEach(argument => expression(argument, scope)); break;
+				case "recordConstructor": add(node.source, node.name, scope.get(node.name)); node.fields.forEach(field => expression(field.expression, scope)); break;
+				case "binaryExpression": expression(node.left, scope); expression(node.right, scope); break;
 				case "measurementAttachment":
-				case "measurementConversion": add(node.unitSource, node.unit, visible.get(node.unit)); expression(node.value); break;
-				case "unaryExpression": expression(node.argument); break;
-				case "conditionalExpression": expression(node.test); expression(node.consequent); expression(node.alternate); break;
-				case "listLiteral": node.elements.forEach(expression); break;
-				case "rangeExpression": expression(node.start); expression(node.end); break;
-				case "matchExpression": expression(node.expression); node.cases.forEach(arm => expression(arm.expression)); expression(node.defaultExpression); break;
+				case "measurementConversion": add(node.unitSource, node.unit, scope.get(node.unit)); expression(node.value, scope); break;
+				case "unaryExpression": expression(node.argument, scope); break;
+				case "conditionalExpression": expression(node.test, scope); expression(node.consequent, scope); expression(node.alternate, scope); break;
+				case "listLiteral": node.elements.forEach(element => expression(element, scope)); break;
+				case "rangeExpression": expression(node.start, scope); expression(node.end, scope); break;
+				case "matchExpression": expression(node.expression, scope); node.cases.forEach(arm => expression(arm.expression, scope)); expression(node.defaultExpression, scope); break;
 				case "fieldAccess": {
-					expression(node.receiver);
+					expression(node.receiver, scope);
 					if (node.receiver.type === "identifier") {
 						const visibleEnum = visibleEnums.get(node.receiver.name);
 						const member = visibleEnum && enumMemberTargets.get(`${visibleEnum.file}\0${visibleEnum.declaration.name}\0${node.field}`);
@@ -133,31 +136,31 @@ export function editorSymbolFacts(
 					}
 					break;
 				}
-				case "listAccess": expression(node.receiver); expression(node.index); break;
-				case "forExpression": expression(node.iterable); node.body.forEach(nestedStatement); break;
+				case "listAccess": expression(node.receiver, scope); expression(node.index, scope); break;
+				case "forExpression": expression(node.iterable, scope); node.body.forEach(statement => nestedStatement(statement, scope)); break;
 				case "bracedIfExpression":
-					expression(node.test);
-					node.consequent.forEach(nestedStatement);
-					node.alternate.forEach(nestedStatement);
+					expression(node.test, scope);
+					node.consequent.forEach(statement => nestedStatement(statement, scope));
+					node.alternate.forEach(statement => nestedStatement(statement, scope));
 					break;
 				default: break;
 			}
 		};
-		const nestedStatement = (statement: StatementNode): void => {
-			if (statement.type === "variableDeclaration") expression(statement.expression);
+		const nestedStatement = (statement: StatementNode, scope = visible): void => {
+			if (statement.type === "variableDeclaration") expression(statement.expression, scope);
 			else if (statement.type === "typeDeclaration") {
-				for (const parent of statement.parents ?? []) add(parent.source, parent.name, visible.get(parent.name));
-				for (const field of statement.fields) if (field.defaultExpression) expression(field.defaultExpression);
+				for (const parent of statement.parents ?? []) add(parent.source, parent.name, scope.get(parent.name));
+				for (const field of statement.fields) if (field.defaultExpression) expression(field.defaultExpression, scope);
 			} else if (statement.type === "enumDeclaration") {
-				for (const member of statement.members) if (member.value) expression(member.value);
+				for (const member of statement.members) if (member.value) expression(member.value, scope);
 			} else if (statement.type === "forStatement") {
-				expression(statement.iterable);
-				statement.body.forEach(nestedStatement);
+				expression(statement.iterable, scope);
+				statement.body.forEach(item => nestedStatement(item, scope));
 			} else if (statement.type === "bracedIfStatement") {
-				expression(statement.test);
-				statement.consequent.forEach(nestedStatement);
-				statement.alternate?.forEach(nestedStatement);
-			} else if ("expression" in statement && statement.expression) expression(statement.expression);
+				expression(statement.test, scope);
+				statement.consequent.forEach(item => nestedStatement(item, scope));
+				statement.alternate?.forEach(item => nestedStatement(item, scope));
+			} else if ("expression" in statement && statement.expression) expression(statement.expression, scope);
 		};
 
 		for (const statement of statements) {
@@ -201,6 +204,49 @@ export function editorSymbolFacts(
 					if (statement.expression) expression(statement.expression);
 				}
 				if (statement.type === "variableDeclaration") expression(statement.expression);
+				if (statement.type === "diagramDeclaration") {
+					const diagram = declaration(moduleText, file, statement);
+					const diagramParent = !duplicates.has(statement.name) ? diagram?.target : undefined;
+					const diagramScope = new Map(visible);
+					for (const property of statement.properties) expression(property.expression);
+					for (const time of statement.times) {
+						expression(time.from);
+						expression(time.to);
+						expression(time.duration);
+						const range = sourceTokenRange(moduleText, time.nameSource, time.name);
+						if (!range || !diagramParent) continue;
+						const localTime: EditorSymbolFact = {
+							...range,
+							file,
+							name: time.name,
+							target: { file, ...range },
+							parent: diagramParent,
+							declaration: true,
+							kind: "diagramTime",
+							detail: `time ${time.name}`
+						};
+						result.push(localTime);
+						diagramScope.set(time.name, localTime);
+					}
+					const elementNames = new Set<string>();
+					for (const element of statement.elements) {
+						const range = sourceTokenRange(moduleText, element.nameSource, element.name);
+						if (range && diagramParent && !elementNames.has(element.name)) {
+							elementNames.add(element.name);
+							result.push({
+								...range,
+								file,
+								name: element.name,
+								target: { file, ...range },
+								parent: diagramParent,
+								declaration: true,
+								kind: "diagramElement",
+								detail: `${element.primitive} ${element.name}`
+							});
+						}
+						for (const property of element.properties) expression(property.expression, diagramScope);
+					}
+				}
 				if (statement.type === "typeDeclaration") {
 					for (const parent of statement.parents ?? []) add(parent.source, parent.name, visible.get(parent.name));
 					for (const field of statement.fields) {
@@ -236,12 +282,12 @@ export function editorSymbolFacts(
 				}
 				if (statement.type === "forStatement") {
 					expression(statement.iterable);
-					statement.body.forEach(nestedStatement);
+					statement.body.forEach(item => nestedStatement(item));
 				}
 				if (statement.type === "bracedIfStatement") {
 					expression(statement.test);
-					statement.consequent.forEach(nestedStatement);
-					statement.alternate?.forEach(nestedStatement);
+					statement.consequent.forEach(item => nestedStatement(item));
+					statement.alternate?.forEach(item => nestedStatement(item));
 				}
 				if (statement.type === "functionDeclaration") expression(statement.body);
 				const declared = declaration(moduleText, file, statement);
@@ -250,11 +296,11 @@ export function editorSymbolFacts(
 						const inferred = module?.checkResult.bindingTypes.get(statement.name) ?? (file === entryFile ? analysis?.bindingTypes?.get(statement.name) : undefined);
 						if (inferred) declared.detail = `binding ${statement.name}: ${typeText(inferred)}`;
 					}
-					visible.set(statement.name, declared);
+					if (statement.type !== "diagramDeclaration") visible.set(statement.name, declared);
 					result.push(declared);
 					if (statement.type === "typeDeclaration") for (const field of statement.fields) {
 						const range = sourceTokenRange(moduleText, field.source, field.name);
-						if (range) result.push({ ...range, file, name: field.name, target: { file, ...range }, declaration: true, kind: "field", detail: `field ${field.name}: ${field.annotation.name ?? field.annotation.type}` });
+						if (range) result.push({ ...range, file, name: field.name, target: { file, ...range }, parent: declared.target, declaration: true, kind: "field", detail: `field ${field.name}: ${field.annotation.name ?? field.annotation.type}` });
 					}
 				}
 			}
