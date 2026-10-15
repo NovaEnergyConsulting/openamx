@@ -1,5 +1,21 @@
 # Planning Decisions
 
+## V0.14 Sprint 084 Architect Preparation (2026-10-15)
+
+- Sprint 084 is the V0.14 contract and acceptance-fixture gate defined by
+  `planning/plan-openamxV14MasterSprintPlan.md`; its scope is planning and
+  contract work, not feature implementation.
+- The Sprint 084 folder contains Architect-prepared requirements, blueprint,
+  acceptance criteria, handoff, and candidate grammar/diagnostic/traceability
+  artifacts. Candidate syntax and behavior remain drafts until Sprint 084
+  review and the required product disposition.
+- No V0.14 behavior, diagnostic code, or locale/pattern detail is approved by
+  this preparation. No execution authorization or file-by-file execution
+  plan is recorded here.
+- `planning/STATUS.json` remains unchanged as directed by the V0.14 master
+  plan. Sprint 085 must not begin until Sprint 084 is completed and its
+  contract disposition is recorded.
+
 ## V0.13 Sprint 083 Architect Preparation (2026-10-13)
 
 - Sprint 083 follows the master plan and approved Sprint 078 contract; it owns integrated evidence and the V0.13 closeout request, not feature changes.
