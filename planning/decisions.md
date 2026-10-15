@@ -1,5 +1,31 @@
 # Planning Decisions
 
+## V0.14 Sprint 084 Builder Execution (2026-10-15)
+
+- **Execution authorization and artifact/evidence plan:** APPROVED by user on
+  2026-10-15. Approval is limited to the seven listed planning artifacts and
+  does not grant implementation, release, publication, version, or platform
+  certification authority.
+- **Product decisions:** the user approved the detailed `is`, math,
+  Measurement, text, formatter, and diagnostic choices recorded in
+  `grammar-examples.md` and `diagnostic-matrix.md` on 2026-10-15. This is not
+  the separate final contract disposition.
+- **Diagnostic allocation:** the user allocated `AMXSL001`–`AMXSL006` with
+  exact messages on 2026-10-15. A read-only search found no existing use in
+  source, tests, editor apps, documentation, or examples; no production code
+  was changed.
+- **Builder recommendation:** ACCEPTED by user as the final Sprint 084
+  contract disposition. 44
+  fixture IDs trace to complete source envelopes; 38 source spans
+  (including the UTF-16/non-BMP and LF/CRLF cases) passed the scoped
+  coordinate check; two focused location tests passed; and the source code
+  collision search passed.
+- **Final contract disposition:** ACCEPTED by user on 2026-10-15. V0.14
+  implementation tests were not run because Sprint 084 is a
+  planning/contract gate. Sprint 085 is READY FOR SEPARATE EXECUTION
+  AUTHORIZATION and is not authorized to start. No implementation, release,
+  publication, version change, or platform certification is authorized.
+
 ## V0.14 Sprint 084 Architect Preparation (2026-10-15)
 
 - Sprint 084 is the V0.14 contract and acceptance-fixture gate defined by

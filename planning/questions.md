@@ -1,5 +1,29 @@
 # Planning Questions (Sprint 002)
 
+## V0.14 Sprint 084 Builder Questions and Disposition Request (2026-10-15)
+
+- **Execution gate:** resolved by the user's explicit authorization and
+  approval of the file-by-file artifact/evidence plan on 2026-10-15. This is
+  not, by itself, product approval.
+- **Product decisions:** resolved by the user's separate selections on
+  2026-10-15. These include the `is` type-reference grammar, precedence,
+  associativity and chain rule; Number versus dimensionless Measurement;
+  math domains, tangent behavior and tolerance; the ratio-unit fixture;
+  Unicode 15.1 trim set and slice boundaries; formatter grammar, locales,
+  rounding, currency/negative-zero behavior, and Measurement formatting.
+- **Diagnostic allocation:** the user supplied exact `AMXSL001`–`AMXSL006`
+  identities/messages. Existing code meanings and the absence of these IDs
+  from source/tests/editor/docs/examples were checked; no production registry
+  was modified.
+- **Evidence:** 44 fixture IDs map one-to-one to 44 complete source
+  envelopes; 38 diagnostic spans and the LF/CRLF/UTF-16 variants passed the
+  scoped coordinate check. Two existing focused editor/parser location
+  tests passed. No V0.14 implementation/build/runtime test was run.
+- **Separate disposition:** ACCEPTED by user on 2026-10-15. This closes the
+  Sprint 084 contract gate only. Sprint 085 is READY FOR SEPARATE EXECUTION
+  AUTHORIZATION and is not authorized to start; no release or implementation
+  authority follows from the contract disposition.
+
 ## V0.13 Sprint 083 Architect Preparation (2026-10-13)
 
 - Sprint 082 reports the native packaged preview of its two examples as UNAVAILABLE because `OPENAMX_NATIVE_CDP_URL` was not configured. Sprint 083 must directly provide/verify the approved host path or retain BLOCKED/UNAVAILABLE with the missing prerequisite; mocked RPC and Vite harness results are not substitutes.

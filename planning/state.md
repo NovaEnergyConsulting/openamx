@@ -1,5 +1,30 @@
 # Planning State
 
+## V0.14 Sprint 084 Builder Execution (2026-10-15)
+
+- The user explicitly authorized Sprint 084 execution and approved the
+  file-by-file planning-artifact/evidence plan on 2026-10-15. The starting
+  worktree was clean on `feat/create-v0.14`.
+- Builder work is limited to `grammar-examples.md`, `diagnostic-matrix.md`,
+  `requirement-test-matrix.md`, `builder-evidence.md`, and the Sprint 084
+  entries in this ledger, `decisions.md`, and `questions.md`. Production
+  source, tests, user-facing specifications, examples outside the planning
+  pack, version/release files, and `STATUS.json` are not in scope.
+- The master-plan requirements and V0.9 Measurement compatibility rules
+  remain authoritative. The user separately approved the detailed `is`, math,
+  Measurement, text, formatter, and diagnostic decisions on 2026-10-15;
+  exact selected behavior/messages are recorded in the Sprint 084 artifacts.
+- Added 44 complete fixture envelopes and traced all 44 matrix IDs with no
+  missing or untraced source. Thirty-eight diagnostic source spans (including
+  UTF-16/non-BMP and LF/CRLF variants) matched; two existing focused editor/
+  parser location tests passed. `AMXSL001`–`AMXSL006` collision search found
+  no prior use in source, tests, editor apps, docs, or examples.
+- V0.14 runtime/build/feature tests are NOT RUN, intentionally. The user
+  ACCEPTED the separate Sprint 084 contract disposition on 2026-10-15.
+  Sprint 085 is READY FOR SEPARATE EXECUTION AUTHORIZATION; it is not
+  authorized to start. No implementation, release, publication,
+  package/version change, or platform certification is claimed.
+
 ## V0.13 Sprint 083 Architect Preparation (2026-10-13)
 
 - Prepared Sprint 083 integrated acceptance/closeout requirements, blueprint, acceptance criteria, and Builder handoff in `planning/sprints/0083-v13-integrated-acceptance-closeout/`.
