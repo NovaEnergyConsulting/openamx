@@ -36,11 +36,9 @@ This outcome: {{ outcome }} would evauate to 'it is an Asset'.
 
 Add the following to the Standard Library:
 
-- Trigonometric Functions: sin, cos, tan, asin, acos, atan
-- Logarithmic and Exponential Functions: log, exp
+- Trigonometric Functions: sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, asinh, acosh, atanh
+- Logarithmic and Exponential Functions: ln, log, exp
 - Common Mathematical Constants: PI, E
-- Common Text Formatting Functions: len,  trim, right, left, format
+- Common Text Formatting Functions: len, trim, right, left, format
 
-# Plugin System
-
-Refactor and rearchitecting to add plugins to the core functionality of AMX
+Also, all functions that currently accept a Number or list of Numbers should be able to accept a Measurement or list of Measurements and perform the function over the Measurements as long as all the Measurements entered into the function are compatible in terms of Dimensions and Units
