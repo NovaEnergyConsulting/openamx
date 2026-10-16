@@ -1,5 +1,34 @@
 # Planning Questions (Sprint 002)
 
+## V0.14 Sprint 089 Architect Preparation (2026-10-16)
+
+- **Execution authorization and exact verification/evidence plan:** pending.
+  Obtain separate explicit authorization and approval of the file-by-file
+  plan before running integrated workflows or updating closeout ledgers.
+- **Product scope/contract questions:** none open. Sprint 084 remains the
+  behavior authority; Sprints 085-088 are accepted but do not substitute for
+  new integrated evidence.
+- **VS Code aggregate baseline:** Sprint 088's final host retry recorded
+  17 passed/8 failed on Windows; V0.14-specific tests passed, while six
+  cleanup `EBUSY` errors and two drive-letter case comparisons remained.
+  The user separately accepted Sprint 088 after local deployment testing.
+  Sprint 089 must rerun the host workflow and record raw output and any
+  separate disposition distinctly.
+- **Desktop native evidence:** Sprint 088's automated UI used a Vite
+  workflow harness; the user separately confirmed local deployment without
+  supplying a CDP artifact/transcript. Run a supported native path if
+  available; otherwise record the Sprint 089 native check as
+  BLOCKED/UNAVAILABLE with the missing prerequisite and retain the prior
+  user disposition separately.
+- **Desktop RPC:** the historical sandbox-occurrence mismatch was not rerun
+  in Sprint 088. Re-run the approved workflow if authorized; do not weaken
+  the assertion or sandbox policy.
+- **Full-suite gap:** Sprints 085-088 did not run full root/extension/desktop
+  integrated acceptance. Sprint 089 must run and report the existing
+  workflows; do not infer success from focused suites/builds.
+- No release, publication, version change, package release, or platform
+  certification is authorized by this preparation.
+
 ## V0.14 Sprint 088 Builder Execution (2026-10-16)
 
 - **Execution authorization and exact file plan:** resolved by the user's

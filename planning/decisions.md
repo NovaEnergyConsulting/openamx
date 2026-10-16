@@ -1,5 +1,30 @@
 # Planning Decisions
 
+## V0.14 Sprint 089 Architect Preparation (2026-10-16)
+
+- Sprint 088 was separately ACCEPTED and CLOSED by the user on 2026-10-16.
+  Its root focused tests passed 66/0 across five files; core build, desktop
+  typecheck/web build, focused desktop Vite UI/Help (3/0), example execution,
+  and `git diff --check` passed.
+- Sprint 088's raw VS Code aggregate remains 17 passed/8 failed on its final
+  retry (six Windows `EBUSY` cleanup errors and two drive-letter case
+  comparisons). The user separately closed the sprint's acceptance
+  disposition as PASS after local deployment testing; preserve the automated
+  output and the separate user disposition.
+- Sprint 088 desktop Playwright ran through the Vite workflow harness; the
+  user separately confirmed local desktop build/deployment functionality
+  without a native CDP artifact or transcript. Desktop RPC was not rerun;
+  its prior sandbox-occurrence mismatch remains a distinct residual.
+- Sprint 089 owns requirement-traceable integrated acceptance of all V0.14
+  fixtures across core, VS Code, desktop, docs/help, and examples. Prior
+  Sprint 084-088 evidence is baseline only.
+- Sprint 089 is READY FOR SEPARATE EXECUTION AUTHORIZATION, not authorized
+  to start by this preparation. Approval of a concrete file-by-file
+  verification/evidence plan is required before execution.
+- Closeout does not authorize product changes, release, publication,
+  package/version changes, or platform certification. `planning/STATUS.json`
+  remains unchanged by this preparation.
+
 ## V0.14 Sprint 088 Builder Execution (2026-10-16)
 
 - **Separate authorization and exact plan:** the user authorized Sprint 088
