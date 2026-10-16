@@ -1,5 +1,22 @@
 # Planning Questions (Sprint 002)
 
+## V0.14 Sprint 088 Architect Preparation (2026-10-16)
+
+- **Execution authorization and exact file plan:** pending. Obtain separate
+  user authorization and approve the exact shared-service, VS Code, desktop,
+  documentation/help, example, test, and evidence files before editing.
+- **Product contract questions:** none open for Sprint 088. Use the accepted
+  Sprint 084 contract and implemented Sprints 085-087 as behavior authority.
+- **Cross-surface evidence:** each host must be tested directly. Shared
+  service tests do not establish VS Code or desktop behavior. Full
+  root/extension/desktop integrated acceptance remains Sprint 089.
+- **Residual baselines:** retain any Windows VS Code path/cleanup or desktop
+  RPC sandbox-occurrence failures against their latest evidence; do not
+  weaken path handling, assertions, or security behavior.
+- Sprint 087 was accepted with 141/0 focused tests and a passing core build.
+  Sprint 088 does not authorize Sprint 089, release, publication, version
+  change, or platform certification.
+
 ## V0.14 Sprint 087 Architect Preparation (2026-10-16)
 
 - **Execution authorization and exact implementation plan:** resolved by

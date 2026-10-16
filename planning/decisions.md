@@ -1,5 +1,23 @@
 # Planning Decisions
 
+## V0.14 Sprint 088 Architect Preparation (2026-10-16)
+
+- Sprint 087 was separately accepted by the user on 2026-10-16. Its focused
+  direct Bun run passed 141 tests with 0 failures across six files; the core
+  build and generated browser runtime inspection passed. Full integrated
+  root/extension/desktop acceptance remains assigned to Sprint 089.
+- Sprint 088 owns authoring integration for shared editor services, VS Code,
+  and desktop; the additive V0.14 specification, README/extension links,
+  searchable desktop Help, and runnable examples for the accepted features.
+- No language/runtime contract is reopened. Sprints 084-087 remain the
+  behavior authority; any implementation/diagnostic discrepancy requires a
+  separate decision and approved scope amendment.
+- Sprint 088 is READY FOR SEPARATE EXECUTION AUTHORIZATION, not authorized
+  to start by this preparation. A concrete file-by-file implementation and
+  evidence plan must be separately approved before edits.
+- No release, publication, version change, or platform certification is
+  authorized. `planning/STATUS.json` remains unchanged by this preparation.
+
 ## V0.14 Sprint 087 Builder Execution (2026-10-16)
 
 - The user separately authorized Sprint 087 and approved the exact
