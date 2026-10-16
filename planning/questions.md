@@ -1,5 +1,26 @@
 # Planning Questions (Sprint 002)
 
+## V0.14 Sprint 086 Architect Preparation (2026-10-16)
+
+- **Dimensionless Measurement scale:** resolved by the user's explicit
+  selection on 2026-10-16. Math functions normalize the input as
+  `measurement.value * measurement.unit.scale`, then return an ordinary
+  unitless Number. Include a non-unit-scale dimensionless fixture.
+- **Product contract questions:** none otherwise open for the scoped math
+  and Measurement library work; Sprint 084's approved math domains,
+  tolerance, diagnostics, Measurement result-unit rules, and V0.9 regressions
+  remain authoritative.
+- **Execution authorization and exact implementation plan:** pending. Obtain
+  separate user authorization and approval of the file-by-file source,
+  tests, generated artifacts, and evidence plan before edits.
+- Sprint 085 was accepted with focused tests/build; the full root suite
+  remains for Sprint 089 and the `runTests`/direct Bun aggregate discrepancy
+  remains recorded in Sprint 085 evidence. Do not recast these as Sprint
+  086 results.
+- Sprint 087 and subsequent work are not authorized by this preparation.
+  No release, publication, version change, or platform certification is
+  implied.
+
 ## V0.14 Sprint 085 Architect Preparation (2026-10-16)
 
 - **Execution authorization and implementation file plan:** resolved. The

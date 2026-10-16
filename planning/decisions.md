@@ -1,5 +1,28 @@
 # Planning Decisions
 
+## V0.14 Sprint 086 Architect Preparation (2026-10-16)
+
+- Sprint 085 was separately accepted by the user on 2026-10-16. Its focused
+  direct Bun run passed 241 tests with 0 failures across eight files; the
+  core build and `git diff --check` passed. The full root suite was not run
+  and remains assigned to Sprint 089. The test-wrapper count discrepancy is
+  retained in Sprint 085 evidence.
+- Sprint 086 is scoped to the approved mathematical constants/functions and
+  Measurement-aware existing standard-library operations. Text/format work
+  and editor/specification/example integration remain owned by Sprints 087
+  and 088.
+- **Dimensionless Measurement math inputs:** the user selected normalization
+  by the unit scale on 2026-10-16. Evaluate `measurement.value *
+  measurement.unit.scale` before the mathematical function and return an
+  ordinary unitless Number. Sprint 086 acceptance must include a
+  non-unit-scale dimensionless Measurement fixture in addition to the
+  accepted scale-1 ratio fixture.
+- Sprint 086 is READY FOR SEPARATE EXECUTION AUTHORIZATION, not authorized
+  to start by this preparation. A concrete file-by-file implementation and
+  evidence plan must be separately approved before code or test edits.
+- No release, publication, version change, or platform certification is
+  authorized. `planning/STATUS.json` remains unchanged.
+
 ## V0.14 Sprint 085 Builder Execution (2026-10-16)
 
 - **Execution authorization and exact file plan:** APPROVED by the user on
