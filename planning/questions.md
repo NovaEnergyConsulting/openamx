@@ -2,18 +2,23 @@
 
 ## V0.14 Sprint 085 Architect Preparation (2026-10-16)
 
-- **Execution authorization and implementation file plan:** pending. Sprint
-  084's accepted contract disposition does not authorize feature work. Before
-  editing source or tests, obtain separate explicit Sprint 085 authorization
-  and approval of the concrete file-by-file implementation/evidence plan.
+- **Execution authorization and implementation file plan:** resolved. The
+  user explicitly authorized Sprint 085 and approved the exact file-by-file
+  implementation/evidence plan on 2026-10-16 before source/test edits. The
+  approved plan and source-inspection amendments are recorded in
+  `planning/sprints/0085-v14-runtime-is-type-checking/builder-evidence.md`.
 - **Product contract questions:** none currently open for the `is` feature;
   use the approved Sprint 084 grammar, fixture outcomes, and diagnostics.
   If implementation reveals a genuine contract conflict, stop and request a
   separate product decision rather than changing behavior.
-- **Implementation evidence:** not yet available. Sprint 084 checked
-  contract/source-range consistency but intentionally did not run V0.14
-  implementation tests. Sprint 085 must record direct focused evidence for
-  parser, type checker, runtime behavior, and regressions.
+- **Implementation evidence:** recorded in the Sprint 085
+  `builder-evidence.md`. The final focused Bun run passed 241 tests across
+  eight files; the core build and `git diff --check` passed. The `runTests`
+  wrapper reported a lower aggregate count, documented alongside the direct
+  Bun result.
+- **Separate Sprint 085 disposition:** resolved as ACCEPT by the user on
+  2026-10-16. Sprint 086 remains unauthorized until its own separate decision
+  and gate.
 - Sprint 086 remains dependent on Sprint 085 completion and a separate
   disposition; no downstream sprint, release, publication, version change,
   or platform certification is authorized here.

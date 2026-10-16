@@ -1,3 +1,51 @@
+# ARCHITECT BRIEFING — Sprint 085 Builder Closeout
+
+## Where things stand
+OpenAMX now supports the accepted `value is TargetType` predicate across parsing, checking, and runtime evaluation. The focused compatibility run passed 241 tests and the core build passed. Sprint 085 was separately accepted by the Lead Developer/product owner on 2026-10-16; Sprint 086 is not authorized and still requires its own gate.
+
+## Executive summary
+**Business outcome**: AMX expressions can test primitive, structural record, enum, list, nullable/null, and Measurement dimension targets at runtime without changing the tested value's static type.
+
+**Current focus**: Sprint 085 is accepted; any Sprint 086 work requires separate authorization.
+
+**What is proven**: All 19 approved `IS-VALID-01` bindings; approved precedence and left-associative chains; target visibility and exact negative diagnostics; no flow-sensitive narrowing; UTF-16/LF/CRLF source locations; 241 focused regression tests; successful core build.
+
+**What is not live**: Sprint 086 math/library work, Sprint 087 text/formatting, Sprint 088 editor/docs/examples integration, full Sprint 089 integrated acceptance, release, and publication.
+
+## Readiness signals
+
+| Signal | Status | Evidence |
+|---|---|---|
+| Runtime `is` implementation and accepted fixtures | passed | `IS-VALID-01` and all applicable `IS-*` fixture tests |
+| Focused parser/type-checker/runtime regressions | passed | 241 passed, 0 failed across 8 files |
+| Core build and patch hygiene | passed | `bun run build`; `git diff --check` |
+| Sprint 085 disposition | passed | User accepted on 2026-10-16 |
+| Sprint 086 authorization | attention | Not authorized; separate gate required |
+
+## Recommended next Architect action
+**Do**: Decide separately whether to authorize Sprint 086 preparation/execution under its own approved plan.
+**Owner**: Lead Developer / product owner.
+**Decision**: Sprint 085 is accepted; no Sprint 086 authorization is implied.
+
+## Evidence
+- `bun test tests\isTypeChecking.test.ts tests\parser.test.ts tests\evaluator.test.ts tests\modules.test.ts tests\measurements.test.ts tests\dimensions.test.ts tests\editor.test.ts tests\listSemantics.test.ts` → 241 passed, 0 failed across 8 files.
+- `bun run build` → generated browser runtime and TypeScript build passed.
+- `git diff --check` → passed.
+- Separate Lead Developer/product-owner disposition → ACCEPT, 2026-10-16.
+- The first focused run exposed an `is`/Measurement-attachment parser interaction; the parser fix passed on retry. `functions.runTests` reported 182 passes on retry, while the direct Bun command reported 241; the discrepancy is recorded in the sprint evidence.
+- Detailed source ranges, results, exact plan/amendments, and residuals are in `planning/sprints/0085-v14-runtime-is-type-checking/builder-evidence.md`.
+
+## Validation / test status
+**Tests:** 241 passing, 0 failing.
+
+The full root suite was not run; Sprint 089 owns integrated acceptance. Editor, documentation, examples, and downstream library work were intentionally not performed.
+
+## Plan corrections
+- Runtime enum metadata also had to be copied into function call frames; this narrow amendment was explicitly approved and covered by a focused regression.
+- The core build regenerates `src/renderer/diagramBrowserRuntime.ts`; the generated-output amendment was separately approved and retained.
+
+---
+
 # ARCHITECT BRIEFING — Sprint 067 Builder Closeout
 
 ## Where things stand

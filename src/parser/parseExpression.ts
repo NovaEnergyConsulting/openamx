@@ -4,6 +4,7 @@ import {
   StringLiteralNode,
   StringInterpolationNode,
   BinaryExpressionNode,
+  TypeReferenceNode,
   UnaryExpressionNode,
   ConditionalExpressionNode,
   ListLiteralNode,
@@ -30,6 +31,7 @@ type Token =
   | { type: 'bracedIfExpression'; value: string; text: string; offset: number }
   | { type: 'matchExpression'; value: string; text: string; offset: number }
   | { type: 'operator'; op: string; text: string; offset: number }
+  | { type: 'question'; text: '?'; offset: number }
   | { type: 'keyword'; word: 'and' | 'or' | 'not' | 'if' | 'then' | 'else'; text: string }
   | { type: 'lparen' | 'rparen' | 'lbracket' | 'rbracket' | 'lbrace' | 'rbrace' | 'colon' | 'equals' | 'dot' | 'comma' | 'eof'; text?: string; offset?: number };
 
@@ -135,7 +137,7 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
     }
 
     // Single-character operators and grouping
-    if ('+-*/%^()[].,{}:='.includes(ch)) {
+    if ('+-*/%^()[].,{}:=?'.includes(ch)) {
       if (ch === '(') {
         tokens.push({ type: 'lparen', text: ch, offset: i });
       } else if (ch === ')') {
@@ -146,6 +148,8 @@ function tokenize(text: string, source?: SourceLocation): Token[] {
         tokens.push({ type: 'rbracket', text: ch, offset: i });
       } else if (ch === ',') {
         tokens.push({ type: 'comma', text: ch, offset: i });
+      } else if (ch === '?') {
+        tokens.push({ type: 'question', text: ch, offset: i });
       } else if (ch === '{' || ch === '}' || ch === ':' || ch === '=' || ch === '.') {
         tokens.push({ type: ({ '{': 'lbrace', '}': 'rbrace', ':': 'colon', '=': 'equals', '.': 'dot' } as const)[ch as '{' | '}' | ':' | '=' | '.'], text: ch, offset: i });
       } else {
@@ -453,7 +457,7 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
   // power: ^ (right-assoc)
   // * / %
   // + -
-  // comparison: == != > >= < <=
+  // comparison: == != > >= < <= is
   // logical and
   // logical or
   // conditional if/then/else (lowest)
@@ -465,6 +469,7 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
     '>=': 2,
     '<': 2,
     '<=': 2,
+    'is': 2,
     // Measurement conversion binds below arithmetic and above comparisons.
     'in': 2.5,
     // arithmetic
@@ -487,7 +492,7 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
     const t = current();
     const attach = (value: V02ExpressionNode): V02ExpressionNode => {
       const unit = current();
-      if (unit.type !== 'identifier' || unit.name === 'in' || unit.name === 'to') return value;
+      if (unit.type !== 'identifier' || unit.name === 'in' || unit.name === 'to' || unit.name === 'is') return value;
       advance();
       return {
         type: 'measurementAttachment',
@@ -656,6 +661,56 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
     );
   }
 
+  function parseIsTarget(): TypeReferenceNode {
+    const name = current();
+    if (name.type !== 'identifier') {
+      syntaxError("Expected target type after 'is'", locationAt(text, tokenOffset(name, text.length), source));
+    }
+    advance();
+    let target: TypeReferenceNode = {
+      type: 'namedType',
+      name: name.name,
+      source: locationAt(text, name.offset, source)
+    };
+    let suffixEnd = name.offset + name.text.length;
+
+    while (current().type === 'lbracket' || current().type === 'question') {
+      const suffix = current();
+      const suffixOffset = tokenOffset(suffix, text.length);
+      if (suffixOffset !== suffixEnd) {
+        syntaxError("Invalid type suffix in 'is' target", locationAt(text, suffixOffset, source));
+      }
+      if (suffix.type === 'question') {
+        if (target.type === 'nullableType') {
+          syntaxError("Invalid type suffix in 'is' target", locationAt(text, suffixOffset, source));
+        }
+        advance();
+        target = {
+          type: 'nullableType',
+          element: target,
+          source: locationAt(text, suffixOffset, source)
+        };
+        suffixEnd = suffixOffset + 1;
+        continue;
+      }
+
+      advance();
+      const close = current();
+      if (close.type !== 'rbracket' || tokenOffset(close, text.length) !== suffixOffset + 1) {
+        syntaxError("Invalid type suffix in 'is' target", locationAt(text, suffixOffset, source));
+      }
+      advance();
+      target = {
+        type: 'listType',
+        element: target,
+        source: locationAt(text, suffixOffset, source)
+      };
+      suffixEnd = tokenOffset(close, text.length) + 1;
+    }
+
+    return target;
+  }
+
   function parseExpr(minPrec: number): V02ExpressionNode {
     // Handle leading conditional (lowest precedence) before calling parsePrimary.
     // Conditionals only start at the top level of an expression (minPrec === 0).
@@ -686,6 +741,21 @@ export function parseExpression(text: string, source?: SourceLocation): V02Expre
 
     while (true) {
       const t = current();
+
+      if (t.type === 'identifier' && t.name === 'is') {
+        const prec = PREC.is;
+        if (prec < minPrec) break;
+        advance();
+        const target = parseIsTarget();
+        left = {
+          type: 'typeTestExpression',
+          value: left,
+          target,
+          operatorSource: locationAt(text, t.offset, source),
+          source
+        };
+        continue;
+      }
 
       if (t.type === 'identifier' && t.name === 'in') {
         const prec = PREC.in;

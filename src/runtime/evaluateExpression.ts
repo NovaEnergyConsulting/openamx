@@ -173,6 +173,48 @@ function validDateTime(value: string): boolean {
     && (offset === 'Z' || (+offset.slice(1, 3) <= 23 && +offset.slice(4) <= 59));
 }
 
+function matchesRuntimeType(
+  value: unknown,
+  target: TypeReferenceNode,
+  env: Environment,
+  file?: string,
+  registry = env.dimensionRegistry
+): boolean {
+  if (target.type === 'nullableType') {
+    return value === null || matchesRuntimeType(value, target.element!, env, file, registry);
+  }
+  if (target.type === 'listType') {
+    return Array.isArray(value) && value.every(item => matchesRuntimeType(item, target.element!, env, file, registry));
+  }
+
+  const name = target.name!;
+  const dimension = registry?.dimensions.get(name);
+  if (dimension) return isMeasurement(value) && sameMeasurementVector(value, dimension.vector);
+  if (name === 'Number') return typeof value === 'number';
+  if (name === 'String') return typeof value === 'string';
+  if (name === 'Boolean') return typeof value === 'boolean';
+  if (name === 'DateTime') return typeof value === 'string' && validDateTime(value);
+
+  const enumeration = env.enumDeclarations.get(name);
+  if (enumeration) {
+    if (typeof value !== 'number' && typeof value !== 'string') return false;
+    if (!enumeration.resolvedValues) throw new Error(`Enum '${name}' has not been resolved`);
+    return enumeration.resolvedValues.includes(value);
+  }
+
+  const declaration = env.recordTypes.get(name);
+  if (declaration) {
+    if (typeof value !== 'object' || value === null || Array.isArray(value) || isMeasurement(value)) return false;
+    const record = value as Record<string, unknown>;
+    return declaration.fields.every(field => {
+      if (!Object.prototype.hasOwnProperty.call(record, field.name)) return field.optional;
+      return matchesRuntimeType(record[field.name], field.annotation, env, file, fieldRegistry(field, registry));
+    });
+  }
+
+  return staticError('AMX3001', `Unknown type '${name}'`, target.source, file);
+}
+
 /** Evaluate V0.2 expressions, including ranges and expression-form loops. */
 export function evaluateExpression(
   node: V02ExpressionNode,
@@ -257,6 +299,9 @@ export function evaluateExpression(
 
     case 'binaryExpression':
       return evalBinary(node as BinaryExpressionNode, env, file);
+
+    case 'typeTestExpression':
+      return matchesRuntimeType(evaluateExpression(node.value, env, file), node.target, env, file);
 
     case 'unaryExpression':
       return evalUnary(node as UnaryExpressionNode, env, file);

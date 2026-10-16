@@ -1,5 +1,33 @@
 # Planning State
 
+## V0.14 Sprint 085 Builder Execution (2026-10-16)
+
+- The user explicitly authorized Sprint 085 execution and approved the exact
+  file-by-file implementation/evidence plan before any source or test edits.
+- The approved implementation scope is `src/ast/types.ts`,
+  `src/parser/parseExpression.ts`, `src/typechecker/checkDocument.ts`, and
+  `src/runtime/evaluateExpression.ts`, amended with
+  `src/runtime/environment.ts` after explicit approval. Focused tests are
+  limited to the new `tests/isTypeChecking.test.ts`. The full file list,
+  exclusions, amendments, and verification target are recorded in the Sprint
+  085 `builder-evidence.md`.
+- Source inspection showed that enum targets need an `is`-specific resolution
+  path, the runtime environment already exposes local/imported record, enum,
+  and dimension metadata, and omitted optional nullable record fields are
+  materialized as null. These findings were recorded in the approved plan;
+  existing annotation and record-object behavior will be preserved.
+- A further approved amendment copied enum metadata into function call frames.
+  The core build generated `src/renderer/diagramBrowserRuntime.ts`; the user
+  separately approved retaining that bundle after the build.
+- Implementation is complete. The focused Bun run passed 241 tests across
+  eight files, `bun run build` passed, and `git diff --check` passed. Exact
+  results and the initial failure/retry are recorded in the Sprint 085
+  `builder-evidence.md`.
+- Builder recommendation: ACCEPT. The user separately recorded the Sprint
+  085 Lead Developer/product-owner disposition as ACCEPT on 2026-10-16.
+  Sprint 086 and all release, publication, version, and platform-certification
+  authority remain separate.
+
 ## V0.14 Sprint 084 Builder Execution (2026-10-15)
 
 - The user explicitly authorized Sprint 084 execution and approved the

@@ -1,5 +1,33 @@
 # Planning Decisions
 
+## V0.14 Sprint 085 Builder Execution (2026-10-16)
+
+- **Execution authorization and exact file plan:** APPROVED by the user on
+  2026-10-16 before implementation. The approved production files are
+  `src/ast/types.ts`, `src/parser/parseExpression.ts`,
+  `src/typechecker/checkDocument.ts`, and
+  `src/runtime/evaluateExpression.ts`; the focused test file is
+  `tests/isTypeChecking.test.ts`. Planning/evidence files and exact
+  verification commands are listed in the Sprint 085 `builder-evidence.md`.
+- **Source-inspection amendments:** use an `is`-specific enum resolver rather
+  than altering general annotation resolution; use runtime metadata already
+  present in `Environment`; preserve record object shape for omitted optional
+  nullable fields; parse the target locally to avoid a parser import cycle.
+- **Approved follow-up amendments:** add enum declaration/value copying in
+  `src/runtime/environment.ts` so function frames can evaluate enum targets.
+  The approved core build regenerated `src/renderer/diagramBrowserRuntime.ts`;
+  the user approved retaining that generated bundle after inspecting that it
+  includes the new evaluator.
+- **Scope guards:** editor services remain Sprint 088; no standard-library,
+  documentation, example, package, release, or version changes are approved.
+- **Validation:** focused direct Bun run passed 241 tests across eight files;
+  `bun run build` and `git diff --check` passed. See the Sprint 085 evidence
+  artifact for the initial parser failure, retry, and tool-summary count
+  discrepancy.
+- **Separate Lead Developer/product-owner disposition:** ACCEPTED by user on
+  2026-10-16. This accepts Sprint 085 only; Sprint 086 remains unauthorized
+  pending its own separate gate.
+
 ## V0.14 Sprint 085 Architect Preparation (2026-10-16)
 
 - Sprint 084's contract disposition was ACCEPTED by the user on 2026-10-15.

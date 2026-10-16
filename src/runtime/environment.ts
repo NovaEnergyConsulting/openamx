@@ -84,6 +84,8 @@ export class Environment {
     const frame = new Environment(this.recordTypes, this.functions, this.dimensionRegistry);
     frame.validationMode = this.validationMode;
     for (const [name, type] of this.bindingTypes) frame.bindingTypes.set(name, type);
+    for (const [name, declaration] of this.enumDeclarations) frame.enumDeclarations.set(name, declaration);
+    for (const [name, values] of this.enumValues) frame.enumValues.set(name, values);
     for (const [name, value] of Object.entries(parameters)) {
       frame.set(name, value);
       if (this.isImmutable(value)) frame.markImmutable(value);

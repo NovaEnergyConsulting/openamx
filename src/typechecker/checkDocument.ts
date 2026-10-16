@@ -95,6 +95,7 @@ function bodyContainsForExpression(expression: V02ExpressionNode): boolean {
   switch (expression.type) {
     case 'forExpression': return true;
     case 'binaryExpression': return bodyContainsForExpression(expression.left) || bodyContainsForExpression(expression.right);
+    case 'typeTestExpression': return bodyContainsForExpression(expression.value);
     case 'stringInterpolation': return expression.parts.some(part => typeof part !== 'string' && bodyContainsForExpression(part));
     case 'unaryExpression': return bodyContainsForExpression(expression.argument);
     case 'conditionalExpression': return [expression.test, expression.consequent, expression.alternate].some(bodyContainsForExpression);
@@ -134,6 +135,7 @@ function expressionReferencesIdentifier(expression: V02ExpressionNode, name: str
   switch (expression.type) {
     case 'identifier': return expression.name === name;
     case 'binaryExpression': return expressionReferencesIdentifier(expression.left, name) || expressionReferencesIdentifier(expression.right, name);
+    case 'typeTestExpression': return expressionReferencesIdentifier(expression.value, name);
     case 'measurementAttachment': case 'measurementConversion': return expressionReferencesIdentifier(expression.value, name);
     case 'unaryExpression': return expressionReferencesIdentifier(expression.argument, name);
     case 'conditionalExpression': return expressionReferencesIdentifier(expression.test, name)
@@ -471,6 +473,13 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     return ref.type === 'listType' ? list(resolve(ref.element!, owner)) : nullable(resolve(ref.element!, owner));
   }
 
+  function resolveIsTarget(ref: TypeReferenceNode): CheckedType {
+    if (ref.type === 'namedType' && ref.name && enums.has(ref.name)) return named(ref.name);
+    if (ref.type === 'listType') return list(resolveIsTarget(ref.element!));
+    if (ref.type === 'nullableType') return nullable(resolveIsTarget(ref.element!));
+    return resolve(ref);
+  }
+
   function requireType(actual: CheckedType, expected: CheckedType, source?: SourceLocation): void {
     if (!assignable(actual, expected)) {
       const measurementMismatch = containsMeasurement(actual) || containsMeasurement(expected);
@@ -659,6 +668,10 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         }
         return receiver.element;
       }
+      case 'typeTestExpression':
+        infer(expression.value);
+        resolveIsTarget(expression.target);
+        return named('Boolean');
       case 'binaryExpression': {
         const left = infer(expression.left);
         const right = infer(expression.right, left.kind === 'named' && left.name === 'DateTime' ? left : undefined);

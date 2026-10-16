@@ -296,6 +296,14 @@ export interface BinaryExpressionNode {
   source?: SourceLocation;
 }
 
+export interface TypeTestExpressionNode {
+  type: 'typeTestExpression';
+  value: V02ExpressionNode;
+  target: TypeReferenceNode;
+  operatorSource?: SourceLocation;
+  source?: SourceLocation;
+}
+
 export interface MeasurementAttachmentNode {
   type: 'measurementAttachment';
   value: V02ExpressionNode;
@@ -379,6 +387,7 @@ export type ExpressionNode =
   | BooleanLiteralNode
   | IdentifierNode
   | BinaryExpressionNode
+  | TypeTestExpressionNode
   | MeasurementAttachmentNode
   | MeasurementConversionNode
   | UnaryExpressionNode
