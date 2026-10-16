@@ -1,5 +1,26 @@
 # Planning Decisions
 
+## V0.14 Sprint 087 Architect Preparation (2026-10-16)
+
+- Sprint 086 was separately accepted by the user on 2026-10-16. Its focused
+  direct Bun run passed 123 tests with 0 failures across five files; the
+  core build, generated browser runtime inspection, and `git diff --check`
+  passed. The full root suite remains assigned to Sprint 089.
+- Sprint 087 is scoped to the approved `len`, `trim`, `left`, `right`, and
+  bounded numeric `format` contracts. Sprint 088 retains editor, user-facing
+  specification/help, and example integration.
+- **Non-finite argument fixture amendments:** the user approved direct
+  function arguments on 2026-10-16 for `TEXT-COUNT-NONFINITE-01`
+  (`right("A", 1 / 0)`, preserving `AMXSL003`) and `FORMAT-FINITE-01`
+  (`format(1 / 0, "0")`, preserving `AMXSL006`). These preserve the existing
+  finite Number-binding behavior. Sprint 084 grammar, diagnostic, and
+  evidence artifacts record the source/range updates.
+- Sprint 087 is READY FOR SEPARATE EXECUTION AUTHORIZATION, not authorized
+  to start by this preparation. A concrete file-by-file implementation and
+  evidence plan must be separately approved before code or test edits.
+- No release, publication, version change, or platform certification is
+  authorized. `planning/STATUS.json` remains unchanged by this preparation.
+
 ## V0.14 Sprint 086 Builder Execution (2026-10-16)
 
 - The user explicitly authorized Sprint 086 and approved the exact

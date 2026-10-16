@@ -841,12 +841,11 @@ let result = left("A", 1.5)
 fixture: TEXT-COUNT-NONFINITE-01
 ---
 ```amx
-let infinite = 1 / 0
-let result = right("A", infinite)
+let result = right("A", 1 / 0)
 ```
 ````
 
-`TEXT-COUNT-NONFINITE-01`: line 6, columns 25-33 (`infinite`).
+`TEXT-COUNT-NONFINITE-01`: line 5, columns 25-30 (`1 / 0`).
 
 ### Format failure fixtures
 
@@ -914,12 +913,11 @@ let result = format(1, "0", "zz-ZZ")
 fixture: FORMAT-FINITE-01
 ---
 ```amx
-let infinite = 1 / 0
-let result = format(infinite, "0")
+let result = format(1 / 0, "0")
 ```
 ````
 
-`FORMAT-FINITE-01`: line 6, columns 21-29 (`infinite`).
+`FORMAT-FINITE-01`: line 5, columns 21-26 (`1 / 0`).
 
 The source fixtures cover the approved precedence/chain, import and
 source-order resolution, nested record/list/enum matching, Unicode

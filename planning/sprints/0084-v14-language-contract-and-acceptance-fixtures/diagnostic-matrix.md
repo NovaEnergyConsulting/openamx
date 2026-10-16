@@ -100,7 +100,7 @@ Current candidate source ranges are:
 | `MEAS-EMPTY-MAX-01` | Empty Measurement `max` | `AMX2004`, `max of empty list` | `L8:C14-24` |
 | `TEXT-COUNT-NEG-01` | Negative count | `AMXSL003`, `Invalid text slice count` | `L5:C24-26` |
 | `TEXT-COUNT-FRACTION-01` | Fractional count | `AMXSL003`, `Invalid text slice count` | `L5:C24-27` |
-| `TEXT-COUNT-NONFINITE-01` | Non-finite count | `AMXSL003`, `Invalid text slice count` | `L6:C25-33` |
+| `TEXT-COUNT-NONFINITE-01` | Non-finite count passed directly to `right` | `AMXSL003`, `Invalid text slice count` | `L5:C25-30` |
 | `TEXT-COUNT-TYPE-01` | String passed as slice count | `AMXSL003`, `Invalid text slice count` | `L5:C24-29` |
 | `TEXT-ARITY-01` | Missing `len` argument | `AMX3004`, `Invalid arity for 'len'` | `L5:C14-19` |
 | `TEXT-TYPE-01` | Number passed to `len` | `AMX3002`, `len requires a String or list, got Number` | `L5:C18-19` |
@@ -110,7 +110,7 @@ Current candidate source ranges are:
 | `FORMAT-UNSUPPORTED-01` | Unsupported date pattern | `AMXSL004`, `Incorrect formatting pattern` | `L5:C24-36` |
 | `FORMAT-PRECISION-OVERFLOW-01` | Seven mandatory fractional digits exceed the six-digit limit | `AMXSL004`, `Incorrect formatting pattern` | `L5:C31-42` |
 | `FORMAT-LOCALE-UNSUPPORTED-01` | Unsupported locale `zz-ZZ` | `AMXSL005`, `Formatting locale is malformed or unsupported` | `L5:C29-36` |
-| `FORMAT-FINITE-01` | Non-finite Number format input | `AMXSL006`, `Input is non-finite` | `L6:C21-29` |
+| `FORMAT-FINITE-01` | Non-finite Number passed directly to `format` | `AMXSL006`, `Input is non-finite` | `L5:C21-26` |
 | `FORMAT-LOCALE-INVALID-01` | Malformed locale identifier | `AMXSL005`, `Formatting locale is malformed or unsupported` | `L5:C29-43` |
 
 ### Product-approved new diagnostic allocations
@@ -128,12 +128,15 @@ planning authority only and does not add production diagnostics.
 | `AMXSL005` | `Formatting locale is malformed or unsupported` | Malformed or unsupported locale |
 | `AMXSL006` | `Input is non-finite` | Non-finite Number/Measurement passed to `format` |
 
-`FORMAT-FINITE-01` supplies a source-level non-finite Number. Under the V0.9
-finite Measurement invariant, a valid AMX source cannot construct a
-non-finite Measurement. `AMXSL006` still applies defensively to a malformed
-internal Measurement value; a downstream runtime harness may exercise that
-guard only if the runtime can construct such a value without weakening the
-language contract. That internal case is NOT RUN in Sprint 084.
+`TEXT-COUNT-NONFINITE-01` and `FORMAT-FINITE-01` pass a non-finite expression
+directly to the function under test. A local Number binding is rejected by
+the existing finite-value invariant before the function can validate its
+argument; these fixture amendments preserve that invariant and the approved
+`AMXSL003`/`AMXSL006` expectations. Under the V0.9 finite Measurement
+invariant, a valid AMX source cannot construct a non-finite Measurement.
+`AMXSL006` still applies defensively to a malformed internal Measurement
+value; a downstream runtime harness may exercise that guard only if the
+runtime can construct such a value without weakening the language contract.
 
 `AMX3001` is the existing unknown type/name category; `AMX3002` is the
 established general type mismatch; `AMX3004` is the function arity/unknown

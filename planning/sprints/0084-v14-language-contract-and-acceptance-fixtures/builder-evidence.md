@@ -106,6 +106,18 @@ contract decisions remain unchanged. Its exact primary range is line 5,
 columns 14–24. Sprint 086's test/evidence plan was amended and approved
 before these Sprint 084 records were edited.
 
+### Approved Sprint 087 non-finite argument fixture amendments (2026-10-16)
+
+The user approved preserving the existing finite-Number-binding behavior
+while making the accepted text/format diagnostics directly testable.
+`TEXT-COUNT-NONFINITE-01` now calls `right("A", 1 / 0)` directly and retains
+`AMXSL003`, `Invalid text slice count`, at line 5, columns 25-30.
+`FORMAT-FINITE-01` now calls `format(1 / 0, "0")` directly and retains
+`AMXSL006`, `Input is non-finite`, at line 5, columns 21-26. The fixture IDs,
+diagnostic identities/messages, runtime Number-binding behavior, and all
+other contract semantics remain unchanged. Sprint 087 preparation recorded
+these decisions before the corresponding source-range updates.
+
 ### Remaining gate
 
 - The separate Lead Developer/product-owner **contract disposition was

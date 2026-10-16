@@ -1,5 +1,28 @@
 # Planning Questions (Sprint 002)
 
+## V0.14 Sprint 087 Architect Preparation (2026-10-16)
+
+- **Execution authorization and exact implementation plan:** pending. Obtain
+  separate user authorization and approval of the file-by-file source, test,
+  Sprint 084 fixture-artifact, generated-output, and evidence plan before
+  edits.
+- **Finite-argument fixture compatibility:** resolved by the user's explicit
+  selections on 2026-10-16. `TEXT-COUNT-NONFINITE-01` now passes
+  `1 / 0` directly to `right` and retains `AMXSL003`;
+  `FORMAT-FINITE-01` passes `1 / 0` directly to `format` and retains
+  `AMXSL006`. Existing Number-binding behavior is unchanged.
+- **Product contract questions:** none otherwise open for Sprint 087.
+  Preserve the accepted Unicode 15.1 whitespace set, code-point semantics,
+  numeric pattern grammar, locale allowlist/separators, rounding, Measurement
+  display suffix, and exact diagnostics.
+- **Internal non-finite Measurement guard:** a malformed internal Measurement
+  cannot be produced from valid source under the V0.9 finite-value invariant.
+  Test only through a safe runtime harness that does not weaken source
+  validation; otherwise record NOT RUN and retain the residual.
+- Sprint 086 was accepted with 123/0 focused tests and a successful core
+  build; the full root suite remains assigned to Sprint 089. No Sprint 088,
+  release, publication, version, or platform-certification authority follows.
+
 ## V0.14 Sprint 086 Builder Execution (2026-10-16)
 
 - **Execution authorization and exact file plan:** resolved by the user's
