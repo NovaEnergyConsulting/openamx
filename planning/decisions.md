@@ -1,5 +1,22 @@
 # Planning Decisions
 
+## V0.14 Sprint 085 Architect Preparation (2026-10-16)
+
+- Sprint 084's contract disposition was ACCEPTED by the user on 2026-10-15.
+  Its 44 fixture IDs and 38 checked diagnostic ranges are planning/contract
+  evidence; V0.14 parser, type-checker, and runtime implementation remained
+  NOT RUN.
+- Sprint 085 is scoped to implementing the accepted `value is TargetType`
+  contract across AST, parser, type checker, and runtime, with focused tests.
+  Math/library work, text/formatting, and editor/docs/examples integration
+  remain owned by Sprints 086, 087, and 088.
+- Sprint 085 is READY FOR SEPARATE EXECUTION AUTHORIZATION, not authorized
+  to start by this preparation. A concrete file-by-file implementation and
+  evidence plan must be separately approved before code or test edits.
+- No implementation, release, publication, version change, or platform
+  certification is authorized by this preparation. `planning/STATUS.json`
+  remains unchanged.
+
 ## V0.14 Sprint 084 Builder Execution (2026-10-15)
 
 - **Execution authorization and artifact/evidence plan:** APPROVED by user on
