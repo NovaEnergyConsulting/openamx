@@ -75,6 +75,25 @@
   No release, publication, version change, or platform certification is
   authorized.
 
+## V0.14 Sprint 089 Windows Worktree Path Correction (2026-10-16)
+
+- After Sprint 089 was ACCEPTED/CLOSED with residuals, the user reported
+  `bun run release:desktop` failing at commit `b874fe7` because Git could
+  not check out three long Sprint 089 screenshot paths in its Windows
+  staging worktree.
+- The former long screenshot paths were renamed in the worktree to short
+  paths under
+  `planning/sprints/0089-v14-integrated-acceptance-closeout/artifacts/ui/`:
+  `help/help-1024.png`, `help/help-1440.png`, and `editor/v14-editor.png`.
+  `.last-run.json` moved under `ui/`. SHA-256 checks confirm contents are
+  unchanged. The Playwright output instruction was corrected to use one
+  parent traversal from `desktop-app/` and the short `artifacts/ui/` path.
+- The command reported
+  `releases/.staging/0.14.0/windows-x64/b874fe7eb749-QqdVzM/` retained, but
+  a later read-only check found that exact directory and its `windows-x64`
+  parent absent. This follow-up did not clean staging files; external
+  screenshot originals remain untouched. The release command was not rerun.
+
 ## V0.14 Sprint 089 Architect Preparation (2026-10-16)
 
 - Sprint 088 was separately ACCEPTED and CLOSED by the user on 2026-10-16.

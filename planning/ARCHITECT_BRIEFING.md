@@ -6,7 +6,7 @@ Sprint 089's approved verification is complete and the 30-requirement/44-fixture
 ## Executive summary
 **Business outcome**: Establish integrated V0.14 evidence without changing language, editor, desktop, security, or release behavior.
 
-**Current focus**: Submit the evidence and residual ownership for a separate V0.14 disposition.
+**Current focus**: Track the accepted residuals and keep release work behind its separate authorization gate.
 
 **What is proven**: All 44 fixture IDs are represented and referenced by focused tests. Focused root acceptance passed 66 tests/0 failures with 875 expectations; core build and all three example CLI runs passed; shared editor/docs/help/example checks, desktop typecheck/web build, and the Vite-harness UI retry passed.
 
@@ -32,8 +32,9 @@ Sprint 089's approved verification is complete and the 30-requirement/44-fixture
 - No source, test, fixture, specification, example, dependency, package, release, or version files were changed.
 
 ## Plan corrections
-- The root test suite left an unexpected `.keep` artifact; the user approved retaining that exact path and continuing without cleanup or retry.
-- The first Playwright `--output` path resolved outside the repository. The user approved preserving originals and copying the exact four artifacts into Sprint 089's evidence directory. No test/config change or further retry was made.
+- The root test suite left an unexpected `.keep` artifact; the user approved retaining that exact path without cleanup or retry.
+- The first Playwright `--output` path resolved outside the repository. The user approved preserving originals and copying the exact four artifacts into Sprint 089's evidence directory; no test/config change or further retry was made.
+- A later Windows release-worktree failure identified excessive screenshot path length. The worktree now uses short `artifacts/ui/` paths, and the future output instruction is corrected. The failed staging directory was absent on read-only inspection; this follow-up did not clean it. Commit these path changes before a release worktree can see them; `release:desktop` was not rerun.
 
 ## Validation / test status
 **Tests:** 534 passing, 1 failing.

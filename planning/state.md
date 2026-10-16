@@ -32,12 +32,19 @@
   2026-10-16 with named residual owners recorded in Sprint 089 evidence.
   The raw failures and native BLOCKED/UNAVAILABLE status remain unchanged;
   no release authority follows.
-- Changes are limited to approved evidence/lifecycle files and new Sprint 089
-  logs/screenshots. No product, test, fixture, dependency, package, release,
-  or version changes are authorized.
-- Builder recommendation and the separate V0.14 Lead Developer/product-owner
-  disposition remain pending. Release/publication/version/platform
-  certification authority is not granted.
+- After that disposition, the user reported a Windows `git worktree add`
+  filename-too-long failure during `bun run release:desktop` at `b874fe7`.
+  The three formerly tracked Sprint 089 screenshots were renamed in the
+  worktree to short `artifacts/ui/` paths; their hashes are unchanged, and
+  the future UI output instruction uses the correct one-parent path. The
+  external screenshot originals were preserved. The reported release
+  staging directory was absent on read-only inspection; this follow-up did
+  not clean it. These path changes must be committed before a release
+  worktree can see them; the release command was not rerun.
+- No product, test, fixture, dependency, package, release, or version logic
+  was changed. Builder recommendation remains BLOCKED/OPEN; the separate
+  V0.14 disposition is ACCEPTED/CLOSED with residuals. Release/publication/
+  version/platform certification authority is not granted.
 
 ## V0.14 Sprint 088 Builder Execution (2026-10-16)
 

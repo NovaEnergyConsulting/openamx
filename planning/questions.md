@@ -13,9 +13,9 @@
   harness, package/build result, and prior user report are not new native
   direct evidence.
 - **Residuals and disposition:** preserve every first failure and retry.
-  Builder recommendation and separate Lead Developer/product-owner V0.14
-  disposition remain pending; no release/publication/version/platform
-  certification authority is granted.
+  Builder recommendation remains BLOCKED/OPEN; the user separately
+  ACCEPTED/CLOSED Sprint 089 with named residual owners. No
+  release/publication/version/platform certification authority is granted.
 - **Approved output-path amendment:** the root suite left
   `openamx-output-test-1792123310870-lr0lt7n6mz/.keep` after the
   5-second release-packaging test timeout. The user approved preserving this
@@ -33,8 +33,8 @@
 - **Updated test status:** VS Code aggregate 17 passed/8 failed; desktop
   typecheck and web build pass, RPC contract fails on the observed sandbox
   occurrence assertion, and UI harness retry passes 3/3. Direct native
-  desktop/package acceptance remains pending disposition as
-  `BLOCKED/UNAVAILABLE`.
+  desktop/package acceptance remains `BLOCKED/UNAVAILABLE`, accepted as a
+  named residual in the separate closeout disposition.
 - **Builder recommendation:** `BLOCKED/OPEN` because the root, VS Code, and
   RPC aggregates have unresolved failures and direct native acceptance is
   unavailable.
@@ -42,6 +42,14 @@
   on 2026-10-16 with named follow-up owners. The raw FAIL/BLOCKED statuses
   remain unchanged; release/publication/version/platform authority is not
   granted.
+- **Post-closeout Windows path fix:** the user reported Git worktree checkout
+  failure for three long tracked screenshot paths during `release:desktop`.
+  Their content is retained under short Sprint 089 `artifacts/ui/` paths and
+  the future Playwright output instruction is corrected. The command
+  reported staging output retained, but the exact directory was absent on
+  read-only inspection; this follow-up did not clean it. Release was not
+  rerun. Commit these path changes before a release worktree can see them;
+  no release authorization follows.
 
 ## V0.14 Sprint 089 Architect Preparation (2026-10-16)
 

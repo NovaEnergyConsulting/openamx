@@ -56,7 +56,8 @@ verification outputs:
   `vscode-host.log`, `desktop-typecheck.log`, `desktop-web-build.log`,
   `desktop-rpc.log`, `desktop-ui-first-attempt.log`,
   `desktop-ui-vite-server.log`, `desktop-ui-retry.log`, and
-  `desktop-ui/` for Playwright outputs.
+  `ui/` for Playwright outputs, with short child directories and filenames
+  to keep Windows release-worktree paths below the checkout limit.
 - Before running build/host workflows, preserve the existing mutable
   generated outputs by copying them to
   `C:\Users\gamez\.copilot\session-state\b36bf0ab-a388-46d2-85a7-76b18a145f16\files\sprint089-output-backup\`:
@@ -64,7 +65,9 @@ verification outputs:
   `dist/` and `build/`, VS Code `dist/` and `out/`, and VS Code test
   `user-data/` and `extensions/`.
 - Keep existing `desktop-app/test-results/` unchanged by directing Playwright
-  output to the new Sprint 089 `artifacts/desktop-ui/` directory. Do not
+  output to the new Sprint 089 `artifacts/ui/` directory. Use short paths
+  `ui/help/help-1024.png`, `ui/help/help-1440.png`, and
+  `ui/editor/v14-editor.png`; do not
   clean, delete, or overwrite prior evidence, screenshots, logs, or generated
   artifacts. Unexpected changed output paths are a stop condition.
 - No source, test, fixture, specification, example, dependency, package,
@@ -102,7 +105,7 @@ Vite-harness UI tests:
 bun run typecheck
 bun run build:web
 bun run test
-bun run test:ui -- tests/ui/v14-language-editor.pw.ts tests/ui/help-center.pw.ts --output=..\..\planning\sprints\0089-v14-integrated-acceptance-closeout\artifacts\desktop-ui
+bun run test:ui -- tests/ui/v14-language-editor.pw.ts tests/ui/help-center.pw.ts --output=..\planning\sprints\0089-v14-integrated-acceptance-closeout\artifacts\ui
 ```
 
 Preserve a first UI-run Windows web-server failure if observed. Retry only by
@@ -142,17 +145,24 @@ to
 `C:\Users\gamez\Programming\planning\sprints\0089-v14-integrated-acceptance-closeout\artifacts\desktop-ui\`.
 The user approved a second narrow amendment on 2026-10-16: preserve that
 external directory unchanged, copy its four exact output files into this
-sprint's approved in-repository `artifacts/desktop-ui/`, and continue with
+sprint's approved in-repository `artifacts/ui/`, and continue with
 evidence reconciliation and `git diff --check` only. No further test retry is
 authorized. The prior `desktop-app/test-results/` files retain their original
 timestamps and were not overwritten.
 
 | Playwright artifact | In-repository evidence copy | SHA-256 |
 |---|---|---|
-| `.last-run.json` | `artifacts/desktop-ui/.last-run.json` | `91D1C43004802CD49950D78EB11C8FA7D05DA8FFFFE219A8B13B2F561BC00903` |
-| `sprint046-help-1024x720.png` | `artifacts/desktop-ui/help-center.pw.ts-help-fra-3e38b-hrome-and-a-scrollable-body/sprint046-help-1024x720.png` | `A0556250E19F3C9F5C61174C46DBF5E365B4F534737BDB7DA8F6E50DB8945647` |
-| `sprint046-help-1440x900.png` | `artifacts/desktop-ui/help-center.pw.ts-help-fra-3e38b-hrome-and-a-scrollable-body/sprint046-help-1440x900.png` | `2C974C7A0FD1CBD1C32E0A2184A10B09A7602BD7D3338A590BD05FCE8219DE88` |
-| `v14-language-editor.png` | `artifacts/desktop-ui/v14-language-editor.pw.ts--fc775--the-Vite-workbench-harness/v14-language-editor.png` | `9116A97C23D565C4525C102E8474F9A2335AB7FB18501074102D3BC5A20C3DF3` |
+| `.last-run.json` | `artifacts/ui/.last-run.json` | `91D1C43004802CD49950D78EB11C8FA7D05DA8FFFFE219A8B13B2F561BC00903` |
+| `sprint046-help-1024x720.png` | `artifacts/ui/help/help-1024.png` | `A0556250E19F3C9F5C61174C46DBF5E365B4F534737BDB7DA8F6E50DB8945647` |
+| `sprint046-help-1440x900.png` | `artifacts/ui/help/help-1440.png` | `2C974C7A0FD1CBD1C32E0A2184A10B09A7602BD7D3338A590BD05FCE8219DE88` |
+| `v14-language-editor.png` | `artifacts/ui/editor/v14-editor.png` | `9116A97C23D565C4525C102E8474F9A2335AB7FB18501074102D3BC5A20C3DF3` |
+
+The corrected future UI command uses `--output=..\planning\...` from
+`desktop-app/` (one parent directory to the repository root) and the short
+`artifacts/ui/` path. The original `..\..\...\artifacts\desktop-ui`
+invocation remains in `artifacts/desktop-ui-retry.log` and the external
+output location remains recorded above; historical provenance is not
+rewritten.
 
 ## Requirement-to-Evidence Matrix
 
@@ -268,7 +278,7 @@ output is `artifacts/root-focused.log`.
 | E-06 | VS Code Extension Development Host | `vscode-extension`: `bun run test`; actual VS Code 1.85.0 host. | FAIL | 17 passed, 8 failed. Both V0.14-specific provider and TextMate grammar tests pass; six Windows `EBUSY` temp-directory cleanup failures and two drive-letter case comparisons remain. `artifacts/vscode-host.log`. | VS Code extension/test owner; Lead Developer |
 | E-07 | Desktop typecheck | `desktop-app`: `bun run typecheck`. | PASS | Exit 0; Hutch Electrobun prepare and `vue-tsc --noEmit` completed. `artifacts/desktop-typecheck.log`. | Builder |
 | E-08 | Desktop web build | `desktop-app`: `bun run build:web`. | PASS | Exit 0; Vite 6.4.3 transformed 3,273 modules; 8.90 MB worker bundled; sharp and four Roboto fonts copied. Large-chunk advisory retained. `artifacts/desktop-web-build.log`. | Builder |
-| E-09 | Desktop editor and Help UI | Focused Playwright attempt, then same tests against the configured Vite harness started through Bun. | PASS on retry; first attempt FAIL | First attempt: Windows `'.' is not recognized` webServer failure. Retry: 3 passed, 0 failed through Vite workflow harness; HTTP 200 verified. Four Playwright outputs copied with matching SHA-256 into `artifacts/desktop-ui/`; external originals remain unchanged. | Builder; desktop owner for native follow-up |
+| E-09 | Desktop editor and Help UI | Focused Playwright attempt, then same tests against the configured Vite harness started through Bun. | PASS on retry; first attempt FAIL | First attempt: Windows `'.' is not recognized` webServer failure. Retry: 3 passed, 0 failed through Vite workflow harness; HTTP 200 verified. Four Playwright outputs copied with matching SHA-256 into `artifacts/ui/`; external originals remain unchanged. | Builder; desktop owner for native follow-up |
 | E-10 | Desktop RPC/webview boundary contract | `desktop-app`: `bun run test`. | FAIL | `tests/rpc-contract-check.ts:152`: expected two `sandbox="allow-scripts"` occurrences, found one. No source/assertion/sandbox changes. `artifacts/desktop-rpc.log`. | Desktop RPC/security owner; Lead Developer |
 | E-11 | Direct native/package desktop acceptance | Inspect existing route; no native package build/launch or user-reported deployment inference. | BLOCKED/UNAVAILABLE | Configured Playwright target is the Vite harness; no supported direct native/CDP acceptance route was available in the approved scope. Release/package workflows are excluded. | Lead Developer / desktop owner to provide direct UAT route |
 | E-12 | Output preservation and artifact-path reconciliation | Snapshot approved mutable build/host outputs; retain test artifacts; reconcile two user-approved path amendments. | FAIL for initial output-path mistakes; preservation completed | Root test `.keep` path retained unchanged. UI command initially wrote four files outside the repo; external originals retained and copies hash-verified in Sprint 089 artifacts. Historical `desktop-app\test-results` timestamps unchanged. | Builder |
@@ -361,3 +371,35 @@ Separate Lead Developer/product-owner V0.14 disposition:
 owners recorded above. The separate disposition does not convert any raw
 `FAIL` or `BLOCKED/UNAVAILABLE` result to PASS. No release, publication,
 version change, package release, or platform certification is authorized.
+
+## Post-Closeout Windows Worktree Path Correction
+
+After the separate closeout disposition, the user reported that
+`bun run release:desktop` at commit `b874fe7` failed while adding a detached
+worktree because three tracked Playwright screenshot paths exceeded the
+Windows path limit under the long staging directory. The command reported
+its incomplete staging output at
+`releases/.staging/0.14.0/windows-x64/b874fe7eb749-QqdVzM/` as retained, but
+a read-only check after the report found that exact directory and its
+`windows-x64` parent absent. This follow-up did not alter or clean any
+release-staging files.
+
+In the worktree, the former long Sprint 089 UI artifact paths are replaced
+with:
+
+- `artifacts/ui/help/help-1024.png`
+- `artifacts/ui/help/help-1440.png`
+- `artifacts/ui/editor/v14-editor.png`
+- `artifacts/ui/.last-run.json`
+
+All four files retain their original content and SHA-256 values recorded
+above. The original external Playwright outputs remain untouched. With the
+observed 98-character staging worktree base, the new complete artifact paths
+measure at most 190 characters, below the Windows 260-character limit. The
+approved future UI command now uses one parent traversal from `desktop-app/`
+and writes to the short `artifacts/ui/` path.
+
+`bun run release:desktop` was not rerun: Sprint 089 does not authorize
+release/package work. These path and instruction edits are in the current
+worktree and must be included in a clean committed revision before any
+separately authorized release attempt.
