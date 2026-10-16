@@ -1,5 +1,35 @@
 # Planning State
 
+## V0.14 Sprint 087 Builder Execution (2026-10-16)
+
+- The user separately authorized Sprint 087 and approved the exact
+  file-by-file implementation/evidence plan on 2026-10-16 before production
+  source or test edits. The starting worktree was clean on `feat/create-v0.14`.
+- Approved production files are `src/runtime/standardLibrary.ts`,
+  `src/runtime/evaluateExpression.ts`, and
+  `src/typechecker/checkDocument.ts`; focused tests are limited to the new
+  `tests/v14TextFormatting.test.ts`. Existing math, evaluator, formatter,
+  Measurement, and dimensions tests are approved as compatibility runs only.
+- The approved scope includes verification of the existing Sprint 084
+  direct-call amendments in `grammar-examples.md`, `diagnostic-matrix.md`,
+  and `builder-evidence.md`; those artifacts currently match the approved
+  source/ranges. The core build may regenerate
+  `src/renderer/diagramBrowserRuntime.ts`, which is approved only as an
+  inspected generated output.
+- Approved evidence/lifecycle files are the Sprint 087 `builder-evidence.md`,
+  `planning/state.md`, `planning/decisions.md`, `planning/questions.md`,
+  `planning/STATUS.json`, and `planning/ARCHITECT_BRIEFING.md`. Any other
+  source, test, generated, documentation, editor, example, package, or
+  release file requires a separate scope amendment before editing.
+- Implementation and focused verification are complete: 141 tests passed,
+  0 failed, with 1,024 expectations across six files; the core build and
+  `git diff --check` passed. The approved generated browser runtime was
+  inspected and retained.
+- The Builder recommended ACCEPT, and the user separately ACCEPTED Sprint
+  087 on 2026-10-16. The full root suite remains assigned to Sprint 089.
+  Sprint 088 and all release/publication/version/certification authority
+  remain separate.
+
 ## V0.14 Sprint 086 Builder Execution (2026-10-16)
 
 - The user separately authorized Sprint 086 and approved the exact

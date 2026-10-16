@@ -49,6 +49,9 @@ const signatures: Record<string, { args: string[]; min: number }> = {
   max: { args: ['list'], min: 1 }, mean: { args: ['list'], min: 1 },
   round: { args: ['numeric', 'Number'], min: 1 }, abs: { args: ['numeric'], min: 1 },
   sqrt: { args: ['numeric'], min: 1 }, pow: { args: ['numeric', 'Number'], min: 2 },
+  len: { args: ['value'], min: 1 }, trim: { args: ['String'], min: 1 },
+  left: { args: ['String', 'count'], min: 1 }, right: { args: ['String', 'count'], min: 1 },
+  format: { args: ['value', 'pattern', 'locale'], min: 2 },
   ...Object.fromEntries([...mathematicalFunctions].map(name => [name, { args: ['math'], min: 1 }]))
 };
 
@@ -96,7 +99,7 @@ export function checkingActivated(_doc: OpenAmxDocument): boolean {
 
 const stdlibNames = new Set([
   'sum', 'min', 'max', 'mean', 'round', 'abs', 'sqrt', 'pow',
-  ...mathematicalFunctions, 'PI', 'E'
+  ...mathematicalFunctions, 'PI', 'E', 'len', 'trim', 'left', 'right', 'format'
 ]);
 
 function bodyContainsForExpression(expression: V02ExpressionNode): boolean {
@@ -831,6 +834,30 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         const signature = signatures[expression.callee];
         if (!signature) fail('AMX3004', `Unknown function '${expression.callee}'`, expression.source);
         if (expression.arguments.length < signature.min || expression.arguments.length > signature.args.length) fail('AMX3004', `Invalid arity for '${expression.callee}'`, expression.source);
+        if (expression.callee === 'len') {
+          if (expression.arguments[0].type === 'listLiteral' && expression.arguments[0].elements.length === 0) {
+            return named('Number');
+          }
+          const value = infer(expression.arguments[0]);
+          if (!(value.kind === 'named' && value.name === 'String') && value.kind !== 'list') {
+            fail('AMX3002', `len requires a String or list, got ${format(value)}`, expression.arguments[0].source);
+          }
+          return named('Number');
+        }
+        if (expression.callee === 'trim' || expression.callee === 'left' || expression.callee === 'right') {
+          const value = infer(expression.arguments[0]);
+          if (!(value.kind === 'named' && value.name === 'String')) {
+            fail('AMX3002', `${expression.callee} requires a String, got ${format(value)}`, expression.arguments[0].source);
+          }
+          return named('String');
+        }
+        if (expression.callee === 'format') {
+          const value = infer(expression.arguments[0]);
+          if (!(value.kind === 'named' && value.name === 'Number') && value.kind !== 'measurement') {
+            fail('AMX3002', `format expects a Number or Measurement, got ${format(value)}`, expression.arguments[0].source);
+          }
+          return named('String');
+        }
         if (['sum', 'mean', 'min', 'max'].includes(expression.callee)) {
           const values = infer(expression.arguments[0]);
           if (values.kind !== 'list') return fail('AMX3002', `${expression.callee} requires a Number[] or measurement list`, expression.arguments[0].source);

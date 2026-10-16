@@ -568,6 +568,25 @@ function evalListAccess(node: ListAccessNode, env: Environment, file?: string): 
   return receiver[index - 1];
 }
 
+function functionArgumentSource(expression: V02ExpressionNode, fallback?: SourceLocation): SourceLocation | undefined {
+  if (expression.type === 'binaryExpression') {
+    return functionArgumentSource(expression.left, fallback) ?? expression.operatorSource ?? expression.source ?? fallback;
+  }
+  if (expression.type === 'unaryExpression') {
+    const operandSource = functionArgumentSource(expression.argument, fallback);
+    if (operandSource) {
+      return {
+        line: operandSource.line,
+        column: Math.max(1, operandSource.column - (expression.operator === 'not' ? 3 : 1))
+      };
+    }
+  }
+  if (expression.type === 'measurementAttachment' || expression.type === 'measurementConversion') {
+    return functionArgumentSource(expression.value, fallback) ?? expression.source ?? fallback;
+  }
+  return expression.source ?? fallback;
+}
+
 function evalFunctionCall(
   node: FunctionCallNode,
   env: Environment,
@@ -684,7 +703,13 @@ function evalFunctionCall(
       }
     }
   }
-  return evaluateStandardLibraryCall(node.callee, args, node.source, file);
+  return evaluateStandardLibraryCall(
+    node.callee,
+    args,
+    node.source,
+    file,
+    node.arguments.map(argument => functionArgumentSource(argument, node.source))
+  );
 }
 
 function toNumber(v: unknown, nodeForError?: V02ExpressionNode): number {

@@ -1,5 +1,6 @@
 import { SourceLocation } from '../ast/types';
 import { AmxError } from '../diagnostics/errors';
+import { isMeasurement } from './measurement';
 
 /**
  * Standard library for OpenAMX v0.1.
@@ -110,12 +111,203 @@ function mathError(
   return new AmxError({ code, message, file, line: source?.line, column: source?.column });
 }
 
+function libraryError(
+  code: string,
+  message: string,
+  source?: SourceLocation,
+  file?: string
+): AmxError {
+  return new AmxError({ code, message, file, line: source?.line, column: source?.column });
+}
+
+function runtimeType(value: unknown): string {
+  if (value === null) return 'null';
+  if (isMeasurement(value)) return 'Measurement';
+  if (Array.isArray(value)) return 'list';
+  if (typeof value === 'number') return 'Number';
+  if (typeof value === 'string') return 'String';
+  if (typeof value === 'boolean') return 'Boolean';
+  return typeof value;
+}
+
+function ensureLibraryArity(
+  callee: string,
+  args: unknown[],
+  min: number,
+  max: number,
+  source?: SourceLocation,
+  file?: string
+): void {
+  if (args.length < min || args.length > max) {
+    throw libraryError('AMX3004', `Invalid arity for '${callee}'`, source, file);
+  }
+}
+
+function textArgument(
+  callee: string,
+  value: unknown,
+  source?: SourceLocation,
+  file?: string
+): string {
+  if (typeof value !== 'string') {
+    throw libraryError('AMX3002', `${callee} requires a String, got ${runtimeType(value)}`, source, file);
+  }
+  return value;
+}
+
+function isUnicodeWhiteSpace(codePoint: number): boolean {
+  return codePoint >= 0x0009 && codePoint <= 0x000d
+    || codePoint === 0x0020
+    || codePoint === 0x0085
+    || codePoint === 0x00a0
+    || codePoint === 0x1680
+    || codePoint >= 0x2000 && codePoint <= 0x200a
+    || codePoint === 0x2028
+    || codePoint === 0x2029
+    || codePoint === 0x202f
+    || codePoint === 0x205f
+    || codePoint === 0x3000;
+}
+
+function trimText(value: string): string {
+  const points = Array.from(value);
+  let start = 0;
+  let end = points.length;
+  while (start < end && isUnicodeWhiteSpace(points[start].codePointAt(0)!)) start++;
+  while (end > start && isUnicodeWhiteSpace(points[end - 1].codePointAt(0)!)) end--;
+  return points.slice(start, end).join('');
+}
+
+interface NumericPattern {
+  currency: string;
+  grouped: boolean;
+  precision: number;
+  percent: boolean;
+}
+
+function parseNumericPattern(pattern: unknown, source?: SourceLocation, file?: string): NumericPattern {
+  if (typeof pattern !== 'string') {
+    throw libraryError('AMXSL004', 'Incorrect formatting pattern', source, file);
+  }
+  const match = /^([$€£])?(#,##0|0)(?:\.(0{1,6}))?(%)?$/.exec(pattern);
+  if (!match) throw libraryError('AMXSL004', 'Incorrect formatting pattern', source, file);
+  return {
+    currency: match[1] ?? '',
+    grouped: match[2] === '#,##0',
+    precision: match[3]?.length ?? 0,
+    percent: match[4] === '%'
+  };
+}
+
+interface NumericLocale {
+  decimal: string;
+  group: string;
+}
+
+function parseNumericLocale(locale: unknown, source?: SourceLocation, file?: string): NumericLocale {
+  switch (locale) {
+    case 'en-US': return { decimal: '.', group: ',' };
+    case 'de-DE': return { decimal: ',', group: '.' };
+    case 'fr-FR': return { decimal: ',', group: '\u202f' };
+    default: throw libraryError('AMXSL005', 'Formatting locale is malformed or unsupported', source, file);
+  }
+}
+
+function roundedScaledInteger(value: number, precision: number): bigint {
+  const [mantissa, exponentText] = Math.abs(value).toString().toLowerCase().split('e');
+  const exponent = exponentText === undefined ? 0 : Number(exponentText);
+  const [integerPart, fractionalPart = ''] = mantissa.split('.');
+  const digits = `${integerPart}${fractionalPart}`.replace(/^0+(?=\d)/, '');
+  const coefficient = BigInt(digits || '0');
+  const shift = precision + exponent - fractionalPart.length;
+  if (shift >= 0) return coefficient * 10n ** BigInt(shift);
+  const divisor = 10n ** BigInt(-shift);
+  const quotient = coefficient / divisor;
+  const remainder = coefficient % divisor;
+  return quotient + (remainder * 2n >= divisor ? 1n : 0n);
+}
+
+function groupInteger(value: string, separator: string): string {
+  return value.replace(/\B(?=(\d{3})+(?!\d))/g, separator);
+}
+
+function formatNumericValue(
+  value: number,
+  pattern: NumericPattern,
+  locale: NumericLocale
+): string {
+  const displayedValue = pattern.percent ? value * 100 : value;
+  const negative = displayedValue < 0;
+  const precisionFactor = 10n ** BigInt(pattern.precision);
+  const scaled = roundedScaledInteger(displayedValue, pattern.precision);
+  const integer = (scaled / precisionFactor).toString();
+  const fraction = pattern.precision
+    ? `${locale.decimal}${(scaled % precisionFactor).toString().padStart(pattern.precision, '0')}`
+    : '';
+  const integerText = pattern.grouped ? groupInteger(integer, locale.group) : integer;
+  return `${negative ? '-' : ''}${pattern.currency}${integerText}${fraction}${pattern.percent ? '%' : ''}`;
+}
+
 export function evaluateStandardLibraryCall(
   callee: string,
   args: unknown[],
   source?: SourceLocation,
-  file?: string
+  file?: string,
+  argumentSources: (SourceLocation | undefined)[] = []
 ): unknown {
+  const argumentSource = (index: number): SourceLocation | undefined => argumentSources[index] ?? source;
+
+  if (callee === 'len') {
+    ensureLibraryArity(callee, args, 1, 1, source, file);
+    const value = args[0];
+    if (typeof value === 'string') return Array.from(value).length;
+    if (Array.isArray(value)) return value.length;
+    throw libraryError('AMX3002', `len requires a String or list, got ${runtimeType(value)}`, argumentSource(0), file);
+  }
+
+  if (callee === 'trim') {
+    ensureLibraryArity(callee, args, 1, 1, source, file);
+    return trimText(textArgument(callee, args[0], argumentSource(0), file));
+  }
+
+  if (callee === 'left' || callee === 'right') {
+    ensureLibraryArity(callee, args, 1, 2, source, file);
+    const points = Array.from(textArgument(callee, args[0], argumentSource(0), file));
+    const count = args.length === 1 ? 1 : args[1];
+    if (typeof count !== 'number' || !Number.isFinite(count) || !Number.isInteger(count) || count < 0) {
+      throw libraryError('AMXSL003', 'Invalid text slice count', argumentSource(1), file);
+    }
+    const length = Math.min(count, points.length);
+    return callee === 'left'
+      ? points.slice(0, length).join('')
+      : points.slice(points.length - length).join('');
+  }
+
+  if (callee === 'format') {
+    ensureLibraryArity(callee, args, 2, 3, source, file);
+    const value = args[0];
+    const valueSource = argumentSource(0);
+    if (typeof value !== 'number' && !isMeasurement(value)) {
+      throw libraryError(
+        'AMX3002',
+        `format expects a Number or Measurement, got ${runtimeType(value)}`,
+        valueSource,
+        file
+      );
+    }
+    const displayedValue = isMeasurement(value) ? value.value : value;
+    if (!Number.isFinite(displayedValue)) {
+      throw libraryError('AMXSL006', 'Input is non-finite', valueSource, file);
+    }
+    const pattern = parseNumericPattern(args[1], argumentSource(1), file);
+    const locale = parseNumericLocale(args.length === 3 ? args[2] : 'en-US', argumentSource(2), file);
+    if (pattern.percent && !Number.isFinite(displayedValue * 100)) {
+      throw libraryError('AMXSL006', 'Input is non-finite', valueSource, file);
+    }
+    const formatted = formatNumericValue(displayedValue, pattern, locale);
+    return isMeasurement(value) ? `${formatted} ${value.unit.text}` : formatted;
+  }
+
   const mathFunction = mathFunctions[callee];
   if (mathFunction) {
     if (args.length !== 1) {

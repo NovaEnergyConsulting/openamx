@@ -2,10 +2,10 @@
 
 ## V0.14 Sprint 087 Architect Preparation (2026-10-16)
 
-- **Execution authorization and exact implementation plan:** pending. Obtain
-  separate user authorization and approval of the file-by-file source, test,
-  Sprint 084 fixture-artifact, generated-output, and evidence plan before
-  edits.
+- **Execution authorization and exact implementation plan:** resolved by
+  separate user approval on 2026-10-16. The exact source, test, Sprint 084
+  fixture-artifact, generated-output, and evidence plan was recorded before
+  implementation edits in the Sprint 087 `builder-evidence.md`.
 - **Finite-argument fixture compatibility:** resolved by the user's explicit
   selections on 2026-10-16. `TEXT-COUNT-NONFINITE-01` now passes
   `1 / 0` directly to `right` and retains `AMXSL003`;
@@ -22,6 +22,10 @@
 - Sprint 086 was accepted with 123/0 focused tests and a successful core
   build; the full root suite remains assigned to Sprint 089. No Sprint 088,
   release, publication, version, or platform-certification authority follows.
+- Sprint 087 implementation and focused verification are complete: 141
+  passed, 0 failed, 1,024 expectations across six files; the core build and
+  `git diff --check` passed. The user separately ACCEPTED Sprint 087 on
+  2026-10-16. The full root suite remains assigned to Sprint 089.
 
 ## V0.14 Sprint 086 Builder Execution (2026-10-16)
 

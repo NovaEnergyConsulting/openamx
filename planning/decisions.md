@@ -1,5 +1,31 @@
 # Planning Decisions
 
+## V0.14 Sprint 087 Builder Execution (2026-10-16)
+
+- The user separately authorized Sprint 087 and approved the exact
+  file-by-file implementation/evidence plan on 2026-10-16 before source or
+  test edits. The complete approved list and verification commands are in
+  `planning/sprints/0087-v14-text-and-numeric-formatting/builder-evidence.md`.
+- The plan limits production changes to `src/runtime/standardLibrary.ts`,
+  `src/runtime/evaluateExpression.ts`, and
+  `src/typechecker/checkDocument.ts`, with one new focused test file
+  `tests/v14TextFormatting.test.ts`. Five existing focused suites are
+  compatibility runs only.
+- The user approved retaining `src/renderer/diagramBrowserRuntime.ts` only
+  if the approved core build regenerates it and inspection confirms the
+  intended changes. No other generated output is approved.
+- Sprint 084's accepted direct-call fixture amendments are in the approved
+  plan for consistency verification and currently match their source/ranges:
+  `right("A", 1 / 0)` retains `AMXSL003`; `format(1 / 0, "0")` retains
+  `AMXSL006`. Existing finite Number-binding behavior remains unchanged.
+- The approved implementation and focused checks are complete: 141 passed,
+  0 failed, 1,024 expectations across six files; the core build and
+  `git diff --check` passed. The generated runtime was inspected and
+  retained. The Builder recommended ACCEPT, and the user separately
+  ACCEPTED Sprint 087 on 2026-10-16.
+- No other product decision, release, publication, version change, platform
+  certification, or Sprint 088 work is authorized.
+
 ## V0.14 Sprint 087 Architect Preparation (2026-10-16)
 
 - Sprint 086 was separately accepted by the user on 2026-10-16. Its focused
@@ -15,9 +41,9 @@
   (`format(1 / 0, "0")`, preserving `AMXSL006`). These preserve the existing
   finite Number-binding behavior. Sprint 084 grammar, diagnostic, and
   evidence artifacts record the source/range updates.
-- Sprint 087 is READY FOR SEPARATE EXECUTION AUTHORIZATION, not authorized
-  to start by this preparation. A concrete file-by-file implementation and
-  evidence plan must be separately approved before code or test edits.
+- At preparation time, Sprint 087 was READY FOR SEPARATE EXECUTION
+  AUTHORIZATION. The user has since separately authorized execution and
+  approved the concrete plan recorded above before code or test edits.
 - No release, publication, version change, or platform certification is
   authorized. `planning/STATUS.json` remains unchanged by this preparation.
 

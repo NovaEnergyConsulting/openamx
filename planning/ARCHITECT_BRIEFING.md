@@ -1,3 +1,44 @@
+# ARCHITECT BRIEFING — Sprint 087 Builder Execution
+
+## Where things stand
+Sprint 087 was separately authorized and its exact implementation/evidence plan approved by the user on 2026-10-16. Implementation and focused verification are complete, and the user separately ACCEPTED Sprint 087 on 2026-10-16. The accepted Sprint 084 contract and Sprint 085/086 implementations remain the behavior baseline.
+
+## Executive summary
+**Business outcome**: Add the accepted code-point-aware text functions and bounded deterministic numeric formatter without changing finite Number-binding behavior or existing math/Measurement semantics.
+
+**Current focus**: Sprint 087 implementation and focused verification are complete; request a separate Lead Developer/product-owner disposition.
+
+**What is proven**: All accepted text/format fixtures and focused compatibility regressions passed (141 tests, 0 failures, 1,024 expectations across six files). The core build and `git diff --check` passed, and the approved generated runtime was inspected and retained. The two direct-call fixture amendments preserve their IDs, diagnostic expectations, source ranges, and finite Number-binding behavior.
+
+**What is not proven/live**: The full root suite remains assigned to Sprint 089. Sprint 088, release, publication, version change, and platform certification remain unauthorized.
+
+## Readiness signals
+
+| Signal | Status | Evidence |
+|---|---|---|
+| Sprint 084 contract disposition | passed | Accepted by user on 2026-10-15 |
+| Sprint 085 and 086 dispositions | passed | Accepted by user on 2026-10-16 |
+| Sprint 087 execution authorization and exact plan | passed | User approved on 2026-10-16; recorded before implementation |
+| Sprint 087 implementation and focused tests | passed | 141 passed, 0 failed across six files |
+| Core build and patch hygiene | passed | `bun run build`; `git diff --check` |
+| Sprint 087 disposition | passed | User accepted separately on 2026-10-16 |
+
+## Recommended next Builder action
+**Do**: Review the evidence and record a separate Sprint 087 disposition.
+**Owner**: Lead Developer / product owner.
+**Decision**: Sprint 087 is ACCEPTED. Sprint 088 and release still require separate authorization.
+
+## Evidence
+- The exact approved production/test/evidence files, conditional generated output, and commands are recorded in `planning/sprints/0087-v14-text-and-numeric-formatting/builder-evidence.md`.
+- Sprint 084 direct-call source amendments were checked; their fixture IDs, diagnostics, and source ranges are preserved.
+- The user separately ACCEPTED Sprint 087 on 2026-10-16.
+
+## Validation / test status
+**Tests:** 141 passed, 0 failed, 1,024 expectations across six approved files.
+**Build/hygiene:** `bun run build` and `git diff --check` passed.
+
+---
+
 # ARCHITECT BRIEFING — Sprint 086 Builder Execution
 
 ## Where things stand
