@@ -1,5 +1,39 @@
 # Planning Decisions
 
+## V0.14 Sprint 086 Builder Execution (2026-10-16)
+
+- The user explicitly authorized Sprint 086 and approved the exact
+  file-by-file implementation/evidence plan recorded in
+  `planning/sprints/0086-v14-mathematical-standard-library/builder-evidence.md`
+  before source or test edits.
+- Approved production files: `src/runtime/standardLibrary.ts`,
+  `src/runtime/evaluateExpression.ts`, and
+  `src/typechecker/checkDocument.ts`. The new focused test file is
+  `tests/v14MathLibrary.test.ts`; the core build's
+  `src/renderer/diagramBrowserRuntime.ts` output may be retained only after
+  inspection. Planning/evidence files and exact focused checks are listed in
+  the approved Sprint 086 evidence plan.
+- Existing math domains, tolerance, tangent behavior, dimensionless
+  Measurement scaling, diagnostics, V0.9 Measurement behavior, and sprint
+  boundaries remain unchanged. Any necessary file outside the approved plan
+  requires a narrow user-approved amendment before editing.
+- **Approved contract amendment (2026-10-16):** the accepted
+  `MATH-NONFINITE-INPUT-01` stored `1 / 0` in a local Number binding, which
+  existing runtime validation rejects as non-finite before the math call.
+  The user decided to preserve that Number behavior and approved changing
+  the fixture to `let result = sin(1 / 0)` directly. The expected
+  `AMXSL001` diagnostic and fixture ID are unchanged; the exact call span is
+  line 5, columns 14–24. The Sprint 086 file plan was amended before editing
+  the three affected Sprint 084 planning artifacts.
+- The focused direct Bun run passed 123 tests with 0 failures across five
+  files; the core build and `git diff --check` passed. The approved generated
+  browser runtime was inspected and retained. Full root-suite acceptance
+  remains with Sprint 089.
+- Builder recommendation is ACCEPT; the user separately ACCEPTED Sprint 086
+  on 2026-10-16. The full root suite remains assigned to Sprint 089. Sprint
+  087, release, publication, version change, and platform certification
+  require separate authorization.
+
 ## V0.14 Sprint 086 Architect Preparation (2026-10-16)
 
 - Sprint 085 was separately accepted by the user on 2026-10-16. Its focused

@@ -11,6 +11,9 @@
 - Product decisions and final contract disposition: ACCEPTED by user on
   2026-10-15; recorded in the grammar/diagnostic artifacts and planning
   ledger.
+- Narrow `MATH-NONFINITE-INPUT-01` source amendment: APPROVED by user on
+  2026-10-16; preserve finite Number bindings and evaluate `sin(1 / 0)`
+  directly so the math function receives the non-finite input.
 - Diagnostic allocation: user allocated `AMXSL001`–`AMXSL006` with exact
   messages on 2026-10-15. Read-only search found no occurrences in source,
   tests, editor apps, docs, or examples before these planning records.
@@ -90,6 +93,18 @@
   fractional digits truncated toward zero, `Math.round` ties, Measurement
   unit preserved.
 - Exact new diagnostic allocations are recorded in `diagnostic-matrix.md`.
+
+### Approved non-finite-input fixture amendment (2026-10-16)
+
+The user approved preserving the existing finite-Number-binding invariant
+after Sprint 086 implementation testing showed that the prior source
+(`let infinite = 1 / 0` followed by `sin(infinite)`) raises `AMX4003` while
+creating the binding, before the math call can report the accepted
+`AMXSL001`. The fixture now evaluates `let result = sin(1 / 0)` directly.
+Its ID, expected diagnostic code/message, math domains, and all unrelated
+contract decisions remain unchanged. Its exact primary range is line 5,
+columns 14–24. Sprint 086's test/evidence plan was amended and approved
+before these Sprint 084 records were edited.
 
 ### Remaining gate
 

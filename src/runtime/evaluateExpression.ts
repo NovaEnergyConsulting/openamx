@@ -24,7 +24,7 @@ import {
 } from '../ast/types';
 import { inputError, staticError, throwInputErrors, throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext, throwListOperationError, throwMeasurementDomainError } from '../diagnostics/errors';
 import { ChartViewEmission, Environment, ViewDataValue, ViewEmission } from './environment';
-import { evaluateStandardLibraryCall } from './standardLibrary';
+import { evaluateStandardLibraryCall, isMathematicalFunction } from './standardLibrary';
 import type { CheckedType } from '../typechecker/checkDocument';
 import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
 import { fieldRegistry } from '../typechecker/declarationRegistry';
@@ -270,6 +270,8 @@ export function evaluateExpression(
       return node.value;
 
     case 'identifier':
+      if (node.name === 'PI') return Math.PI;
+      if (node.name === 'E') return Math.E;
       // Pass source location for better diagnostics
       return env.get(node.name, node.source, file);
 
@@ -626,6 +628,22 @@ function evalFunctionCall(
   }
   if (isMeasurement(args[0])) {
     const value = args[0];
+    if (isMathematicalFunction(node.callee)) {
+      if (Object.keys(value.unit.vector).length !== 0) {
+        return staticError(
+          'AMX3007',
+          `'${node.callee}' requires a Number or dimensionless Measurement`,
+          node.arguments[0]?.source ?? node.source,
+          file
+        );
+      }
+      return evaluateStandardLibraryCall(
+        node.callee,
+        [value.value * value.unit.scale],
+        node.source,
+        file
+      );
+    }
     switch (node.callee) {
       case 'abs':
         return measurement(Math.abs(value.value), value.unit);

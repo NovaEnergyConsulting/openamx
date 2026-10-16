@@ -1,5 +1,29 @@
 # Planning Questions (Sprint 002)
 
+## V0.14 Sprint 086 Builder Execution (2026-10-16)
+
+- **Execution authorization and exact file plan:** resolved by the user's
+  explicit approval on 2026-10-16; the approved plan is recorded in the
+  Sprint 086 `builder-evidence.md` before implementation edits.
+- **Product contract questions:** none open for the approved scope. Preserve
+  Sprint 084's exact math domains, tolerance, diagnostics, Measurement
+  semantics and the 2026-10-16 dimensionless-scale decision.
+- **Non-finite input compatibility conflict:** resolved by the user's
+  2026-10-16 decision to preserve finite Number bindings and amend
+  `MATH-NONFINITE-INPUT-01` to call `sin(1 / 0)` directly. The fixture keeps
+  its `AMXSL001` expectation; the source span becomes line 5, columns 14–24.
+  The user approved the corresponding narrow amendment to the Sprint 086
+  file plan before the Sprint 084 contract artifact edits.
+- **Implementation evidence and residuals:** complete. The approved focused
+  Bun run passed 123/0 across five files; build and `git diff --check`
+  passed. The generated runtime was inspected and retained. The full root
+  suite remains assigned to Sprint 089; all first-run failures and their
+  corrections are recorded in Sprint 086 `builder-evidence.md`.
+- **Builder recommendation:** ACCEPT.
+- **Separate Sprint 086 disposition:** resolved as ACCEPT by the user on
+  2026-10-16. Sprint 087 and release, publication, version change, or
+  platform certification still require separate authorization.
+
 ## V0.14 Sprint 086 Architect Preparation (2026-10-16)
 
 - **Dimensionless Measurement scale:** resolved by the user's explicit

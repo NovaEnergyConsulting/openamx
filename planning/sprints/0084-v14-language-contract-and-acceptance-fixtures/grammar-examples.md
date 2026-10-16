@@ -766,15 +766,14 @@ let result = exp(10000)
 
 ### `MATH-NONFINITE-INPUT-01` — Non-finite input
 
-Candidate primary range: line 6, columns 14-27 (`sin(infinite)`).
+Candidate primary range: line 5, columns 14-24 (`sin(1 / 0)`).
 
 ````text
 ---
 fixture: MATH-NONFINITE-INPUT-01
 ---
 ```amx
-let infinite = 1 / 0
-let result = sin(infinite)
+let result = sin(1 / 0)
 ```
 ````
 

@@ -1,5 +1,43 @@
 # Planning State
 
+## V0.14 Sprint 086 Builder Execution (2026-10-16)
+
+- The user separately authorized Sprint 086 and approved the exact
+  file-by-file implementation/evidence plan on 2026-10-16 before source or
+  test edits. The starting worktree was clean on `feat/create-v0.14`.
+- Approved production files are `src/runtime/standardLibrary.ts`,
+  `src/runtime/evaluateExpression.ts`, and
+  `src/typechecker/checkDocument.ts`; focused tests are limited to the new
+  `tests/v14MathLibrary.test.ts`. The core build may regenerate
+  `src/renderer/diagramBrowserRuntime.ts`, which is approved only as an
+  inspected generated output.
+- Approved evidence/lifecycle files are the Sprint 086 `builder-evidence.md`,
+  `planning/state.md`, `planning/decisions.md`, `planning/questions.md`,
+  `planning/STATUS.json`, and `planning/ARCHITECT_BRIEFING.md`. No other
+  source, test, generated, documentation, editor, example, package, or
+  release file is approved; an additional necessary file requires a separate
+  scope amendment before editing it.
+- A compatibility conflict in `MATH-NONFINITE-INPUT-01` was resolved by the
+  user's separate 2026-10-16 product decision: preserve existing finite
+  Number-binding behavior and amend the fixture to call `sin(1 / 0)`
+  directly. The user approved adding only Sprint 084
+  `grammar-examples.md`, `diagnostic-matrix.md`, and `builder-evidence.md`
+  to the file plan to update the fixture/range and record that decision;
+  the amended call range is line 5, columns 14–24.
+- The user approved a contract amendment preserving finite Number bindings:
+  `MATH-NONFINITE-INPUT-01` now evaluates `sin(1 / 0)` directly, retaining
+  its fixture ID and `AMXSL001` expectation. The amendment and source span
+  are recorded in the Sprint 084 grammar, diagnostic matrix, and evidence.
+- The focused direct Bun run passed 123 tests with 0 failures across five
+  files; `bun run build` and `git diff --check` passed. The generated
+  `src/renderer/diagramBrowserRuntime.ts` was inspected and retained. The
+  full root suite remains assigned to Sprint 089.
+- Sprint 086 implementation/evidence is complete; the Builder recommended
+  ACCEPT and the user separately ACCEPTED Sprint 086 on 2026-10-16. The full
+  root suite remains assigned to Sprint 089. Sprint 087 and all release,
+  publication, version-change, and platform-certification authority remain
+  separate.
+
 ## V0.14 Sprint 085 Builder Execution (2026-10-16)
 
 - The user explicitly authorized Sprint 085 execution and approved the exact

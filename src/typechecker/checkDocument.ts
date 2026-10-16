@@ -40,11 +40,16 @@ const named = (name: string): CheckedType => ({ kind: 'named', name });
 const list = (element: CheckedType): CheckedType => ({ kind: 'list', element });
 const nullable = (element: CheckedType): CheckedType => ({ kind: 'nullable', element });
 const primitives = new Set(['Number', 'String', 'Boolean', 'DateTime']);
+const mathematicalFunctions = new Set([
+  'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
+  'asinh', 'acosh', 'atanh', 'ln', 'log', 'exp'
+]);
 const signatures: Record<string, { args: string[]; min: number }> = {
   sum: { args: ['list'], min: 1 }, min: { args: ['list'], min: 1 },
   max: { args: ['list'], min: 1 }, mean: { args: ['list'], min: 1 },
   round: { args: ['numeric', 'Number'], min: 1 }, abs: { args: ['numeric'], min: 1 },
-  sqrt: { args: ['numeric'], min: 1 }, pow: { args: ['numeric', 'Number'], min: 2 }
+  sqrt: { args: ['numeric'], min: 1 }, pow: { args: ['numeric', 'Number'], min: 2 },
+  ...Object.fromEntries([...mathematicalFunctions].map(name => [name, { args: ['math'], min: 1 }]))
 };
 
 function equal(left: CheckedType, right: CheckedType): boolean {
@@ -89,7 +94,10 @@ export function checkingActivated(_doc: OpenAmxDocument): boolean {
   return true;
 }
 
-const stdlibNames = new Set(['sum', 'min', 'max', 'mean', 'round', 'abs', 'sqrt', 'pow']);
+const stdlibNames = new Set([
+  'sum', 'min', 'max', 'mean', 'round', 'abs', 'sqrt', 'pow',
+  ...mathematicalFunctions, 'PI', 'E'
+]);
 
 function bodyContainsForExpression(expression: V02ExpressionNode): boolean {
   switch (expression.type) {
@@ -568,6 +576,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
         return named('String');
       case 'nullLiteral': return { kind: 'null' };
       case 'identifier': {
+        if (expression.name === 'PI' || expression.name === 'E') return named('Number');
         const value = bindings.get(expression.name);
         if (!value) fail('AMX3001', `Unknown identifier '${expression.name}'`, expression.source);
         return value!;
@@ -831,6 +840,20 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
           return values.element;
         }
         const first = infer(expression.arguments[0]);
+        if (mathematicalFunctions.has(expression.callee)) {
+          if (first.kind === 'measurement' && first.vector.size > 0) {
+            fail('AMX3007',
+              `'${expression.callee}' requires a Number or dimensionless Measurement`,
+              expression.arguments[0].source);
+          }
+          if (!(first.kind === 'named' && first.name === 'Number')
+            && !(first.kind === 'measurement' && first.vector.size === 0)) {
+            fail('AMX3002',
+              `Expected Number or dimensionless Measurement, got ${format(first)}`,
+              expression.arguments[0].source);
+          }
+          return named('Number');
+        }
         const numeric = (type: CheckedType): boolean =>
           type.kind === 'named' && type.name === 'Number' || type.kind === 'measurement';
         if (!numeric(first)) fail(containsMeasurement(first) ? 'AMX3007' : 'AMX3002',

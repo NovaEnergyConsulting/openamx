@@ -1,3 +1,46 @@
+# ARCHITECT BRIEFING — Sprint 086 Builder Execution
+
+## Where things stand
+Sprint 086 was separately authorized and was ACCEPTED by the user on 2026-10-16. Implementation and focused verification are complete: 123 focused tests passed, the core build and patch hygiene passed, and the approved generated runtime was inspected. Sprint 085 remains separately accepted; Sprint 087 is not authorized.
+
+## Executive summary
+**Business outcome**: Add the accepted mathematical constants/functions and extend the existing standard library for Measurements without changing the approved math domains, diagnostics, or V0.9 Measurement contract.
+
+**Current focus**: Implement and verify Sprint 086 within its approved file list; request a separate Lead Developer/product-owner disposition at completion.
+
+**What is proven**: The approved math/Measurement fixtures, values, units, diagnostics and source locations pass the focused suite. The core build and `git diff --check` pass. The non-finite fixture was amended with user approval to call `sin(1 / 0)` directly while preserving existing finite Number-binding behavior.
+
+**What is not live**: Sprint 086 results/disposition, Sprint 087 text/formatting, Sprint 088 editor/docs/examples integration, full Sprint 089 integrated acceptance, release, and publication.
+
+## Readiness signals
+
+| Signal | Status | Evidence |
+|---|---|---|
+| Sprint 085 disposition | passed | User accepted on 2026-10-16 |
+| Sprint 086 authorization and approved plan | passed | User approved on 2026-10-16 |
+| Sprint 086 implementation and focused tests | passed | 123 passed, 0 failed across 5 files |
+| Core build and patch hygiene | passed | `bun run build`; `git diff --check` |
+| Sprint 086 disposition | passed | User accepted on 2026-10-16 |
+
+## Recommended next Architect action
+**Do**: Decide separately whether to authorize Sprint 087 under its own plan.
+**Owner**: Lead Developer / product owner.
+**Decision**: Sprint 086 is accepted. Sprint 087, release, publication, version change, and platform certification are not authorized by this disposition.
+
+## Evidence
+- Sprint 086 authorization and exact file-by-file plan approved by the user on 2026-10-16.
+- Separate Sprint 086 disposition → ACCEPT, 2026-10-16.
+- Exact commands, outcomes, failures/retries and generated-output status will be recorded in `planning/sprints/0086-v14-mathematical-standard-library/builder-evidence.md`.
+- Full root suite remains assigned to Sprint 089. No text/format, editor, documentation, example, release, publication, or version work is included.
+
+## Validation / test status
+**Tests:** 123 passing, 0 failing (focused five-file run).
+
+## Plan corrections
+- The approved non-finite-input fixture amendment is recorded in the Sprint 086 evidence. The full root suite remains with Sprint 089; Sprint 086 disposition is still pending.
+
+---
+
 # ARCHITECT BRIEFING — Sprint 085 Builder Closeout
 
 ## Where things stand

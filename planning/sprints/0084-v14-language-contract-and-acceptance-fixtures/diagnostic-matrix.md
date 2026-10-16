@@ -89,7 +89,7 @@ Current candidate source ranges are:
 | `MATH-DOM-LN-01` | `ln(0)` | `AMXSL001`, `Invalid input for mathematical function` | `L5:C14-19` |
 | `MATH-DOM-LOG-01` | `log(-1)` | `AMXSL001`, `Invalid input for mathematical function` | `L5:C14-21` |
 | `MATH-FINITE-01` | `exp(10000)` produces a non-finite result | `AMXSL002`, `Function evaluation results in infinite result` | `L5:C14-24` |
-| `MATH-NONFINITE-INPUT-01` | `sin(infinite)` | `AMXSL001`, `Invalid input for mathematical function` | `L6:C14-27` |
+| `MATH-NONFINITE-INPUT-01` | `sin(1 / 0)` | `AMXSL001`, `Invalid input for mathematical function` | `L5:C14-24` |
 | `MATH-TYPE-01` | String passed to `sin` | `AMX3002`, `Expected Number or dimensionless Measurement, got String` | `L5:C18-21` |
 | `MATH-MEASUREMENT-DIM-01` | Dimensioned Measurement passed to `sin` | `AMX3007`, `'<function>' requires a Number or dimensionless Measurement` (`sin` substituted) | `L7:C18-25` |
 | `MEAS-COMPAT-01` | Mixed-dimension list passed to `sum` | `AMX3007`, `List elements have incompatible types` (existing checker path) | `L9:C28-36` |

@@ -74,12 +74,84 @@ function ensureMinArgCount(args: unknown[], min: number, callee: string, source?
   }
 }
 
+type MathFunction = {
+  evaluate: (value: number) => number;
+  accepts: (value: number) => boolean;
+};
+
+const mathFunctions: Record<string, MathFunction> = {
+  sin: { evaluate: Math.sin, accepts: Number.isFinite },
+  cos: { evaluate: Math.cos, accepts: Number.isFinite },
+  tan: { evaluate: Math.tan, accepts: Number.isFinite },
+  asin: { evaluate: Math.asin, accepts: value => Number.isFinite(value) && value >= -1 && value <= 1 },
+  acos: { evaluate: Math.acos, accepts: value => Number.isFinite(value) && value >= -1 && value <= 1 },
+  atan: { evaluate: Math.atan, accepts: Number.isFinite },
+  sinh: { evaluate: Math.sinh, accepts: Number.isFinite },
+  cosh: { evaluate: Math.cosh, accepts: Number.isFinite },
+  tanh: { evaluate: Math.tanh, accepts: Number.isFinite },
+  asinh: { evaluate: Math.asinh, accepts: Number.isFinite },
+  acosh: { evaluate: Math.acosh, accepts: value => Number.isFinite(value) && value >= 1 },
+  atanh: { evaluate: Math.atanh, accepts: value => Number.isFinite(value) && value > -1 && value < 1 },
+  ln: { evaluate: Math.log, accepts: value => Number.isFinite(value) && value > 0 },
+  log: { evaluate: Math.log10, accepts: value => Number.isFinite(value) && value > 0 },
+  exp: { evaluate: Math.exp, accepts: Number.isFinite }
+};
+
+export function isMathematicalFunction(name: string): boolean {
+  return Object.hasOwn(mathFunctions, name);
+}
+
+function mathError(
+  code: 'AMXSL001' | 'AMXSL002',
+  message: string,
+  source?: SourceLocation,
+  file?: string
+): AmxError {
+  return new AmxError({ code, message, file, line: source?.line, column: source?.column });
+}
+
 export function evaluateStandardLibraryCall(
   callee: string,
   args: unknown[],
   source?: SourceLocation,
   file?: string
 ): unknown {
+  const mathFunction = mathFunctions[callee];
+  if (mathFunction) {
+    if (args.length !== 1) {
+      throw new AmxError({
+        code: 'AMX3004',
+        message: `Invalid arity for '${callee}'`,
+        file,
+        line: source?.line,
+        column: source?.column
+      });
+    }
+    const value = args[0];
+    if (typeof value !== 'number') {
+      const actual = value === null ? 'null'
+        : Array.isArray(value) ? 'list'
+          : typeof value === 'object' ? 'Measurement'
+            : typeof value === 'string' ? 'String'
+              : typeof value === 'boolean' ? 'Boolean' : typeof value;
+      throw new AmxError({
+        code: 'AMX3002',
+        message: `Expected Number or dimensionless Measurement, got ${actual}`,
+        file,
+        line: source?.line,
+        column: source?.column
+      });
+    }
+    if (!mathFunction.accepts(value)) {
+      throw mathError('AMXSL001', 'Invalid input for mathematical function', source, file);
+    }
+    const result = mathFunction.evaluate(value);
+    if (!Number.isFinite(result)) {
+      throw mathError('AMXSL002', 'Function evaluation results in infinite result', source, file);
+    }
+    return result;
+  }
+
   switch (callee) {
     case 'sum': {
       ensureArgCount(args, 1, 'sum', source, file);
@@ -160,4 +232,3 @@ export function evaluateStandardLibraryCall(
       });
   }
 }
-

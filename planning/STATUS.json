@@ -1,5 +1,5 @@
 {
   "phase": "sprint-closed",
-  "sprint": "085",
-  "note": "Sprint 085 implementation is complete and was ACCEPTED by the Lead Developer/product owner on 2026-10-16; 241 focused tests and the core build passed. Sprint 086 remains unauthorized pending its own gate."
+  "sprint": "086",
+  "note": "Sprint 086 implementation was ACCEPTED by the user on 2026-10-16. The focused suite passed 123 tests; core build and git diff --check passed; approved generated runtime was inspected. The full root suite remains assigned to Sprint 089. Sprint 087 and release/publication/version/certification authority remain separate."
 }
