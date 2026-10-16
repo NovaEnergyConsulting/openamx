@@ -61,6 +61,19 @@
       ]
     },
     {
+      "id": "language-v0.14",
+      "title": "V0.14 language features",
+      "summary": "Check runtime types and use math, text, and numeric formatting functions.",
+      "terms": "language v0.14 is type check structural record enum list optional nullable measurement dimension PI E sin cos tan asin acos atan sinh cosh tanh asinh acosh atanh ln log exp len trim left right format Unicode code points locale grouping percent currency AMXSL001 AMXSL002 AMXSL003 AMXSL004 AMXSL005 AMXSL006",
+      "steps": [
+        "Use value is Type to test a visible AMX type at runtime. A valid mismatch returns false; the predicate does not narrow the static type.",
+        "Math functions use radians and accept Numbers or dimensionless Measurements; their results are unitless Numbers. Existing Measurement-aware standard-library operations preserve their approved unit behavior.",
+        "len and string slices count Unicode code points. trim uses the approved Unicode 15.1 White_Space set.",
+        "format supports a bounded numeric pattern subset and the en-US, de-DE, and fr-FR locales; Measurement output keeps its displayed value and unit.",
+        "See docs/language-spec-v0.14.md and the V0.14 examples for exact syntax, diagnostics, and limits. Integrated acceptance, release, and publication remain separate."
+      ]
+    },
+    {
       "id": "language-v0.9",
       "title": "V0.9 language features",
       "summary": "Review V0.9 syntax and its compatibility changes.",

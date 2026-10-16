@@ -15,6 +15,12 @@ the [crank-slider](../examples/v0.13-crank-slider.amx) and
 [battery-resistor](../examples/v0.13-battery-resistor.amx) examples describe
 the approved authoring contract and its recorded limits.
 
+The additive [V0.14 language specification](../docs/language-spec-v0.14.md)
+and the [runtime type checks](../examples/v0.14-runtime-type-checks.amx),
+[math and Measurements](../examples/v0.14-math-and-measurements.amx), and
+[text and formatting](../examples/v0.14-text-and-formatting.amx) examples
+describe the implemented V0.14 authoring features and their limits.
+
 The root package is the release version authority; the current extension
 package version is `0.8.0` and its publisher is `EngineersTools`. The quick fix rechecks document version,
 token and live diagnostic when the action is resolved, but VS Code 1.85

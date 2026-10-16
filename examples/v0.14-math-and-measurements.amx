@@ -1,0 +1,44 @@
+---
+title: V0.14 mathematics and Measurements
+---
+# Mathematics and Measurements
+
+Trigonometric inputs are radians. A dimensionless Measurement is normalized
+using its unit scale before a math function returns a unitless Number.
+
+```amx
+dimension Length
+dimension Dimensionless = Length / Length
+unit meter: Length
+unit centimeter = 0.01 * meter
+unit squareMeter = meter ^ 2
+unit ratio = meter / meter
+unit percent = 0.01 * ratio
+
+let sine = sin(PI / 2)
+let cosine = cos(0)
+let tangent = tan(0)
+let arcSine = asin(1)
+let arcCosine = acos(1)
+let arcTangent = atan(1)
+let hyperbolicSine = sinh(0)
+let hyperbolicCosine = cosh(0)
+let hyperbolicTangent = tanh(0)
+let inverseHyperbolicSine = asinh(0)
+let inverseHyperbolicCosine = acosh(1)
+let inverseHyperbolicTangent = atanh(0)
+let naturalLog = ln(E)
+let commonLog = log(100)
+let exponential = exp(1)
+
+let scaledDimensionless: Dimensionless = 200 percent
+let dimensionlessSine = sin(scaledDimensionless)
+
+let distances: Length[] = [1 meter, 100 centimeter]
+let totalDistance = sum(distances)
+let shortestDistance = min(distances)
+let absoluteDistance = abs(-2 meter)
+let roundedDistance = round(1.236 meter, 2)
+let squareRootDistance = sqrt(9 squareMeter)
+let squaredDistance = pow(2 meter, 2)
+```

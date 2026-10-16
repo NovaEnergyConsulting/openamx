@@ -1,7 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 const expectedTopicIds = [
-	"getting-started", "starters", "language", "language-v0.12", "language-v0.13", "language-v0.9", "documents", "data",
+	"getting-started", "starters", "language", "language-v0.12", "language-v0.13", "language-v0.14", "language-v0.9", "documents", "data",
 	"preview-export", "recovery", "diagnostics", "release-notes"
 ];
 const expectedSearchTerms = [
@@ -9,6 +9,7 @@ const expectedSearchTerms = [
 	["starters", "example templates hello asset management operation note"],
 	["language", "language syntax code fence markdown let type function import export input record table chart cli"],
 	["language-v0.13", "language v0.13 diagram animated animation time canvas crank slider battery resistor line rectangle circle text arrow playback scrub loop AMXD PDF DOCX accessibility offline"],
+	["language-v0.14", "language v0.14 is type check structural record enum list optional nullable measurement dimension PI E sin cos tan asin acos atan sinh cosh tanh asinh acosh atanh ln log exp len trim left right format Unicode code points locale grouping percent currency AMXSL001 AMXSL002 AMXSL003 AMXSL004 AMXSL005 AMXSL006"],
 	["language-v0.12", "language v0.12 record inheritance extends override effective fields enum enumeration primitive values braced if expression statement return AMX3011 AMX3021"],
 	["language-v0.9", "v0.9 migration record constructor equals = colon annotation string escape interpolation list index dimension unit measurement conversion JSON CSV"],
 	["documents", "active tab import source editor save intelligence rename"],
@@ -77,6 +78,14 @@ test("bundled help keeps stable topics, local search, registry shortcuts, routin
 	await expect(page.locator(".help-content")).toContainText("start paused at the interval's lower bound");
 	await expect(page.locator(".help-content")).toContainText("PDF titles and descriptions are visible and searchable");
 	await expect(page.locator(".help-content")).toContainText("no screen-reader, minimum-host, or cross-platform qualification");
+	await search.fill("code points");
+	const v014Topic = page.locator(".help-topics [data-topic-id='language-v0.14']");
+	await expect(v014Topic).toBeVisible();
+	await v014Topic.click();
+	await expect(page.locator(".help-content")).toContainText("A valid mismatch returns false");
+	await expect(page.locator(".help-content")).toContainText("dimensionless Measurements");
+	await expect(page.locator(".help-content")).toContainText("Unicode 15.1 White_Space");
+	await expect(page.locator(".help-content")).toContainText("Integrated acceptance, release, and publication remain separate");
 	await search.fill("measurement conversion");
 	await expect(v09Topic).toBeVisible();
 	await v09Topic.click();

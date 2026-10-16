@@ -1,5 +1,5 @@
 {
   "phase": "sprint-closed",
-  "sprint": "087",
-  "note": "Sprint 087 was separately ACCEPTED by the user on 2026-10-16. The focused suite passed 141 tests with 0 failures and 1,024 expectations across six files; core build and git diff --check passed; the approved generated runtime was inspected. Sprint 088 and release/publication/version/certification authority remain separate."
+  "sprint": "088",
+  "note": "Sprint 088 was separately ACCEPTED and CLOSED by the user on 2026-10-16 after local build/deployment testing of the VS Code Extension and desktop app. The prior E-02 FAIL and E-14 BLOCKED/UNAVAILABLE dispositions are closed as PASS; automated test outputs remain recorded as historical evidence. Sprint 089 integrated acceptance and all release/publication/version/certification authority remain separate."
 }

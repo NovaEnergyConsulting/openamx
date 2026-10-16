@@ -1,0 +1,30 @@
+---
+title: V0.14 text and numeric formatting
+---
+# Text and numeric formatting
+
+String lengths and slices count Unicode code points. Numeric formatting uses
+the fixed locale separators and bounded pattern syntax.
+
+```amx
+dimension Length
+unit meter: Length
+unit centimeter = 0.01 * meter
+
+let codePointLength = len("A🙂B")
+let listLength = len([1, 2, 3])
+let combiningSequenceLength = len("é")
+let trimmed = trim(" AMX ")
+let firstTwo = left("A🙂B", 2)
+let lastTwo = right("A🙂B", 2)
+let defaultLeft = left("AMX")
+let emptyRight = right("AMX", 0)
+
+let groupedUS = format(1234.5, "#,##0.00", "en-US")
+let groupedGerman = format(1234.5, "#,##0.00", "de-DE")
+let groupedFrench = format(1234.5, "#,##0.00", "fr-FR")
+let percentage = format(0.125, "0.0%", "en-US")
+let currency = format(-1234.5, "$#,##0.00", "en-US")
+let displayedDistance = format(1.25 meter, "0.00")
+let displayedCentimeters = format(125 centimeter, "#,##0.00")
+```

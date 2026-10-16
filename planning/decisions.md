@@ -1,5 +1,47 @@
 # Planning Decisions
 
+## V0.14 Sprint 088 Builder Execution (2026-10-16)
+
+- **Separate authorization and exact plan:** the user authorized Sprint 088
+  execution and approved the concrete file-by-file implementation/evidence
+  plan on 2026-10-16. The approved plan was recorded in
+  `planning/sprints/0088-v14-editor-examples-documentation/builder-evidence.md`
+  before implementation edits.
+- The worktree was clean on `feat/create-v0.14` at the gate. The approved
+  scope covers shared editor services/tests, VS Code grammar/Extension
+  Development Host tests/guidance, desktop Help/UI tests, an additive V0.14
+  specification, three examples, related root tests, and the named sprint
+  evidence/lifecycle files.
+- Sprint 084 and accepted Sprints 085-087 remain the immutable behavior
+  authority. No parser, AST, type-checker, evaluator, standard-library,
+  diagnostic, or runtime behavior changes are authorized. Any required
+  out-of-plan file or behavior discrepancy requires a separate decision and
+  plan amendment before editing.
+- The Builder's desktop Playwright suite used the Vite workflow harness; no
+  native CDP/launch path was supplied to the Builder. Later, the user
+  reported local build/deployment testing of the desktop app and closed the
+  native-host BLOCKED/UNAVAILABLE disposition as PASS. The automated VS Code
+  test failures remain preserved as run output; their acceptance disposition
+  was separately closed by the user's local deployment confirmation.
+- Sprint 088 implementation and focused evidence are complete within the
+  approved list. Root tests passed 66/0 (875 expectations) across five files;
+  core build, desktop typecheck/web build, focused desktop UI/Help harness
+  tests (3/0), direct CLI execution of all examples, and `git diff --check`
+  passed.
+- V0.14-specific VS Code Extension Development Host checks passed. The full
+  host command's historical output remains 17 passed/8 failed on the final
+  retry from Windows temporary-directory cleanup and drive-letter case
+  failures; the user closed its E-02 FAIL disposition after local deployment
+  testing. No full Sprint 089 acceptance is inferred.
+- Builder recommendation was ACCEPT. On 2026-10-16, after reporting local
+  build/deployment testing of the VS Code Extension and desktop app, the user
+  separately ACCEPTED and CLOSED Sprint 088. The former E-02 FAIL and E-14
+  BLOCKED/UNAVAILABLE dispositions are closed as PASS; automated run outputs
+  remain preserved as historical evidence. No release, publication, version
+  change, platform certification, or Sprint 089 authorization follows.
+- No V0.14 integrated acceptance, release, publication, version change, or
+  platform certification follows from this execution authorization.
+
 ## V0.14 Sprint 088 Architect Preparation (2026-10-16)
 
 - Sprint 087 was separately accepted by the user on 2026-10-16. Its focused

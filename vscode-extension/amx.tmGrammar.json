@@ -276,6 +276,9 @@
                     "include": "#amx-numbers"
                 },
                 {
+                    "include": "#amx-type-test"
+                },
+                {
                     "include": "#amx-operators"
                 },
                 {
@@ -507,11 +510,22 @@
             "name": "storage.type.amx"
         },
         "amx-constants": {
-            "match": "\\b(true|false|null)\\b",
+            "match": "\\b(true|false|null|PI|E)\\b",
             "name": "constant.language.amx"
         },
+        "amx-type-test": {
+            "match": "\\b(is)(\\s+)([A-Za-z][A-Za-z0-9_]*)",
+            "captures": {
+                "1": {
+                    "name": "keyword.operator.amx"
+                },
+                "3": {
+                    "name": "storage.type.amx"
+                }
+            }
+        },
         "amx-builtin-functions": {
-            "match": "\\b(sum|min|max|mean|round|abs|sqrt|pow)(?=\\s*\\()",
+            "match": "\\b(sum|min|max|mean|round|abs|sqrt|pow|sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|asinh|acosh|atanh|ln|log|exp|len|trim|left|right|format)(?=\\s*\\()",
             "name": "support.function.builtin.amx"
         },
         "amx-function-calls": {
@@ -523,7 +537,7 @@
             "name": "constant.numeric.amx"
         },
         "amx-operators": {
-            "match": "\\+=|==|!=|>=|<=|=>|=(?!=)|[+*/%^<>-]",
+            "match": "\\+=|==|!=|>=|<=|=>|=(?!=)|\\bis\\b|[+*/%^<>-]",
             "name": "keyword.operator.amx"
         },
         "amx-punctuation": {

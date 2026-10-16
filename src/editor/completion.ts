@@ -32,7 +32,13 @@ const v09ListKeywords = ["add", "remove", "at"];
 const v09UnitKeywords = ["dimension", "unit"];
 const v12Keywords = ["enum", "extends", "override"];
 const v13Keywords = ["diagram"];
+const v14Keywords = ["is"];
 const standardFunctions = ["sum", "min", "max", "mean", "round", "abs", "sqrt", "pow"];
+const v14Functions = [
+	"sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh", "ln", "log", "exp",
+	"len", "trim", "left", "right", "format"
+];
+const standardConstants = ["PI", "E"];
 const primitiveTypes = ["Number", "String", "Boolean", "DateTime"];
 const diagramProperties = ["title", "description", "width", "height"];
 const diagramElements = ["line", "rectangle", "circle", "text"];
@@ -373,6 +379,7 @@ function visibleSymbols(text: string, parsed: OpenAmxDocument, cursorOffset: num
 			case "forExpression": collectLoop(expression); break;
 			case "stringInterpolation": expression.parts.forEach(part => { if (typeof part !== "string") collectExpression(part); }); break;
 			case "binaryExpression": collectExpression(expression.left); collectExpression(expression.right); break;
+			case "typeTestExpression": collectExpression(expression.value); break;
 			case "measurementAttachment":
 			case "measurementConversion": collectExpression(expression.value); break;
 			case "unaryExpression": collectExpression(expression.argument); break;
@@ -431,8 +438,9 @@ export function editorCompletionFacts(
 			?? visible.recordTypes.get(fieldReceiver)?.fields.map(field => field.name) ?? []
 		: [];
 	const facts: EditorCompletionFact[] = [
-		...[...v02Keywords, ...v03Keywords, ...v04Keywords, ...v09ListKeywords, ...v09UnitKeywords, ...v12Keywords, ...v13Keywords].map(label => ({ label, kind: "keyword" as const })),
-		...standardFunctions.map(label => ({ label, kind: "function" as const })),
+		...[...v02Keywords, ...v03Keywords, ...v04Keywords, ...v09ListKeywords, ...v09UnitKeywords, ...v12Keywords, ...v13Keywords, ...v14Keywords].map(label => ({ label, kind: "keyword" as const })),
+		...[...standardFunctions, ...v14Functions].map(label => ({ label, kind: "function" as const })),
+		...standardConstants.map(label => ({ label, kind: "variable" as const })),
 		...[...visible.functions].map(label => ({ label, kind: "function" as const })),
 		...[...visible.types].map(label => ({ label, kind: "class" as const })),
 		...[...visible.variables].map(label => ({ label, kind: "variable" as const })),

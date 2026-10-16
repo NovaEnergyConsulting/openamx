@@ -1,5 +1,39 @@
 # Planning State
 
+## V0.14 Sprint 088 Builder Execution (2026-10-16)
+
+- The user separately authorized Sprint 088 and approved the exact
+  file-by-file implementation/evidence plan on 2026-10-16 before any
+  implementation edits. The starting worktree was clean on
+  `feat/create-v0.14`.
+- The approved source, test, documentation, example, evidence, lifecycle,
+  and generated-output scope is recorded in
+  `planning/sprints/0088-v14-editor-examples-documentation/builder-evidence.md`.
+- Work is limited to existing shared editor authoring services, VS Code
+  grammar/host tests, desktop Help/UI tests, the additive specification,
+  three examples, related tests, and the listed evidence/lifecycle files.
+  Parser, AST, type-checker, evaluator, standard-library, diagnostics, and
+  runtime behavior are excluded.
+- The desktop Playwright configuration uses the Vite workflow harness; no
+  native desktop CDP/launch path was supplied. Harness evidence must be
+  labeled accurately, and native-host verification must not be inferred.
+- Implementation and focused verification are complete: the approved root
+  suite passed 66 tests/0 failures with 875 expectations across five files;
+  the core build, desktop typecheck/web build, desktop UI/Help harness tests
+  (3/0), and `git diff --check` passed. All three examples ran directly
+  through the built CLI.
+- The V0.14-specific VS Code host tests passed. The full Extension
+  Development Host suite retained Windows cleanup/path failures (17 passed,
+  8 failed on the final retry); see the Sprint 088 evidence for first
+  attempts and baseline comparison.
+- Builder recommendation: ACCEPT. The user separately ACCEPTED and CLOSED
+  Sprint 088 on 2026-10-16 after reporting local build/deployment testing of
+  the VS Code Extension and desktop app. The former E-02 FAIL and E-14
+  BLOCKED/UNAVAILABLE dispositions are closed as PASS; their earlier
+  automated/harness results remain recorded as historical evidence.
+  Sprint 089 integrated acceptance, V0.14 closeout, release, publication,
+  version changes, and platform certification remain separate.
+
 ## V0.14 Sprint 087 Builder Execution (2026-10-16)
 
 - The user separately authorized Sprint 087 and approved the exact

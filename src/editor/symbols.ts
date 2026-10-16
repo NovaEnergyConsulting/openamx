@@ -1,4 +1,4 @@
-import type { EnumDeclarationNode, OpenAmxDocument, StatementNode, V02ExpressionNode } from "../ast/types";
+import type { EnumDeclarationNode, OpenAmxDocument, StatementNode, TypeReferenceNode, V02ExpressionNode } from "../ast/types";
 import type { EditorModuleAnalysis, EditorModuleRecord } from "./moduleAnalysis";
 import { declarationNameRange, sourceOffset, sourceTokenRange, type EditorRange } from "./sourceRanges";
 import type { CheckedType } from "../typechecker/checkDocument";
@@ -112,6 +112,10 @@ export function editorSymbolFacts(
 			const range = sourceTokenRange(moduleText, source, name);
 			if (range) result.push({ ...target, ...range, file, declaration: false });
 		};
+		const typeReference = (reference: TypeReferenceNode, scope: Map<string, EditorSymbolFact>) => {
+			if (reference.type === "namedType" && reference.name) add(reference.source, reference.name, scope.get(reference.name));
+			else if (reference.element) typeReference(reference.element, scope);
+		};
 		const expression = (node: V02ExpressionNode, scope = visible): void => {
 			if (!analysis && statements.some(statement => statement.type === "importDeclaration")) return;
 			switch (node.type) {
@@ -120,6 +124,7 @@ export function editorSymbolFacts(
 				case "functionCall": add(node.source, node.callee, scope.get(node.callee)); node.arguments.forEach(argument => expression(argument, scope)); break;
 				case "recordConstructor": add(node.source, node.name, scope.get(node.name)); node.fields.forEach(field => expression(field.expression, scope)); break;
 				case "binaryExpression": expression(node.left, scope); expression(node.right, scope); break;
+				case "typeTestExpression": expression(node.value, scope); typeReference(node.target, scope); break;
 				case "measurementAttachment":
 				case "measurementConversion": add(node.unitSource, node.unit, scope.get(node.unit)); expression(node.value, scope); break;
 				case "unaryExpression": expression(node.argument, scope); break;

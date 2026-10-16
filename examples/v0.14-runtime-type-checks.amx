@@ -1,0 +1,69 @@
+---
+title: V0.14 runtime type checks
+---
+# Runtime type checks
+
+`is` returns a Boolean for both matches and valid mismatches. Record checks
+are structural; enum checks use declared member values.
+
+```amx
+type Point {
+  x: Number
+}
+
+type DetailedPoint {
+  x: Number
+  y: Number
+}
+
+type Note {
+  text?: String?
+}
+
+enum State = {
+  READY = 1,
+  CLOSED = 2
+}
+
+enum OtherState = {
+  STARTED = 1
+}
+
+dimension Length
+dimension Time
+dimension Dimensionless = Length / Length
+unit meter: Length
+unit centimeter = 0.01 * meter
+unit second: Time
+unit ratio = meter / meter
+
+let detailed: DetailedPoint = DetailedPoint { x = 1, y = 2 }
+let structuralMatch = detailed is Point
+let primitiveMatch = 42 is Number
+let primitiveMismatch = 42 is String
+
+let absentNote: Note = Note {}
+let absentOptionalField = absentNote is Note
+let nullableNull = null is String?
+let nonNullableNull = null is String
+
+let values: Number[] = [1, 2, 3]
+let allNumbers = values is Number[]
+let empty: Number[] = []
+let emptyMatchesOtherElementType = empty is String[]
+
+let enumMember = 1 is State
+let sharedMemberMatchesBoth = 1 is State and 1 is OtherState
+
+let distance: Length = 100 centimeter
+let lengthMatch = distance is Length
+let dimensionMismatch = distance is Time
+let dimensionless: Dimensionless = 2 ratio
+let dimensionlessMatch = dimensionless is Dimensionless
+let numberIsNotMeasurement = 2 is Dimensionless
+```
+
+The predicates demonstrate structural/primitive results, absent optional
+fields, nullable targets, recursively checked and empty lists, enum member
+membership, and dimension-vector matching. Extra record fields are permitted;
+a Number does not match a dimensionless Measurement target.

@@ -9,6 +9,82 @@ import { parseDocumentText } from '../../../src/parser/parseDocument';
 import { declarationRange, tokenRange } from '../providers/symbolRanges';
 
 suite('OpenAMX providers', () => {
+  test('provides V0.14 completion, type-target navigation, diagnostics, and formatting in the Extension Development Host', async () => {
+    const content = [
+      '😀 narrative',
+      '```amx',
+      'type Asset {',
+      '  id: Number',
+      '}',
+      'let value: Number = 1',
+      'let checked = value is Asset',
+      'let sine = sin(PI / 2)',
+      'let formatted = format(value, "0.00")',
+      '```'
+    ].join('\r\n');
+    const document = await vscode.workspace.openTextDocument({ language: 'amx', content });
+    await vscode.window.showTextDocument(document);
+    assert.equal((await waitForDiagnostics(document.uri, true)).length, 0);
+
+    const targetOffset = content.lastIndexOf('Asset');
+    const definition = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeDefinitionProvider', document.uri, document.positionAt(targetOffset)
+    );
+    assert.equal(definition?.length, 1);
+    assert.deepEqual(definition[0].range, new vscode.Range(2, 5, 2, 10));
+    const hover = await vscode.commands.executeCommand<vscode.Hover[]>(
+      'vscode.executeHoverProvider', document.uri, document.positionAt(targetOffset)
+    );
+    assert.ok(hover?.length);
+
+    const completionContent = [
+      '```amx',
+      'type Asset {',
+      '  id: Number',
+      '}',
+      'let value: Number = 1',
+      'let checked = value is ',
+      '```'
+    ].join('\n');
+    const incomplete = await vscode.workspace.openTextDocument({ language: 'amx', content: completionContent });
+    await vscode.window.showTextDocument(incomplete);
+    const cursor = completionContent.indexOf('let checked = value is ') + 'let checked = value is '.length;
+    const completions = await vscode.commands.executeCommand<vscode.CompletionList>(
+      'vscode.executeCompletionItemProvider', incomplete.uri, incomplete.positionAt(cursor)
+    );
+    const labels = new Set(completions?.items.map(item => String(item.label)) ?? []);
+    for (const label of ['Asset', 'PI', 'E', 'sin', 'exp', 'len', 'trim', 'left', 'right', 'format']) {
+      assert.ok(labels.has(label), `missing V0.14 completion: ${label}`);
+    }
+
+    const formatting = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+      'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 2, insertSpaces: true }
+    );
+    if (formatting?.length) {
+      const workspaceEdit = new vscode.WorkspaceEdit();
+      formatting.forEach(edit => workspaceEdit.replace(document.uri, edit.range, edit.newText));
+      assert.ok(await vscode.workspace.applyEdit(workspaceEdit));
+    }
+    assert.equal((await vscode.commands.executeCommand<vscode.TextEdit[]>(
+      'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 2, insertSpaces: true }
+    ))?.length ?? 0, 0);
+
+    const invalidContent = [
+      '😀 narrative',
+      '```amx',
+      'let value = 1',
+      'let checked = value is Missing',
+      '```'
+    ].join('\r\n');
+    const invalid = await vscode.workspace.openTextDocument({ language: 'amx', content: invalidContent });
+    await vscode.window.showTextDocument(invalid);
+    const diagnostic = (await waitForDiagnostics(invalid.uri, true)).find(item => item.code === 'AMX3001');
+    assert.ok(diagnostic);
+    const missingOffset = invalidContent.indexOf('Missing');
+    assert.deepEqual(diagnostic.range.start, invalid.positionAt(missingOffset));
+    assert.equal(invalid.getText(diagnostic.range), 'M');
+  });
+
   test('rejects an in-root symlink import without a fabricated definition', async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'openamx-navigation-link-'));
     const entryPath = path.join(directory, 'entry.amx');
@@ -365,7 +441,7 @@ suite('OpenAMX providers', () => {
       assert.ok(!outsideLabels.has(fn), fn);
     }
   });
-  test('tokenizes V0.9-V0.13 syntax with the actual TextMate grammar and preserves Markdown boundaries', async () => {
+  test('tokenizes V0.9-V0.14 syntax with the actual TextMate grammar and preserves Markdown boundaries', async () => {
     const extension = vscode.extensions.getExtension('EngineersTools.openamx-vscode');
     assert.ok(extension);
     const wasm = await fs.readFile(require.resolve('vscode-oniguruma/release/onig.wasm'));
@@ -389,13 +465,20 @@ suite('OpenAMX providers', () => {
         return { line, tokens: result.tokens };
       });
     };
+    const mathLine = 'let v14Math = sin(PI) + cos(1) + tan(1) + asin(1) + acos(1) + atan(1) + sinh(1) + cosh(1) + tanh(1) + asinh(1) + acosh(1) + atanh(1) + ln(1) + log(1) + exp(E)';
+    const textLine = 'let v14Text = len("x") + trim(" x ") + left("x", 1) + right("x", 1) + format(1, "0")';
     const lines = tokenize([
       'Narrative dimension and unit remain prose.',
+      'Narrative is PI and sin remain prose.',
       '```amx',
       'dimension Length',
       'unit meter: Length',
       'let rows: Number[] = [1, 2, 3]',
       'let second = rows[2]',
+      'let candidate = 1',
+      'let typeTest = candidate is Sample',
+      mathLine,
+      textLine,
       'let converted = 2 kilometer in meter',
       'add 4 to rows at 2',
       'remove 1 from rows',
@@ -460,6 +543,14 @@ suite('OpenAMX providers', () => {
     hasScope('unit meter: Length', 'unit', 'keyword.control.amx');
     hasScope('let rows: Number[] = [1, 2, 3]', '1', 'constant.numeric.amx');
     hasScope('let second = rows[2]', '2', 'constant.numeric.amx');
+    hasScope('let typeTest = candidate is Sample', 'is', 'keyword.operator.amx');
+    hasScope('let typeTest = candidate is Sample', 'Sample', 'storage.type.amx');
+    for (const fn of [
+      'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh', 'ln', 'log', 'exp'
+    ]) hasScope(mathLine, fn, 'support.function.builtin.amx');
+    for (const fn of ['len', 'trim', 'left', 'right', 'format']) hasScope(textLine, fn, 'support.function.builtin.amx');
+    hasScope(mathLine, 'PI', 'constant.language.amx');
+    hasScope(mathLine, 'E', 'constant.language.amx');
     hasScope('let converted = 2 kilometer in meter', 'in', 'keyword.control.amx');
     hasScope('add 4 to rows at 2', 'add', 'keyword.control.amx');
     hasScope('remove 1 from rows', 'remove', 'keyword.control.amx');
@@ -490,6 +581,8 @@ suite('OpenAMX providers', () => {
     hasScope('let label = "escaped \\${notCode}; value ${second}"', '${second}', 'meta.interpolation.string.amx');
     hasScope('let malformedInterpolation = "${second + }"', '+', 'keyword.operator.amx');
     lacksScope('Narrative dimension and unit remain prose.', 'dimension', 'keyword.control.amx');
+    lacksScope('Narrative is PI and sin remain prose.', 'PI', 'constant.language.amx');
+    lacksScope('Narrative is PI and sin remain prose.', 'sin', 'support.function.builtin.amx');
     lacksScope('let inert = 1 meter', 'let', 'keyword.control.amx');
     hasScope('Narrative {{2 meter}} and unit.', '2', 'constant.numeric.amx');
     lacksScope('Narrative {{2 meter}} and unit.', 'and', 'meta.interpolation.amx');

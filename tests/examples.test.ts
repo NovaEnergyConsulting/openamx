@@ -2,10 +2,11 @@ import { describe, expect, it } from "bun:test";
 import { cp, mkdir, mkdtemp, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import * as path from "path";
-import { parseDocument } from "../src/parser/parseDocument";
+import { parseDocument, parseDocumentText } from "../src/parser/parseDocument";
 import { evaluateDocument } from "../src/runtime/evaluateDocument";
 import { analyzeEditorModules } from "../src/editor/moduleAnalysis";
 import { renderHtml } from "../src/renderer/renderHtml";
+import { formatAmxDocument } from "../src/formatter/formatAmx";
 
 async function runCli(...arguments_: string[]) {
   const command = Bun.spawnSync([process.execPath, "run", "src/cli.ts", ...arguments_]);
@@ -121,6 +122,152 @@ describe("V0.13 diagram documentation and examples", () => {
         expect(source).toContain("arrow: \"end\"");
         expect(source).toContain("x1: indicatorX(t)");
       }
+    }
+  });
+});
+
+describe("V0.14 language documentation and examples", () => {
+  it("links the additive specification and indexes searchable desktop Help", async () => {
+    const readme = await Bun.file("README.md").text();
+    const extensionHelp = await Bun.file("vscode-extension/README.md").text();
+    const specification = await Bun.file("docs/language-spec-v0.14.md").text();
+    const normalizedSpecification = specification.replace(/\s+/g, " ");
+    const help = JSON.parse(await Bun.file("desktop-app/src/mainview/components/help-content.json").text()) as {
+      topics: Array<{ id: string; terms: string; steps: string[] }>;
+    };
+    const topic = help.topics.find(item => item.id === "language-v0.14");
+
+    expect(readme).toContain("[V0.14 language specification](docs/language-spec-v0.14.md)");
+    expect(readme).toContain("[runtime type checks](examples/v0.14-runtime-type-checks.amx)");
+    expect(readme).toContain("[math and Measurements](examples/v0.14-math-and-measurements.amx)");
+    expect(readme).toContain("[text and formatting](examples/v0.14-text-and-formatting.amx)");
+    expect(extensionHelp).toContain("../docs/language-spec-v0.14.md");
+    expect(extensionHelp).toContain("../examples/v0.14-runtime-type-checks.amx");
+    expect(extensionHelp).toContain("../examples/v0.14-math-and-measurements.amx");
+    expect(extensionHelp).toContain("../examples/v0.14-text-and-formatting.amx");
+    expect(normalizedSpecification).toContain("does not claim integrated milestone acceptance, release, publication, or platform certification");
+    expect(normalizedSpecification).toContain("U+0009–U+000D, U+0020, U+0085, U+00A0, U+1680, U+2000–U+200A, U+2028–U+2029, U+202F, U+205F, and U+3000. U+FEFF and U+180E are excluded.");
+    expect(specification).toContain('DecimalPart ::= "." "0"{1,6}');
+    expect(specification).toContain("The only supported locales are");
+    expect(specification).toContain("Decimal ties round half away from zero");
+    expect(specification).toContain("negative zero formats as positive zero");
+    expect(specification).toContain("appends one ASCII space");
+    expect(specification).toContain("AMXSL004");
+    expect(specification).toContain("AMXSL005");
+    for (const functionName of [
+      "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh", "ln", "log",
+      "exp", "len", "trim", "left", "right", "format"
+    ]) expect(specification).toContain(functionName);
+    expect(specification).toContain("Unicode 15.1");
+    expect(specification).toContain("U+202F narrow no-break space");
+    expect(specification).toContain("AMXSL006");
+    expect(topic?.terms).toContain("Unicode code points");
+    expect(topic?.steps.join(" ")).toContain("A valid mismatch returns false");
+    expect(topic?.steps.join(" ")).toContain("Integrated acceptance, release, and publication remain separate");
+    expect(new Set(help.topics.map(item => item.id)).size).toBe(help.topics.length);
+  });
+
+  it("analyzes and executes the three standalone examples with stable results and idempotent formatting", async () => {
+    const examples = [
+      {
+        path: "examples/v0.14-runtime-type-checks.amx",
+        expected: {
+          structuralMatch: true,
+          primitiveMatch: true,
+          primitiveMismatch: false,
+          absentOptionalField: true,
+          nullableNull: true,
+          nonNullableNull: false,
+          allNumbers: true,
+          emptyMatchesOtherElementType: true,
+          enumMember: true,
+          sharedMemberMatchesBoth: true,
+          lengthMatch: true,
+          dimensionMismatch: false,
+          dimensionlessMatch: true,
+          numberIsNotMeasurement: false
+        }
+      },
+      {
+        path: "examples/v0.14-math-and-measurements.amx",
+        expected: {
+          sine: 1,
+          cosine: 1,
+          tangent: 0,
+          arcSine: Math.PI / 2,
+          arcCosine: 0,
+          arcTangent: Math.PI / 4,
+          naturalLog: 1,
+          commonLog: 2,
+          exponential: Math.E,
+          dimensionlessSine: Math.sin(2),
+          totalDistance: { value: 2, unit: { text: "meter" } },
+          shortestDistance: { value: 1, unit: { text: "meter" } },
+          absoluteDistance: { value: 2, unit: { text: "meter" } },
+          roundedDistance: { value: 1.24, unit: { text: "meter" } },
+          squareRootDistance: { value: 3, unit: { text: "meter" } },
+          squaredDistance: { value: 4, unit: { text: "meter ^ 2" } }
+        }
+      },
+      {
+        path: "examples/v0.14-text-and-formatting.amx",
+        expected: {
+          codePointLength: 3,
+          listLength: 3,
+          combiningSequenceLength: 2,
+          trimmed: "AMX",
+          firstTwo: "A🙂",
+          lastTwo: "🙂B",
+          defaultLeft: "A",
+          emptyRight: "",
+          groupedUS: "1,234.50",
+          groupedGerman: "1.234,50",
+          groupedFrench: "1 234,50",
+          percentage: "12.5%",
+          currency: "-$1,234.50",
+          displayedDistance: "1.25 meter",
+          displayedCentimeters: "125.00 centimeter"
+        }
+      }
+    ];
+
+    for (const example of examples) {
+      const source = await Bun.file(example.path).text();
+      const analysis = analyzeEditorModules(source, example.path);
+      const values = evaluateDocument(analysis.document, example.path);
+      const cliRun = await runCli("run", example.path);
+      const formatted = formatAmxDocument(source);
+
+      expect(cliRun.exitCode).toBe(0);
+      expect(cliRun.stderr).toBe("");
+      expect(values).toMatchObject(example.expected);
+      expect(JSON.parse(cliRun.stdout)).toMatchObject(example.expected);
+      expect(formatAmxDocument(formatted)).toBe(formatted);
+    }
+  });
+
+  it("keeps malformed formatter diagnostics at the accepted original source range", () => {
+    const source = [
+      "---",
+      "fixture: FORMAT-MALFORMED-01",
+      "---",
+      "```amx",
+      'let result = format(1, "0..00")',
+      "```",
+      ""
+    ].join("\n");
+    try {
+      evaluateDocument(parseDocumentText(source), "examples/v0.14-format-diagnostic.amx");
+      throw new Error("Expected an invalid numeric pattern diagnostic");
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: "AMXSL004",
+        message: "Incorrect formatting pattern",
+        line: 5,
+        column: 24
+      });
+      const diagnostic = error as { line: number; column: number };
+      expect(source.split("\n")[diagnostic.line - 1]?.slice(diagnostic.column - 1, diagnostic.column + 6)).toBe('"0..00"');
     }
   });
 });

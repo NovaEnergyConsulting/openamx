@@ -77,6 +77,11 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 			}
 			case "listAccess": expression(node.receiver); expression(node.index); break;
 			case "binaryExpression": expression(node.left); expression(node.right); break;
+			case "typeTestExpression":
+				expression(node.value);
+				add(node.operatorSource, "is", "keyword");
+				typeReference(node.target);
+				break;
 			case "unaryExpression": expression(node.argument); break;
 			case "conditionalExpression": expression(node.test); expression(node.consequent); expression(node.alternate); break;
 			case "bracedIfExpression":

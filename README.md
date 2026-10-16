@@ -178,8 +178,14 @@ Other [examples](examples/) show calculations, tables and charts, typed JSON/CSV
 inputs, local modules, and JSON/CSV outputs. The Asset Management schemas are
 opt-in examples, not domain-certified standards.
 
-The [V0.12 language specification](docs/language-spec-v0.12.md) documents the
-current additive language contract. Try the [record inheritance and enums](examples/v0.12-records-and-enums.amx)
+The [V0.14 language specification](docs/language-spec-v0.14.md) documents the
+runtime type-checking, mathematical, text, and numeric-formatting additions.
+Try the [runtime type checks](examples/v0.14-runtime-type-checks.amx),
+[math and Measurements](examples/v0.14-math-and-measurements.amx), and
+[text and formatting](examples/v0.14-text-and-formatting.amx) examples.
+V0.14 integrated acceptance, release, and publication are tracked separately;
+this documentation does not claim them. The [V0.12 language specification](docs/language-spec-v0.12.md)
+documents its additive language contract. Try the [record inheritance and enums](examples/v0.12-records-and-enums.amx)
 and [braced conditional](examples/v0.12-braced-if.amx) examples. The
 [V0.13 diagram specification](docs/language-spec-v0.13.md) records the approved
 diagram syntax and its implementation limits. Try the

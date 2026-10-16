@@ -1,3 +1,41 @@
+# ARCHITECT BRIEFING — Sprint 088 Builder Closeout
+
+## Where things stand
+Sprint 088 was separately authorized and its exact file-by-file implementation/evidence plan approved by the user on 2026-10-16. The plan was recorded before implementation edits. After reporting local build/deployment testing of both clients, the user separately ACCEPTED and CLOSED Sprint 088 on 2026-10-16. The accepted Sprint 084 contract and Sprint 085-087 implementations remain the behavior authority.
+
+## Executive summary
+**Business outcome**: Make accepted V0.14 features discoverable in shared editor services and both editor clients, document them additively, and demonstrate them with runnable examples without changing language/runtime behavior.
+
+**Current focus**: Sprint 088 is accepted and closed. Sprint 089 remains a separate authorization and integrated-acceptance gate.
+
+**What is proven**: The focused root suite passed 66 tests/0 failures with 875 expectations across five files; core build, desktop typecheck/web build, focused desktop UI/Help tests (3/0), direct CLI execution of all examples, and `git diff --check` passed. V0.14-specific VS Code Development Host tests passed.
+
+**What is not proven/live**: The full VS Code automated host command's 17 passed/8 failed output and the desktop Vite harness scope remain recorded; the user subsequently confirmed local deployed functionality and closed the related FAIL/BLOCKED dispositions as PASS. Sprint 089 integrated acceptance, release, publication, version changes, and platform certification remain separate.
+
+## Readiness signals
+
+| Signal | Status | Evidence |
+|---|---|---|
+| Sprint 084-087 dispositions | passed | Accepted separately; prior-sprint evidence only |
+| Sprint 088 execution authorization and exact plan | passed | User approval recorded before implementation edits |
+| Sprint 088 implementation and surface verification | complete | `planning/sprints/0088-v14-editor-examples-documentation/builder-evidence.md` |
+| VS Code V0.14 host assertions | passed | Actual Extension Development Host; aggregate retains known Windows failures |
+| Desktop CodeMirror/Help UI | passed | Builder Vite harness plus user local build/deployment confirmation |
+| Sprint 088 disposition | accepted and closed | User accepted separately on 2026-10-16 |
+| Sprint 089 integrated acceptance/release | not authorized | Separate gate |
+
+## Approved scope and guardrails
+- The exact file/output list and commands are in the Sprint 088 Builder evidence.
+- Do not modify parser, AST, type-checker, evaluator, standard library, diagnostics, or accepted language/runtime behavior.
+- Stop for a separate plan amendment before editing an additional file.
+- Preserve generated artifacts and prior evidence; do not weaken VS Code path tests or desktop sandbox policy.
+- Do not claim V0.14 integrated acceptance, release, publication, or platform certification.
+
+## Recommended next action
+Sprint 089 remains unauthorised and requires its own separate execution authorization.
+
+---
+
 # ARCHITECT BRIEFING — Sprint 087 Builder Execution
 
 ## Where things stand

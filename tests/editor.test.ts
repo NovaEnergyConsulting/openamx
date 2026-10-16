@@ -8,6 +8,83 @@ import { editorSymbolFacts } from "../src/editor/symbols";
 import { editorCodeActionFacts, editorRenameFact, isSafeRenameIdentifier } from "../src/editor/refactoring";
 import { declarationNameRange, sourceTokenRange } from "../src/editor/sourceRanges";
 
+test("shared V0.14 editor facts expose type tests, built-ins, and type-target navigation", () => {
+	const text = [
+		"😀 Narrative mentions PI and sin but is inert.",
+		"```amx",
+		"type Asset {",
+		"  id: Number",
+		"}",
+		"let value: Number = 1",
+		"let valid = value is Asset",
+		"```",
+		""
+	].join("\r\n");
+	const parsed = parseDocumentText(text);
+	const analysis = analyzeEditorModules(text, "/project/v14-editor.amx");
+	const highlights = editorHighlightFacts(text, parsed);
+	const operator = highlights.find(fact => text.slice(fact.from, fact.to) === "is");
+	const targetOffset = text.lastIndexOf("Asset");
+	const target = highlights.find(fact => fact.kind === "type" && fact.from === targetOffset);
+	const symbols = editorSymbolFacts(text, "/project/v14-editor.amx", parsed, analysis);
+	const declaration = symbols.find(fact => fact.declaration && fact.name === "Asset");
+	const reference = symbols.find(fact => !fact.declaration && fact.name === "Asset" && fact.from === targetOffset);
+
+	expect(analysis.bindingTypes?.get("valid")).toEqual({ kind: "named", name: "Boolean" });
+	expect(operator?.kind).toBe("keyword");
+	expect(target).toMatchObject({ from: targetOffset, to: targetOffset + "Asset".length, kind: "type" });
+	expect(reference?.target).toEqual(declaration?.target);
+	expect(highlights.some(fact => fact.from < text.indexOf("\r\n") && fact.to <= text.indexOf("\r\n"))).toBe(false);
+});
+
+test("shared V0.14 completion offers type targets and built-ins in incomplete expressions", () => {
+	const text = [
+		"```amx",
+		"type Asset {",
+		"  id: Number",
+		"}",
+		"let value: Number = 1",
+		"let checked = value is ",
+		"```",
+		""
+	].join("\n");
+	const cursor = text.indexOf("let checked = value is ") + "let checked = value is ".length;
+	const prepared = prepareEditorCompletion(text, cursor);
+	expect(prepared).toBeDefined();
+	const labels = editorCompletionFacts(prepared!.text, cursor, prepared!.document, undefined, text).map(item => item.label);
+
+	for (const label of [
+		"is", "Asset", "PI", "E", "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh", "asinh",
+		"acosh", "atanh", "ln", "log", "exp", "len", "trim", "left", "right", "format"
+	]) expect(labels).toContain(label);
+});
+
+test("shared V0.14 editor diagnostics retain original type-target ranges", () => {
+	const text = [
+		"😀 Narrative",
+		"```amx",
+		"let value: Number = 1",
+		"let checked = value is Missing",
+		"```",
+		""
+	].join("\r\n");
+	try {
+		analyzeEditorModules(text, "/project/v14-invalid-target.amx");
+		throw new Error("Expected an unknown type-target diagnostic");
+	} catch (error) {
+		expect(error).toMatchObject({
+			code: "AMX3001",
+			file: "/project/v14-invalid-target.amx",
+			line: 4,
+			column: 24
+		});
+		const diagnostic = error as { line: number; column: number };
+		const range = sourceTokenRange(text, { line: diagnostic.line, column: diagnostic.column }, "Missing");
+		expect(range).toBeDefined();
+		expect(text.slice(range!.from, range!.to)).toBe("Missing");
+	}
+});
+
 test("shared editor ranges preserve UTF-16 offsets across CRLF and non-BMP text", () => {
 	const text = "# \u{1F680} report\r\n\r\n```amx\r\nlet base: Number = 2\r\nlet total: Number = base + 1\r\n```\r\n";
 	const document = parseDocumentText(text);

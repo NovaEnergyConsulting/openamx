@@ -1,5 +1,42 @@
 # Planning Questions (Sprint 002)
 
+## V0.14 Sprint 088 Builder Execution (2026-10-16)
+
+- **Execution authorization and exact file plan:** resolved by the user's
+  separate approval on 2026-10-16; the approved plan is recorded in Sprint
+  088 `builder-evidence.md` before implementation edits.
+- **Product contract questions:** none open. Use the accepted Sprint 084
+  contract and Sprints 085-087 implementations without semantic changes.
+- **Desktop native host path:** no native CDP URL or launch/test instructions
+  were supplied to the Builder; the Vite UI harness is reported distinctly.
+  The user later confirmed local build/deployment testing of the desktop app
+  and closed E-14 BLOCKED/UNAVAILABLE as PASS.
+- **Cross-surface evidence:** shared-service, VS Code Extension Development
+  Host, and desktop UI evidence remain separate. Full root/extension/desktop
+  integrated acceptance is Sprint 089.
+- **Automated-test outputs:** preserve the Windows VS Code path/cleanup
+  failures and desktop RPC baseline as recorded; do not weaken path handling,
+  assertions, or sandbox policy. The user later closed the E-02 aggregate
+  disposition as PASS based on local deployment testing; the desktop RPC
+  contract was not rerun.
+- **Verification status:** the final focused root suite passed 66/0 with
+  875 expectations; core build and desktop typecheck/web build passed. The
+  V0.14-specific VS Code host checks and desktop Vite UI/Help tests passed.
+  The final VS Code run recorded 8 Windows failures; this remains historical
+  test output and its Sprint 088 disposition was closed as PASS by the user's
+  local deployment confirmation.
+- **Native desktop:** no CDP/launch path was supplied to the Builder, so the
+  automated UI evidence is labeled as a Vite harness. The user subsequently
+  reported local desktop build/deployment testing and confirmed functionality;
+  the former native-host BLOCKED/UNAVAILABLE disposition is closed as PASS.
+- **Builder recommendation/disposition:** ACCEPT; the user separately
+  ACCEPTED and CLOSED Sprint 088 on 2026-10-16 after local build/deployment
+  testing of both clients. The former E-02 FAIL and E-14
+  BLOCKED/UNAVAILABLE dispositions are closed as PASS. Their prior automated
+  results remain in the evidence log.
+- Sprint 088 does not authorize Sprint 089, release, publication, version
+  changes, or platform certification.
+
 ## V0.14 Sprint 088 Architect Preparation (2026-10-16)
 
 - **Execution authorization and exact file plan:** pending. Obtain separate
