@@ -1,5 +1,48 @@
 # Planning Questions (Sprint 002)
 
+## V0.14 Sprint 089 Builder Execution (2026-10-16)
+
+- **Execution authorization and exact verification/evidence plan:** resolved.
+  The user separately authorized execution and approved the file/output plan
+  on 2026-10-16 before verification began; see Sprint 089 `builder-evidence.md`.
+- **Product contract questions:** none open. The accepted Sprint 084 contract
+  remains authoritative; Sprints 085-088 are baselines, not Sprint 089
+  integrated acceptance.
+- **Native desktop/package evidence:** no supported direct UAT route was
+  available in the approved scope. Record `BLOCKED/UNAVAILABLE`; the Vite
+  harness, package/build result, and prior user report are not new native
+  direct evidence.
+- **Residuals and disposition:** preserve every first failure and retry.
+  Builder recommendation and separate Lead Developer/product-owner V0.14
+  disposition remain pending; no release/publication/version/platform
+  certification authority is granted.
+- **Approved output-path amendment:** the root suite left
+  `openamx-output-test-1792123310870-lr0lt7n6mz/.keep` after the
+  5-second release-packaging test timeout. The user approved preserving this
+  exact artifact and continuing the already-approved host checks; no root
+  suite retry or artifact cleanup is authorized.
+- **Initial root workflow status:** focused root tests 66/0, core build and three
+  example CLI runs PASS; full root suite FAIL (534/1, 3,580 expectations,
+  535 tests/43 files). At that point the remaining VS Code/desktop commands
+  were pending; their final results are recorded below.
+- **Playwright output amendment:** UI retry passed 3/3 using the Vite
+  harness, but its output landed outside the repo due to the approved
+  relative-path error. The user approved preserving the exact external
+  originals and copying the metadata plus three screenshots into the Sprint
+  089 artifact directory; no further test retry is authorized.
+- **Updated test status:** VS Code aggregate 17 passed/8 failed; desktop
+  typecheck and web build pass, RPC contract fails on the observed sandbox
+  occurrence assertion, and UI harness retry passes 3/3. Direct native
+  desktop/package acceptance remains pending disposition as
+  `BLOCKED/UNAVAILABLE`.
+- **Builder recommendation:** `BLOCKED/OPEN` because the root, VS Code, and
+  RPC aggregates have unresolved failures and direct native acceptance is
+  unavailable.
+- **Separate disposition:** the user separately ACCEPTED/CLOSED Sprint 089
+  on 2026-10-16 with named follow-up owners. The raw FAIL/BLOCKED statuses
+  remain unchanged; release/publication/version/platform authority is not
+  granted.
+
 ## V0.14 Sprint 089 Architect Preparation (2026-10-16)
 
 - **Execution authorization and exact verification/evidence plan:** pending.

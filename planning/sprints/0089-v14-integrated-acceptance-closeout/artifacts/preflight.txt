@@ -1,0 +1,45 @@
+﻿Sprint 089 preflight
+Recorded at: 2026-10-16T12:00:54.9322782+08:00
+Working directory: C:\Users\gamez\Programming\openamx
+OS: Windows_NT
+PowerShell: 5.1.26100.9711
+Bun: 1.4.2
+Node: v24.13.1
+Git: git version 2.56.0.windows.2
+Branch: feat/create-v0.14
+Starting worktree before approval edits: clean on feat/create-v0.14
+The only worktree changes at capture time are approved Sprint 089 evidence/lifecycle edits.
+Existing desktop-app/test-results was not copied or modified; Playwright will use a new Sprint 089 output directory.
+Pre-run generated output snapshot completed; no existing output was deleted.
+## feat/create-v0.14
+ M planning/ARCHITECT_BRIEFING.md
+ M planning/STATUS.json
+ M planning/decisions.md
+ M planning/questions.md
+ M planning/sprints/0089-v14-integrated-acceptance-closeout/builder-evidence.md
+ M planning/state.md
+
+Supplemental verification tool versions:
+TypeScript 5.9.3
+Playwright 1.63.0
+Vite 6.4.3
+VS Code Extension Development Host 1.85.0
+Electrobun 2.0.1 (desktop config)
+Output snapshot: 862 files, 277324488 bytes, stored at the approved session backup path.
+Desktop .hutch/devkit was an existing ignored cache (timestamps dated 2026-10-13); typecheck reported prepare complete.
+The original desktop-app/test-results artifacts retained 2026-10-16 09:51 timestamps; the three Sprint 089 UI screenshots are stored in the approved artifacts folder and external originals were preserved.
+Final hygiene check started: 2026-10-16T12:17:50.2664077+08:00
+Command: git diff --check
+GIT_DIFF_CHECK_EXIT_CODE=0
+
+Final hygiene check: 2026-10-16T12:18:36.8765471+08:00
+Command: git diff --check
+FINAL_GIT_DIFF_CHECK_EXIT_CODE=0
+
+Post-disposition hygiene check: 2026-10-16T12:20:52.4630566+08:00
+Command: git diff --check
+POST_DISPOSITION_GIT_DIFF_CHECK_EXIT_CODE=0
+
+Final post-disposition diff check: 2026-10-16T12:21:14.8692037+08:00
+Command: git diff --check
+FINAL_POST_DISPOSITION_DIFF_CHECK_EXIT_CODE=0

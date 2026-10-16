@@ -1,3 +1,46 @@
+# ARCHITECT BRIEFING — Sprint 089 Builder Evidence Submission
+
+## Where things stand
+Sprint 089's approved verification is complete and the 30-requirement/44-fixture evidence matrix is populated. The Builder recommends BLOCKED/OPEN because the full root aggregate, VS Code host aggregate, and desktop RPC contract have failures, and direct native desktop acceptance is unavailable. The user separately ACCEPTED/CLOSED Sprint 089 on 2026-10-16 with named residual owners; the raw failure/unavailable statuses remain unchanged.
+
+## Executive summary
+**Business outcome**: Establish integrated V0.14 evidence without changing language, editor, desktop, security, or release behavior.
+
+**Current focus**: Submit the evidence and residual ownership for a separate V0.14 disposition.
+
+**What is proven**: All 44 fixture IDs are represented and referenced by focused tests. Focused root acceptance passed 66 tests/0 failures with 875 expectations; core build and all three example CLI runs passed; shared editor/docs/help/example checks, desktop typecheck/web build, and the Vite-harness UI retry passed.
+
+**What is not proven/live**: Full root `bun test` failed 534/1 on a release-packaging timeout; VS Code Extension Development Host ended 17/8 with Windows cleanup/path failures; desktop RPC failed its sandbox-occurrence assertion; direct native/package acceptance is BLOCKED/UNAVAILABLE. The user accepted Sprint 089/V0.14 closeout with those named residuals; release/publication/version/platform authority remains not granted.
+
+## Readiness signals
+
+| Signal | Status | Evidence |
+|---|---|---|
+| Sprint 084-089 dispositions | passed | Sprints 084-088 accepted separately; user accepted Sprint 089 with named residuals |
+| Sprint 089 authorization and exact plan | passed | User approval recorded before integrated workflows |
+| Focused V0.14 fixtures, core build, and examples | passed | 66/0 focused tests; build and three CLI runs; matrix covers 30 requirements and 44 fixtures |
+| Integrated aggregates and native acceptance | attention | Root 534/1; VS Code 17/8; RPC assertion failure; native direct test unavailable |
+
+## Recommended next Architect action
+**Do**: Track the accepted residuals with their named owners; request separate corrective authorization if remediation is needed.
+**Owner**: Root test/release owner; VS Code extension/test owner; desktop RPC/security owner; desktop owner for native UAT.
+**Decision**: Sprint 089 is ACCEPTED/CLOSED with named residuals by the user; Builder recommendation remains BLOCKED/OPEN and release authority is not granted.
+
+## Evidence
+- Exact commands, versions, output preservation, 30/44 trace matrix, first failures, retries, screenshots/logs, owners, and raw results are in `planning/sprints/0089-v14-integrated-acceptance-closeout/builder-evidence.md`.
+- Existing outputs were snapshotted before builds; prior Playwright results remain untouched; both approved output-path amendments and their artifacts are documented.
+- No source, test, fixture, specification, example, dependency, package, release, or version files were changed.
+
+## Plan corrections
+- The root test suite left an unexpected `.keep` artifact; the user approved retaining that exact path and continuing without cleanup or retry.
+- The first Playwright `--output` path resolved outside the repository. The user approved preserving originals and copying the exact four artifacts into Sprint 089's evidence directory. No test/config change or further retry was made.
+
+## Validation / test status
+**Tests:** 534 passing, 1 failing.
+Focused V0.14/editor/example tests: 66 passing, 0 failing, 875 expectations. VS Code host: 17 passing, 8 failing. Desktop UI harness retry: 3 passing, 0 failing; direct native acceptance BLOCKED/UNAVAILABLE.
+
+---
+
 # ARCHITECT BRIEFING — Sprint 088 Builder Closeout
 
 ## Where things stand

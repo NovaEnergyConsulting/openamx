@@ -1,5 +1,80 @@
 # Planning Decisions
 
+## V0.14 Sprint 089 Builder Authorization (2026-10-16)
+
+- The user explicitly authorized Sprint 089 integrated verification and
+  approved the exact file/output plan on 2026-10-16. Approval was obtained
+  before tests ran or evidence/ledger files changed.
+- The approved existing files are Sprint 089 `builder-evidence.md`,
+  `planning/state.md`, `planning/decisions.md`, `planning/questions.md`,
+  `planning/STATUS.json`, and `planning/ARCHITECT_BRIEFING.md`. New logs and
+  UI artifacts are confined to Sprint 089 `artifacts/`.
+- Starting environment: Windows_NT / PowerShell 5.1.26100.9711, branch
+  `feat/create-v0.14`, clean worktree, Bun 1.4.2, Node.js v24.13.1, Git
+  2.56.0.windows.2. Existing mutable generated output trees are snapshotted
+  outside the repository before commands that may regenerate them; existing
+  test output and historical artifacts are not cleaned.
+- Verification is limited to the approved core, example, VS Code host,
+  desktop typecheck/web/RPC/UI workflows. Native/package acceptance remains
+  conditional on an existing supported direct-test route; release workflows
+  are excluded.
+- Sprint 089 is verification/closeout only. Any product defect requires
+  separate corrective authorization. Builder recommendation and V0.14
+  disposition remain pending; no release, publication, version change, or
+  platform certification is authorized.
+
+## V0.14 Sprint 089 Output-Path Amendment (2026-10-16)
+
+- The first authorized full root `bun test` run failed with 534 passed and
+  1 failed (3,580 expectations; 535 tests/43 files). One desktop release
+  packaging test timed out after 5,000 ms and the runner reported one
+  dangling process.
+- That run left
+  `openamx-output-test-1792123310870-lr0lt7n6mz/.keep` untracked at the
+  repository root. On 2026-10-16, the user approved preserving that exact
+  path unchanged and continuing the already-approved VS Code/desktop checks.
+  A root-suite retry was not authorized. No test or product code is changed.
+- The Sprint 089 evidence records the exact test failure, log, new output
+  path, and user-approved amendment. All remaining Sprint 089 statuses and
+  disposition are still pending.
+
+## V0.14 Sprint 089 Playwright Output Amendment (2026-10-16)
+
+- The focused UI retry passed 3/3 through the Vite harness, but the approved
+  Playwright `--output` argument resolved to
+  `C:\Users\gamez\Programming\planning\sprints\0089-v14-integrated-acceptance-closeout\artifacts\desktop-ui\`,
+  outside the repository. This was a path-planning error; the historical
+  `desktop-app/test-results/` artifacts were not overwritten.
+- The user approved preserving the external originals unchanged and copying
+  their `.last-run.json` and three screenshots into the approved Sprint 089
+  artifact directory. This amendment authorizes evidence reconciliation and
+  `git diff --check` only; it authorizes no further test retry.
+
+## V0.14 Sprint 089 Builder Evidence Submission (2026-10-16)
+
+- All 30 Sprint 084 requirement IDs and 44 canonical fixture IDs are
+  represented in Sprint 089 evidence. A source audit found 44/44 canonical
+  fixture IDs in the focused test sources; the focused selection passed
+  66/0 with 875 expectations.
+- Core build, three example CLI runs, shared editor/docs/examples checks,
+  desktop typecheck/web build, and desktop Vite-harness UI retry passed.
+- Full root suite failed 534/1 (3,580 expectations; 535 tests/43 files) on
+  a 5-second desktop release-packaging test timeout. The VS Code Extension
+  Development Host aggregate failed 17/8, with both V0.14-specific tests
+  passing and the known Windows cleanup/path failures remaining. Desktop
+  RPC failed the sandbox-occurrence assertion (expected 2, actual 1).
+  Native/package acceptance is BLOCKED/UNAVAILABLE because no supported
+  direct UAT route was available in the approved scope.
+- Both unexpected output-path events and user-approved amendments are
+  preserved in Sprint 089 evidence; no test/source/security/release behavior
+  was changed and no artifact was deleted.
+- **Builder recommendation: BLOCKED/OPEN.** Separate Lead Developer/product-
+  owner disposition: the user separately ACCEPTED/CLOSED Sprint 089 on
+  2026-10-16 with named residuals/owners recorded in Sprint 089 evidence.
+  The Builder recommendation and raw FAIL/BLOCKED statuses remain unchanged.
+  No release, publication, version change, or platform certification is
+  authorized.
+
 ## V0.14 Sprint 089 Architect Preparation (2026-10-16)
 
 - Sprint 088 was separately ACCEPTED and CLOSED by the user on 2026-10-16.

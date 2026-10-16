@@ -1,5 +1,44 @@
 # Planning State
 
+## V0.14 Sprint 089 Builder Execution (2026-10-16)
+
+- The user separately authorized Sprint 089 execution and approved the exact
+  verification/file/output plan on 2026-10-16, before any integrated
+  workflow or evidence edit.
+- The starting environment was Windows_NT / PowerShell 5.1.26100.9711 on
+  `feat/create-v0.14`, with a clean worktree; Bun 1.4.2, Node.js v24.13.1,
+  and Git 2.56.0.windows.2. The exact repository path and preservation
+  snapshot plan are recorded in Sprint 089 `builder-evidence.md`.
+- Sprint 084-088 remain accepted baselines. Sprint 089 verification is
+  complete: focused root selection 66/0 with 875 expectations, core build
+  and three example CLI runs passed, and the full root suite recorded 534/1
+  across 535 tests after one release-packaging test timed out at 5 seconds.
+  VS Code host aggregate was 17/8; desktop typecheck/web build passed, RPC
+  contract failed, and desktop Vite-harness UI retry passed 3/0. Direct
+  native/package acceptance is BLOCKED/UNAVAILABLE.
+- The full suite left the untracked root artifact
+  `openamx-output-test-1792123310870-lr0lt7n6mz/.keep`. The user approved
+  preserving this exact path unchanged and continuing the already-approved
+  host workflows; no cleanup or full-suite retry is authorized.
+- The desktop UI retry passed 3/3 through the Vite harness but its approved
+  `--output` path resolved outside the repository at
+  `C:\Users\gamez\Programming\planning\sprints\0089-v14-integrated-acceptance-closeout\artifacts\desktop-ui\`.
+  The user approved preserving those external originals and copying the
+  exact four Playwright outputs to the Sprint 089 artifact directory. The
+  historical `desktop-app/test-results/` files were not overwritten.
+- Builder recommendation: BLOCKED/OPEN due the full-suite, VS Code aggregate,
+  desktop RPC, and native acceptance residuals. The separate V0.14
+  Lead Developer/product-owner separately ACCEPTED/CLOSED Sprint 089 on
+  2026-10-16 with named residual owners recorded in Sprint 089 evidence.
+  The raw failures and native BLOCKED/UNAVAILABLE status remain unchanged;
+  no release authority follows.
+- Changes are limited to approved evidence/lifecycle files and new Sprint 089
+  logs/screenshots. No product, test, fixture, dependency, package, release,
+  or version changes are authorized.
+- Builder recommendation and the separate V0.14 Lead Developer/product-owner
+  disposition remain pending. Release/publication/version/platform
+  certification authority is not granted.
+
 ## V0.14 Sprint 088 Builder Execution (2026-10-16)
 
 - The user separately authorized Sprint 088 and approved the exact
