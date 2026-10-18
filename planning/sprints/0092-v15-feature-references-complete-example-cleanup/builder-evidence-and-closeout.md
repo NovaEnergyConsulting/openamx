@@ -2,13 +2,12 @@
 
 ## Builder status and recommendation
 
-**Current status: `BLOCKED/OPEN` pending a separate Lead Developer/product-owner
-disposition.**
+**Final status: `ACCEPTED/CLOSED`.**
 
-The Builder recommends `ACCEPTED/CLOSED` for the approved Sprint 092 scope,
-subject to the residual owners below. This record is implementation evidence
-and a closeout request; it is not the required product-owner disposition.
-Sprint 093 has not been started.
+The Builder recommended `ACCEPTED/CLOSED` for the approved Sprint 092 scope,
+subject to the residual owners below. A separate user closeout disposition
+was received on 2026-10-18: `ACCEPTED/CLOSED`. Sprint 093 had not been started
+at closeout.
 
 ## Entry gate and authorization
 
@@ -159,7 +158,7 @@ platform claim is made.
 | `V15-REF-OUTPUT-01` | **PASS** | All four HTML snapshots and the user PDF match their starting SHA-256 hashes; local project state remains present. |
 | `V15-REF-TEST-01` | **PASS** | Approved build, focused test command, output checks, invalid-input checks, and `git diff --check` pass. |
 | `V15-REF-SCOPE-01` | **PASS** | No runtime, editor, renderer, packaging, desktop, broad documentation/reference migration, release, or publication change is included. |
-| `V15-REF-CLOSEOUT-01` | **BLOCKED** | Builder evidence and separate closeout request are ready; Lead Developer/product-owner disposition is pending. |
+| `V15-REF-CLOSEOUT-01` | **PASS** | Builder evidence, residual owners, and the separate `ACCEPTED/CLOSED` disposition received on 2026-10-18 are recorded below. |
 
 ## Residual files and owners
 
@@ -183,14 +182,10 @@ No compatibility path is being represented as the canonical guide source.
 The new `examples/data/measurement-trips.json` is the guide's route input;
 the old `examples/v09-trips.json` remains only for its deferred consumer.
 
-## Separate Lead Developer/product-owner closeout request
+## Separate Lead Developer/product-owner disposition
 
-Please record a separate dated disposition for the authorized Sprint 092
-scope:
+On 2026-10-18, the user separately approved Sprint 092 and authorized closeout.
 
-- `ACCEPTED/CLOSED`, with any exceptions or residual-owner changes; or
-- `BLOCKED/OPEN`, with the blocking evidence and follow-up owner.
-
-The Builder recommendation is `ACCEPTED/CLOSED` within the approved plan and
-focused evidence above. Until that separate disposition is recorded, Sprint
-092 remains `BLOCKED/OPEN`; do not begin Sprint 093.
+- Disposition: `ACCEPTED/CLOSED`.
+- Exceptions: None stated.
+- Residual owners and removal conditions: remain as recorded above.
