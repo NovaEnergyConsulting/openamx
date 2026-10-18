@@ -17,8 +17,18 @@ async function runCli(...arguments_: string[]) {
   };
 }
 
-function normalizeLineEndings(text: string): string {
-  return text.replace(/\r\n/g, "\n").replace(/^  <meta http-equiv="Content-Security-Policy"[^\n]*\n/m, "");
+async function renderToTemporaryHtml(inputPath: string, ...arguments_: string[]): Promise<string> {
+  const directory = await mkdtemp(path.join(tmpdir(), "openamx-example-render-"));
+  try {
+    const outputPath = path.join(directory, "rendered.html");
+    const result = await runCli("render", inputPath, "--out", outputPath, ...arguments_);
+    if (result.exitCode !== 0) {
+      throw new Error(`Render failed (${result.exitCode}):\n${result.stderr}\n${result.stdout}`);
+    }
+    return await Bun.file(outputPath).text();
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 
 describe("V0.9 user documentation", () => {
@@ -58,12 +68,12 @@ describe("V0.12 language documentation and examples", () => {
     expect(specification).toContain("AMX3011");
     expect(specification).toContain("AMX3021");
 
-    const recordsPath = "examples/v0.12-records-and-enums.amx";
+    const recordsPath = "tests/fixtures/examples/v0.12-records-and-enums.amx";
     const records = evaluateDocument(await parseDocument(recordsPath), recordsPath);
     expect(records.currentStatus).toBe(2);
     expect(records.asset).toMatchObject({ id: "A-1", name: "Pump", status: 2 });
 
-    const ifPath = "examples/v0.12-braced-if.amx";
+    const ifPath = "tests/fixtures/examples/v0.12-braced-if.amx";
     const conditional = evaluateDocument(await parseDocument(ifPath), ifPath);
     expect(conditional.description).toBe("high");
     expect(conditional.adjustedPriority).toBe(8);
@@ -98,8 +108,8 @@ describe("V0.13 diagram documentation and examples", () => {
 
   it("analyzes and renders both runnable examples with their approved meanings", async () => {
     const examples = [
-      { path: "examples/v0.13-crank-slider.amx", title: "Crank-slider mechanism" },
-      { path: "examples/v0.13-battery-resistor.amx", title: "Battery-resistor DC circuit" }
+      { path: "tests/fixtures/examples/v0.13-crank-slider.amx", title: "Crank-slider mechanism" },
+      { path: "tests/fixtures/examples/v0.13-battery-resistor.amx", title: "Battery-resistor DC circuit" }
     ];
     for (const example of examples) {
       const source = await Bun.file(example.path).text();
@@ -172,7 +182,7 @@ describe("V0.14 language documentation and examples", () => {
   it("analyzes and executes the three standalone examples with stable results and idempotent formatting", async () => {
     const examples = [
       {
-        path: "examples/v0.14-runtime-type-checks.amx",
+        path: "tests/fixtures/examples/v0.14-runtime-type-checks.amx",
         expected: {
           structuralMatch: true,
           primitiveMatch: true,
@@ -191,7 +201,7 @@ describe("V0.14 language documentation and examples", () => {
         }
       },
       {
-        path: "examples/v0.14-math-and-measurements.amx",
+        path: "tests/fixtures/examples/v0.14-math-and-measurements.amx",
         expected: {
           sine: 1,
           cosine: 1,
@@ -212,7 +222,7 @@ describe("V0.14 language documentation and examples", () => {
         }
       },
       {
-        path: "examples/v0.14-text-and-formatting.amx",
+        path: "tests/fixtures/examples/v0.14-text-and-formatting.amx",
         expected: {
           codePointLength: 3,
           listLength: 3,
@@ -259,7 +269,7 @@ describe("V0.14 language documentation and examples", () => {
       ""
     ].join("\n");
     try {
-      evaluateDocument(parseDocumentText(source), "examples/v0.14-format-diagnostic.amx");
+      evaluateDocument(parseDocumentText(source), "tests/fixtures/examples/v0.14-format-diagnostic.amx");
       throw new Error("Expected an invalid numeric pattern diagnostic");
     } catch (error) {
       expect(error).toMatchObject({
@@ -276,22 +286,21 @@ describe("V0.14 language documentation and examples", () => {
 
 describe("V0.2 canonical examples", () => {
   it("renders the basic example without executing its ordinary fence", async () => {
-    const path = "examples/hello-world.amx";
+    const path = "tests/fixtures/examples/hello-world.amx";
     const document = await parseDocument(path);
     expect(evaluateDocument(document, path)).toEqual({
       assetName: "Transformer TX-001",
       riskScore: 15
     });
-    const html = renderHtml(document, path);
+    const html = await renderToTemporaryHtml(path);
     expect(html).toContain("<title>Hello OpenAMX</title>");
     expect(html).toContain("The calculated risk score is 15.");
     expect(html).toContain('class="language-amx"');
     expect(html).toContain("let ignored = 999");
-    expect(normalizeLineEndings(await Bun.file("examples/hello-world.html").text())).toBe(normalizeLineEndings(html));
   });
 
   it("evaluates transformer failure modes and renders the final adjusted score", async () => {
-    const path = "examples/transformer-strategy.amx";
+    const path = "tests/fixtures/examples/transformer-strategy.amx";
     const document = await parseDocument(path);
     expect(evaluateDocument(document, path)).toEqual({
       assetName: "TX-001 <north>",
@@ -302,22 +311,21 @@ describe("V0.2 canonical examples", () => {
       action: "Inspect cooling system",
       remainingScore: 60
     });
-    const html = renderHtml(document, path);
+    const html = await renderToTemporaryHtml(path);
     expect(html).toContain("<title>Power Transformer Failure Mode Analysis</title>");
-    expect(html).toContain("<h2>Screening result</h2>");
-    expect(html).toContain("<li>Cooling: severity 8</li>");
+    expect(html).toContain('<h2 id="screening-result">Screening result</h2>');
+    expect(html).toContain("<li><p>Cooling: severity 8</p></li>");
     expect(html).toContain("TX-001 &lt;north&gt;");
-    expect(html).toContain("the mode scores are 24, 18, 27 and the adjusted\naggregate is 60");
+    expect(html).toContain("the mode scores are 24, 18, 27 and the adjusted<br>aggregate is 60");
     expect(html).toContain("The remaining score is 60");
     expect(html).toContain('class="language-amx"');
     expect(html).toContain("let assetName = &quot;TX-001 &lt;north&gt;&quot;");
     expect(html).toContain("  case 69 =&gt; ");
     expect(html).not.toContain('<north>');
-    expect(normalizeLineEndings(await Bun.file("examples/transformer-strategy.html").text())).toBe(normalizeLineEndings(html));
   });
 
   it("evaluates fleet risk and leaves ordinary code and bare declarations inert", async () => {
-    const path = "examples/asset-fleet-risk-analysis.amx";
+    const path = "tests/fixtures/examples/asset-fleet-risk-analysis.amx";
     const document = await parseDocument(path);
     expect(evaluateDocument(document, path)).toEqual({
       fleetName: "North & South fleet",
@@ -326,9 +334,9 @@ describe("V0.2 canonical examples", () => {
       fleetScore: 35,
       decision: "Schedule review"
     });
-    const html = renderHtml(document, path);
+    const html = await renderToTemporaryHtml(path);
     expect(html).toContain("<title>Asset Fleet Risk Analysis</title>");
-    expect(html).toContain("<h2>Portfolio decision</h2>");
+    expect(html).toContain('<h2 id="portfolio-decision">Portfolio decision</h2>');
     expect(html).toContain("<strong>Schedule review</strong>");
     expect(html).toContain("The final fleet score is 35 across 1, 2, 3 exposure levels.");
     expect(html).toContain("<pre><code class=\"language-amx\">fleetScore += 5");
@@ -336,7 +344,6 @@ describe("V0.2 canonical examples", () => {
     expect(html).toContain("let ignored = 1000");
     expect(html).toContain("let narrativeOnly = 999");
     expect(html).not.toContain("1000 exposure levels");
-    expect(normalizeLineEndings(await Bun.file("examples/asset-fleet-risk-analysis.html").text())).toBe(normalizeLineEndings(html));
   });
 
   it("accepts the typed asset analysis through production CLI paths", async () => {
@@ -345,14 +352,14 @@ describe("V0.2 canonical examples", () => {
       const assetPath = path.join(directory, "asset.json");
       const screeningsPath = path.join(directory, "screenings.csv");
       const reviewedAtPath = path.join(directory, "reviewed-at.json");
-      await Bun.write(assetPath, await Bun.file("examples/typed-asset.json").text());
-      await Bun.write(screeningsPath, await Bun.file("examples/typed-screenings.csv").text());
-      await Bun.write(reviewedAtPath, await Bun.file("examples/typed-reviewed-at.json").text());
+      await Bun.write(assetPath, await Bun.file("tests/fixtures/examples/data/asset.json").text());
+      await Bun.write(screeningsPath, await Bun.file("tests/fixtures/examples/data/screenings.csv").text());
+      await Bun.write(reviewedAtPath, await Bun.file("tests/fixtures/examples/data/reviewed-at.json").text());
 
       const summaryPath = path.join(directory, "summary.json");
       const rowsPath = path.join(directory, "rows.csv");
       const run = await runCli(
-        "run", "examples/typed-asset-analysis.amx",
+        "run", "tests/fixtures/examples/typed-asset-analysis.amx",
         "--input", `asset=${assetPath}`,
         "--input", `screenings=${screeningsPath}`,
         "--input", `reviewedAt=${reviewedAtPath}`,
@@ -384,22 +391,22 @@ describe("V0.2 canonical examples", () => {
 
       const htmlPath = path.join(directory, "typed.html");
       const render = await runCli(
-        "render", "examples/typed-asset-analysis.amx", "--out", htmlPath,
+        "render", "tests/fixtures/examples/typed-asset-analysis.amx", "--out", htmlPath,
         "--input", `asset=${assetPath}`,
         "--input", `screenings=${screeningsPath}`,
         "--input", `reviewedAt=${reviewedAtPath}`
       );
       expect(render.exitCode).toBe(0);
       const html = await Bun.file(htmlPath).text();
-      expect(normalizeLineEndings(html)).toBe(normalizeLineEndings(await Bun.file("examples/typed-asset-analysis.html").text()));
+      expect(html).toContain('<h1 id="typed-asset-screening-analysis">Typed Asset Screening Analysis</h1>');
       expect(html).toContain("Asset <strong>North Pump 01</strong>");
       expect(html).toContain("The illustrative screening total is 38.");
       expect(html).toContain("&quot;./libraries/asset-management.amx&quot;");
 
-      const invalidCsv = "examples/typed-invalid-screenings.csv";
+      const invalidCsv = "tests/fixtures/examples/fixtures/invalid/screenings.csv";
       const aggregatePath = path.join(directory, "aggregate.json");
       const aggregate = await runCli(
-        "run", "examples/typed-asset-analysis.amx",
+        "run", "tests/fixtures/examples/typed-asset-analysis.amx",
         "--input", `asset=${assetPath}`,
         "--input", `screenings=${invalidCsv}`,
         "--input", `reviewedAt=${reviewedAtPath}`,
@@ -414,7 +421,7 @@ describe("V0.2 canonical examples", () => {
 
       const failFastPath = path.join(directory, "fail-fast.json");
       const failFast = await runCli(
-        "run", "examples/typed-asset-analysis.amx",
+        "run", "tests/fixtures/examples/typed-asset-analysis.amx",
         "--input", `asset=${assetPath}`,
         "--input", `screenings=${invalidCsv}`,
         "--input", `reviewedAt=${reviewedAtPath}`,
@@ -429,8 +436,8 @@ describe("V0.2 canonical examples", () => {
 
       const invalidJsonPath = path.join(directory, "invalid-json-output.json");
       const invalidJson = await runCli(
-        "run", "examples/typed-asset-analysis.amx",
-        "--input", `asset=examples/typed-invalid-asset.json`,
+        "run", "tests/fixtures/examples/typed-asset-analysis.amx",
+        "--input", `asset=tests/fixtures/examples/fixtures/invalid/asset.json`,
         "--input", `screenings=${screeningsPath}`,
         "--input", `reviewedAt=${reviewedAtPath}`,
         "--output", `summary=${invalidJsonPath}`
@@ -452,7 +459,7 @@ describe("Kitchen-sink example", () => {
       const summaryPath = path.join(directory, "summary.json");
       const samplesPath = path.join(directory, "samples.csv");
       const run = await runCli(
-        "run", "examples/kitchen-sink.amx",
+        "run", "tests/fixtures/examples/kitchen-sink.amx",
         "--output", `summary=${summaryPath}`,
         "--output", `samples=${samplesPath}`
       );
@@ -489,7 +496,7 @@ describe("Kitchen-sink example", () => {
       expect(csv).toContain('Odd,5,2026-10-03T07:30:00Z,10,,false,"",First half');
 
       const htmlPath = path.join(directory, "kitchen-sink.html");
-      const render = await runCli("render", "examples/kitchen-sink.amx", "--out", htmlPath);
+      const render = await runCli("render", "tests/fixtures/examples/kitchen-sink.amx", "--out", htmlPath);
       expect(render.stderr).toBe("");
       expect(render.exitCode).toBe(0);
       const html = await Bun.file(htmlPath).text();
@@ -510,7 +517,7 @@ describe("Kitchen-sink example", () => {
       expect(html).toContain("<td>Original</td>");
       expect(html).toContain("<td>Updated</td>");
       const docxPath = path.join(directory, "kitchen-sink.docx");
-      const exported = await runCli("export", "docx", "examples/kitchen-sink.amx", "--out", docxPath);
+      const exported = await runCli("export", "docx", "tests/fixtures/examples/kitchen-sink.amx", "--out", docxPath);
       expect(exported.stderr).toBe("");
       expect(exported.exitCode).toBe(0);
       expect((await Bun.file(docxPath).bytes()).byteLength).toBeGreaterThan(1000);
@@ -526,8 +533,8 @@ describe("V0.9 measurement report example", () => {
     try {
       const jsonOutput = path.join(directory, "summaries.json");
       const run = await runCli(
-        "run", "examples/v09-measurement-report.amx",
-        "--input", "trips=examples/v09-trips.json",
+        "run", "tests/fixtures/examples/v09-measurement-report.amx",
+        "--input", "trips=tests/fixtures/examples/data/measurement-trips.json",
         "--output", `exportedSummaries=${jsonOutput}`
       );
       expect(run.exitCode).toBe(0);
@@ -539,8 +546,8 @@ describe("V0.9 measurement report example", () => {
 
       const htmlPath = path.join(directory, "measurements.html");
       const render = await runCli(
-        "render", "examples/v09-measurement-report.amx", "--out", htmlPath,
-        "--input", "trips=examples/v09-trips.json"
+        "render", "tests/fixtures/examples/v09-measurement-report.amx", "--out", htmlPath,
+        "--input", "trips=tests/fixtures/examples/data/measurement-trips.json"
       );
       expect(render.exitCode).toBe(0);
       expect(render.stderr).toBe("");
@@ -564,13 +571,18 @@ describe("V0.5 branded example", () => {
     const directory = await mkdtemp(path.join(tmpdir(), "openamx-v05-example-"));
     try {
       await mkdir(path.join(directory, ".openamx"), { recursive: true });
-      await cp("examples/libraries", path.join(directory, "libraries"), { recursive: true });
-      await Bun.write(path.join(directory, "v05-asset-screening.amx"), await Bun.file("examples/v05-asset-screening.amx").text());
-      await writeFile(path.join(directory, ".openamx", "project.json"), await Bun.file("examples/v05-project.json").text());
+      await mkdir(path.join(directory, "libraries"));
+      await mkdir(path.join(directory, "data"));
+      await cp("tests/fixtures/examples/libraries/asset-management.amx", path.join(directory, "libraries", "asset-management.amx"));
+      await cp("tests/fixtures/examples/libraries/screening.amx", path.join(directory, "libraries", "screening.amx"));
+      await cp("tests/fixtures/examples/data/asset.json", path.join(directory, "data", "asset.json"));
+      await cp("tests/fixtures/examples/data/screenings.csv", path.join(directory, "data", "screenings.csv"));
+      await Bun.write(path.join(directory, "v05-asset-screening.amx"), await Bun.file("tests/fixtures/examples/v05-asset-screening.amx").text());
+      await writeFile(path.join(directory, ".openamx", "project.json"), await Bun.file("tests/fixtures/examples/v05-project.json").text());
 
       const entry = path.join(directory, "v05-asset-screening.amx");
-      const asset = path.resolve("examples/typed-asset.json");
-      const screenings = path.resolve("examples/typed-screenings.csv");
+      const asset = path.join(directory, "data", "asset.json");
+      const screenings = path.join(directory, "data", "screenings.csv");
       const mappings = ["--input", `asset=${asset}`, "--input", `screenings=${screenings}`];
       const run = await runCli("run", entry, ...mappings);
       expect(run.exitCode).toBe(0);

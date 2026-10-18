@@ -18,13 +18,13 @@
     "release:collect": "bun run scripts/release.ts collect",
     "release:verify": "bun run scripts/release.ts verify",
     "release:publish": "bun run scripts/release.ts publish",
-    "dev": "bun --watch src/cli.ts render examples/hello-world.amx --out examples/hello-world.html",
+    "dev": "bun -e \"require('node:fs').mkdirSync('dist', { recursive: true })\" && bun --watch src/cli.ts render examples/01_First_Computable_Document.amx --out dist/01_First_Computable_Document.html",
     "dev:app": "(cd desktop-app && hutch run dev)",
     "run:app": "(cd desktop-app && bun run run)",
-    "render:hello": "bun run dist/cli.js render examples/hello-world.amx --out examples/hello-world.html",
-    "render:transformer": "bun run dist/cli.js render examples/transformer-strategy.amx --out examples/transformer-strategy.html",
-    "render:fleet": "bun run dist/cli.js render examples/asset-fleet-risk-analysis.amx --out examples/asset-fleet-risk-analysis.html",
-    "render:typed": "bun run dist/cli.js render examples/typed-asset-analysis.amx --input asset=examples/typed-asset.json --input screenings=examples/typed-screenings.csv --input reviewedAt=examples/typed-reviewed-at.json --out examples/typed-asset-analysis.html"
+    "render:hello": "bun run dist/cli.js render examples/01_First_Computable_Document.amx --out dist/01_First_Computable_Document.html",
+    "render:transformer": "bun run dist/cli.js render examples/02_Expressions_and_Decisions.amx --out dist/02_Expressions_and_Decisions.html",
+    "render:fleet": "bun run dist/cli.js render examples/03_Collections_and_Functions.amx --out dist/03_Collections_and_Functions.html",
+    "render:typed": "bun run dist/cli.js render examples/12_Complete_Asset_Screening_Report.amx --input asset=examples/data/asset.json --input screenings=examples/data/screenings.csv --input reviewedAt=examples/data/reviewed-at.json --out dist/12_Complete_Asset_Screening_Report.html"
   },
   "dependencies": {
     "cac": "^6.7.14",

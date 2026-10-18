@@ -129,18 +129,18 @@ async function smokeTestTarball(tarballPath: string, version: string, rootDirect
 	try {
 		await writeFile(path.join(directory, "package.json"), `${JSON.stringify({ name: "openamx-cli-smoke", private: true }, null, 2)}\n`);
 		run(process.execPath, ["add", tarballPath], directory);
-		await copyFile(path.join(rootDirectory, "examples", "hello-world.amx"), path.join(directory, "hello-world.amx"));
+		await copyFile(path.join(rootDirectory, "examples", "01_First_Computable_Document.amx"), path.join(directory, "first-computable-document.amx"));
 		// Windows shims are not shebang-driven, so run the entry point through Bun there.
 		const invoke = (args: string[]) => process.platform === "win32"
 			? run(process.execPath, [path.join(directory, "node_modules", ...CLI_PACKAGE_NAME.split("/"), "dist", "cli.js"), ...args], directory, true)
 			: run(path.join(directory, "node_modules", ".bin", "openamx"), args, directory, true);
 		const reported = /^openamx\/(\S+)/.exec(invoke(["--version"]).trim())?.[1];
 		if (reported !== version) throw new Error(`Installed CLI reported version '${reported ?? ""}', expected ${version}.`);
-		invoke(["run", "hello-world.amx"]);
-		invoke(["render", "hello-world.amx", "--out", "hello-world.html"]);
-		invoke(["export", "pdf", "hello-world.amx", "--out", "hello-world.pdf"]);
-		invoke(["export", "docx", "hello-world.amx", "--out", "hello-world.docx"]);
-		for (const output of ["hello-world.html", "hello-world.pdf", "hello-world.docx"]) {
+		invoke(["run", "first-computable-document.amx"]);
+		invoke(["render", "first-computable-document.amx", "--out", "first-computable-document.html"]);
+		invoke(["export", "pdf", "first-computable-document.amx", "--out", "first-computable-document.pdf"]);
+		invoke(["export", "docx", "first-computable-document.amx", "--out", "first-computable-document.docx"]);
+		for (const output of ["first-computable-document.html", "first-computable-document.pdf", "first-computable-document.docx"]) {
 			if (!(await readFile(path.join(directory, output))).byteLength) throw new Error(`Installed CLI produced an empty ${output}.`);
 		}
 		return ["--version", "run", "render", "export pdf", "export docx"];

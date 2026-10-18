@@ -1,0 +1,178 @@
+﻿{
+    "status":  "PASS",
+    "canonicalGuideParityValidatedBy":  "desktop-app/tests/guideResources.test.ts verifies the packaged resource against canonical examples and DESKTOP_GUIDE_FILES",
+    "stagedRoot":  "C:\\Users\\gamez\\AppData\\Local\\Temp\\openamx-sprint094-validation\\desktop-app\\.cottontail-tmp\\sprint-093-guide-attempt-2",
+    "packageRoot":  "C:\\Users\\gamez\\AppData\\Local\\Temp\\openamx-sprint094-validation\\desktop-app\\build\\dev-win-x64\\OpenAMXDesktop-dev\\Resources\\app\\bun\\guide",
+    "fileCount":  24,
+    "totalBytes":  56096,
+    "files":  [
+                  {
+                      "path":  "00_Table_of_Contents.amx",
+                      "bytes":  4420,
+                      "canonicalStageSha256":  "d97ed5a3a5796075f48ab47185904d0d8bec6413f294acb2fa5332cc00c0c3c7",
+                      "packageSha256":  "d97ed5a3a5796075f48ab47185904d0d8bec6413f294acb2fa5332cc00c0c3c7",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "01_First_Computable_Document.amx",
+                      "bytes":  1430,
+                      "canonicalStageSha256":  "01faf7a7a8f073377292f2604be00a2c14cf780bf615de2408936144de5acfc1",
+                      "packageSha256":  "01faf7a7a8f073377292f2604be00a2c14cf780bf615de2408936144de5acfc1",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "02_Expressions_and_Decisions.amx",
+                      "bytes":  2162,
+                      "canonicalStageSha256":  "d9b43c187aba1abbf1645a6a459acbf72b0f0cd10131716053ba41f3e2c14750",
+                      "packageSha256":  "d9b43c187aba1abbf1645a6a459acbf72b0f0cd10131716053ba41f3e2c14750",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "03_Collections_and_Functions.amx",
+                      "bytes":  2258,
+                      "canonicalStageSha256":  "ddd98358eb0dd37097aaaaae6a23dd8243e2fbe53a3cc45e4966ee842a5d81c3",
+                      "packageSha256":  "ddd98358eb0dd37097aaaaae6a23dd8243e2fbe53a3cc45e4966ee842a5d81c3",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "04_Typed_Records_Enums_and_Modules.amx",
+                      "bytes":  3275,
+                      "canonicalStageSha256":  "dc821688ac6ea33c2958f60f3f11e2df541fc9c110481258a939f6877d97d779",
+                      "packageSha256":  "dc821688ac6ea33c2958f60f3f11e2df541fc9c110481258a939f6877d97d779",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "05_Measurements_and_Units.amx",
+                      "bytes":  2488,
+                      "canonicalStageSha256":  "e02d060281baf9f21c931611e3c003475ed6a9481d2b1e00cfd5e4bbd9c6fe22",
+                      "packageSha256":  "e02d060281baf9f21c931611e3c003475ed6a9481d2b1e00cfd5e4bbd9c6fe22",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "06_Mapped_Data_and_Validation.amx",
+                      "bytes":  3337,
+                      "canonicalStageSha256":  "be566edcf680f0b6528225f167c3d284fd190b85771109f588500196abe13d32",
+                      "packageSha256":  "be566edcf680f0b6528225f167c3d284fd190b85771109f588500196abe13d32",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "07_Tables_Charts_and_Named_Outputs.amx",
+                      "bytes":  4035,
+                      "canonicalStageSha256":  "880fc82ffebc9ff206ff21bade4711db683585c4f17c627b71a7d451cfd0e392",
+                      "packageSha256":  "880fc82ffebc9ff206ff21bade4711db683585c4f17c627b71a7d451cfd0e392",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "08_Formula_Driven_Diagrams.amx",
+                      "bytes":  4003,
+                      "canonicalStageSha256":  "ca3c792c83f074fb199d5d3c2466e42c2bf95b27ec9cb4ab79645ae3c30decd8",
+                      "packageSha256":  "ca3c792c83f074fb199d5d3c2466e42c2bf95b27ec9cb4ab79645ae3c30decd8",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "09_Runtime_Type_Checks.amx",
+                      "bytes":  4383,
+                      "canonicalStageSha256":  "a1c5cc4f04be3e72c4b68c50d48889ea1784cdc685afb3e55425ff5755da6955",
+                      "packageSha256":  "a1c5cc4f04be3e72c4b68c50d48889ea1784cdc685afb3e55425ff5755da6955",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "10_Mathematics_and_Measurement_Operations.amx",
+                      "bytes":  4584,
+                      "canonicalStageSha256":  "17708e2b868ef8a7286e6e365817f4c336f7deb1cd2621765ac66a62297716b3",
+                      "packageSha256":  "17708e2b868ef8a7286e6e365817f4c336f7deb1cd2621765ac66a62297716b3",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "11_Text_and_Numeric_Formatting.amx",
+                      "bytes":  4176,
+                      "canonicalStageSha256":  "7f7ee8d66d62a1032d32c3022bab5a4492fd1ba6124ca7a9b1543000eb0a6b0a",
+                      "packageSha256":  "7f7ee8d66d62a1032d32c3022bab5a4492fd1ba6124ca7a9b1543000eb0a6b0a",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "12_Complete_Asset_Screening_Report.amx",
+                      "bytes":  5889,
+                      "canonicalStageSha256":  "98fc1c83372fed8b9fba74594b9df94c1675ae2c27789068201adafad8c0ff66",
+                      "packageSha256":  "98fc1c83372fed8b9fba74594b9df94c1675ae2c27789068201adafad8c0ff66",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "13_Route_Measurement_Report.amx",
+                      "bytes":  3282,
+                      "canonicalStageSha256":  "2ff935e3c159d0f321ed120978cab49353236ecd3b09e3a9ac6b4b8aea7635eb",
+                      "packageSha256":  "2ff935e3c159d0f321ed120978cab49353236ecd3b09e3a9ac6b4b8aea7635eb",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "14_Battery_Resistor_Circuit.amx",
+                      "bytes":  3772,
+                      "canonicalStageSha256":  "9e5a2690542d77ee9a4d10b1574be3f1ba36a488e69b4e4fd219e1ff86dbe1d0",
+                      "packageSha256":  "9e5a2690542d77ee9a4d10b1574be3f1ba36a488e69b4e4fd219e1ff86dbe1d0",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "data/asset.json",
+                      "bytes":  412,
+                      "canonicalStageSha256":  "39af082804bacde56944a1a2c4ed5b59105dfc8692a20aab07cbeafb1caf5dde",
+                      "packageSha256":  "39af082804bacde56944a1a2c4ed5b59105dfc8692a20aab07cbeafb1caf5dde",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "data/measurement-trips.json",
+                      "bytes":  293,
+                      "canonicalStageSha256":  "0a9f404dff4dbd8d10665045f8d60c2f675c01a7edc5835ccb2a65982351121e",
+                      "packageSha256":  "0a9f404dff4dbd8d10665045f8d60c2f675c01a7edc5835ccb2a65982351121e",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "data/reviewed-at.json",
+                      "bytes":  24,
+                      "canonicalStageSha256":  "38b0c16e739cae7103842677e9f1d560db4d7cacfc47128fc4f69b83ecf5f732",
+                      "packageSha256":  "38b0c16e739cae7103842677e9f1d560db4d7cacfc47128fc4f69b83ecf5f732",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "data/screenings.csv",
+                      "bytes":  107,
+                      "canonicalStageSha256":  "6871940b82a1debc6f4e16df7f42b305522c6ee4d23a6cb3e99d16bd8fb5fc8b",
+                      "packageSha256":  "6871940b82a1debc6f4e16df7f42b305522c6ee4d23a6cb3e99d16bd8fb5fc8b",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "fixtures/invalid/asset.json",
+                      "bytes":  102,
+                      "canonicalStageSha256":  "01f208dc31b6ef7de93d8d741e68efc80fe6ca168e6cda562ac706b235c6d78a",
+                      "packageSha256":  "01f208dc31b6ef7de93d8d741e68efc80fe6ca168e6cda562ac706b235c6d78a",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "fixtures/invalid/screenings.csv",
+                      "bytes":  102,
+                      "canonicalStageSha256":  "2645c7d1a4f60850c5d0c22b8d20d91303e7f609d967f6d25643d7deedd6cbeb",
+                      "packageSha256":  "2645c7d1a4f60850c5d0c22b8d20d91303e7f609d967f6d25643d7deedd6cbeb",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "libraries/asset-management.amx",
+                      "bytes":  919,
+                      "canonicalStageSha256":  "9e12d74c5a483f77a4376302c9a5a7fed64780de9201a4c0f18ccc8089c228b6",
+                      "packageSha256":  "9e12d74c5a483f77a4376302c9a5a7fed64780de9201a4c0f18ccc8089c228b6",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "libraries/screening.amx",
+                      "bytes":  127,
+                      "canonicalStageSha256":  "af3b159c659ee257be4b6d2db016b3b38390f1a3285fcc1358bbb78b04502dfc",
+                      "packageSha256":  "af3b159c659ee257be4b6d2db016b3b38390f1a3285fcc1358bbb78b04502dfc",
+                      "parity":  true
+                  },
+                  {
+                      "path":  "libraries/travel-measurements.amx",
+                      "bytes":  516,
+                      "canonicalStageSha256":  "9c2556a2dfe78a097790e1d3f3f87d5c619c6ca6950b5a3cd1ea4fd9d234282b",
+                      "packageSha256":  "9c2556a2dfe78a097790e1d3f3f87d5c619c6ca6950b5a3cd1ea4fd9d234282b",
+                      "parity":  true
+                  }
+              ]
+}

@@ -1,0 +1,352 @@
+﻿{
+    "baselineStatus":  "NOT CAPTURED BEFORE VALIDATION",
+    "finalObservedDate":  "2026-10-18",
+    "path":  "desktop-app/node_modules/.vite",
+    "fileCount":  68,
+    "totalBytes":  26287972,
+    "treeSha256":  "56667947766C973B5F30E99D52A8F2595B5B6B293D56A2C48418A73528279220",
+    "latestFileWriteUtc":  "\/Date(1792301250363)\/",
+    "files":  [
+                  {
+                      "path":  "deps/@codemirror_autocomplete.js",
+                      "bytes":  1381,
+                      "sha256":  "00d825fb832c56bd0fde2eee59da94f87a710ac0ad7d221efcaac36c52e5481c"
+                  },
+                  {
+                      "path":  "deps/@codemirror_autocomplete.js.map",
+                      "bytes":  93,
+                      "sha256":  "ed562b0bba7ee7214e56ac7f728054b3496bec4597c94a4eb7b4179e6f5cb1c9"
+                  },
+                  {
+                      "path":  "deps/@codemirror_commands.js",
+                      "bytes":  4849,
+                      "sha256":  "cadc74c319d299e60fe0aa7f54342168fd18e4ddce03e9e21420a433d78ba333"
+                  },
+                  {
+                      "path":  "deps/@codemirror_commands.js.map",
+                      "bytes":  93,
+                      "sha256":  "ed562b0bba7ee7214e56ac7f728054b3496bec4597c94a4eb7b4179e6f5cb1c9"
+                  },
+                  {
+                      "path":  "deps/@codemirror_lang-css.js",
+                      "bytes":  377,
+                      "sha256":  "8ea8c4c9035685daad9cc9edbd97595ab1717d1ea358975dab2a87b3569af31b"
+                  },
+                  {
+                      "path":  "deps/@codemirror_lang-css.js.map",
+                      "bytes":  93,
+                      "sha256":  "ed562b0bba7ee7214e56ac7f728054b3496bec4597c94a4eb7b4179e6f5cb1c9"
+                  },
+                  {
+                      "path":  "deps/@codemirror_lang-markdown.js",
+                      "bytes":  222299,
+                      "sha256":  "90b40d192014acc925a9b5e38200786a4e2a1f39d29e3f95396fae13dce195e9"
+                  },
+                  {
+                      "path":  "deps/@codemirror_lang-markdown.js.map",
+                      "bytes":  371183,
+                      "sha256":  "1ff380dc8dfd0273e7f8fcf8bf506218d582e38e3e6a80895bb10ad60bcc53fa"
+                  },
+                  {
+                      "path":  "deps/@codemirror_language.js",
+                      "bytes":  1981,
+                      "sha256":  "986cd7d683f7355a440e7e555ee108e24bbba2880e06a8eb5ef0cc4eee37a880"
+                  },
+                  {
+                      "path":  "deps/@codemirror_language.js.map",
+                      "bytes":  93,
+                      "sha256":  "ed562b0bba7ee7214e56ac7f728054b3496bec4597c94a4eb7b4179e6f5cb1c9"
+                  },
+                  {
+                      "path":  "deps/@codemirror_search.js",
+                      "bytes":  803,
+                      "sha256":  "eb3b6989e37f5fd9287215f4f3a3dc2a9fc96cfe65b94643fec0ef67b43bbc8c"
+                  },
+                  {
+                      "path":  "deps/@codemirror_search.js.map",
+                      "bytes":  93,
+                      "sha256":  "ed562b0bba7ee7214e56ac7f728054b3496bec4597c94a4eb7b4179e6f5cb1c9"
+                  },
+                  {
+                      "path":  "deps/@codemirror_state.js",
+                      "bytes":  915,
+                      "sha256":  "434c63171962ec8ecd8e0cc2aa3f9c49acdfa109edf59452639693f1e8a4e47f"
+                  },
+                  {
+                      "path":  "deps/@codemirror_state.js.map",
+                      "bytes":  93,
+                      "sha256":  "ed562b0bba7ee7214e56ac7f728054b3496bec4597c94a4eb7b4179e6f5cb1c9"
+                  },
+                  {
+                      "path":  "deps/@codemirror_view.js",
+                      "bytes":  1833,
+                      "sha256":  "40fb0446ffcda95dbc8c3866264db4d0962360e6350674fac7134fceab5b4627"
+                  },
+                  {
+                      "path":  "deps/@codemirror_view.js.map",
+                      "bytes":  93,
+                      "sha256":  "ed562b0bba7ee7214e56ac7f728054b3496bec4597c94a4eb7b4179e6f5cb1c9"
+                  },
+                  {
+                      "path":  "deps/@lezer_highlight.js",
+                      "bytes":  311,
+                      "sha256":  "e4963a696fb481f9abceee71aa8efe8a7778bd8d37454a57531f5aa9e2c4f47d"
+                  },
+                  {
+                      "path":  "deps/@lezer_highlight.js.map",
+                      "bytes":  93,
+                      "sha256":  "ed562b0bba7ee7214e56ac7f728054b3496bec4597c94a4eb7b4179e6f5cb1c9"
+                  },
+                  {
+                      "path":  "deps/@lucide_vue.js",
+                      "bytes":  1361704,
+                      "sha256":  "d315dfeba3658806e7e6b0b6cc1ce2f49a44c97d8d1cb81b8d4c738cb2154c91"
+                  },
+                  {
+                      "path":  "deps/@lucide_vue.js.map",
+                      "bytes":  4023638,
+                      "sha256":  "fc8bdd1fca4d9665847f4bc0f4d394ba169735368d27ab12179c71a78beae3f0"
+                  },
+                  {
+                      "path":  "deps/_metadata.json",
+                      "bytes":  5537,
+                      "sha256":  "5938d16fc91732fabe6c695c5fc57ae3e4b38898823f813416a35d7c567211f4"
+                  },
+                  {
+                      "path":  "deps/chunk-5IRJQBBQ.js",
+                      "bytes":  28214,
+                      "sha256":  "22a7f8c7dc7a9d7e33667573eb27f905fbdeb08bc7eaca931a38b42b5fa4ba19"
+                  },
+                  {
+                      "path":  "deps/chunk-5IRJQBBQ.js.map",
+                      "bytes":  58847,
+                      "sha256":  "815020a061b98fb9374325885a750c74d7005992977c0a356b94a12426ed8433"
+                  },
+                  {
+                      "path":  "deps/chunk-665WQGGS.js",
+                      "bytes":  55103,
+                      "sha256":  "cfbe909e56165aec5c4f2a86a1568a9081a0e9b576bb2d06235837d461581f17"
+                  },
+                  {
+                      "path":  "deps/chunk-665WQGGS.js.map",
+                      "bytes":  112513,
+                      "sha256":  "6d41eb1fa39b5a318bec21535a66f18b1b16bf89df658ea8f5f02c8a10e32354"
+                  },
+                  {
+                      "path":  "deps/chunk-7AHOZ5VT.js",
+                      "bytes":  85677,
+                      "sha256":  "525ae5c070f4dfe70fad3c2414d3238db968888ab000bb3ba889b35db92cf2b2"
+                  },
+                  {
+                      "path":  "deps/chunk-7AHOZ5VT.js.map",
+                      "bytes":  175544,
+                      "sha256":  "63f317aa27628391bcdb2a916df179600da7fa516d595b9c153b0b24a7620be5"
+                  },
+                  {
+                      "path":  "deps/chunk-CFTU6MB5.js",
+                      "bytes":  77713,
+                      "sha256":  "45a4e4046968a0b0410f128fd14863ba2e3b6fe1325106217b098c3337cc9018"
+                  },
+                  {
+                      "path":  "deps/chunk-CFTU6MB5.js.map",
+                      "bytes":  160980,
+                      "sha256":  "09aa73eaa4e7df1e21299a7b3f88e948e36dff80075dee3576ae9b7e40b8b4a7"
+                  },
+                  {
+                      "path":  "deps/chunk-G3PMV62Z.js",
+                      "bytes":  1497,
+                      "sha256":  "2e35a8e8827cc0c2c6f2d2fd93ef17f6dcc15013d8a954eaf41023e527aec372"
+                  },
+                  {
+                      "path":  "deps/chunk-G3PMV62Z.js.map",
+                      "bytes":  93,
+                      "sha256":  "ed562b0bba7ee7214e56ac7f728054b3496bec4597c94a4eb7b4179e6f5cb1c9"
+                  },
+                  {
+                      "path":  "deps/chunk-IWNKSCBH.js",
+                      "bytes":  156016,
+                      "sha256":  "b5eea82d74ebb98f642c70febc9083618cb813cdb887bea25bc20163fd1a364b"
+                  },
+                  {
+                      "path":  "deps/chunk-IWNKSCBH.js.map",
+                      "bytes":  328856,
+                      "sha256":  "10c1bcc02a72cc791cec08854cb138c555fa8c8775830742a10d304fb7957e88"
+                  },
+                  {
+                      "path":  "deps/chunk-KWXOICCO.js",
+                      "bytes":  117355,
+                      "sha256":  "710536aa24925ca7816951edd4795aecb582564217ffe1d37c58aa17a6eb6d46"
+                  },
+                  {
+                      "path":  "deps/chunk-KWXOICCO.js.map",
+                      "bytes":  234085,
+                      "sha256":  "86407fe5ebaef9ea92fe7c8587f588648aeaedf088fcfb566e249d59df67f086"
+                  },
+                  {
+                      "path":  "deps/chunk-P3XLUZYX.js",
+                      "bytes":  394521,
+                      "sha256":  "d133bc72896828bb457b15732150e9e32eb74a9d5d00213733774319ce3d5f31"
+                  },
+                  {
+                      "path":  "deps/chunk-P3XLUZYX.js.map",
+                      "bytes":  794069,
+                      "sha256":  "7274e95cf052d4c75a77829c7eae214c4aa35615f7c829147dbadff9b6f6dfe0"
+                  },
+                  {
+                      "path":  "deps/chunk-Q6W3NZIS.js",
+                      "bytes":  72077,
+                      "sha256":  "c634ab077f0751d464a404bb29f88af0841a461494828f620616b26689aee22b"
+                  },
+                  {
+                      "path":  "deps/chunk-Q6W3NZIS.js.map",
+                      "bytes":  145709,
+                      "sha256":  "d7ec2d53ac842bca536ce48be43eb8d89e541475dbdd239469e605330c9ddb97"
+                  },
+                  {
+                      "path":  "deps/chunk-QFY4DJNP.js",
+                      "bytes":  58229,
+                      "sha256":  "94fb1b7fe2663870259ada1830e1824a2dd1cbb52d63128937fb14ac8277e448"
+                  },
+                  {
+                      "path":  "deps/chunk-QFY4DJNP.js.map",
+                      "bytes":  128706,
+                      "sha256":  "b368ba5a0835d3c1c57f8556406addcce0b14f30e094e80024f58c2b97d78136"
+                  },
+                  {
+                      "path":  "deps/chunk-TTP7GFKN.js",
+                      "bytes":  1475212,
+                      "sha256":  "48870536da064280ff05fb59de3b7a91b52c8eacc6a61c36e165c7006595a490"
+                  },
+                  {
+                      "path":  "deps/chunk-TTP7GFKN.js.map",
+                      "bytes":  4891202,
+                      "sha256":  "da7b9613df8d3a300d3e26d84119eda1b3d142b105b0798293084aef1a02ef55"
+                  },
+                  {
+                      "path":  "deps/chunk-WJMGLFIR.js",
+                      "bytes":  35841,
+                      "sha256":  "4b44176da89774205a49d878501204fea550ed34a824d59761430ee5ce3f7c74"
+                  },
+                  {
+                      "path":  "deps/chunk-WJMGLFIR.js.map",
+                      "bytes":  54174,
+                      "sha256":  "e31d8da44491c39bdbce614fe46b962dbd1d58c3c19f9e7e9972bbc0d11386ab"
+                  },
+                  {
+                      "path":  "deps/chunk-WO2XEGAN.js",
+                      "bytes":  393087,
+                      "sha256":  "e6383652f56c840545f8f609745dd9a3e0e8b0c2623795f11a7c8d99dda2abc8"
+                  },
+                  {
+                      "path":  "deps/chunk-WO2XEGAN.js.map",
+                      "bytes":  693898,
+                      "sha256":  "eae41a4c1bc857fc1b421bb66874d52a9200f47cafa2ca65483093339539c2e6"
+                  },
+                  {
+                      "path":  "deps/chunk-Y2AJZL35.js",
+                      "bytes":  39878,
+                      "sha256":  "38829bd4c5324053821bd6d84643260841b13d0fa45b44745c12574d2c8a3c34"
+                  },
+                  {
+                      "path":  "deps/chunk-Y2AJZL35.js.map",
+                      "bytes":  80413,
+                      "sha256":  "14692ec4ca64b694b81b44975483fd70d5a73f52e6cf8aad3c3f49e8dccefe3f"
+                  },
+                  {
+                      "path":  "deps/codemirror.js",
+                      "bytes":  1867,
+                      "sha256":  "28ca9f908b0a2f2e43e21b5175816ab989a63f45d6c019bc3e5ac4f7275375c5"
+                  },
+                  {
+                      "path":  "deps/codemirror.js.map",
+                      "bytes":  5756,
+                      "sha256":  "a4de4b06f1b3729b25f6e04c293119f61a4487a41182fcc43d90ff0193067c4e"
+                  },
+                  {
+                      "path":  "deps/json-editor-vue.js",
+                      "bytes":  45656,
+                      "sha256":  "5c62ae6e3e9a77fcdb14c7d956b344484524feb197ff1aa68a71e0560cd62db3"
+                  },
+                  {
+                      "path":  "deps/json-editor-vue.js.map",
+                      "bytes":  122495,
+                      "sha256":  "e892472c7869eed9c579c95682a52e994d0ae5dc2456e338c381a6733a5417d7"
+                  },
+                  {
+                      "path":  "deps/package.json",
+                      "bytes":  23,
+                      "sha256":  "3ca9d4afd21425087cf31893b8f9f63c81b0b8408db5e343ca76e5f8aa26ab9a"
+                  },
+                  {
+                      "path":  "deps/vanilla-jsoneditor.js",
+                      "bytes":  3163,
+                      "sha256":  "2ba5a0182bbf9b3304c1fe33fb1439148c8f0fb8868160d1bb13b7172596a103"
+                  },
+                  {
+                      "path":  "deps/vanilla-jsoneditor.js.map",
+                      "bytes":  93,
+                      "sha256":  "ed562b0bba7ee7214e56ac7f728054b3496bec4597c94a4eb7b4179e6f5cb1c9"
+                  },
+                  {
+                      "path":  "deps/vanilla-picker-G63TZHGO.js",
+                      "bytes":  30955,
+                      "sha256":  "13abff819bc4caa119340c13db39d4f834f629d5ce26bbeb1971fd929f13a51e"
+                  },
+                  {
+                      "path":  "deps/vanilla-picker-G63TZHGO.js.map",
+                      "bytes":  56922,
+                      "sha256":  "b75d336c1bbba7c1b49d791546064bed2861f45a213c9492f733e322a9fa712e"
+                  },
+                  {
+                      "path":  "deps/vue.js",
+                      "bytes":  5609,
+                      "sha256":  "4a7b8ef97292da8f2bcf5c6369f54ddf3f0e743c8ced38c65f061a09769cb9fc"
+                  },
+                  {
+                      "path":  "deps/vue.js.map",
+                      "bytes":  93,
+                      "sha256":  "ed562b0bba7ee7214e56ac7f728054b3496bec4597c94a4eb7b4179e6f5cb1c9"
+                  },
+                  {
+                      "path":  "deps/vxe-pc-ui.js",
+                      "bytes":  1628892,
+                      "sha256":  "189f1c411b1a637c3861fef70eb4a209174fefab30bab0ae1820d9c49496ea18"
+                  },
+                  {
+                      "path":  "deps/vxe-pc-ui.js.map",
+                      "bytes":  3132978,
+                      "sha256":  "d65d18e95e33927888064da68426afe7709110f28f2444c821e55d913560cd9b"
+                  },
+                  {
+                      "path":  "deps/vxe-pc-ui_lib_language_en-US.js",
+                      "bytes":  35256,
+                      "sha256":  "498f69f6ba3ef561b53d279b0bdb024f170cbed86aa9d41f068a527ed9edac09"
+                  },
+                  {
+                      "path":  "deps/vxe-pc-ui_lib_language_en-US.js.map",
+                      "bytes":  45826,
+                      "sha256":  "4079f3cb3af09e5a7ebd993f8935f7f3807e5d1dd4297c536571ae7170ffe6b1"
+                  },
+                  {
+                      "path":  "deps/vxe-table.js",
+                      "bytes":  1271509,
+                      "sha256":  "fd59e2066480a7723c373b0ae552ccd5a9496b1a985350e238a08b9bfcc73d1a"
+                  },
+                  {
+                      "path":  "deps/vxe-table.js.map",
+                      "bytes":  2398412,
+                      "sha256":  "267464e004394d38f21f7a1e607024e0f5e9927c8cdb1e12684e9f0a4c810116"
+                  },
+                  {
+                      "path":  "deps/yaml.js",
+                      "bytes":  214296,
+                      "sha256":  "c6d4ddbcf23efe1dd51dd152169c492f97a6c58b7227b73f319e27ffcf33f458"
+                  },
+                  {
+                      "path":  "deps/yaml.js.map",
+                      "bytes":  441107,
+                      "sha256":  "1bc8573841d969231dc436be2764ac01c9dc8c1d42f6c18b009c6781f03c8062"
+                  }
+              ],
+    "disposition":  "Do not clean; original state is unknown and the pre-existing port 4183 Vite service may use this cache."
+}

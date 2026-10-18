@@ -304,8 +304,8 @@ ${markdownRows}
   });
 
   it('renders every shared chart kind as static SVG and retains complete searchable rows', async () => {
-    const loaded = await loadEntryModule('examples/kitchen-sink.amx');
-    const report = await prepareReport(loaded.doc, loaded.env, { file: 'examples/kitchen-sink.amx' });
+    const loaded = await loadEntryModule('tests/fixtures/examples/kitchen-sink.amx');
+    const report = await prepareReport(loaded.doc, loaded.env, { file: 'tests/fixtures/examples/kitchen-sink.amx' });
     const chartCount = report.items.filter(item => item.type === 'view' && item.emission.kind === 'chart').length;
     const prepared = preparePdfReport(report);
     const content = prepared.definition.content as Array<Record<string, unknown>>;

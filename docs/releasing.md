@@ -130,7 +130,7 @@ From a clean committed tree at the prepared version:
 bun run release:cli
 ```
 
-This compiles the CLI into `releases/.staging/`, generates a scoped package manifest without lifecycle scripts or development dependencies, runs `npm pack`, and rejects tarballs with undeclared files, a missing license, a non-Bun entry point, or a mismatched name/version. It then installs the tarball into a temporary project with Bun and checks `--version`, `run`, `render`, and PDF/DOCX export of `examples/hello-world.amx`. The accepted bundle is written to `releases/<version>/cli/` with `manifest.json`, `evidence.json`, `SHA256SUMS`, and `COMPLETE`, and is never overwritten. Finally it runs `npm publish --dry-run`; nothing is uploaded.
+This compiles the CLI into `releases/.staging/`, generates a scoped package manifest without lifecycle scripts or development dependencies, runs `npm pack`, and rejects tarballs with undeclared files, a missing license, a non-Bun entry point, or a mismatched name/version. It then installs the tarball into a temporary project with Bun and checks `--version`, `run`, `render`, and PDF/DOCX export of `examples/01_First_Computable_Document.amx`. The accepted bundle is written to `releases/<version>/cli/` with `manifest.json`, `evidence.json`, `SHA256SUMS`, and `COMPLETE`, and is never overwritten. Finally it runs `npm publish --dry-run`; nothing is uploaded.
 
 After reviewing the dry-run file list and obtaining release authorization, run `npm login` with an account that can publish to the `@nova-energy` scope, then:
 

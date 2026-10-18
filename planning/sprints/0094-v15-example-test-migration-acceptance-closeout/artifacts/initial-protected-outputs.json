@@ -1,0 +1,157 @@
+{
+  "capturedDate": "2026-10-18",
+  "authorization": {
+    "sprint": "094",
+    "explicitUserApproval": true,
+    "approvedDate": "2026-10-18",
+    "localStateDisposition": "Preserve examples/.openamx/local.json and its three referenced positive input files unchanged."
+  },
+  "repository": {
+    "branch": "feat/create-V015",
+    "commit": "e05052e71c71177f101b8886ad96907cc2951109",
+    "worktree": "clean",
+    "statusCommand": "git status --porcelain=v2 --branch",
+    "statusOutput": [
+      "# branch.oid e05052e71c71177f101b8886ad96907cc2951109",
+      "# branch.head feat/create-V015"
+    ]
+  },
+  "fileHashes": [
+    {
+      "path": "examples/kitchen-sink.pdf",
+      "sha256": "9ADD5C76030F9D6248A8126EFA0D96F2E1FC2168A654DA1F07E2B6953E3BE778",
+      "disposition": "Immutable user-supplied output; preserve unchanged."
+    },
+    {
+      "path": "examples/.openamx/local.json",
+      "sha256": "B8DF0DAAC9209A6AEC33708946DF950F18F826865D7FA4429B22AFC2865FDB07",
+      "disposition": "Preserve unchanged; retain its three referenced positive input paths."
+    },
+    {
+      "path": "examples/typed-asset.json",
+      "sha256": "39AF082804BACDE56944A1A2C4ED5B59105DFC8692A20AAB07CBEAFB1CAF5DDE",
+      "disposition": "Retain unchanged as local.json compatibility data; a byte-identical copy is test-owned."
+    },
+    {
+      "path": "examples/typed-screenings.csv",
+      "sha256": "6871940B82A1DEBC6F4E16DF7F42B305522C6EE4D23A6CB3E99D16BD8FB5FC8B",
+      "disposition": "Retain unchanged as local.json compatibility data; a byte-identical copy is test-owned."
+    },
+    {
+      "path": "examples/typed-reviewed-at.json",
+      "sha256": "38B0C16E739CAE7103842677E9F1D560DB4D7CACFC47128FC4F69B83ECF5F732",
+      "disposition": "Retain unchanged as local.json compatibility data; a byte-identical copy is test-owned."
+    },
+    {
+      "path": "examples/hello-world.html",
+      "sha256": "9139B059D9C3A9435E679936885B65E8FE08E76DF16D047BABA6FFD4B6A33029",
+      "disposition": "Authorized removal only after temporary-render tests pass."
+    },
+    {
+      "path": "examples/transformer-strategy.html",
+      "sha256": "833679AF078364674F95780FC9D77FB956CB4BA9F58A0770C9ECD5218B7874EF",
+      "disposition": "Authorized removal only after temporary-render tests pass."
+    },
+    {
+      "path": "examples/asset-fleet-risk-analysis.html",
+      "sha256": "B40555CD63CBAF3D9BD8DD60EEFC6405924764CECBCB3B778F5527F6CDA5316B",
+      "disposition": "Authorized removal only after temporary-render tests pass."
+    },
+    {
+      "path": "examples/typed-asset-analysis.html",
+      "sha256": "532FD2C4E1482C61FAAA590C383E40A1D37F921014035D1EAEE02D6DF06D9933",
+      "disposition": "Authorized removal only after temporary-render tests pass."
+    }
+  ],
+  "directoryHashes": [
+    {
+      "path": "desktop-app/.cottontail-tmp/sprint-093-guide",
+      "fileCount": 24,
+      "totalBytes": 54746,
+      "sha256": "76498F99E34860832A192DD9368D96A944F18E2A2C923D70AC5DFD852A1DC37D",
+      "digestMethod": "SHA-256 of sorted rows: relative-path<TAB>length<TAB>file-SHA256 joined with LF."
+    },
+    {
+      "path": "desktop-app/.cottontail-tmp/sprint-093-guide-attempt-2",
+      "fileCount": 24,
+      "totalBytes": 56096,
+      "sha256": "EFE508BDF052B6A649FA5927BC21EE6388973DC763D38079E3D089370465A87E",
+      "digestMethod": "SHA-256 of sorted rows: relative-path<TAB>length<TAB>file-SHA256 joined with LF."
+    },
+    {
+      "path": "desktop-app/.cottontail-tmp/sprint-093-package",
+      "fileCount": 264,
+      "totalBytes": 395447890,
+      "sha256": "B7C2D3F3C563D934E50B4527A81745C17FCCD6C654D2908ABD2D4BAF435FD6F5",
+      "digestMethod": "SHA-256 of sorted rows: relative-path<TAB>length<TAB>file-SHA256 joined with LF."
+    },
+    {
+      "path": "desktop-app/build/dev-win-x64",
+      "fileCount": 64,
+      "totalBytes": 131747768,
+      "sha256": "12BBB3DD124F7AEC8BBB728C6451F9818EEA5FCF68C4F77D848B0BA310AC791A",
+      "disposition": "S093 post-incident state; do not clean, rebuild, or restore."
+    },
+    {
+      "path": "desktop-app/build/stable-win-x64",
+      "fileCount": 7,
+      "totalBytes": 92469649,
+      "sha256": "184BC1FFBBCABC3AC5BC2A1BE97960F9AC85E2CCDB7C891C2E901AECA1AFFE90",
+      "disposition": "Preserve accepted stable installer output."
+    },
+    {
+      "path": "desktop-app/dist",
+      "fileCount": 49,
+      "totalBytes": 33245615,
+      "sha256": "C7E54274558191641EBF1601A7CCFBF7CBB84A94A0D117B87C7A9F798F6BF89B",
+      "disposition": "Existing build output; do not use as the S094 build destination."
+    },
+    {
+      "path": "desktop-app/artifacts",
+      "fileCount": 3,
+      "totalBytes": 90148954,
+      "sha256": "04657DDF3AFD964A27D2E2825C887D4F5C79F176A192F4AB45292321C3163AD0",
+      "disposition": "Preserve existing accepted installer artifact."
+    },
+    {
+      "path": "dist",
+      "fileCount": 196,
+      "totalBytes": 1510398,
+      "sha256": "4A3A06FD1D0D0ED254AA693C9F674D626808E597B1A6B8313C6D6F9967516738",
+      "disposition": "Existing root build output; do not use as the S094 build destination."
+    },
+    {
+      "path": "releases",
+      "fileCount": 96,
+      "totalBytes": 1088438667,
+      "sha256": "15131C2C2CB378B1EF171234D80557E255030F3FAFE39B4A512960F18EF3A42D",
+      "disposition": "Preserve all accepted release artifacts and installers."
+    }
+  ],
+  "uniqueSprint094OutputRoots": [
+    {
+      "path": "%TEMP%/openamx-sprint094-validation",
+      "existsAtBaseline": false,
+      "purpose": "Isolated copy for root/desktop builds, tests, packaging, and Windows-native acceptance."
+    },
+    {
+      "path": "planning/sprints/0094-v15-example-test-migration-acceptance-closeout/artifacts",
+      "existsAtBaseline": false,
+      "purpose": "Sprint 094 raw logs, manifests, hashes, and verification outputs."
+    },
+    {
+      "path": "desktop-app/.cottontail-tmp/sprint-094-package",
+      "existsAtBaseline": false,
+      "purpose": "Reserved unique S094 package-output root; builds will run from the isolated validation copy."
+    },
+    {
+      "path": "desktop-app/.cottontail-tmp/sprint-094-guide",
+      "existsAtBaseline": false,
+      "purpose": "Reserved unique S094 guide-stage root; builds will run from the isolated validation copy."
+    }
+  ],
+  "limitations": [
+    "A recursive hash of the Sprint 093 evidence directory encountered two open Vite stdout/stderr logs that denied read access. Those accepted logs were left untouched. The complete protected package/build/release output roots listed above were hashed successfully.",
+    "The recursive directory digest uses sorted relative-path, byte-length, and per-file SHA-256 rows joined with LF, then SHA-256 over the resulting UTF-8 bytes."
+  ]
+}

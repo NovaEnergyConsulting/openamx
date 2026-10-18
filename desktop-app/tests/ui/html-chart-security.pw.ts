@@ -11,7 +11,7 @@ const repositoryRoot = resolve(import.meta.dirname, "../../..");
 const hostileNarrative = `![offline narrative image](./offline.png)\n\n[visible external link](https://openamx-sprint062.invalid/link)\n\n[local destination](./offline.png) [relative destination](../outside.html) [data HTML](data:text/html,%3Cscript%3Ealert(1)%3C/script%3E)\n\n<a href="javascript:alert(1)" target="_top" onclick="window.__authoredScript=1">raw link text</a>\n\n<meta http-equiv="refresh" content="0;url=https://openamx-sprint062.invalid/refresh">\n<script>window.__authoredScript=2</script>\n<style>@import url(https://openamx-sprint062.invalid/style.css)</style>\n<img src="https://openamx-sprint062.invalid/image.png" alt="remote image">\n<form action="https://openamx-sprint062.invalid/submit"><button>form text</button></form>\n<iframe src="https://openamx-sprint062.invalid/frame">frame text</iframe><object data="https://openamx-sprint062.invalid/object">object text</object><embed src="https://openamx-sprint062.invalid/embed">\n<svg><use href="https://openamx-sprint062.invalid/icon.svg#icon"></use></svg>`;
 
 function createRenderedFixture(directory: string): string {
-	const sourcePath = resolve(repositoryRoot, "examples/kitchen-sink.amx");
+	const sourcePath = resolve(repositoryRoot, "tests/fixtures/examples/kitchen-sink.amx");
 	const outputPath = resolve(directory, "report.html");
 	const previewPath = resolve(directory, "preview.html");
 	const previewTokenPath = resolve(directory, "preview-token.txt");

@@ -1,0 +1,8 @@
+```amx
+export type Screening {
+  assetId: String
+  severity: Number
+  occurrence: Number
+  note?: String? = null
+}
+```

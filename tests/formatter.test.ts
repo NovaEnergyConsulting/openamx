@@ -7,7 +7,7 @@ import { evaluateDocument } from '../src/runtime/evaluateDocument';
 
 describe('formatAmxDocument', () => {
   it('formats the hello-world document without treating front matter as statements', () => {
-    const source = readFileSync(new URL('../examples/hello-world.amx', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('./fixtures/examples/hello-world.amx', import.meta.url), 'utf8');
     expect(formatAmxDocument(source)).toBe(source);
   });
 
