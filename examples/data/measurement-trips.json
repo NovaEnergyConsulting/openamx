@@ -1,0 +1,12 @@
+[
+  {
+    "route": "North loop",
+    "distance": { "value": 1.5, "unit": "kilometer" },
+    "duration": { "value": 30, "unit": "minute" }
+  },
+  {
+    "route": "South loop",
+    "distance": { "value": 500, "unit": "meter" },
+    "duration": { "value": 20, "unit": "minute" }
+  }
+]

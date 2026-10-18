@@ -1,0 +1,151 @@
+---
+title: Complete illustrative asset screening report
+status: illustrative
+---
+
+# Complete Asset Screening Report
+
+This is the destination report for the guided path. It brings together typed
+mapped inputs, local modules, Measurements, calculations, tables, a chart,
+formatted narrative values, and named data outputs.
+
+## Objective
+
+Run a complete illustrative screening report from the declared asset, review
+time, and screening data; inspect its analysis and exported values without
+treating the example score as a calibrated risk measure.
+
+## Prerequisites
+
+The guided lessons 01-11 introduce the concepts used here. This report is the
+destination of the sequence, not a prerequisite for any earlier lesson.
+
+## Desktop workflow
+
+In OpenAMX Desktop, open this file from `examples/`, ensure the relative
+`data/` and `libraries/` files are present, and map the three logical inputs
+listed below. Select **Run** to inspect bindings and **Preview** to inspect
+the narrative, table, and chart. Use the application's supported output
+workflow to choose destinations outside the source and protected snapshots.
+
+## Inputs and support files
+
+| Logical input | File | Type |
+| --- | --- | --- |
+| `asset` | `examples/data/asset.json` | `Asset` from `libraries/asset-management.amx` |
+| `screenings` | `examples/data/screenings.csv` | `Screening[]` from `libraries/screening.amx` |
+| `reviewedAt` | `examples/data/reviewed-at.json` | `DateTime` |
+
+The local imports and all three mapped inputs are required. This report uses
+only valid data. Deliberately invalid JSON/CSV examples remain in
+`examples/fixtures/invalid/` and are not successful-run inputs.
+
+Run from the repository root with output destinations in a scratch directory:
+
+```sh
+bun run dist/cli.js run examples/12_Complete_Asset_Screening_Report.amx --input asset=examples/data/asset.json --input screenings=examples/data/screenings.csv --input reviewedAt=examples/data/reviewed-at.json --output summary=guide-output/summary.json --output resultRows=guide-output/rows.csv
+```
+
+Create `guide-output/` first. The two named outputs contain the report summary
+and its screening rows; they do not overwrite lesson files or checked-in
+rendered outputs.
+
+## Integrated analysis
+
+```amx
+import { Asset, FailureMode } from "./libraries/asset-management.amx"
+import { Screening } from "./libraries/screening.amx"
+
+input asset: Asset
+input screenings: Screening[]
+input reviewedAt: DateTime
+
+dimension Duration
+unit hour: Duration
+unit minute = 1 / 60 * hour
+
+type ScreeningResult {
+  assetId: String
+  score: Number
+  note?: String? = null
+}
+
+type Summary {
+  assetName: String
+  reviewedAt: DateTime
+  totalScore: Number
+}
+
+fn screeningScore(severity: Number, occurrence: Number): Number = severity * occurrence
+
+let scores: Number[] = for screening in screenings {
+  return screeningScore(screening.severity, screening.occurrence)
+}
+let totalScore: Number = sum(scores)
+let meanScreeningScore: Number = mean(scores)
+let illustrativeReviewWindow: Duration = 2 hour
+let formattedTotal: String = format(totalScore, "#,##0")
+
+export let summary: Summary = Summary {
+  assetName = asset.name,
+  reviewedAt = reviewedAt,
+  totalScore = totalScore
+}
+export let resultRows: ScreeningResult[] = for screening in screenings {
+  return ScreeningResult {
+    assetId = screening.assetId,
+    score = screeningScore(screening.severity, screening.occurrence),
+    note = screening.note
+  }
+}
+
+table screeningRegister = table(resultRows) {
+  title: "Screening register"
+  column assetId as "Asset ID"
+  column score as "Illustrative score"
+  column note as "Observation"
+}
+
+chart screeningScores = bar(scores) {
+  title: "Score by screening"
+  description: "Illustrative severity multiplied by occurrence"
+  series "Illustrative score"
+}
+
+show screeningRegister
+show screeningScores
+```
+
+## Expected outcome and interpretation
+
+With the listed files, the report is for **{{ summary.assetName }}**, reviewed
+at {{ summary.reviewedAt }}. The illustrative scores are `16`, `18`, and `4`,
+with a total of `{{ formattedTotal }}` and a mean of
+{{ format(meanScreeningScore, "0.00") }}. Preview contains the
+“Screening register” table and “Score by screening” chart.
+
+`illustrativeReviewWindow` is a separate, explicitly illustrative two-hour
+Measurement used to show a displayed unit; it is not read from the inputs
+and does not affect screening scores. The multiplication of severity and
+occurrence is a teaching calculation only. These values are not calibrated
+probabilities, engineering standards, comparable asset-risk measures,
+maintenance advice, or investment advice.
+
+`summary` exports the asset name, review time, total, and mean. `resultRows`
+exports the source screening IDs, illustrative scores, and notes. Invalid
+input fixtures fail validation rather than producing success-shaped output.
+
+## Related focused lessons
+
+Return to [expressions and decisions](./02_Expressions_and_Decisions.amx),
+[typed records, enums, and modules](./04_Typed_Records_Enums_and_Modules.amx),
+[mapped data and validation](./06_Mapped_Data_and_Validation.amx),
+[tables, charts, and named outputs](./07_Tables_Charts_and_Named_Outputs.amx),
+[Measurements and units](./05_Measurements_and_Units.amx),
+[mathematics and Measurement operations](./10_Mathematics_and_Measurement_Operations.amx),
+and [text and numeric formatting](./11_Text_and_Numeric_Formatting.amx).
+
+## Navigation
+
+[Index](./00_Table_of_Contents.amx) |
+[Previous: Text and Numeric Formatting](./11_Text_and_Numeric_Formatting.amx)

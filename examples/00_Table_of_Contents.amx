@@ -5,18 +5,36 @@ title: OpenAMX learning guide
 # OpenAMX Learning Guide
 
 This is the entry point for a desktop-first path from a first computable
-document to a small analysis with mapped data and report outputs. Read the
-lessons in order; each lesson introduces only concepts needed by the next.
+document to a complete illustrative analysis. Lessons 01-11 build the
+concepts in order; lesson 12 is the destination report. The standalone
+references 13 and 14 are useful topic examples, not prerequisites.
 
-| Lesson | Objective | Inputs and support |
+## Guided lessons and destination report
+
+| Lesson | Role and objective | Inputs and support |
 | --- | --- | --- |
-| [01 - First Computable Document](./01_First_Computable_Document.amx) | Open, run, and preview a minimal Markdown and AMX document. | No imports or input files. |
-| [02 - Expressions and Decisions](./02_Expressions_and_Decisions.amx) | Build expressions, update values, and choose results with conditionals. | No imports or input files. |
-| [03 - Collections and Functions](./03_Collections_and_Functions.amx) | Transform lists, iterate, match values, and reuse a pure function. | No imports or input files. |
-| [04 - Typed Records, Enums, and Modules](./04_Typed_Records_Enums_and_Modules.amx) | Model structured values and reuse an explicitly imported local type. | Uses `libraries/asset-management.amx`. |
-| [05 - Measurements and Units](./05_Measurements_and_Units.amx) | Represent quantities with dimensions, units, and conversions. | No imports or input files. |
-| [06 - Mapped Data and Validation](./06_Mapped_Data_and_Validation.amx) | Map typed JSON and CSV inputs and distinguish valid from invalid data. | Uses `data/` and the `libraries/` modules; invalid-only cases are in `fixtures/invalid/`. |
-| [07 - Tables, Charts, and Named Outputs](./07_Tables_Charts_and_Named_Outputs.amx) | Present mapped results and write explicitly named JSON and CSV outputs. | Uses the same valid input mappings as lesson 06. |
+| [01 - First Computable Document](./01_First_Computable_Document.amx) | Guided lesson: open, run, and preview a minimal Markdown and AMX document. | No imports or input files. |
+| [02 - Expressions and Decisions](./02_Expressions_and_Decisions.amx) | Guided lesson: build expressions, update values, and choose results with conditionals. | No imports or input files. |
+| [03 - Collections and Functions](./03_Collections_and_Functions.amx) | Guided lesson: transform lists, iterate, match values, and reuse a pure function. | No imports or input files. |
+| [04 - Typed Records, Enums, and Modules](./04_Typed_Records_Enums_and_Modules.amx) | Guided lesson: model structured values and reuse an explicitly imported local type. | Uses `libraries/asset-management.amx`. |
+| [05 - Measurements and Units](./05_Measurements_and_Units.amx) | Guided lesson: represent quantities with dimensions, units, and conversions. | No imports or input files. |
+| [06 - Mapped Data and Validation](./06_Mapped_Data_and_Validation.amx) | Guided lesson: map typed JSON and CSV inputs and distinguish valid from invalid data. | Uses `data/` and `libraries/`; invalid-only cases are in `fixtures/invalid/`. |
+| [07 - Tables, Charts, and Named Outputs](./07_Tables_Charts_and_Named_Outputs.amx) | Guided lesson: present mapped results and write explicitly named JSON and CSV outputs. | Uses the same valid input mappings as lesson 06. |
+| [08 - Formula-Driven Diagrams](./08_Formula_Driven_Diagrams.amx) | Guided lesson: read time-dependent diagram geometry and its controls. | No imports or input files. |
+| [09 - Runtime Type Checks](./09_Runtime_Type_Checks.amx) | Guided lesson: use V0.14 `is` predicates and distinguish false results from invalid targets. | No imports or input files. |
+| [10 - Mathematics and Measurement Operations](./10_Mathematics_and_Measurement_Operations.amx) | Guided lesson: use V0.14 math and existing Measurement-aware operations. | No imports or input files. |
+| [11 - Text and Numeric Formatting](./11_Text_and_Numeric_Formatting.amx) | Guided lesson: inspect Unicode text behavior and bounded numeric formatting. | No imports or input files. |
+| [12 - Complete Asset Screening Report](./12_Complete_Asset_Screening_Report.amx) | Destination report: combine mapped data, Measurements, analysis, presentation, and named outputs. | Uses the valid asset, screenings, and reviewed-at inputs plus the two local schema modules. |
+
+## Standalone references
+
+These references can be opened independently; neither is part of the guided
+prerequisite sequence.
+
+| Reference | Topic | Inputs and support |
+| --- | --- | --- |
+| [13 - Route Measurement Report](./13_Route_Measurement_Report.amx) | Mapped route data, Measurement units, a table, chart, and named output. | Uses `data/measurement-trips.json` and `libraries/travel-measurements.amx`. |
+| [14 - Battery-Resistor Circuit](./14_Battery_Resistor_Circuit.amx) | A time-dependent circuit schematic with a constant-current interpretation. | No imports or input files. |
 
 ## Desktop workflow
 
@@ -24,11 +42,12 @@ Use **Open project** in OpenAMX Desktop to open the folder containing this
 checkout. In the project explorer, open a lesson under `examples/`. **Run**
 evaluates the active document; **Preview** shows its rendered narrative and
 report views. Lessons with imports or inputs need the companion files at the
-relative paths listed above.
+relative paths listed above. This index is not a claim that the guide is
+integrated into Welcome or Starter Examples.
 
-## Where the path ends
+## Where the guided path ends
 
-Lesson 07 is the end of this first guide segment. Advanced feature references,
-a complete report, and standalone examples are later material and are not
-linked here until those files exist. This repository guide is not yet a
-Welcome/Starter Examples package integration.
+Lessons 01-11 introduce the concepts used by the destination report in 12.
+The report links back to focused topics and is not a prerequisite for any
+earlier lesson. References 13 and 14 remain separate from that learning
+sequence.

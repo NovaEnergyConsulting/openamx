@@ -1,0 +1,145 @@
+---
+title: Runtime type checks
+---
+
+# Runtime Type Checks
+
+## Objective
+
+Use V0.14 `is` predicates to compare runtime values with visible AMX types,
+including recursively structured records, optional and nullable fields,
+lists, enum member values, and Measurement dimensions.
+
+## Prerequisites
+
+Complete [lesson 08](./08_Formula_Driven_Diagrams.amx). No inputs or imported
+modules are required.
+
+## Desktop workflow
+
+Open this document in OpenAMX Desktop, select **Run** to inspect each
+predicate result, then select **Preview** to read the explanations and
+bindings. This lesson uses only local declarations.
+
+## Inputs and support files
+
+There are no external inputs or support files. Every `is` target below is
+declared before its use, so it is visible at the test site.
+
+## Predicate results
+
+```amx
+type Point {
+  x: Number
+}
+
+type DetailedPoint {
+  x: Number
+  y: Number
+}
+
+type Calibration {
+  origin: Point
+}
+
+type DetailedCalibration {
+  origin: DetailedPoint
+}
+
+type TextPoint {
+  x: String
+}
+
+type Miscalibrated {
+  origin: TextPoint
+}
+
+type Note {
+  text?: String?
+}
+
+enum State = {
+  READY = 1,
+  CLOSED = 2
+}
+
+enum OtherState = {
+  STARTED = 1
+}
+
+dimension Length
+dimension Time
+dimension Dimensionless = Length / Length
+unit meter: Length
+unit centimeter = 0.01 * meter
+unit second: Time
+unit ratio = meter / meter
+
+let detailed: DetailedPoint = DetailedPoint { x = 1, y = 2 }
+let structuralMatch = detailed is Point
+let primitiveMatch = 42 is Number
+let primitiveMismatch = 42 is String
+let booleanMatch = true is Boolean
+
+let calibration: DetailedCalibration = DetailedCalibration {
+  origin = DetailedPoint { x = 10, y = 20 }
+}
+let recursiveStructuralMatch = calibration is Calibration
+let pointValues: DetailedPoint[] = [detailed]
+let recursiveListMatch = pointValues is Point[]
+let miscalibrated: Miscalibrated = Miscalibrated {
+  origin = TextPoint { x = "unknown" }
+}
+let recursiveMismatch = miscalibrated is Calibration
+let textPoints: TextPoint[] = [TextPoint { x = "not a number" }]
+let recursiveListMismatch = textPoints is Point[]
+
+let absentNote: Note = Note {}
+let absentOptionalField = absentNote is Note
+let nullableNull = null is String?
+let nonNullableNull = null is String
+
+let values: Number[] = [1, 2, 3]
+let allNumbers = values is Number[]
+let empty: Number[] = []
+let emptyMatchesOtherElementType = empty is String[]
+
+let enumMember = 1 is State
+let sharedMemberMatchesBoth = 1 is State and 1 is OtherState
+
+let distance: Length = 100 centimeter
+let lengthMatch = distance is Length
+let dimensionMismatch = distance is Time
+let dimensionless: Dimensionless = 2 ratio
+let dimensionlessMatch = dimensionless is Dimensionless
+let numberIsNotMeasurement = 2 is Dimensionless
+```
+
+## Expected outcome
+
+`structuralMatch`, `recursiveStructuralMatch`, `absentOptionalField`,
+`nullableNull`, `allNumbers`, `emptyMatchesOtherElementType`, `enumMember`,
+`sharedMemberMatchesBoth`, `lengthMatch`, and `dimensionlessMatch` are
+`booleanMatch`, `recursiveListMatch`, and the other listed successful matches
+are `true`. `primitiveMismatch`, `recursiveMismatch`, `recursiveListMismatch`,
+`nonNullableNull`, `dimensionMismatch`, and `numberIsNotMeasurement` are
+`false`; each is a successful predicate evaluation, not an error.
+
+Record checks are structural and recursive: required fields must be present
+and match, optional fields may be absent, and extra fields are permitted.
+Lists check their elements recursively; an empty list matches any element
+type. `null` matches a nullable target only. Enum targets test underlying
+primitive member values, not nominal enum identity. Measurement targets
+compare physical dimension vectors, regardless of unit scale or spelling.
+A Number does not match a dimensionless Measurement target.
+
+Unknown, invisible, and non-type targets are diagnostics rather than
+`false`. The focused type-checking tests exercise those invalid targets and
+confirm their source diagnostics. A successful `is` result does not narrow
+the value's static type in either branch.
+
+## Navigation
+
+[Index](./00_Table_of_Contents.amx) |
+[Previous: Formula-Driven Diagrams](./08_Formula_Driven_Diagrams.amx) |
+[Next: Mathematics and Measurement Operations](./10_Mathematics_and_Measurement_Operations.amx)

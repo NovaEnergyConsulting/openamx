@@ -1,0 +1,116 @@
+---
+title: Mathematics and Measurement operations
+---
+
+# Mathematics and Measurement Operations
+
+## Objective
+
+Use the V0.14 mathematical constants and functions with valid inputs, and
+inspect Measurement-aware standard-library operations without changing their
+established behavior.
+
+## Prerequisites
+
+Complete [lesson 09](./09_Runtime_Type_Checks.amx) and
+[lesson 05](./05_Measurements_and_Units.amx). No imports or input files are
+required.
+
+## Desktop workflow
+
+Open this document in OpenAMX Desktop. Select **Run** to inspect numeric
+bindings and their Measurement units; select **Preview** to read the domain
+and dimensional rules alongside the results.
+
+## Inputs and support files
+
+This example uses only declarations and values in the document. Its
+Measurement-aware `sum`, `mean`, `min`, `max`, `abs`, `round`, `sqrt`, and
+`pow` operations are existing library behavior, not new V0.14 functions.
+
+## Constants, math, and Measurements
+
+```amx
+dimension Length
+dimension Dimensionless = Length / Length
+unit meter: Length
+unit centimeter = 0.01 * meter
+unit squareMeter = meter ^ 2
+unit ratio = meter / meter
+unit percent = 0.01 * ratio
+
+let piValue = PI
+let eValue = E
+let sine = sin(PI / 2)
+let cosine = cos(0)
+let tangent = tan(0)
+let arcSine = asin(1)
+let arcCosine = acos(1)
+let arcTangent = atan(1)
+let hyperbolicSine = sinh(0)
+let hyperbolicCosine = cosh(0)
+let hyperbolicTangent = tanh(0)
+let inverseHyperbolicSine = asinh(0)
+let inverseHyperbolicCosine = acosh(1)
+let inverseHyperbolicTangent = atanh(0)
+let naturalLog = ln(E)
+let commonLog = log(100)
+let exponential = exp(1)
+
+let scaledDimensionless: Dimensionless = 200 percent
+let dimensionlessSine = sin(scaledDimensionless)
+
+let distances: Length[] = [1 meter, 100 centimeter]
+let totalDistance = sum(distances)
+let averageDistance = mean(distances)
+let shortestDistance = min(distances)
+let distinctDistances: Length[] = [1 meter, 150 centimeter]
+let longestDistance = max(distinctDistances)
+let absoluteDistance = abs(-2 meter)
+let roundedDistance = round(1.236 meter, 2)
+let squareRootDistance = sqrt(9 squareMeter)
+let squaredDistance = pow(2 meter, 2)
+let emptyDistances: Length[] = []
+let emptyTotal = sum(emptyDistances)
+```
+
+## Expected outcome and limits
+
+The constants are the runtime IEEE-754 values for π and e. Trigonometric
+inputs and inverse-trigonometric outputs use radians; `ln` is the natural
+logarithm and `log` is base 10. These functions return ordinary Numbers.
+Dimensionless Measurements are normalized by their unit scale before the
+function is called; dimensioned Measurements are not accepted. No angle
+dimension, degree/radian unit, or angle conversion is introduced here.
+
+Inputs to `asin` and `acos` are in `[-1, 1]`; `acosh` accepts values at least
+`1`; `atanh` requires values strictly between `-1` and `1`; `ln` and `log`
+require values greater than `0`. Other listed math inputs must be finite.
+Invalid domains or non-finite inputs report
+`AMXSL001: Invalid input for mathematical function`; non-finite results report
+`AMXSL002: Function evaluation results in infinite result`. `tan` follows
+IEEE-754 evaluation and has no epsilon-based pole check. The focused math
+tests assert exact diagnostics and domain boundaries. Incorrect arity and
+argument types continue to use the existing `AMX3004` and `AMX3002`
+diagnostics.
+
+For the displayed `distances`, `totalDistance` is `2 meter`,
+`averageDistance` is `1 meter`, and `shortestDistance` is `1 meter`. The
+separate `distinctDistances` list shows `longestDistance` as `150 centimeter`
+(the selected value keeps its original unit). `absoluteDistance` is
+`2 meter`; `roundedDistance` is `1.24 meter`;
+`squareRootDistance` is `3 meter`; and `squaredDistance` is `4 meter ^ 2`.
+`emptyTotal` is zero in the canonical base unit, `meter`. Measurement
+`sum` and `mean` require compatible dimensions, convert to the first
+element's unit, and preserve it. `min` and `max` compare physical values and
+preserve the selected value's original unit. `abs` and `round` preserve the
+unit, with `round` operating on its displayed value; `sqrt` and `pow` apply
+the existing dimensional rules, and Measurement `pow` requires an
+integer-literal exponent. Empty `mean`, `min`, and `max` fail, while a typed
+empty Measurement `sum` is valid.
+
+## Navigation
+
+[Index](./00_Table_of_Contents.amx) |
+[Previous: Runtime Type Checks](./09_Runtime_Type_Checks.amx) |
+[Next: Text and Numeric Formatting](./11_Text_and_Numeric_Formatting.amx)

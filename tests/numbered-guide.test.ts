@@ -4,20 +4,31 @@ import { tmpdir } from "os";
 import * as path from "path";
 
 const indexPath = "examples/00_Table_of_Contents.amx";
-const lessonPaths = [
+const guidedPaths = [
   "examples/01_First_Computable_Document.amx",
   "examples/02_Expressions_and_Decisions.amx",
   "examples/03_Collections_and_Functions.amx",
   "examples/04_Typed_Records_Enums_and_Modules.amx",
   "examples/05_Measurements_and_Units.amx",
   "examples/06_Mapped_Data_and_Validation.amx",
-  "examples/07_Tables_Charts_and_Named_Outputs.amx"
+  "examples/07_Tables_Charts_and_Named_Outputs.amx",
+  "examples/08_Formula_Driven_Diagrams.amx",
+  "examples/09_Runtime_Type_Checks.amx",
+  "examples/10_Mathematics_and_Measurement_Operations.amx",
+  "examples/11_Text_and_Numeric_Formatting.amx",
+  "examples/12_Complete_Asset_Screening_Report.amx"
 ];
+const referencePaths = [
+  "examples/13_Route_Measurement_Report.amx",
+  "examples/14_Battery_Resistor_Circuit.amx"
+];
+const lessonPaths = [...guidedPaths, ...referencePaths];
 const validInputs = [
   "--input", "asset=examples/data/asset.json",
   "--input", "screenings=examples/data/screenings.csv",
   "--input", "reviewedAt=examples/data/reviewed-at.json"
 ];
+const routeInputs = ["--input", "trips=examples/data/measurement-trips.json"];
 
 async function runCli(...arguments_: string[]) {
   const command = Bun.spawnSync([process.execPath, "run", "dist/cli.js", ...arguments_]);
@@ -50,7 +61,9 @@ describe("V0.15 numbered guide", () => {
     const guideRoot = await realpath("examples");
     const index = await Bun.file(indexPath).text();
     expect(parseLinks(index)).toEqual(lessonPaths.map(lesson => `./${path.basename(lesson)}`));
-    expect(index).toContain("later material");
+    expect(index).toContain("## Guided lessons and destination report");
+    expect(index).toContain("## Standalone references");
+    expect(index).toContain("not a prerequisite");
 
     const expectedNavigation = [
       ["./00_Table_of_Contents.amx", "./02_Expressions_and_Decisions.amx"],
@@ -59,7 +72,43 @@ describe("V0.15 numbered guide", () => {
       ["./00_Table_of_Contents.amx", "./03_Collections_and_Functions.amx", "./05_Measurements_and_Units.amx"],
       ["./00_Table_of_Contents.amx", "./04_Typed_Records_Enums_and_Modules.amx", "./06_Mapped_Data_and_Validation.amx"],
       ["./00_Table_of_Contents.amx", "./05_Measurements_and_Units.amx", "./07_Tables_Charts_and_Named_Outputs.amx"],
-      ["./00_Table_of_Contents.amx", "./06_Mapped_Data_and_Validation.amx"]
+      ["./00_Table_of_Contents.amx", "./06_Mapped_Data_and_Validation.amx", "./08_Formula_Driven_Diagrams.amx"],
+      [
+        "./00_Table_of_Contents.amx",
+        "./07_Tables_Charts_and_Named_Outputs.amx",
+        "./09_Runtime_Type_Checks.amx",
+        "./14_Battery_Resistor_Circuit.amx"
+      ],
+      [
+        "./00_Table_of_Contents.amx",
+        "./08_Formula_Driven_Diagrams.amx",
+        "./10_Mathematics_and_Measurement_Operations.amx"
+      ],
+      [
+        "./00_Table_of_Contents.amx",
+        "./09_Runtime_Type_Checks.amx",
+        "./05_Measurements_and_Units.amx",
+        "./11_Text_and_Numeric_Formatting.amx"
+      ],
+      ["./00_Table_of_Contents.amx", "./10_Mathematics_and_Measurement_Operations.amx", "./12_Complete_Asset_Screening_Report.amx"],
+      [
+        "./00_Table_of_Contents.amx",
+        "./11_Text_and_Numeric_Formatting.amx",
+        "./02_Expressions_and_Decisions.amx",
+        "./04_Typed_Records_Enums_and_Modules.amx",
+        "./05_Measurements_and_Units.amx",
+        "./06_Mapped_Data_and_Validation.amx",
+        "./07_Tables_Charts_and_Named_Outputs.amx",
+        "./10_Mathematics_and_Measurement_Operations.amx",
+        "./11_Text_and_Numeric_Formatting.amx"
+      ],
+      [
+        "./00_Table_of_Contents.amx",
+        "./05_Measurements_and_Units.amx",
+        "./06_Mapped_Data_and_Validation.amx",
+        "./07_Tables_Charts_and_Named_Outputs.amx"
+      ],
+      ["./00_Table_of_Contents.amx", "./08_Formula_Driven_Diagrams.amx"]
     ];
 
     for (let index = 0; index < lessonPaths.length; index += 1) {
@@ -94,9 +143,11 @@ describe("V0.15 numbered guide", () => {
     for (const supportPath of [
       "examples/libraries/asset-management.amx",
       "examples/libraries/screening.amx",
+      "examples/libraries/travel-measurements.amx",
       "examples/data/asset.json",
       "examples/data/screenings.csv",
       "examples/data/reviewed-at.json",
+      "examples/data/measurement-trips.json",
       "examples/fixtures/invalid/asset.json",
       "examples/fixtures/invalid/screenings.csv"
     ]) {
@@ -104,7 +155,9 @@ describe("V0.15 numbered guide", () => {
     }
     expect(await Bun.file(lessonPaths[3]!).text()).toContain("export type");
     expect(executableSource(await Bun.file(lessonPaths[6]!).text())).toContain("export let summary");
-    expect(parseLinks(await Bun.file(lessonPaths[6]!).text())).not.toContain("./08_Formula_Driven_Diagrams.amx");
+    expect(parseLinks(await Bun.file(lessonPaths[11]!).text())).toContain("./02_Expressions_and_Decisions.amx");
+    expect(parseLinks(await Bun.file(lessonPaths[12]!).text())).not.toContain("./12_Complete_Asset_Screening_Report.amx");
+    expect(parseLinks(await Bun.file(lessonPaths[13]!).text())).toContain("./08_Formula_Driven_Diagrams.amx");
   });
 
   it("executes each lesson with documented inputs and checks results and deliberate failures", async () => {
@@ -206,6 +259,239 @@ describe("V0.15 numbered guide", () => {
       expect(html).toContain("North Pump 01");
       expect(html).toContain("38");
 
+      const diagrams = expectCliSuccess(await runCli("run", lessonPaths[7])) as Record<string, unknown>;
+      expect(diagrams).toMatchObject({ crankRadius: 34, rodLength: 105 });
+
+      const typeChecks = expectCliSuccess(await runCli("run", lessonPaths[8])) as Record<string, unknown>;
+      expect(typeChecks).toMatchObject({
+        structuralMatch: true,
+        primitiveMatch: true,
+        primitiveMismatch: false,
+        booleanMatch: true,
+        recursiveStructuralMatch: true,
+        recursiveListMatch: true,
+        recursiveMismatch: false,
+        recursiveListMismatch: false,
+        absentOptionalField: true,
+        nullableNull: true,
+        nonNullableNull: false,
+        allNumbers: true,
+        emptyMatchesOtherElementType: true,
+        enumMember: true,
+        sharedMemberMatchesBoth: true,
+        lengthMatch: true,
+        dimensionMismatch: false,
+        dimensionlessMatch: true,
+        numberIsNotMeasurement: false
+      });
+
+      const math = expectCliSuccess(await runCli("run", lessonPaths[9])) as Record<string, unknown>;
+      expect(math).toMatchObject({
+        piValue: Math.PI,
+        eValue: Math.E,
+        sine: 1,
+        cosine: 1,
+        tangent: 0,
+        arcSine: Math.PI / 2,
+        arcCosine: 0,
+        arcTangent: Math.PI / 4,
+        hyperbolicSine: 0,
+        hyperbolicCosine: 1,
+        hyperbolicTangent: 0,
+        inverseHyperbolicSine: 0,
+        inverseHyperbolicCosine: 0,
+        inverseHyperbolicTangent: 0,
+        naturalLog: 1,
+        commonLog: 2,
+        exponential: Math.E,
+        dimensionlessSine: Math.sin(2),
+        totalDistance: { value: 2, unit: { text: "meter" } },
+        averageDistance: { value: 1, unit: { text: "meter" } },
+        shortestDistance: { value: 1, unit: { text: "meter" } },
+        longestDistance: { value: 150, unit: { text: "centimeter" } },
+        absoluteDistance: { value: 2, unit: { text: "meter" } },
+        roundedDistance: { value: 1.24, unit: { text: "meter" } },
+        squareRootDistance: { value: 3, unit: { text: "meter" } },
+        squaredDistance: { value: 4, unit: { text: "meter ^ 2" } },
+        emptyTotal: { value: 0, unit: { text: "meter" } }
+      });
+
+      const formatting = expectCliSuccess(await runCli("run", lessonPaths[10])) as Record<string, unknown>;
+      expect(formatting).toMatchObject({
+        codePointLength: 3,
+        listLength: 3,
+        combiningSequenceLength: 2,
+        trimmed: "AMX",
+        firstTwo: "A🙂",
+        lastTwo: "🙂B",
+        defaultLeft: "A",
+        emptyRight: "",
+        longLeft: "AMX",
+        groupedUS: "1,234.50",
+        groupedGerman: "1.234,50",
+        groupedFrench: "1 234,50",
+        percentage: "12.5%",
+        currency: "-$1,234.50",
+        positiveTie: "1.13",
+        negativeTie: "-1.13",
+        negativeZero: "0.00",
+        displayedDistance: "1.25 meter",
+        displayedCentimeters: "125.00 centimeter"
+      });
+
+      const reportSummaryPath = path.join(directory, "complete-summary.json");
+      const reportRowsPath = path.join(directory, "complete-rows.csv");
+      const completeReport = expectCliSuccess(await runCli(
+        "run",
+        lessonPaths[11],
+        ...validInputs,
+        "--output", `summary=${reportSummaryPath}`,
+        "--output", `resultRows=${reportRowsPath}`
+      )) as Record<string, unknown>;
+      expect(completeReport).toMatchObject({
+        summary: {
+          assetName: "North Pump 01",
+          reviewedAt: "2026-09-29T12:00:00Z",
+          totalScore: 38
+        },
+        resultRows: [
+          { assetId: "A-001", score: 16, note: "Bearing inspection" },
+          { assetId: "A-001", score: 18, note: "Seal inspection" },
+          { assetId: "A-001", score: 4, note: null }
+        ],
+        meanScreeningScore: 38 / 3,
+        illustrativeReviewWindow: { value: 2, unit: { text: "hour" } },
+        formattedTotal: "38"
+      });
+      expect(completeReport.summary).toEqual({
+        assetName: "North Pump 01",
+        reviewedAt: "2026-09-29T12:00:00Z",
+        totalScore: 38
+      });
+      expect(JSON.parse(await Bun.file(reportSummaryPath).text())).toEqual({
+        assetName: "North Pump 01",
+        reviewedAt: "2026-09-29T12:00:00Z",
+        totalScore: 38
+      });
+      expect(await Bun.file(reportRowsPath).text()).toBe([
+        "assetId,score,note",
+        "A-001,16,Bearing inspection",
+        "A-001,18,Seal inspection",
+        "A-001,4,",
+        ""
+      ].join("\n"));
+
+      const completeReportHtmlPath = path.join(directory, "complete-report.html");
+      const completeReportRender = await runCli(
+        "render",
+        lessonPaths[11],
+        "--out", completeReportHtmlPath,
+        ...validInputs
+      );
+      expect(completeReportRender.exitCode).toBe(0);
+      const completeReportHtml = await Bun.file(completeReportHtmlPath).text();
+      expect(completeReportHtml).toContain("Screening register");
+      expect(completeReportHtml).toContain("Score by screening");
+      expect(completeReportHtml).toContain("not calibrated");
+
+      const invalidCompleteOutput = path.join(directory, "invalid-complete-summary.json");
+      const invalidCompleteReport = await runCli(
+        "run",
+        lessonPaths[11],
+        "--input", "asset=examples/data/asset.json",
+        "--input", "screenings=examples/fixtures/invalid/screenings.csv",
+        "--input", "reviewedAt=examples/data/reviewed-at.json",
+        "--output", `summary=${invalidCompleteOutput}`
+      );
+      expect(invalidCompleteReport.exitCode).not.toBe(0);
+      expect(invalidCompleteReport.stderr).toContain("AMX4003");
+      expect(invalidCompleteReport.stderr).toContain("record[1].severity");
+      expect(invalidCompleteReport.stderr).toContain("Expected: Number");
+      expect(await Bun.file(invalidCompleteOutput).exists()).toBe(false);
+
+      const invalidCompleteAssetOutput = path.join(directory, "invalid-complete-asset-summary.json");
+      const invalidCompleteAsset = await runCli(
+        "run",
+        lessonPaths[11],
+        "--input", "asset=examples/fixtures/invalid/asset.json",
+        "--input", "screenings=examples/data/screenings.csv",
+        "--input", "reviewedAt=examples/data/reviewed-at.json",
+        "--output", `summary=${invalidCompleteAssetOutput}`
+      );
+      expect(invalidCompleteAsset.exitCode).not.toBe(0);
+      expect(invalidCompleteAsset.stderr).toContain("AMX4003");
+      expect(invalidCompleteAsset.stderr).toContain("/id");
+      expect(await Bun.file(invalidCompleteAssetOutput).exists()).toBe(false);
+
+      const routeOutputPath = path.join(directory, "route-summaries.json");
+      const routeReport = expectCliSuccess(await runCli(
+        "run",
+        lessonPaths[12],
+        ...routeInputs,
+        "--output", `exportedSummaries=${routeOutputPath}`
+      )) as Record<string, unknown>;
+      expect(routeReport).toMatchObject({
+        exportedSummaries: [
+          {
+            route: "North loop",
+            distance: { value: 1.5, unit: { text: "kilometer" } },
+            averageSpeed: { value: 3, unit: { text: "kilometer_per_hour" } }
+          },
+          {
+            route: "South loop",
+            distance: { value: 0.5, unit: { text: "kilometer" } },
+            averageSpeed: { value: 1.5, unit: { text: "kilometer_per_hour" } }
+          }
+        ]
+      });
+      expect(JSON.parse(await Bun.file(routeOutputPath).text())).toEqual([
+        {
+          route: "North loop",
+          distance: { value: 1.5, unit: "kilometer" },
+          averageSpeed: { value: 3, unit: "kilometer_per_hour" }
+        },
+        {
+          route: "South loop",
+          distance: { value: 0.5, unit: "kilometer" },
+          averageSpeed: { value: 1.5, unit: "kilometer_per_hour" }
+        }
+      ]);
+
+      const routeHtmlPath = path.join(directory, "route-report.html");
+      const routeRender = await runCli("render", lessonPaths[12], "--out", routeHtmlPath, ...routeInputs);
+      expect(routeRender.exitCode).toBe(0);
+      const routeHtml = await Bun.file(routeHtmlPath).text();
+      expect(routeHtml).toContain("Route measurements");
+      expect(routeHtml).toContain("Distance by route");
+      expect(routeHtml).toContain("North loop");
+
+      for (const [lessonPath, filename, title] of [
+        [lessonPaths[8]!, "types09.html", "Runtime Type Checks"],
+        [lessonPaths[9]!, "math10.html", "Mathematics and Measurement Operations"],
+        [lessonPaths[10]!, "formatting11.html", "Text and Numeric Formatting"]
+      ]) {
+        const narrativeHtmlPath = path.join(directory, filename);
+        const renderedNarrative = await runCli("render", lessonPath, "--out", narrativeHtmlPath);
+        expect(renderedNarrative.exitCode).toBe(0);
+        expect(await Bun.file(narrativeHtmlPath).text()).toContain(title);
+      }
+
+      const circuit = expectCliSuccess(await runCli("run", lessonPaths[13])) as Record<string, unknown>;
+      expect(circuit).toMatchObject({ supplyVoltage: 9, resistance: 15, current: 0.6 });
+
+      for (const [lessonPath, filename, title] of [
+        [lessonPaths[7]!, "diagram08.html", "Crank-slider mechanism"],
+        [lessonPaths[13]!, "circuit14.html", "Battery-resistor DC circuit"]
+      ]) {
+        const diagramHtmlPath = path.join(directory, filename);
+        const renderedDiagram = await runCli("render", lessonPath, "--out", diagramHtmlPath);
+        expect(renderedDiagram.exitCode).toBe(0);
+        const diagramHtml = await Bun.file(diagramHtmlPath).text();
+        expect(diagramHtml).toContain(title);
+        expect(diagramHtml).toContain('data-openamx-diagram="openamx-diagram-0"');
+        expect(diagramHtml).toContain('type="range" data-diagram-scrubber');
+      }
+
       const invalidCsvOutput = path.join(directory, "invalid-csv-summary.json");
       const invalidCsv = await runCli(
         "run",
@@ -236,5 +522,5 @@ describe("V0.15 numbered guide", () => {
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
-  });
+  }, 60000);
 });

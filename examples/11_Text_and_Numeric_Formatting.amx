@@ -1,0 +1,96 @@
+---
+title: Text and numeric formatting
+---
+
+# Text and Numeric Formatting
+
+## Objective
+
+Inspect V0.14 text length, trimming, and slicing rules, then format finite
+Numbers and Measurements with the supported patterns and locales.
+
+## Prerequisites
+
+Complete [lesson 10](./10_Mathematics_and_Measurement_Operations.amx). No
+imports or input files are required.
+
+## Desktop workflow
+
+Open this document in OpenAMX Desktop. Select **Run** to inspect the exact
+strings and counts; select **Preview** to read the Unicode and formatting
+rules next to the results. The complete report in
+[lesson 12](./12_Complete_Asset_Screening_Report.amx) uses the same bounded
+formatting contract.
+
+## Inputs and support files
+
+This example is input-free and import-free. It uses literal Unicode text and
+the V0.14 formatting grammar.
+
+## Text and formatted values
+
+```amx
+dimension Length
+unit meter: Length
+unit centimeter = 0.01 * meter
+
+let codePointLength = len("A🙂B")
+let listLength = len([1, 2, 3])
+let combiningSequenceLength = len("é")
+let trimmed = trim(" AMX ")
+let firstTwo = left("A🙂B", 2)
+let lastTwo = right("A🙂B", 2)
+let defaultLeft = left("AMX")
+let emptyRight = right("AMX", 0)
+let longLeft = left("AMX", 8)
+
+let groupedUS = format(1234.5, "#,##0.00", "en-US")
+let groupedGerman = format(1234.5, "#,##0.00", "de-DE")
+let groupedFrench = format(1234.5, "#,##0.00", "fr-FR")
+let percentage = format(0.125, "0.0%", "en-US")
+let currency = format(-1234.5, "$#,##0.00", "en-US")
+let positiveTie = format(1.125, "0.00")
+let negativeTie = format(-1.125, "0.00")
+let negativeZero = format(-0, "0.00")
+let displayedDistance = format(1.25 meter, "0.00")
+let displayedCentimeters = format(125 centimeter, "#,##0.00")
+```
+
+## Expected outcome and limits
+
+`len` counts Unicode code points, not UTF-16 code units or grapheme clusters:
+`"A🙂B"` has length `3`, while `"é"` has length `2`. `len` on a list counts
+elements. `trim` removes only surrounding characters in the Unicode 15.1
+`White_Space` set: U+0009–U+000D, U+0020, U+0085, U+00A0, U+1680,
+U+2000–U+200A, U+2028–U+2029, U+202F, U+205F, and U+3000. U+FEFF and
+U+180E are excluded; internal characters are unchanged. `left` and `right`
+count and return code points. An omitted count means `1`, zero returns an
+empty string, and a count greater than the text length returns all of it.
+Negative, fractional, non-finite, and non-Number counts report `AMXSL003`.
+
+For `format`, locales are fixed to `en-US` (default), `de-DE`, and `fr-FR`.
+Grouping uses groups of three; decimal and grouping separators vary by locale.
+The supported patterns are a currency prefix (`$`, `€`, or `£`) followed by
+`0` or `#,##0`, an optional decimal point with one to six mandatory zeroes,
+and an optional trailing `%`. Currency symbols are literal pattern prefixes;
+percent multiplies by 100. Rounding ties go half away from zero based on the
+Number's shortest round-trippable decimal spelling; negative zero formats as
+positive zero. Measurement formatting uses its displayed numeric value and appends one
+ASCII space and its displayed unit, without converting units.
+
+The bindings include `"1,234.50"` (`en-US`), `"1.234,50"` (`de-DE`),
+`"1 234,50"` (`fr-FR`), `"12.5%"`, `"-$1,234.50"`, `"1.13"`, `"-1.13"`,
+`"0.00"`, `"1.25 meter"`, and `"125.00 centimeter"`. The supported pattern
+grammar is intentionally bounded: quoted text, dates, scientific notation,
+colors, conditional sections, and other unsupported forms are not accepted.
+Invalid slice counts report `AMXSL003: Invalid text slice count`; malformed
+patterns report `AMXSL004: Incorrect formatting pattern`; unsupported locales
+report `AMXSL005: Formatting locale is malformed or unsupported`; non-finite
+values report `AMXSL006: Input is non-finite`. The focused formatting tests
+assert the exact diagnostics and boundary cases.
+
+## Navigation
+
+[Index](./00_Table_of_Contents.amx) |
+[Previous: Mathematics and Measurement Operations](./10_Mathematics_and_Measurement_Operations.amx) |
+[Next: Complete Asset Screening Report](./12_Complete_Asset_Screening_Report.amx)

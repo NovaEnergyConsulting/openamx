@@ -1,0 +1,98 @@
+---
+title: Route Measurement report
+---
+
+# Route Measurement Report
+
+## Objective
+
+Map route records, convert distances and speeds to the stated units, and
+present the measured values in a table, chart, and named output.
+
+## Prerequisites
+
+This is a standalone reference and is not a prerequisite in the guided
+sequence. Lessons [05](./05_Measurements_and_Units.amx),
+[06](./06_Mapped_Data_and_Validation.amx), and
+[07](./07_Tables_Charts_and_Named_Outputs.amx) introduce related concepts.
+
+## Desktop workflow
+
+Open this document in OpenAMX Desktop. Keep its local library and route data
+at the relative paths below, map `trips` to the JSON fixture, then select
+**Run** and **Preview**. Choose a separate scratch destination for the named
+JSON output.
+
+## Inputs and support files
+
+| Logical input | File | Type |
+| --- | --- | --- |
+| `trips` | `examples/data/measurement-trips.json` | `Trip[]` from `libraries/travel-measurements.amx` |
+
+Run from the repository root, choosing an output path that does not replace
+an existing file:
+
+```sh
+bun run dist/cli.js run examples/13_Route_Measurement_Report.amx --input trips=examples/data/measurement-trips.json --output exportedSummaries=guide-output/routes.json
+```
+
+Create `guide-output/` first. `exportedSummaries` is the named JSON output.
+
+## Route analysis
+
+```amx
+import { Length, Speed, Trip, averageSpeed, kilometer, kilometer_per_hour } from "./libraries/travel-measurements.amx"
+
+input trips: Trip[]
+
+type TripSummary {
+  route: String
+  distance: Length
+  averageSpeed: Speed
+}
+
+let summaries: TripSummary[] = for trip in trips {
+  return TripSummary {
+    route = trip.route,
+    distance = trip.distance in kilometer,
+    averageSpeed = averageSpeed(trip.distance, trip.duration) in kilometer_per_hour
+  }
+}
+export let exportedSummaries: TripSummary[] = summaries
+
+table tripRegister = table(summaries) {
+  title: "Route measurements"
+  column route as "Route"
+  column distance as "Distance"
+  column averageSpeed as "Average speed"
+}
+
+chart distanceByRoute = bar(summaries) {
+  title: "Distance by route"
+  description: "Normalized route distances"
+  category: route
+  series distance as "Distance"
+}
+
+show tripRegister
+show distanceByRoute
+```
+
+## Expected outcome and caveats
+
+The `North loop` is `1.5 kilometer` with an average speed of
+`3 kilometer_per_hour`; the `South loop` is `0.5 kilometer` with an average
+speed of `1.5 kilometer_per_hour`. The report displays both rows and a
+distance chart. These values are the calculations from the supplied
+illustrative records, not route guidance or a safety assessment.
+
+The reference declares its complete local-module and input closure. The
+travel library's unit conversions and rounding behavior are existing
+Measurement semantics.
+
+## Navigation
+
+[Index](./00_Table_of_Contents.amx) |
+[Measurements and Units](./05_Measurements_and_Units.amx) |
+[Mapped Data and Validation](./06_Mapped_Data_and_Validation.amx) |
+[Tables, Charts, and Named Outputs](./07_Tables_Charts_and_Named_Outputs.amx)
