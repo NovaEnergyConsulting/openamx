@@ -1,0 +1,3 @@
+assetId,severity,occurrence,note
+A-001,nope,2,"Bad severity"
+A-001,6,not-a-number,"Bad occurrence"

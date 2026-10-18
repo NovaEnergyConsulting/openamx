@@ -1,0 +1,72 @@
+---
+title: Measurements and units
+---
+
+# Measurements and Units
+
+## Objective
+
+Attach declared units to numeric values, convert compatible Measurements, and
+read results together with their displayed units.
+
+## Prerequisites
+
+Complete [lesson 04](./04_Typed_Records_Enums_and_Modules.amx). This lesson
+needs no module import or external input file.
+
+## Desktop workflow
+
+In OpenAMX Desktop, open the folder containing this checkout, then open
+`examples/05_Measurements_and_Units.amx` in the project explorer. Select
+**Run** to inspect the Measurement bindings and **Preview** to read their
+displayed values and units.
+
+## Quantities and conversion
+
+Dimensions describe kinds of quantities; units give values a scale and
+display name. Converting changes the displayed value and unit, not the
+dimension.
+
+```amx
+dimension Length
+dimension Time
+dimension Speed = Length / Time
+
+unit meter: Length
+unit kilometer = 1000 * meter
+unit centimeter = 0.01 * meter
+unit second: Time
+unit hour = 3600 * second
+unit meter_per_second = meter / second
+unit kilometer_per_hour = kilometer / hour
+
+let distance: Length = 1250 meter
+let distanceInKilometers: Length = distance in kilometer
+let distanceInCentimeters: Length = 2 meter in centimeter
+let averageSpeed: Speed = 36 kilometer_per_hour
+let speedInMetersPerSecond: Speed = averageSpeed in meter_per_second
+
+let distances: Length[] = [1 meter, 100 centimeter]
+let totalDistance: Length = sum(distances)
+```
+
+The distance is {{ distance }} or {{ distanceInKilometers }} after conversion.
+Two meters is {{ distanceInCentimeters }}. The speed is {{ averageSpeed }},
+which is {{ speedInMetersPerSecond }} in meters per second. The compatible
+distance total is {{ totalDistance }}.
+
+## Expected outcome
+
+Run and Preview retain value and unit together: `1250 meter`,
+`1.25 kilometer`, `200 centimeter`, `36 kilometer_per_hour`,
+`10 meter_per_second`, and `2 meter`. Unit conversion does not turn a length
+into a different dimension, and summing compatible lengths returns the
+first list element's unit.
+
+## Inputs and support files
+
+None. Dimensions and units are declared in this document.
+
+## Navigation
+
+[Index](./00_Table_of_Contents.amx) | [Previous: Typed Records, Enums, and Modules](./04_Typed_Records_Enums_and_Modules.amx) | [Next: Mapped Data and Validation](./06_Mapped_Data_and_Validation.amx)

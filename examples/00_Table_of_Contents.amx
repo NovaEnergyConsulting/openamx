@@ -1,0 +1,34 @@
+---
+title: OpenAMX learning guide
+---
+
+# OpenAMX Learning Guide
+
+This is the entry point for a desktop-first path from a first computable
+document to a small analysis with mapped data and report outputs. Read the
+lessons in order; each lesson introduces only concepts needed by the next.
+
+| Lesson | Objective | Inputs and support |
+| --- | --- | --- |
+| [01 - First Computable Document](./01_First_Computable_Document.amx) | Open, run, and preview a minimal Markdown and AMX document. | No imports or input files. |
+| [02 - Expressions and Decisions](./02_Expressions_and_Decisions.amx) | Build expressions, update values, and choose results with conditionals. | No imports or input files. |
+| [03 - Collections and Functions](./03_Collections_and_Functions.amx) | Transform lists, iterate, match values, and reuse a pure function. | No imports or input files. |
+| [04 - Typed Records, Enums, and Modules](./04_Typed_Records_Enums_and_Modules.amx) | Model structured values and reuse an explicitly imported local type. | Uses `libraries/asset-management.amx`. |
+| [05 - Measurements and Units](./05_Measurements_and_Units.amx) | Represent quantities with dimensions, units, and conversions. | No imports or input files. |
+| [06 - Mapped Data and Validation](./06_Mapped_Data_and_Validation.amx) | Map typed JSON and CSV inputs and distinguish valid from invalid data. | Uses `data/` and the `libraries/` modules; invalid-only cases are in `fixtures/invalid/`. |
+| [07 - Tables, Charts, and Named Outputs](./07_Tables_Charts_and_Named_Outputs.amx) | Present mapped results and write explicitly named JSON and CSV outputs. | Uses the same valid input mappings as lesson 06. |
+
+## Desktop workflow
+
+Use **Open project** in OpenAMX Desktop to open the folder containing this
+checkout. In the project explorer, open a lesson under `examples/`. **Run**
+evaluates the active document; **Preview** shows its rendered narrative and
+report views. Lessons with imports or inputs need the companion files at the
+relative paths listed above.
+
+## Where the path ends
+
+Lesson 07 is the end of this first guide segment. Advanced feature references,
+a complete report, and standalone examples are later material and are not
+linked here until those files exist. This repository guide is not yet a
+Welcome/Starter Examples package integration.

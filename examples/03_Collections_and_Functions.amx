@@ -1,0 +1,69 @@
+---
+title: Collections and functions
+---
+
+# Collections and Functions
+
+## Objective
+
+Use lists and ranges, transform and total values, classify a result with
+`match`, and reuse a pure function.
+
+## Prerequisites
+
+Complete [lesson 02](./02_Expressions_and_Decisions.amx). No imports or
+external input files are required.
+
+## Desktop workflow
+
+In OpenAMX Desktop, open the folder containing this checkout, then open
+`examples/03_Collections_and_Functions.amx` in the project explorer. Select
+**Run** to inspect the collections and **Preview** to read the results.
+
+## Collections and reusable calculations
+
+The range creates three numbers. An expression loop returns one transformed
+value for each item; a statement loop updates a binding that was created
+before the loop.
+
+```amx
+let levels: Number[] = [1 to 3]
+let readings: Number[] = [2, 4, 6]
+let doubledReadings: Number[] = for reading in readings {
+  return reading * 2
+}
+
+let loopTotal: Number = 0
+for reading in readings {
+  loopTotal += reading
+}
+
+fn triple(value: Number): Number = value * 3
+fn classify(total: Number): String = match total {
+  case 12 => "Target reached"
+  default => "Continue"
+}
+
+let tripledTotal: Number = triple(loopTotal)
+let decision: String = classify(loopTotal)
+```
+
+The range is {{ levels }}, the transformed list is {{ doubledReadings }}, and
+the loop total is {{ loopTotal }}. Applying `triple` gives {{ tripledTotal }};
+the match result is **{{ decision }}**.
+
+## Expected outcome
+
+Run reports `levels = [1, 2, 3]`, `doubledReadings = [4, 8, 12]`,
+`loopTotal = 12`, `tripledTotal = 36`, and `decision = "Target reached"`.
+Expression loops collect one returned value per iteration. The pure function
+uses only its parameter, and `match` selects the first matching literal case
+or its required default.
+
+## Inputs and support files
+
+None. Lists, loops, the function, and the match are defined here.
+
+## Navigation
+
+[Index](./00_Table_of_Contents.amx) | [Previous: Expressions and Decisions](./02_Expressions_and_Decisions.amx) | [Next: Typed Records, Enums, and Modules](./04_Typed_Records_Enums_and_Modules.amx)

@@ -1,0 +1,98 @@
+---
+title: Typed records, enums, and modules
+---
+
+# Typed Records, Enums, and Modules
+
+## Objective
+
+Describe structured values with record types, optional and default fields,
+inheritance and overrides, enum values, and an explicit local module import.
+
+## Prerequisites
+
+Complete [lesson 03](./03_Collections_and_Functions.amx). This lesson has no
+mapped data input, but imports the supplied Asset type from
+`libraries/asset-management.amx`.
+
+## Desktop workflow
+
+In OpenAMX Desktop, open the folder containing this checkout and open
+`examples/04_Typed_Records_Enums_and_Modules.amx`. Keep its relative
+`libraries/` folder in place. Select **Run** to inspect the records and
+**Preview** to read the explanation.
+
+## Typed values and reuse
+
+The imported `Asset` type is exported by a local module and is not a built-in
+language type. That module marks schema declarations with `export type`;
+imports expose only explicitly exported names. The local types below show
+required fields, optional nullable fields, literal defaults, inheritance, and
+the required `override` marker. Enum members evaluate to primitive values;
+this enum starts at 1.
+
+```amx
+import { Asset } from "./libraries/asset-management.amx"
+
+enum Status = {
+  DRAFT,
+  ACTIVE,
+  CLOSED
+}
+
+type Identifier {
+  id: String
+}
+
+type NamedRecord extends Identifier {
+  override id: String
+  name: String
+}
+
+type ReviewRecord extends NamedRecord {
+  reviewedAt?: DateTime? = null
+  status: Number = 1
+  note?: String? = null
+  labels: String[] = ["intake"]
+}
+
+let libraryAsset: Asset = Asset {
+  id = "A-001",
+  name = "North Pump 01",
+  assetClass = "Pump",
+  criticality = 4
+}
+let minimalReview: ReviewRecord = ReviewRecord { id = "A-001", name = "North Pump 01" }
+let reviewed: ReviewRecord = ReviewRecord {
+  id = "A-001",
+  name = "North Pump 01",
+  reviewedAt = "2026-09-29T12:00:00Z",
+  status = Status.ACTIVE,
+  note = null
+}
+```
+
+The imported asset is **{{ libraryAsset.name }}**. Its failure-mode list uses
+the module's empty-list default. The minimal review has status
+{{ minimalReview.status }} and nullable note {{ minimalReview.note }}; the
+reviewed record has enum value {{ reviewed.status }} and timestamp
+{{ reviewed.reviewedAt }}.
+
+## Expected outcome
+
+Run reports `libraryAsset.name = "North Pump 01"`, an empty
+`libraryAsset.failureModes`, `minimalReview.status = 1`,
+`minimalReview.note = null`, and `reviewed.status = 2`. The DateTime retains
+its supplied RFC 3339 text. A child record is still a distinct type; an
+override replaces an inherited field contract rather than making the child
+assignable to its parent.
+
+## Inputs and support files
+
+No external input mappings are needed. The required local dependency is
+`examples/libraries/asset-management.amx`; it exports the `Asset` schema used
+above. Keep the module beside the lesson in the repository tree.
+
+## Navigation
+
+[Index](./00_Table_of_Contents.amx) | [Previous: Collections and Functions](./03_Collections_and_Functions.amx) | [Next: Measurements and Units](./05_Measurements_and_Units.amx)

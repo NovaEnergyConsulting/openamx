@@ -1,0 +1,53 @@
+---
+title: First computable document
+---
+
+# Your First Computable Document
+
+## Objective
+
+Open, run, and preview a document that combines ordinary Markdown with a
+small executable AMX program.
+
+## Prerequisites
+
+No prior AMX knowledge, imports, or external input files are required.
+
+## Desktop workflow
+
+In OpenAMX Desktop, use **Open project** to open the folder containing this
+checkout. In the project explorer, open
+`examples/01_First_Computable_Document.amx`. Select **Run** to inspect its
+bindings and **Preview** to read the rendered document.
+
+## The document
+
+Markdown headings and paragraphs explain the result. Only an exact,
+case-sensitive `amx` fence executes; the ordinary `text` fence below is an
+inert example.
+
+```amx
+let assetName: String = "Transformer TX-001"
+let riskScore: Number = 15
+```
+
+The asset under review is **{{ assetName }}**.
+
+The illustrative score is {{ riskScore }}.
+
+```text
+let thisIsOnlyAnExample = 999
+```
+
+## Expected outcome
+
+Run shows `assetName` as `Transformer TX-001` and `riskScore` as `15`.
+Preview inserts those values into the two paragraphs above.
+
+## Inputs and support files
+
+None. This first lesson is input-free and import-free.
+
+## Navigation
+
+[Index](./00_Table_of_Contents.amx) | [Next: Expressions and Decisions](./02_Expressions_and_Decisions.amx)

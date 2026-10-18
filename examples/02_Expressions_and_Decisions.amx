@@ -1,0 +1,70 @@
+---
+title: Expressions and decisions
+---
+
+# Expressions and Decisions
+
+## Objective
+
+Combine values with operators, observe precedence, update an existing binding,
+and choose a result with conditional expressions and statements.
+
+## Prerequisites
+
+Complete [lesson 01](./01_First_Computable_Document.amx). This lesson needs no
+imports or external input files.
+
+## Desktop workflow
+
+In OpenAMX Desktop, open the folder containing this checkout, then open
+`examples/02_Expressions_and_Decisions.amx` in the project explorer. Select
+**Run** to inspect each binding and **Preview** to read the results.
+
+## Expressions and decisions
+
+Multiplication binds more tightly than addition, so the precedence example is
+`14`. The mutable binding is updated after its initial value.
+
+```amx
+let base: Number = 7
+let multiplier: Number = 3
+let product: Number = base * multiplier
+let precedenceResult: Number = 2 + 3 * 4
+
+let adjusted: Number = product
+adjusted += 1
+
+let decision: String = if product >= 20 {
+  return "Review"
+} else {
+  return "Monitor"
+}
+
+let priority: Number = base
+if priority >= 5 {
+  priority += 1
+} else {
+  priority += 2
+}
+```
+
+The product is {{ product }}, the precedence result is {{ precedenceResult }},
+and the adjusted product is {{ adjusted }}. The conditional expression
+selects **{{ decision }}**. The statement updates the existing priority to
+{{ priority }}.
+
+## Expected outcome
+
+Run reports `product = 21`, `precedenceResult = 14`, `adjusted = 22`,
+`decision = "Review"`, and `priority = 8`. A braced `if` expression returns
+its selected branch value; a standalone braced `if` performs statements.
+Assignments to a binding that existed before the statement remain visible
+after the block.
+
+## Inputs and support files
+
+None. Both conditions use values declared in this document.
+
+## Navigation
+
+[Index](./00_Table_of_Contents.amx) | [Previous: First Computable Document](./01_First_Computable_Document.amx) | [Next: Collections and Functions](./03_Collections_and_Functions.amx)

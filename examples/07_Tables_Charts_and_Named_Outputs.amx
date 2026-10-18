@@ -1,0 +1,113 @@
+---
+title: Tables, charts, and named outputs
+---
+
+# Tables, Charts, and Named Outputs
+
+## Objective
+
+Present the mapped screening results in a table and chart, then write explicitly
+exported values to named JSON and CSV destinations.
+
+## Prerequisites
+
+Complete [lesson 06](./06_Mapped_Data_and_Validation.amx). This lesson needs
+the same three valid data mappings and the two local schema modules described
+there. Do not use the invalid-only fixtures for a successful run.
+
+## Desktop workflow
+
+In OpenAMX Desktop, open the folder containing this checkout and open
+`examples/07_Tables_Charts_and_Named_Outputs.amx`. Keep `data/` and
+`libraries/` at their relative paths and map the three logical inputs as in
+lesson 06. Select **Run** to inspect bindings; **Preview** displays the table,
+chart, and narrative.
+
+## Inputs and support files
+
+Use the valid mappings from lesson 06:
+
+```sh
+bun run dist/cli.js run examples/07_Tables_Charts_and_Named_Outputs.amx --input asset=examples/data/asset.json --input screenings=examples/data/screenings.csv --input reviewedAt=examples/data/reviewed-at.json --output summary=guide-output/summary.json --output resultRows=guide-output/rows.csv
+```
+
+Create `guide-output/` first when trying this command. `summary` is an exported
+record written as JSON; `resultRows` is an exported list of scalar records
+written as CSV. Choose destinations in a scratch project or another
+non-versioned location, not over lesson sources or checked-in outputs.
+
+## Report views and exports
+
+```amx
+import { Asset, FailureMode } from "./libraries/asset-management.amx"
+import { Screening } from "./libraries/screening.amx"
+
+input asset: Asset
+input screenings: Screening[]
+input reviewedAt: DateTime
+
+type ScreeningResult {
+  assetId: String
+  score: Number
+  note?: String? = null
+}
+
+type Summary {
+  assetName: String
+  reviewedAt: DateTime
+  totalScore: Number
+}
+
+fn screeningScore(severity: Number, occurrence: Number): Number = severity * occurrence
+
+let scores: Number[] = for screening in screenings {
+  return screeningScore(screening.severity, screening.occurrence)
+}
+let totalScore: Number = sum(scores)
+export let summary: Summary = Summary {
+  assetName = asset.name,
+  reviewedAt = reviewedAt,
+  totalScore = totalScore
+}
+export let resultRows: ScreeningResult[] = for screening in screenings {
+  return ScreeningResult {
+    assetId = screening.assetId,
+    score = screeningScore(screening.severity, screening.occurrence),
+    note = screening.note
+  }
+}
+
+table screeningRegister = table(resultRows) {
+  title: "Screening register"
+  column assetId as "Asset ID"
+  column score as "Illustrative score"
+  column note as "Observation"
+}
+
+chart screeningScores = bar(scores) {
+  title: "Score by screening"
+  description: "Illustrative severity multiplied by occurrence"
+  series "Illustrative score"
+}
+
+show screeningRegister
+show screeningScores
+```
+
+The report is for **{{ summary.assetName }}**. Its illustrative total is
+{{ summary.totalScore }}. A table retains the screening rows; the bar chart
+compares their calculated scores. `summary` and `resultRows` are named data
+outputs, separate from the rendered report views.
+
+## Expected outcome
+
+With the valid lesson 06 mappings, `summary` is
+`{assetName: "North Pump 01", reviewedAt: "2026-09-29T12:00:00Z", totalScore: 38}`.
+`resultRows` contains three rows with scores `16`, `18`, and `4`. Preview
+contains “Screening register” and “Score by screening”. The CLI writes JSON
+and CSV only to the selected output destinations; the invalid inputs from
+lesson 06 fail validation and do not produce successful output files.
+
+## Navigation
+
+[Index](./00_Table_of_Contents.amx) | [Previous: Mapped Data and Validation](./06_Mapped_Data_and_Validation.amx)
