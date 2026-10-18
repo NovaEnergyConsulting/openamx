@@ -206,8 +206,8 @@ language specification.
 
 ## 8. Runnable Examples
 
-- [Crank-slider mechanism](../examples/v0.13-crank-slider.amx)
-- [Battery-resistor current indicator](../examples/v0.13-battery-resistor.amx)
+- [Formula-driven diagrams](../examples/08_Formula_Driven_Diagrams.amx)
+- [Battery-resistor current indicator](../examples/14_Battery_Resistor_Circuit.amx)
 
 Both examples use only the approved V0.13 constructs and existing AMX
 expressions. The crank-slider uses `abs`, conditionals, `sqrt`, and arithmetic;

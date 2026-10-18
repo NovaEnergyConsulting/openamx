@@ -4,9 +4,10 @@
       "id": "getting-started",
       "title": "Start a project",
       "summary": "Create a local workspace and open a report.",
-      "terms": "welcome first project starter create open",
+      "terms": "welcome first project starter create open guide learning journey",
       "steps": [
         "Choose Create project and select an empty folder.",
+        "Ordinary project creation opens report.amx. From Welcome, open Help and shortcuts, then Starter examples, to choose a compact report or the numbered learning guide.",
         "Open an existing .amx file, or create one from the project explorer.",
         "Edit the active document. Its preview follows the current unsaved text.",
         "Use Inputs to map declared data, then Export to prepare a report or named data output."
@@ -15,12 +16,12 @@
     {
       "id": "starters",
       "title": "Starter examples",
-      "summary": "Begin with a bundled, offline report template.",
-      "terms": "example templates hello asset management operation note",
+      "summary": "Choose an input-free report starter or create the offline numbered learning guide.",
+      "terms": "example templates hello asset management operation note guided guide journey numbered offline",
       "steps": [
-        "Choose a starter to create a project with a new report buffer.",
-        "The starter is saved through the normal conflict-aware autosave path; live preview follows the active buffer.",
-        "No explicit Run command is issued, and both templates use built-in values with no external files."
+        "Hello OpenAMX and Operations Note are compact, input-free single-report starters saved through the normal conflict-aware autosave path.",
+        "OpenAMX learning guide creates a multi-file project from the numbered 00-14 guide and its approved local data, fixtures, and libraries, then opens the table of contents.",
+        "The guide and its support files are bundled locally; no network request or explicit Run command is needed to create the project."
       ]
     },
     {
@@ -174,6 +175,7 @@
     "noMatchingHelp": "No matching help.",
     "createProjectAction": "Create a project with Hello OpenAMX",
     "starterAction": "Use starter",
+    "guidedJourneyAction": "Create guided project",
     "diagnosticExportAction": "Download diagnostic summary",
     "shortcutsTitle": "Keyboard shortcuts",
     "noMatchingShortcuts": "No matching shortcuts.",

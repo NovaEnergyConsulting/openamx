@@ -4,6 +4,9 @@ import { join } from "node:path";
 import Electrobun, { BrowserWindow, Utils, createRPC } from "electrobun/main";
 import { createPingResponse, type DesktopRPCSchema } from "../shared/rpc";
 import { createDesktopService } from "./desktopService";
+import { resolveDesktopGuideResourceDirectory } from "./guideResources";
+
+const guideResourceDirectory = resolveDesktopGuideResourceDirectory(import.meta.dir);
 
 const service = createDesktopService(undefined, {
 	async choose({ directory, extension, fileName, root }) {
@@ -55,7 +58,7 @@ const service = createDesktopService(undefined, {
 	openExternal(url) { return Utils.openExternal(url); },
 	openPath(path) { return Utils.openPath(path); },
 	revealPath(path) { Utils.showItemInFolder(path); return true; }
-}, join(homedir(), ".config", "openamx", "desktop-session.json"));
+}, join(homedir(), ".config", "openamx", "desktop-session.json"), undefined, guideResourceDirectory);
 
 let quitApproved = false;
 let quitPromptPending = false;

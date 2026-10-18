@@ -16,9 +16,11 @@ external input files are required.
 
 ## Desktop workflow
 
-In OpenAMX Desktop, open the folder containing this checkout, then open
-`examples/03_Collections_and_Functions.amx` in the project explorer. Select
-**Run** to inspect the collections and **Preview** to read the results.
+In a project created with **OpenAMX learning guide**, open
+`03_Collections_and_Functions.amx` at the project root. If using the
+repository checkout, open `examples/03_Collections_and_Functions.amx` under
+the `examples/` folder. Select **Run** to inspect the collections and
+**Preview** to read the results.
 
 ## Collections and reusable calculations
 

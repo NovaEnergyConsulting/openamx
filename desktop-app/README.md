@@ -47,7 +47,13 @@ To install the Linux Setup archive, extract it and run `./installer`. The instal
 
 ## First Project
 
-From Welcome, choose **Guided first project** to open searchable local help, or select **Starter examples** for an input-free Hello OpenAMX or Operations Note report. The app creates a project through the trusted project service, installs the selected starter into the active report buffer, and lets the normal conflict-aware autosave path persist it. Live preview follows the active buffer; no explicit Run command is issued.
+From Welcome, open **Help and shortcuts**, then choose **Starter examples**.
+Select **OpenAMX learning guide** to create an offline project containing the
+numbered 00-14 guide and its approved local support files; the workbench opens
+`00_Table_of_Contents.amx` and does not create the generic `report.amx`.
+**Hello OpenAMX** and **Operations note** remain compact, input-free
+single-report starters that use the normal report buffer and autosave path.
+Ordinary **Create project** behavior is unchanged.
 
 Open an existing folder with **Open project**. Recent projects preserve only validated project roots, a safe relative active file, and panel sizes. Existing sessions with a V0.5 `entry` field migrate by retaining a safe `active` file when present and discarding the obsolete entry field; entry-only sessions restore the project without opening a document. Migration does not run AMX or overwrite project source. Recovery is a separate inspect/restore/discard flow; restoring buffers does not write them to disk.
 
@@ -65,7 +71,11 @@ Open an existing folder with **Open project**. Recent projects preserve only val
 
 ## Help and Preferences
 
-Help is bundled and searchable offline. It includes first-project guidance, bundled starters, AMX essentials, imports/data, preview/export, recovery, diagnostic privacy, current command shortcuts, and V0.6 release notes. The command palette and header also open Help and Preferences.
+Help is bundled and searchable offline. It includes first-project guidance,
+the numbered guide and compact starters, AMX essentials, imports/data,
+preview/export, recovery, diagnostic privacy, current command shortcuts, and
+V0.6 release notes. The command palette and header also open Help and
+Preferences.
 
 Preferences store theme, drawer placement, and autosave settings locally on this device. Diagnostic export downloads a capped JSON summary containing coarse tab counts, timestamps, and validated diagnostic codes only. It excludes paths, messages, source text, input values, recovery content, and credentials; it is not a raw process log.
 

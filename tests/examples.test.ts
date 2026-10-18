@@ -52,8 +52,8 @@ describe("V0.12 language documentation and examples", () => {
     const readme = await Bun.file("README.md").text();
     const specification = await Bun.file("docs/language-spec-v0.12.md").text();
     expect(readme).toContain("[V0.12 language specification](docs/language-spec-v0.12.md)");
-    expect(readme).toContain("[record inheritance and enums](examples/v0.12-records-and-enums.amx)");
-    expect(readme).toContain("[braced conditional](examples/v0.12-braced-if.amx)");
+    expect(readme).toContain("[records and enums](examples/04_Typed_Records_Enums_and_Modules.amx)");
+    expect(readme).toContain("[expressions and decisions](examples/02_Expressions_and_Decisions.amx)");
     expect(readme).toContain("[V0.9 language specification](docs/language-spec-v0.9.md)");
     expect(specification).toContain("AMX3011");
     expect(specification).toContain("AMX3021");
@@ -82,9 +82,11 @@ describe("V0.13 diagram documentation and examples", () => {
     const topic = help.topics.find(item => item.id === "language-v0.13");
 
     expect(readme).toContain("[V0.13 diagram specification](docs/language-spec-v0.13.md)");
-    expect(readme).toContain("[crank-slider](examples/v0.13-crank-slider.amx)");
-    expect(readme).toContain("[battery-resistor](examples/v0.13-battery-resistor.amx)");
+    expect(readme).toContain("[formula-driven diagrams](examples/08_Formula_Driven_Diagrams.amx)");
+    expect(readme).toContain("[battery-resistor reference](examples/14_Battery_Resistor_Circuit.amx)");
     expect(extensionHelp).toContain("../docs/language-spec-v0.13.md");
+    expect(extensionHelp).toContain("../examples/08_Formula_Driven_Diagrams.amx");
+    expect(extensionHelp).toContain("../examples/14_Battery_Resistor_Circuit.amx");
     expect(specification).toContain("AMXD015");
     expect(specification).toContain("16.7 ms p95 frame-work limit");
     expect(normalizedSpecification).toContain("no tagged structure tree or `/Alt`");
@@ -138,13 +140,13 @@ describe("V0.14 language documentation and examples", () => {
     const topic = help.topics.find(item => item.id === "language-v0.14");
 
     expect(readme).toContain("[V0.14 language specification](docs/language-spec-v0.14.md)");
-    expect(readme).toContain("[runtime type checks](examples/v0.14-runtime-type-checks.amx)");
-    expect(readme).toContain("[math and Measurements](examples/v0.14-math-and-measurements.amx)");
-    expect(readme).toContain("[text and formatting](examples/v0.14-text-and-formatting.amx)");
+    expect(readme).toContain("[runtime type checks](examples/09_Runtime_Type_Checks.amx)");
+    expect(readme).toContain("[math and Measurements](examples/10_Mathematics_and_Measurement_Operations.amx)");
+    expect(readme).toContain("[text and formatting](examples/11_Text_and_Numeric_Formatting.amx)");
     expect(extensionHelp).toContain("../docs/language-spec-v0.14.md");
-    expect(extensionHelp).toContain("../examples/v0.14-runtime-type-checks.amx");
-    expect(extensionHelp).toContain("../examples/v0.14-math-and-measurements.amx");
-    expect(extensionHelp).toContain("../examples/v0.14-text-and-formatting.amx");
+    expect(extensionHelp).toContain("../examples/09_Runtime_Type_Checks.amx");
+    expect(extensionHelp).toContain("../examples/10_Mathematics_and_Measurement_Operations.amx");
+    expect(extensionHelp).toContain("../examples/11_Text_and_Numeric_Formatting.amx");
     expect(normalizedSpecification).toContain("does not claim integrated milestone acceptance, release, publication, or platform certification");
     expect(normalizedSpecification).toContain("U+0009–U+000D, U+0020, U+0085, U+00A0, U+1680, U+2000–U+200A, U+2028–U+2029, U+202F, U+205F, and U+3000. U+FEFF and U+180E are excluded.");
     expect(specification).toContain('DecimalPart ::= "." "0"{1,6}');

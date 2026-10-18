@@ -22,23 +22,27 @@ destination of the sequence, not a prerequisite for any earlier lesson.
 
 ## Desktop workflow
 
-In OpenAMX Desktop, open this file from `examples/`, ensure the relative
-`data/` and `libraries/` files are present, and map the three logical inputs
-listed below. Select **Run** to inspect bindings and **Preview** to inspect
-the narrative, table, and chart. Use the application's supported output
-workflow to choose destinations outside the source and protected snapshots.
+In a project created with **OpenAMX learning guide**, open
+`12_Complete_Asset_Screening_Report.amx` at the project root. Its relative
+`data/` and `libraries/` files are included. Map the three project-relative
+logical inputs listed below. If using the repository checkout, open this file
+under `examples/` and prefix those paths with `examples/`. Select **Run** to
+inspect bindings and **Preview** to inspect the narrative, table, and chart.
+Use the application's supported output workflow to choose destinations
+outside the source and protected snapshots.
 
 ## Inputs and support files
 
 | Logical input | File | Type |
 | --- | --- | --- |
-| `asset` | `examples/data/asset.json` | `Asset` from `libraries/asset-management.amx` |
-| `screenings` | `examples/data/screenings.csv` | `Screening[]` from `libraries/screening.amx` |
-| `reviewedAt` | `examples/data/reviewed-at.json` | `DateTime` |
+| `asset` | `data/asset.json` | `Asset` from `libraries/asset-management.amx` |
+| `screenings` | `data/screenings.csv` | `Screening[]` from `libraries/screening.amx` |
+| `reviewedAt` | `data/reviewed-at.json` | `DateTime` |
 
 The local imports and all three mapped inputs are required. This report uses
 only valid data. Deliberately invalid JSON/CSV examples remain in
-`examples/fixtures/invalid/` and are not successful-run inputs.
+`fixtures/invalid/` (or `examples/fixtures/invalid/` in the repository
+checkout) and are not successful-run inputs.
 
 Run from the repository root with output destinations in a scratch directory:
 

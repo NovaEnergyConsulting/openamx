@@ -16,6 +16,7 @@ import WelcomeView from "./components/WelcomeView.vue";
 import WorkbenchTabs from "./components/WorkbenchTabs.vue";
 import { createDiagnosticSummary } from "./diagnosticSummary";
 import type { DrawerDock, ShellCommand, ShellFocusMode, ShellTheme } from "./shell";
+import type { StarterSelection } from "./starterExamples";
 
 const props = defineProps<{ rpc: DesktopRPCClient }>();
 const document = ref<OpenDocument | null>(null);
@@ -847,13 +848,15 @@ async function openProject() {
 	status.value = listingError ?? (document.value ? `Restored active file. ${files.value.length} .amx file(s) in project.` : `Project ready: ${files.value.length} .amx file(s). Select a file in the explorer or use Open file.`);
 }
 
-async function createProject(starterSource?: string) {
+async function createProject(selection?: StarterSelection) {
+	const guide = selection?.kind === "guide";
+	const starterSource = selection?.kind === "inline" ? selection.source : undefined;
 	await pendingEdit;
 	const request = ++navigationRequest;
 	let failure = "";
 	let cancelled = false;
 	try {
-		const result = await props.rpc.request.pickCreateProject({}, { maxRequestTime: Infinity });
+		const result = await props.rpc.request.pickCreateProject({ intent: guide ? "guide" : "standard" }, { maxRequestTime: Infinity });
 		if (!result.ok) failure = result.error.message;
 		else cancelled = result.cancelled;
 	} catch (error) {
@@ -864,6 +867,7 @@ async function createProject(starterSource?: string) {
 	if (request !== navigationRequest) return;
 	if (cancelled && (!context.ok || !context.root)) return;
 	if (!context.ok || !context.root) { status.value = failure || "Project creation did not return a project."; return; }
+	if (failure && context.root === projectRoot.value) { status.value = failure; return; }
 	clearView();
 	inputOverrides.value = "";
 	projectRoot.value = context.root;
@@ -874,7 +878,11 @@ async function createProject(starterSource?: string) {
 		if (active.ok) document.value = active.document;
 	}
 	if (starterSource && document.value?.kind === "amx") await updateText(starterSource);
-	status.value = listingError ?? (starterSource ? "Created a starter project. The report is open and will autosave locally." : document.value ? "Created a new project and opened report.amx." : "Created a new project. Select report.amx in the explorer.");
+	status.value = failure || listingError || (guide
+		? "Created the offline guide project and opened 00_Table_of_Contents.amx."
+		: starterSource ? "Created a starter project. The report is open and will autosave locally."
+			: document.value ? "Created a new project and opened report.amx."
+				: "Created a new project. Select report.amx in the explorer.");
 }
 
 async function activate(result: Awaited<ReturnType<typeof props.rpc.request.openDocument>>) {

@@ -9,6 +9,7 @@ export interface PingResponse {
 export interface DesktopRPCError { code: string; message: string; }
 export type DesktopRPCResponse<T> = { ok: true } & T | { ok: false; error: DesktopRPCError };
 export interface DesktopRequestOptions { maxRequestTime?: number; }
+export type ProjectCreationIntent = "standard" | "guide";
 export type DocumentKind = "amx" | "csv" | "json" | "css" | "settings" | "external-data" | "html-output" | "pdf-output" | "docx-output";
 export type ProjectFileKind = Exclude<DocumentKind, "external-data">;
 export interface ProjectFile { path: string; kind: ProjectFileKind; }
@@ -104,8 +105,8 @@ export interface DesktopRPCClient {
 	request: {
 		ping(params: { nonce: string }): Promise<PingResponse>;
 		openProject(params: { path: string }): Promise<DesktopRPCResponse<{ root: string }>>;
-		createProject(params: { path: string; action?: TransitionAction }): Promise<DesktopRPCResponse<{ root: string; document: OpenDocument; state: WorkbenchState }>>;
-		pickCreateProject(params?: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; root?: string }>>;
+		createProject(params: { path: string; action?: TransitionAction; intent?: ProjectCreationIntent }): Promise<DesktopRPCResponse<{ root: string; document: OpenDocument; state: WorkbenchState }>>;
+		pickCreateProject(params?: { intent?: ProjectCreationIntent }, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; root?: string }>>;
 		pickProject(params?: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; root?: string }>>;
 		pickDocument(params?: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; document?: OpenDocument }>>;
 		pickDestination(params: { extension: ".html" | ".pdf" | ".docx" | ".json" | ".csv"; fileName: string }, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; selectionId?: string; fileName?: string }>>;
@@ -173,8 +174,8 @@ export type DesktopRPCSchema = {
 				response: PingResponse;
 			};
 			openProject: { params: { path: string }; response: DesktopRPCResponse<{ root: string }> };
-			createProject: { params: { path: string; action?: TransitionAction }; response: DesktopRPCResponse<{ root: string; document: OpenDocument; state: WorkbenchState }> };
-			pickCreateProject: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; root?: string }> };
+			createProject: { params: { path: string; action?: TransitionAction; intent?: ProjectCreationIntent }; response: DesktopRPCResponse<{ root: string; document: OpenDocument; state: WorkbenchState }> };
+			pickCreateProject: { params: { intent?: ProjectCreationIntent }; response: DesktopRPCResponse<{ cancelled: boolean; root?: string }> };
 			pickProject: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; root?: string }> };
 			pickDocument: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; document?: OpenDocument }> };
 			pickDestination: { params: { extension: ".html" | ".pdf" | ".docx" | ".json" | ".csv"; fileName: string }; response: DesktopRPCResponse<{ cancelled: boolean; selectionId?: string; fileName?: string }> };

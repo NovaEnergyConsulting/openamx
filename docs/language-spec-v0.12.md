@@ -186,8 +186,8 @@ or platform-certification claim.
 
 ## 7. Runnable Examples
 
-- [Record inheritance and enums](../examples/v0.12-records-and-enums.amx)
-- [Braced `if` expressions and statements](../examples/v0.12-braced-if.amx)
+- [Typed records, enums, and modules](../examples/04_Typed_Records_Enums_and_Modules.amx)
+- [Expressions and decisions, including braced `if`](../examples/02_Expressions_and_Decisions.amx)
 
 The [Sprint 072 grammar examples](../planning/sprints/0072-v12-language-contract-acceptance-fixtures/grammar-examples.md)
 and its diagnostic matrix provide the fixture-level syntax and source-location

@@ -12,3 +12,13 @@ export const starterExamples = [
 		source: "# Operations Note\n\n```amx\nlet openActions = 4\nlet reviewedActions = 3\nlet remainingActions = openActions - reviewedActions\n```\n\n{{ reviewedActions }} of {{ openActions }} listed actions are reviewed.\n\n{{ remainingActions }} action(s) remain for follow-up.\n"
 	}
 ] as const;
+
+export const guidedJourney = {
+	id: "guide",
+	title: "OpenAMX learning guide",
+	description: "Create an offline project with the numbered 00-14 learning path and its approved support files."
+} as const;
+
+export type StarterSelection =
+	| { kind: "inline"; source: string }
+	| { kind: "guide" };

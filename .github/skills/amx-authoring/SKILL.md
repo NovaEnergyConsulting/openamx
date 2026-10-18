@@ -13,9 +13,11 @@ and can be executed by the OpenAMX runtime.
 
 Before using a language feature, consult the current links in the
 [README](../../../README.md), especially **Examples and Specifications** and
-**CLI usage**. At present, the current language contract is V0.12, additive to
-the V0.9 contract:
+**CLI usage**. The current language contract is V0.14, additive to the V0.9
+contract:
 
+- [V0.14 language specification](../../../docs/language-spec-v0.14.md)
+- [V0.13 diagram specification](../../../docs/language-spec-v0.13.md)
 - [V0.12 language specification](../../../docs/language-spec-v0.12.md)
 - [V0.9 language specification](../../../docs/language-spec-v0.9.md)
 - [V0.9 migration guide](../../../docs/migrating-to-v0.9.md)
@@ -29,13 +31,20 @@ examples, or CLI before using it.
 
 Useful examples:
 
-- [Kitchen Sink](../../../examples/kitchen-sink.amx) for a sample of various OpenAMX features and usage patterns
-- [V0.12 records and enums](../../../examples/v0.12-records-and-enums.amx)
-- [V0.12 braced conditionals](../../../examples/v0.12-braced-if.amx)
-- [Typed asset analysis](../../../examples/typed-asset-analysis.amx) and its
-  [local schemas](../../../examples/libraries/)
-- [Transformer strategy](../../../examples/transformer-strategy.amx) for
-  calculations, loops, matching, and narrative interpolation
+- [Numbered learning guide](../../../examples/00_Table_of_Contents.amx) for
+  the complete offline learning path
+- [First computable document](../../../examples/01_First_Computable_Document.amx)
+  for the minimal document structure
+- [Typed records and modules](../../../examples/04_Typed_Records_Enums_and_Modules.amx)
+- [Mapped data and validation](../../../examples/06_Mapped_Data_and_Validation.amx)
+  with its [local libraries](../../../examples/libraries/)
+- [Formula-driven diagrams](../../../examples/08_Formula_Driven_Diagrams.amx)
+- [V0.14 type checks](../../../examples/09_Runtime_Type_Checks.amx),
+  [math](../../../examples/10_Mathematics_and_Measurement_Operations.amx), and
+  [text/formatting](../../../examples/11_Text_and_Numeric_Formatting.amx)
+- [Complete asset screening report](../../../examples/12_Complete_Asset_Screening_Report.amx)
+- [Standalone route measurement report](../../../examples/13_Route_Measurement_Report.amx)
+- [Standalone battery-resistor circuit](../../../examples/14_Battery_Resistor_Circuit.amx)
 
 ## Authoring procedure
 

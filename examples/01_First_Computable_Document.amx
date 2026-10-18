@@ -15,10 +15,11 @@ No prior AMX knowledge, imports, or external input files are required.
 
 ## Desktop workflow
 
-In OpenAMX Desktop, use **Open project** to open the folder containing this
-checkout. In the project explorer, open
-`examples/01_First_Computable_Document.amx`. Select **Run** to inspect its
-bindings and **Preview** to read the rendered document.
+In a project created with **OpenAMX learning guide**, open
+`01_First_Computable_Document.amx` at the project root. If using the
+repository checkout, open `examples/01_First_Computable_Document.amx` under
+the `examples/` folder. Select **Run** to inspect its bindings and
+**Preview** to read the rendered document.
 
 ## The document
 

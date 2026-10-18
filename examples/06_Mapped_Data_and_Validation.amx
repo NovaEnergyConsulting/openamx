@@ -17,19 +17,22 @@ mapped files after the input-free lessons and uses two local schema modules.
 
 ## Desktop workflow
 
-In OpenAMX Desktop, open the folder containing this checkout and open
-`examples/06_Mapped_Data_and_Validation.amx`. Keep `data/` and `libraries/`
-at their relative paths. In the document's input settings, map `asset`,
-`screenings`, and `reviewedAt` to the valid files below. Select **Run** to
-validate and evaluate the inputs; **Preview** shows the resulting narrative.
+In a project created with **OpenAMX learning guide**, open
+`06_Mapped_Data_and_Validation.amx` at the project root. Keep `data/` and
+`libraries/` at their relative paths. In the document's input settings, map
+`asset`, `screenings`, and `reviewedAt` to the project-relative valid files
+below. If using the repository checkout, open
+`examples/06_Mapped_Data_and_Validation.amx` under `examples/` and prefix
+those mappings with `examples/`. Select **Run** to validate and evaluate the
+inputs; **Preview** shows the resulting narrative.
 
 ## Inputs and support files
 
 | Logical input | Type | Valid file |
 | --- | --- | --- |
-| `asset` | `Asset` | `examples/data/asset.json` |
-| `screenings` | `Screening[]` | `examples/data/screenings.csv` |
-| `reviewedAt` | `DateTime` | `examples/data/reviewed-at.json` |
+| `asset` | `Asset` | `data/asset.json` |
+| `screenings` | `Screening[]` | `data/screenings.csv` |
+| `reviewedAt` | `DateTime` | `data/reviewed-at.json` |
 
 The document declares the input names and types. The CLI equivalent, run from
 the repository root, is:
@@ -38,13 +41,15 @@ the repository root, is:
 bun run dist/cli.js run examples/06_Mapped_Data_and_Validation.amx --input asset=examples/data/asset.json --input screenings=examples/data/screenings.csv --input reviewedAt=examples/data/reviewed-at.json
 ```
 
-The `fixtures/invalid/` files are negative test inputs only; do not map them
-for the successful walkthrough. To observe a deliberate failure, replace one
-valid mapping with `examples/fixtures/invalid/asset.json` or
-`examples/fixtures/invalid/screenings.csv`. Validation should fail with
-`AMX4003`; the invalid asset omits required `/id`, and the invalid CSV has
-non-numeric severity and occurrence values. These are intentionally invalid
-fixtures, not alternate example data.
+The project-relative `fixtures/invalid/` files are negative test inputs only;
+do not map them for the successful walkthrough. To observe a deliberate
+failure, replace one valid mapping with
+`fixtures/invalid/asset.json` or `fixtures/invalid/screenings.csv`. In the
+repository checkout, those files are under
+`examples/fixtures/invalid/`. Validation should fail with `AMX4003`; the
+invalid asset omits required `/id`, and the invalid CSV has non-numeric
+severity and occurrence values. These are intentionally invalid fixtures,
+not alternate example data.
 
 ## Typed input and calculation
 

@@ -17,10 +17,11 @@ mapped data input, but imports the supplied Asset type from
 
 ## Desktop workflow
 
-In OpenAMX Desktop, open the folder containing this checkout and open
-`examples/04_Typed_Records_Enums_and_Modules.amx`. Keep its relative
-`libraries/` folder in place. Select **Run** to inspect the records and
-**Preview** to read the explanation.
+In a project created with **OpenAMX learning guide**, open
+`04_Typed_Records_Enums_and_Modules.amx` at the project root and keep its
+relative `libraries/` folder in place. If using the repository checkout, open
+`examples/04_Typed_Records_Enums_and_Modules.amx` under `examples/`. Select
+**Run** to inspect the records and **Preview** to read the explanation.
 
 ## Typed values and reuse
 
@@ -89,9 +90,10 @@ assignable to its parent.
 
 ## Inputs and support files
 
-No external input mappings are needed. The required local dependency is
-`examples/libraries/asset-management.amx`; it exports the `Asset` schema used
-above. Keep the module beside the lesson in the repository tree.
+No external input mappings are needed. The required project-relative
+dependency is `libraries/asset-management.amx`; it exports the `Asset` schema
+used above. In the repository checkout, that file is
+`examples/libraries/asset-management.amx`.
 
 ## Navigation
 

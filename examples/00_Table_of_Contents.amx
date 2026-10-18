@@ -38,12 +38,16 @@ prerequisite sequence.
 
 ## Desktop workflow
 
-Use **Open project** in OpenAMX Desktop to open the folder containing this
-checkout. In the project explorer, open a lesson under `examples/`. **Run**
-evaluates the active document; **Preview** shows its rendered narrative and
-report views. Lessons with imports or inputs need the companion files at the
-relative paths listed above. This index is not a claim that the guide is
-integrated into Welcome or Starter Examples.
+Choose **OpenAMX learning guide** under **Help and shortcuts > Starter
+examples** to create an offline project. The desktop opens this index at the
+project root; select lessons directly in the project explorer. Companion
+`data/`, `fixtures/`, and `libraries/` files are included at their listed
+relative paths. **Run** evaluates the active document; **Preview** shows its
+rendered narrative and report views.
+
+When using the repository checkout instead, open the repository as a project
+and select this index at `examples/00_Table_of_Contents.amx`; its lessons are
+also under `examples/`.
 
 ## Where the guided path ends
 

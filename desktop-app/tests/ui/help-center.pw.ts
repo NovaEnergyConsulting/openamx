@@ -6,7 +6,7 @@ const expectedTopicIds = [
 ];
 const expectedSearchTerms = [
 	["getting-started", "welcome first project starter create open"],
-	["starters", "example templates hello asset management operation note"],
+	["starters", "example templates hello asset management operation note guided guide journey numbered offline"],
 	["language", "language syntax code fence markdown let type function import export input record table chart cli"],
 	["language-v0.13", "language v0.13 diagram animated animation time canvas crank slider battery resistor line rectangle circle text arrow playback scrub loop AMXD PDF DOCX accessibility offline"],
 	["language-v0.14", "language v0.14 is type check structural record enum list optional nullable measurement dimension PI E sin cos tan asin acos atan sinh cosh tanh asinh acosh atanh ln log exp len trim left right format Unicode code points locale grouping percent currency AMXSL001 AMXSL002 AMXSL003 AMXSL004 AMXSL005 AMXSL006"],
@@ -113,6 +113,18 @@ test("bundled help keeps stable topics, local search, registry shortcuts, routin
 	await page.getByRole("button", { name: "Create a project with Hello OpenAMX" }).click();
 	await expect(page.getByRole("dialog", { name: "Help and shortcuts" })).toHaveCount(0);
 	await expect(page.getByRole("status")).toContainText("Created a starter project");
+
+	await page.locator("button[aria-label='Help and shortcuts']").click();
+	const startersTopic = page.locator(".help-topics [data-topic-id='starters']");
+	await startersTopic.click();
+	const starterItems = page.locator(".starter-list .starter-item");
+	await expect(starterItems).toHaveCount(3);
+	await expect(starterItems.nth(0)).toContainText("Hello OpenAMX");
+	await expect(starterItems.nth(1)).toContainText("Operations note");
+	await expect(starterItems.nth(2)).toContainText("OpenAMX learning guide");
+	await expect(starterItems.nth(2).getByRole("button", { name: "Create guided project" })).toBeVisible();
+	await page.keyboard.press("Escape");
+
 	await page.locator("button[aria-label='Help and shortcuts']").click();
 	await page.locator(".help-topics [data-topic-id='diagnostics']").click();
 	const downloadPromise = page.waitForEvent("download");

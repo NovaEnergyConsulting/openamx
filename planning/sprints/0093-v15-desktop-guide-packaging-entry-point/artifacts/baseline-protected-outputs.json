@@ -1,0 +1,900 @@
+﻿{
+    "capturedAtUtc":  "2026-10-18T03:24:43.5193897Z",
+    "branch":  "feat/create-V015",
+    "commit":  "3c3f0ab5601637083b8b3380ec2428af55f87fc0",
+    "gitStatus":  "## feat/create-V015",
+    "note":  "Desktop dev package manifest is post-incident rebuild; pre-command file hashes were not captured. Existing outputs are not to be restored or cleaned without further authorization.",
+    "stagingPathExists":  false,
+    "proposedPackagePathExists":  false,
+    "files":  [
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/index.html",
+                      "length":  403,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "F75A4F924E0DB384D37B0792836A7ADE72EE31E279CA95D06F780CCA23F4EA91"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/jobWorker.js",
+                      "length":  8897272,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.9474446Z",
+                      "sha256":  "AC3783FCE214BE0AB7590E8B7C2A05836401853FA8A901DF4FD5FB4061198AA4"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dataText-Dv7TXR7b.js",
+                      "length":  34642,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "0B6C81EAE7949C2E2AC6C9D6F7009E86D5E3742EBFE80440658FC991CE22A412"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dataText.worker-C5sFY4Sb.js",
+                      "length":  29074,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "4B005B676BA4F2E0A7EA3EADF28F749BB2F09B170CF21078C8DB1716B2B19824"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-mono-latin-400-normal--0xN8mdc.woff",
+                      "length":  11212,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "1736DBEC4C2DA8403E7CF80523DBE77B00BFF5FE9B3C0F2A953032AD5D84869A"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-mono-latin-400-normal-4GdczIuU.woff2",
+                      "length":  14820,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "E1896B13B2B1BB112FAC2F9571BD6C40E118746E77A4511EDBF43FBB41BF3E1E"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-mono-latin-ext-400-normal-1aZr6b2b.woff",
+                      "length":  7500,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "5357DCBA4E325C781ACF79D15FD21F740F4ABB7CA3F0FAD88AF774BD94A74E78"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-mono-latin-ext-400-normal-C2zvOubV.woff2",
+                      "length":  9552,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "A52E19EBE0398C9C0F8FA28A0C5E9A6BC324F35D9F0881C9AA407D10AF447175"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-400-normal-BwCSEQnW.woff",
+                      "length":  18356,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "38702875FE179437D200E7BA6F7FAB4D497FFE48117EF332029B2081751186AD"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-400-normal-CW0RaeGs.woff2",
+                      "length":  14200,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "4AB51EB2CD7305D177187908D6397474D4520663F6C6E572FEB0A64F4FA80006"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-500-normal-B9HHJjqV.woff2",
+                      "length":  14304,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "19BF1984956517C35C2BD35B6CDEDAC12A21D6FCD3596C614ECDFB88B648909D"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-500-normal-Dr3UlScf.woff",
+                      "length":  18520,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "7DEB957E430B780EE3272D801AF4F9F2211B1330EC40A312A8F25309EACB4034"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-600-normal-Aqo67rzb.woff2",
+                      "length":  14144,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "6BB2B2645BA5EEAECF56322C543FA3A75B87B927977B9C03B1DABC4205089120"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-600-normal-BmdmIIQ2.woff",
+                      "length":  18320,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "E7351257E49400EFF05ACA30A2007289194A900860D30C30770D8B8732897564"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-700-normal-CUSSCpQX.woff",
+                      "length":  18504,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "AF422A448AC00679A8DBB13532DB3616829C5A35B58D3EEEA5903CE17AD2E36A"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-700-normal-DvUfVpUG.woff2",
+                      "length":  14348,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "35C5EFA0E5DAA52EE5C6500F5BE354BF751FB65C4E49E1D6806C6EB5883E8FE9"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-ext-400-normal-BjWJ59Pq.woff",
+                      "length":  9976,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "3D63423C3204F61BB196D1AE3729B7F2871D87ABD4403D198F4810923888C016"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-ext-400-normal-BtiwyxMk.woff2",
+                      "length":  7364,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "962730C6FF7595F9499B0D963A3BCCB2139D793F0FB31FBD87AED1881C020E0A"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-ext-500-normal-BJfUCQsA.woff2",
+                      "length":  7432,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "E0A1D21584BA00798A3DBE90EF5F8A162741D454F52AB66630F9DC41DA372B3D"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-ext-500-normal-DR84L5F-.woff",
+                      "length":  10068,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "E1F67472AA96C6F60969C696BA8A9D36ED8EA26C2FF5C3E27EE29C664911575D"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-ext-600-normal-4vooXBpG.woff2",
+                      "length":  7420,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "6406EB05E2EB50779CB95EE8745C98AD23CCE7E67D752822782453DA7F6B4491"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-ext-600-normal-DRtaDpgU.woff",
+                      "length":  10024,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "F70E6BB2170E2AB7BFC23A021AF0663DCE4DF0B502173C9C5135015D7FED457A"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-ext-700-normal-BLI3TTWz.woff",
+                      "length":  10012,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "56084E69490970432DE58B4A2406EE4DAA1F58D90F9600AE3FDA0E895A6355E7"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/dm-sans-latin-ext-700-normal-CJIcxD6K.woff2",
+                      "length":  7452,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "F6640907B94DF0D227F26E2FCB6DB2497D6C44C4B68F731EA1E06F5B45E2E91B"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/iconfont.1790757600308-CU0gNtbY.woff",
+                      "length":  5880,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "5C26F7CF32FC791E8A658DB4B5B21EDA1020D2EC9D032FEC6C33B4E1B4788C78"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/iconfont.1790757600308-CVw51Xp6.ttf",
+                      "length":  10556,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "DB3230534DA41A1A395EC13BACCBBA85470DE8089BD8B5330427A8531892194D"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/iconfont.1790757619500-CP3KGbRQ.woff",
+                      "length":  32628,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "C67ED9F4B57DC80565E6DEEF16C8A9A7974C2C03CE31D348B1B1AA3C46205700"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/iconfont.1790757619500-CUciZ-UB.ttf",
+                      "length":  57488,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "C46D8BBF38BAC3262580B1F4A631364EB68488EDDD946CD764B9A260CCE7D13E"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/index-CDPWMxY9.js",
+                      "length":  2709070,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6742684Z",
+                      "sha256":  "93CEAD039E476AD2766B1625BF106228C0FB6335FE56475325BFE88B83F60319"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/index-HKypoDT4.css",
+                      "length":  651763,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6742684Z",
+                      "sha256":  "E96BDC84447E523AA94806C27C71791745A6F32C9BDF7073C4A8AF0A9773661B"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/newsreader-latin-500-normal-B66TYsaK.woff2",
+                      "length":  23624,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "5613E2FC8377392C02E8AC9D55014689FB5320A5F2A7BE55E8088A314728AC2C"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/newsreader-latin-500-normal-DFwuUcdu.woff",
+                      "length":  29636,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "37855D65F9AF181A63471D3F56E734BCF9E620B43671762F3518C4E9D2AE125E"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/newsreader-latin-ext-500-normal-BNHmvKvI.woff2",
+                      "length":  15068,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "9B553AF5DE5EBBA87EA66530FA0CC05A3E5ED68C4A051915AF0BC21188A9DF9C"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/newsreader-latin-ext-500-normal-CZruMFou.woff",
+                      "length":  19296,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "43C90337B564275DDC4D97F22779A1BF8830D93A9E04AA6258ECD01E5A895E4F"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/newsreader-vietnamese-500-normal-BEAbKU8A.woff",
+                      "length":  7036,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "30C1DDD70569E361B96928029C4E7B769467F3CBF31422AB6020C14CE10F743F"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/newsreader-vietnamese-500-normal-CL6a8tp2.woff2",
+                      "length":  5436,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "F950F15B6FAB6593349CDAD92849419530BD4305D9A2EDD4145CFC42D0C2C5A1"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/assets/vanilla-picker-l5rcX3cq.js",
+                      "length":  18814,
+                      "lastWriteTimeUtc":  "2026-10-16T04:05:27.6658670Z",
+                      "sha256":  "07C2964E9248369DE82178AB0E5C02EBCDC46076543D6EFA9409C799E50FA846"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/native-sharp/@img/sharp-win32-x64/index.cjs",
+                      "length":  62,
+                      "lastWriteTimeUtc":  "2026-10-04T12:16:18.1060937Z",
+                      "sha256":  "6ECBD583F45E914233410FE83A614E4F5FF1A6875A7EB828B03B7258E8BA6944"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/native-sharp/@img/sharp-win32-x64/LICENSE",
+                      "length":  10464,
+                      "lastWriteTimeUtc":  "2026-10-04T12:16:18.1060937Z",
+                      "sha256":  "DC1F5D2D43C5531DFE0ACAF4E950EA5DBE3E61E1850CF0E983BDA7EFC10D6693"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/native-sharp/@img/sharp-win32-x64/package.json",
+                      "length":  888,
+                      "lastWriteTimeUtc":  "2026-10-04T12:16:26.4209167Z",
+                      "sha256":  "697B3D89590E3B988B51764BD22DFD6F4A1B35CD4EB12C664ECA7987E8EE6115"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/native-sharp/@img/sharp-win32-x64/README.md",
+                      "length":  4913,
+                      "lastWriteTimeUtc":  "2026-10-04T12:16:26.4209167Z",
+                      "sha256":  "3D083ADA5EBAFE1E6C227DAA7B061D4254B61DF4A3901C359FFDEAC817CE5866"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/native-sharp/@img/sharp-win32-x64/versions.json",
+                      "length":  596,
+                      "lastWriteTimeUtc":  "2026-10-04T12:16:26.4209167Z",
+                      "sha256":  "E2611D5D854815A8B33C8A3D2EC649511A9596CCF16844E8EAE7CF81E79881C4"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/native-sharp/@img/sharp-win32-x64/lib/libvips-42.dll",
+                      "length":  19018240,
+                      "lastWriteTimeUtc":  "2026-10-04T12:16:26.2393658Z",
+                      "sha256":  "06DAB07CC386748513337A31672B1D5269FBC770A14FF403080575665BF0813F"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/native-sharp/@img/sharp-win32-x64/lib/libvips-cpp-8.18.7.dll",
+                      "length":  333312,
+                      "lastWriteTimeUtc":  "2026-10-04T12:16:26.4209167Z",
+                      "sha256":  "25001DBD05305A0A29119AB49933622C70B4A20EA12EF1D5D20CA40181DB53BF"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/native-sharp/@img/sharp-win32-x64/lib/sharp-win32-x64-0.35.5.node",
+                      "length":  443904,
+                      "lastWriteTimeUtc":  "2026-10-04T12:16:26.4294998Z",
+                      "sha256":  "971048779F9C8598DF14641DFC03C625885C93F473A788E65CA2DEB50D0B083E"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/pdfmake-fonts/Roboto-Italic.ttf",
+                      "length":  162892,
+                      "lastWriteTimeUtc":  "2026-10-04T12:16:35.8827301Z",
+                      "sha256":  "B9E7D02D28DD215BD1DBB164D2D75BC1BBCCF754A17390EFC8678FEB78017577"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/pdfmake-fonts/Roboto-Medium.ttf",
+                      "length":  157392,
+                      "lastWriteTimeUtc":  "2026-10-04T12:16:37.0261131Z",
+                      "sha256":  "4CB9D8A346D7D9190EF145DAAD9A85D58E2592043B199CDB8ED52FF535C64047"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/pdfmake-fonts/Roboto-MediumItalic.ttf",
+                      "length":  163192,
+                      "lastWriteTimeUtc":  "2026-10-04T12:16:37.8909900Z",
+                      "sha256":  "1B4DAEE5311F0BCD8E1B79D44D1D5BA675A72ABB6624D2B0ED77FDA1C65D77B1"
+                  },
+                  {
+                      "scope":  "desktop-app\\dist",
+                      "path":  "desktop-app/dist/pdfmake-fonts/Roboto-Regular.ttf",
+                      "length":  157208,
+                      "lastWriteTimeUtc":  "2026-10-04T12:16:37.8929891Z",
+                      "sha256":  "AB9C18A75DA1636435AFD2398FFCE325496644A8F258F918C92C4BAF34A68625"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/bin/bspatch.exe",
+                      "length":  1494528,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:27.3860772Z",
+                      "sha256":  "5439FFCE337A5B8C25397E713665F26BC7B9B039DB5E8C53E758FF09C0AEB290"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/bin/bun.exe",
+                      "length":  88635904,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:30.0446513Z",
+                      "sha256":  "FADDAF26DAD0FEB5B90D59247B9C29082E2A915C429BE73151A92C8A5F4E351F"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/bin/ElectrobunCore.dll",
+                      "length":  646656,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:27.3445379Z",
+                      "sha256":  "D27E015D194457DCF0F237FC5BB288B789514560B2B605EF0C4F5C421AC2B38C"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/bin/launcher.exe",
+                      "length":  621568,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.8279217Z",
+                      "sha256":  "6CA113D16B0311C3EFD80395713E60A262E0A3F5474292B5584A558463324DD3"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/bin/libasar.dll",
+                      "length":  860672,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:27.3776353Z",
+                      "sha256":  "9F7CDEFDD957D925CAFD4C38D05066EEC8C51B94AD8D30B1863A7B62CF27E592"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/bin/libNativeWrapper.dll",
+                      "length":  2008064,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:27.3610004Z",
+                      "sha256":  "1D26F78D9384FD501AD4E27E46C0621C4AEF09959EAF557012CD9AC6FC7665DD"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/bin/zig-zstd.exe",
+                      "length":  1465856,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:27.3940564Z",
+                      "sha256":  "CE8EFE668010CB3F2C418CBAA3B3EC393E4BF00267D83D395739A280D5209603"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app.ico",
+                      "length":  91005,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.8279217Z",
+                      "sha256":  "A70AE8593BA62C1DB628721A932C7336F578418C0C078EAD56E389F33C8F1E2A"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/build.json",
+                      "length":  180,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:27.4028122Z",
+                      "sha256":  "A56748CB454BCAF0CB006D7B1DDBBE4C1D5F90945C3D96FEC4B7909B7670BBAB"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/main.js",
+                      "length":  7485,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:27.4028122Z",
+                      "sha256":  "33AF6C6AD224D43625E7C165F6977A3D061FEF1F4E745895E31CFE4351FAAD05"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/preload-full.js",
+                      "length":  43000,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:27.4028122Z",
+                      "sha256":  "95E086D77313D4EE21F7C1581DC02300FDBDDD807978F8B73F6D534A01E42884"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/preload-sandboxed.js",
+                      "length":  3832,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:27.4028122Z",
+                      "sha256":  "D358FA4E85148AE6059ECA9CFB398FAF7A6C0710A03CDC972275F6A61670F3F9"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/uninstall",
+                      "length":  1269760,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:26.8110881Z",
+                      "sha256":  "1FA0A5C083D380587D27F61BFD1FA0FAACBA14C51C55D0F430FE13F0E4F18240"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/version.json",
+                      "length":  126,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:27.4028122Z",
+                      "sha256":  "8D1EBF4C2250C2C0E119E6A2AB79923D84284B611F56B1D143C03EB5B584B2A9"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/index.js",
+                      "length":  1354855,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:28.7526940Z",
+                      "sha256":  "627B6BC3E3CC3685B7E27A932F67331F08BB6C8C8D79E5D213D1C3FE36B340B2"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/jobWorker.js",
+                      "length":  8897272,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.3696803Z",
+                      "sha256":  "AC3783FCE214BE0AB7590E8B7C2A05836401853FA8A901DF4FD5FB4061198AA4"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/node_modules/@img/sharp-win32-x64/index.cjs",
+                      "length":  62,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.3778175Z",
+                      "sha256":  "6ECBD583F45E914233410FE83A614E4F5FF1A6875A7EB828B03B7258E8BA6944"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/node_modules/@img/sharp-win32-x64/LICENSE",
+                      "length":  10464,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.7694547Z",
+                      "sha256":  "DC1F5D2D43C5531DFE0ACAF4E950EA5DBE3E61E1850CF0E983BDA7EFC10D6693"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/node_modules/@img/sharp-win32-x64/package.json",
+                      "length":  888,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.7778246Z",
+                      "sha256":  "697B3D89590E3B988B51764BD22DFD6F4A1B35CD4EB12C664ECA7987E8EE6115"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/node_modules/@img/sharp-win32-x64/README.md",
+                      "length":  4913,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.7861512Z",
+                      "sha256":  "3D083ADA5EBAFE1E6C227DAA7B061D4254B61DF4A3901C359FFDEAC817CE5866"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/node_modules/@img/sharp-win32-x64/versions.json",
+                      "length":  596,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.7944528Z",
+                      "sha256":  "E2611D5D854815A8B33C8A3D2EC649511A9596CCF16844E8EAE7CF81E79881C4"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/node_modules/@img/sharp-win32-x64/lib/libvips-42.dll",
+                      "length":  19018240,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.6546599Z",
+                      "sha256":  "06DAB07CC386748513337A31672B1D5269FBC770A14FF403080575665BF0813F"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/node_modules/@img/sharp-win32-x64/lib/libvips-cpp-8.18.7.dll",
+                      "length":  333312,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.7223215Z",
+                      "sha256":  "25001DBD05305A0A29119AB49933622C70B4A20EA12EF1D5D20CA40181DB53BF"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/node_modules/@img/sharp-win32-x64/lib/sharp-win32-x64-0.35.5.node",
+                      "length":  443904,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.7609789Z",
+                      "sha256":  "971048779F9C8598DF14641DFC03C625885C93F473A788E65CA2DEB50D0B083E"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/pdfmake-fonts/Roboto-Italic.ttf",
+                      "length":  162892,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.8027928Z",
+                      "sha256":  "B9E7D02D28DD215BD1DBB164D2D75BC1BBCCF754A17390EFC8678FEB78017577"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/pdfmake-fonts/Roboto-Medium.ttf",
+                      "length":  157392,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.8112979Z",
+                      "sha256":  "4CB9D8A346D7D9190EF145DAAD9A85D58E2592043B199CDB8ED52FF535C64047"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/pdfmake-fonts/Roboto-MediumItalic.ttf",
+                      "length":  163192,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.8112979Z",
+                      "sha256":  "1B4DAEE5311F0BCD8E1B79D44D1D5BA675A72ABB6624D2B0ED77FDA1C65D77B1"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/bun/pdfmake-fonts/Roboto-Regular.ttf",
+                      "length":  157208,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.8223260Z",
+                      "sha256":  "AB9C18A75DA1636435AFD2398FFCE325496644A8F258F918C92C4BAF34A68625"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/index.html",
+                      "length":  403,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:28.9862832Z",
+                      "sha256":  "F75A4F924E0DB384D37B0792836A7ADE72EE31E279CA95D06F780CCA23F4EA91"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dataText-Dv7TXR7b.js",
+                      "length":  34642,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0029124Z",
+                      "sha256":  "0B6C81EAE7949C2E2AC6C9D6F7009E86D5E3742EBFE80440658FC991CE22A412"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dataText.worker-C5sFY4Sb.js",
+                      "length":  29074,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0213916Z",
+                      "sha256":  "4B005B676BA4F2E0A7EA3EADF28F749BB2F09B170CF21078C8DB1716B2B19824"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-mono-latin-400-normal--0xN8mdc.woff",
+                      "length":  11212,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0277627Z",
+                      "sha256":  "1736DBEC4C2DA8403E7CF80523DBE77B00BFF5FE9B3C0F2A953032AD5D84869A"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-mono-latin-400-normal-4GdczIuU.woff2",
+                      "length":  14820,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0386222Z",
+                      "sha256":  "E1896B13B2B1BB112FAC2F9571BD6C40E118746E77A4511EDBF43FBB41BF3E1E"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-mono-latin-ext-400-normal-1aZr6b2b.woff",
+                      "length":  7500,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0445695Z",
+                      "sha256":  "5357DCBA4E325C781ACF79D15FD21F740F4ABB7CA3F0FAD88AF774BD94A74E78"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-mono-latin-ext-400-normal-C2zvOubV.woff2",
+                      "length":  9552,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0445695Z",
+                      "sha256":  "A52E19EBE0398C9C0F8FA28A0C5E9A6BC324F35D9F0881C9AA407D10AF447175"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-400-normal-BwCSEQnW.woff",
+                      "length":  18356,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0529562Z",
+                      "sha256":  "38702875FE179437D200E7BA6F7FAB4D497FFE48117EF332029B2081751186AD"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-400-normal-CW0RaeGs.woff2",
+                      "length":  14200,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0611850Z",
+                      "sha256":  "4AB51EB2CD7305D177187908D6397474D4520663F6C6E572FEB0A64F4FA80006"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-500-normal-B9HHJjqV.woff2",
+                      "length":  14304,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0694333Z",
+                      "sha256":  "19BF1984956517C35C2BD35B6CDEDAC12A21D6FCD3596C614ECDFB88B648909D"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-500-normal-Dr3UlScf.woff",
+                      "length":  18520,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0694333Z",
+                      "sha256":  "7DEB957E430B780EE3272D801AF4F9F2211B1330EC40A312A8F25309EACB4034"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-600-normal-Aqo67rzb.woff2",
+                      "length":  14144,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0778677Z",
+                      "sha256":  "6BB2B2645BA5EEAECF56322C543FA3A75B87B927977B9C03B1DABC4205089120"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-600-normal-BmdmIIQ2.woff",
+                      "length":  18320,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0860462Z",
+                      "sha256":  "E7351257E49400EFF05ACA30A2007289194A900860D30C30770D8B8732897564"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-700-normal-CUSSCpQX.woff",
+                      "length":  18504,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0940160Z",
+                      "sha256":  "AF422A448AC00679A8DBB13532DB3616829C5A35B58D3EEEA5903CE17AD2E36A"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-700-normal-DvUfVpUG.woff2",
+                      "length":  14348,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.0945753Z",
+                      "sha256":  "35C5EFA0E5DAA52EE5C6500F5BE354BF751FB65C4E49E1D6806C6EB5883E8FE9"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-ext-400-normal-BjWJ59Pq.woff",
+                      "length":  9976,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.1028074Z",
+                      "sha256":  "3D63423C3204F61BB196D1AE3729B7F2871D87ABD4403D198F4810923888C016"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-ext-400-normal-BtiwyxMk.woff2",
+                      "length":  7364,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.1110862Z",
+                      "sha256":  "962730C6FF7595F9499B0D963A3BCCB2139D793F0FB31FBD87AED1881C020E0A"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-ext-500-normal-BJfUCQsA.woff2",
+                      "length":  7432,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.1160162Z",
+                      "sha256":  "E0A1D21584BA00798A3DBE90EF5F8A162741D454F52AB66630F9DC41DA372B3D"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-ext-500-normal-DR84L5F-.woff",
+                      "length":  10068,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.1215482Z",
+                      "sha256":  "E1F67472AA96C6F60969C696BA8A9D36ED8EA26C2FF5C3E27EE29C664911575D"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-ext-600-normal-4vooXBpG.woff2",
+                      "length":  7420,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.1277817Z",
+                      "sha256":  "6406EB05E2EB50779CB95EE8745C98AD23CCE7E67D752822782453DA7F6B4491"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-ext-600-normal-DRtaDpgU.woff",
+                      "length":  10024,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.1362940Z",
+                      "sha256":  "F70E6BB2170E2AB7BFC23A021AF0663DCE4DF0B502173C9C5135015D7FED457A"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-ext-700-normal-BLI3TTWz.woff",
+                      "length":  10012,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.1400502Z",
+                      "sha256":  "56084E69490970432DE58B4A2406EE4DAA1F58D90F9600AE3FDA0E895A6355E7"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/dm-sans-latin-ext-700-normal-CJIcxD6K.woff2",
+                      "length":  7452,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.1445818Z",
+                      "sha256":  "F6640907B94DF0D227F26E2FCB6DB2497D6C44C4B68F731EA1E06F5B45E2E91B"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/iconfont.1790757600308-CU0gNtbY.woff",
+                      "length":  5880,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.1563605Z",
+                      "sha256":  "5C26F7CF32FC791E8A658DB4B5B21EDA1020D2EC9D032FEC6C33B4E1B4788C78"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/iconfont.1790757600308-CVw51Xp6.ttf",
+                      "length":  10556,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.1611177Z",
+                      "sha256":  "DB3230534DA41A1A395EC13BACCBBA85470DE8089BD8B5330427A8531892194D"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/iconfont.1790757619500-CP3KGbRQ.woff",
+                      "length":  32628,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.1611177Z",
+                      "sha256":  "C67ED9F4B57DC80565E6DEEF16C8A9A7974C2C03CE31D348B1B1AA3C46205700"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/iconfont.1790757619500-CUciZ-UB.ttf",
+                      "length":  57488,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.1694221Z",
+                      "sha256":  "C46D8BBF38BAC3262580B1F4A631364EB68488EDDD946CD764B9A260CCE7D13E"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/index-CDPWMxY9.js",
+                      "length":  2709070,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.2215802Z",
+                      "sha256":  "93CEAD039E476AD2766B1625BF106228C0FB6335FE56475325BFE88B83F60319"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/index-HKypoDT4.css",
+                      "length":  651763,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.2361424Z",
+                      "sha256":  "E96BDC84447E523AA94806C27C71791745A6F32C9BDF7073C4A8AF0A9773661B"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/newsreader-latin-500-normal-B66TYsaK.woff2",
+                      "length":  23624,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.2444118Z",
+                      "sha256":  "5613E2FC8377392C02E8AC9D55014689FB5320A5F2A7BE55E8088A314728AC2C"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/newsreader-latin-500-normal-DFwuUcdu.woff",
+                      "length":  29636,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.2477191Z",
+                      "sha256":  "37855D65F9AF181A63471D3F56E734BCF9E620B43671762F3518C4E9D2AE125E"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/newsreader-latin-ext-500-normal-BNHmvKvI.woff2",
+                      "length":  15068,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.2531058Z",
+                      "sha256":  "9B553AF5DE5EBBA87EA66530FA0CC05A3E5ED68C4A051915AF0BC21188A9DF9C"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/newsreader-latin-ext-500-normal-CZruMFou.woff",
+                      "length":  19296,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.2612593Z",
+                      "sha256":  "43C90337B564275DDC4D97F22779A1BF8830D93A9E04AA6258ECD01E5A895E4F"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/newsreader-vietnamese-500-normal-BEAbKU8A.woff",
+                      "length":  7036,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.2696041Z",
+                      "sha256":  "30C1DDD70569E361B96928029C4E7B769467F3CBF31422AB6020C14CE10F743F"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/newsreader-vietnamese-500-normal-CL6a8tp2.woff2",
+                      "length":  5436,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.2696041Z",
+                      "sha256":  "F950F15B6FAB6593349CDAD92849419530BD4305D9A2EDD4145CFC42D0C2C5A1"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\dev-win-x64",
+                      "path":  "desktop-app/build/dev-win-x64/OpenAMXDesktop-dev/Resources/app/views/mainview/assets/vanilla-picker-l5rcX3cq.js",
+                      "length":  18814,
+                      "lastWriteTimeUtc":  "2026-10-18T03:21:29.2863871Z",
+                      "sha256":  "07C2964E9248369DE82178AB0E5C02EBCDC46076543D6EFA9409C799E50FA846"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\stable-win-x64",
+                      "path":  "desktop-app/build/stable-win-x64/OpenAMX Desktop-Setup.exe",
+                      "length":  1360896,
+                      "lastWriteTimeUtc":  "2026-10-13T10:48:51.3612283Z",
+                      "sha256":  "6F667B4F41DE4834B3C71811A85DFD3F1C6F80E58DF49120D93C408EAA3EDF21"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\stable-win-x64",
+                      "path":  "desktop-app/build/stable-win-x64/OpenAMX Desktop-Setup.metadata.json",
+                      "length":  120,
+                      "lastWriteTimeUtc":  "2026-10-13T10:48:51.0544701Z",
+                      "sha256":  "819E9A34E03773D6368E98A884D8532805A16EDAFAC96C05E2DE9AAD3659EACE"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\stable-win-x64",
+                      "path":  "desktop-app/build/stable-win-x64/OpenAMX Desktop-Setup.tar.zst",
+                      "length":  44828306,
+                      "lastWriteTimeUtc":  "2026-10-13T10:48:51.3532336Z",
+                      "sha256":  "41B70374DB2E335B20BFE7846D5E6759AAE4B068DB885A69957D54F1F8400C83"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\stable-win-x64",
+                      "path":  "desktop-app/build/stable-win-x64/OpenAMXDesktop/bin/launcher.exe",
+                      "length":  1360896,
+                      "lastWriteTimeUtc":  "2026-10-13T10:48:51.0444696Z",
+                      "sha256":  "6F667B4F41DE4834B3C71811A85DFD3F1C6F80E58DF49120D93C408EAA3EDF21"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\stable-win-x64",
+                      "path":  "desktop-app/build/stable-win-x64/OpenAMXDesktop/Resources/2gz0m84wlaymm.tar.zst",
+                      "length":  44828306,
+                      "lastWriteTimeUtc":  "2026-10-13T10:48:51.0199624Z",
+                      "sha256":  "41B70374DB2E335B20BFE7846D5E6759AAE4B068DB885A69957D54F1F8400C83"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\stable-win-x64",
+                      "path":  "desktop-app/build/stable-win-x64/OpenAMXDesktop/Resources/app.ico",
+                      "length":  91005,
+                      "lastWriteTimeUtc":  "2026-10-13T10:48:51.0354234Z",
+                      "sha256":  "A70AE8593BA62C1DB628721A932C7336F578418C0C078EAD56E389F33C8F1E2A"
+                  },
+                  {
+                      "scope":  "desktop-app\\build\\stable-win-x64",
+                      "path":  "desktop-app/build/stable-win-x64/OpenAMXDesktop/Resources/metadata.json",
+                      "length":  120,
+                      "lastWriteTimeUtc":  "2026-10-13T10:48:51.0324119Z",
+                      "sha256":  "819E9A34E03773D6368E98A884D8532805A16EDAFAC96C05E2DE9AAD3659EACE"
+                  },
+                  {
+                      "scope":  "desktop-app\\artifacts",
+                      "path":  "desktop-app/artifacts/stable-win-x64-OpenAMXDesktop.tar.zst",
+                      "length":  44828306,
+                      "lastWriteTimeUtc":  "2026-10-13T10:48:53.9221224Z",
+                      "sha256":  "41B70374DB2E335B20BFE7846D5E6759AAE4B068DB885A69957D54F1F8400C83"
+                  },
+                  {
+                      "scope":  "desktop-app\\artifacts",
+                      "path":  "desktop-app/artifacts/stable-win-x64-update.json",
+                      "length":  205,
+                      "lastWriteTimeUtc":  "2026-10-13T10:48:53.5737367Z",
+                      "sha256":  "C447416704E5ACB44BBE8502A65916398886A41C507BB41F1D58D1AABD20CAE2"
+                  },
+                  {
+                      "scope":  "desktop-app\\artifacts",
+                      "path":  "desktop-app/artifacts/win-x64-OpenAMXDesktop-Setup.zip",
+                      "length":  45320443,
+                      "lastWriteTimeUtc":  "2026-10-13T10:48:54.3126037Z",
+                      "sha256":  "9AC4794C3BF11AB26BE4B7D6A38C1ECC8E04AE60032D742DD196F1A032F33FE4"
+                  },
+                  {
+                      "scope":  "desktop-app\\stable-win-x64-OpenAMXDesktop.tar.zst",
+                      "path":  null,
+                      "length":  null,
+                      "lastWriteTimeUtc":  null,
+                      "sha256":  null
+                  },
+                  {
+                      "scope":  "desktop-app\\stable-win-x64-update.json",
+                      "path":  null,
+                      "length":  null,
+                      "lastWriteTimeUtc":  null,
+                      "sha256":  null
+                  },
+                  {
+                      "scope":  "desktop-app\\win-x64-OpenAMXDesktop-Setup.zip",
+                      "path":  null,
+                      "length":  null,
+                      "lastWriteTimeUtc":  null,
+                      "sha256":  null
+                  },
+                  {
+                      "scope":  "examples\\kitchen-sink.pdf",
+                      "path":  "examples/kitchen-sink.pdf",
+                      "length":  149296,
+                      "lastWriteTimeUtc":  "2026-10-10T11:54:23.1716058Z",
+                      "sha256":  "9ADD5C76030F9D6248A8126EFA0D96F2E1FC2168A654DA1F07E2B6953E3BE778"
+                  }
+              ]
+}

@@ -116,33 +116,44 @@ CLI or desktop workbench tasks. See the
 With the CLI installed, run a document, render it to HTML, or export a PDF:
 
 ```sh
-openamx run examples/hello-world.amx
-openamx render examples/hello-world.amx --out hello-world.html
-openamx export pdf examples/hello-world.amx --out hello-world.pdf
+openamx run examples/01_First_Computable_Document.amx
+openamx render examples/01_First_Computable_Document.amx --out first-computable-document.html
+openamx export pdf examples/01_First_Computable_Document.amx --out first-computable-document.pdf
 ```
 
 For documents that use external data, map each declared logical input
 explicitly with `--input name=path`. See the
-[typed-data example](examples/typed-asset-analysis.amx) and the CLI help for
-all options. The desktop workbench offers project browsing, live preview,
-structured JSON/CSV editing, input mapping, report settings, and a unified
-HTML/PDF/DOCX export workflow.
+[mapped-data lesson](examples/06_Mapped_Data_and_Validation.amx) and the CLI
+help for all options. The desktop workbench offers project browsing, live
+preview, structured JSON/CSV editing, input mapping, report settings, and a
+unified HTML/PDF/DOCX export workflow.
 
 ## Examples and documentation
 
-- [Hello OpenAMX](examples/hello-world.amx) introduces the document format.
-- [Kitchen Sink](examples/kitchen-sink.amx) demonstrates language constructs.
-- [Typed Asset Screening Analysis](examples/typed-asset-analysis.amx) shows
-  typed local JSON/CSV inputs and named outputs.
-- [V0.13 crank-slider diagram](examples/v0.13-crank-slider.amx) demonstrates
-  formula-driven geometry.
-- V0.14 examples: [runtime type checks](examples/v0.14-runtime-type-checks.amx),
-  [math and Measurements](examples/v0.14-math-and-measurements.amx), and
-  [text and formatting](examples/v0.14-text-and-formatting.amx).
+- [OpenAMX learning guide](examples/00_Table_of_Contents.amx) is the offline,
+  numbered path from the first computable document to a complete report.
+- [First computable document](examples/01_First_Computable_Document.amx) is
+  the guide's small, input-free first lesson.
+- [Mapped data and validation](examples/06_Mapped_Data_and_Validation.amx)
+  introduces explicit JSON/CSV input mappings.
+- [Complete asset screening report](examples/12_Complete_Asset_Screening_Report.amx)
+  is the guided destination; [route measurements](examples/13_Route_Measurement_Report.amx)
+  and the [battery-resistor circuit](examples/14_Battery_Resistor_Circuit.amx)
+  are standalone references.
+- V0.12 features: [records and enums](examples/04_Typed_Records_Enums_and_Modules.amx)
+  and [expressions and decisions](examples/02_Expressions_and_Decisions.amx).
+- V0.13 diagrams: [formula-driven diagrams](examples/08_Formula_Driven_Diagrams.amx)
+  and the [battery-resistor reference](examples/14_Battery_Resistor_Circuit.amx).
+- V0.14 examples: [runtime type checks](examples/09_Runtime_Type_Checks.amx),
+  [math and Measurements](examples/10_Mathematics_and_Measurement_Operations.amx),
+  and [text and formatting](examples/11_Text_and_Numeric_Formatting.amx).
 
-Read the [V0.14 language specification](docs/language-spec-v0.14.md) for the
-current language additions, or browse the [examples](examples/) and
-[documentation](docs/). The
+Read the [V0.9 language specification](docs/language-spec-v0.9.md) and
+[V0.9 migration guide](docs/migrating-to-v0.9.md), then the additive
+[V0.12 language specification](docs/language-spec-v0.12.md),
+[V0.13 diagram specification](docs/language-spec-v0.13.md), and
+[V0.14 language specification](docs/language-spec-v0.14.md) for the current
+language contract. Browse the [examples](examples/) and [documentation](docs/). The
 [desktop guide](desktop-app/README.md) and
 [VS Code guide](vscode-extension/README.md) cover their respective tools.
 

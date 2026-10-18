@@ -25,9 +25,10 @@ import { readConfiguration, readConfigurationRevision, updateConfiguration } fro
 import { updateReportFrontmatter } from "./desktopSettings";
 	import { resolveDesktopInputs, validateDesktopDestination, validateDesktopMappings, writeDesktopData, writeDesktopHtml } from "./desktopWorkflow";
 import { desktopWorkerUrl } from "./workerEntrypoint";
-import { createPingResponse, type ActiveDocumentRequestIdentity, type DesktopJobIdentity, type DesktopJobOperation, type DesktopJobResult, type DesktopJobSnapshot, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type DocumentKind, type OpenDocument, type ProjectFile, type ProjectFileKind, type RecoveryItem, type RunSummary, type TextAnalysis, type TextDiagnostic, type WorkbenchState, type RecentProject, type ReportSettingKey, type ReportSettingsSnapshot, type ReportSettingsValues, type TransitionAction } from "../shared/rpc";
+import { createPingResponse, type ActiveDocumentRequestIdentity, type DesktopJobIdentity, type DesktopJobOperation, type DesktopJobResult, type DesktopJobSnapshot, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type DocumentKind, type OpenDocument, type ProjectCreationIntent, type ProjectFile, type ProjectFileKind, type RecoveryItem, type RunSummary, type TextAnalysis, type TextDiagnostic, type WorkbenchState, type RecentProject, type ReportSettingKey, type ReportSettingsSnapshot, type ReportSettingsValues, type TransitionAction } from "../shared/rpc";
 import type { PreviewNavigationTarget } from "../../../src/renderer/renderHtml";
 import type { WorkerJobMessage, WorkerJobRequest, WorkerJobResult } from "./jobProtocol";
+import { materializeDesktopGuide } from "./guideResources";
 
 const MAX_TEXT = 2_000_000;
 const MAX_DATA_TEXT = 20_000_000;
@@ -297,7 +298,13 @@ export interface DesktopPicker {
 	revealPath?(path: string): boolean | Promise<boolean>;
 }
 
-export function createDesktopService(initialRoot?: string, picker?: DesktopPicker, sessionFile?: string, workerFactory: (url: string) => Worker = url => new Worker(url)): DesktopService {
+export function createDesktopService(
+	initialRoot?: string,
+	picker?: DesktopPicker,
+	sessionFile?: string,
+	workerFactory: (url: string) => Worker = url => new Worker(url),
+	guideResourceDirectory?: string
+): DesktopService {
 	let projectRoot = initialRoot && realpathSync(initialRoot);
 	let current: SessionDocument | undefined;
 	const tabs = new Map<string, SessionDocument>();
@@ -1227,11 +1234,12 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					return errorResult<string>(projectError(error instanceof Error ? error.message : String(error)));
 				}
 			},
-			async createProject({ path, action }: { path: string; action?: TransitionAction }) {
+			async createProject({ path, action, intent = "standard" }: { path: string; action?: TransitionAction; intent?: ProjectCreationIntent }) {
 				let projectConfig: string | undefined;
 				let report: string | undefined;
 				let projectDirectory: string | undefined;
 				try {
+					if (intent !== "standard" && intent !== "guide") throw new Error("Unsupported project creation intent.");
 					const candidate = resolve(path);
 					if (!existsSync(candidate) || lstatSync(candidate).isSymbolicLink()) throw new Error("Project creation requires an existing real empty directory.");
 					projectDirectory = realpathSync(candidate);
@@ -1241,6 +1249,19 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 						const prepared = prepareTransition(action);
 						if (!prepared.ok) throw new Error(prepared.error.message);
 						if (!prepared.ready) throw new Error("Project creation cancelled.");
+					}
+					if (intent === "guide") {
+						if (!guideResourceDirectory) throw new Error("The bundled OpenAMX guide resource is unavailable.");
+						const guide = materializeDesktopGuide(guideResourceDirectory, projectDirectory);
+						service.setProjectRoot(projectDirectory, action);
+						const document: SessionDocument = {
+							path: guide.indexPath, kind: "amx", text: guide.indexText, diskHash: hash(guide.indexText),
+							dirty: false, conflict: false, revision: 0
+						};
+						current = document;
+						tabs.set(document.path, document);
+						record();
+						return { ok: true, root: projectDirectory, document, state: state() };
 					}
 					const internalDirectory = join(projectDirectory, ".openamx");
 					projectConfig = join(internalDirectory, "project.json");
@@ -1270,7 +1291,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					return errorResult<{ root: string; document: OpenDocument; state: WorkbenchState }>(projectError(error instanceof Error ? error.message : String(error)));
 				}
 			},
-			async pickCreateProject() {
+			async pickCreateProject({ intent = "standard" }: { intent?: ProjectCreationIntent } = {}) {
 				try {
 					const started = generation;
 					const path = await picker?.choose({ directory: true });
@@ -1278,7 +1299,7 @@ export function createDesktopService(initialRoot?: string, picker?: DesktopPicke
 					const action = allDocuments().some(tab => tab.dirty || tab.conflict)
 						? await picker?.confirmTransition?.("project") ?? "cancel" : undefined;
 					if (started !== generation || action === "cancel") return { ok: true, cancelled: true };
-					const created = await service.request.createProject({ path, action });
+					const created = await service.request.createProject({ path, action, intent });
 					return created.ok
 						? { ok: true, cancelled: false, root: created.root }
 						: errorResult<{ cancelled: boolean; root?: string }>(created.error);

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { starterExamples } from "../starterExamples";
+import { guidedJourney, starterExamples, type StarterSelection } from "../starterExamples";
 import helpContent from "./help-content.json";
 
 type Shortcut = { label: string; shortcut?: string };
 
 const props = defineProps<{ open: boolean; initialSection?: string; shortcuts: Shortcut[] }>();
-const emit = defineEmits<{ close: []; createProject: [source?: string]; exportDiagnostics: [] }>();
+const emit = defineEmits<{ close: []; createProject: [selection?: StarterSelection]; exportDiagnostics: [] }>();
 
 const topics = helpContent.topics;
 const copy = helpContent.copy;
@@ -48,9 +48,10 @@ watch(() => [props.open, props.initialSection] as const, ([open, section]) => {
 				<article v-if="activeTopic" class="help-content">
 					<h3>{{ activeTopic.title }}</h3><p class="help-summary">{{ activeTopic.summary }}</p>
 					<ol><li v-for="step in activeTopic.steps" :key="step">{{ step }}</li></ol>
-					<button v-if="activeTopic.id === 'getting-started'" type="button" class="help-primary" @click="emit('createProject', starterExamples[0].source)">{{ copy.createProjectAction }}</button>
+					<button v-if="activeTopic.id === 'getting-started'" type="button" class="help-primary" @click="emit('createProject', { kind: 'inline', source: starterExamples[0].source })">{{ copy.createProjectAction }}</button>
 					<div v-if="activeTopic.id === 'starters'" class="starter-list">
-						<article v-for="starter in starterExamples" :key="starter.id" class="starter-item"><div><strong>{{ starter.title }}</strong><p>{{ starter.description }}</p></div><button type="button" @click="emit('createProject', starter.source)">{{ copy.starterAction }}</button></article>
+						<article v-for="starter in starterExamples" :key="starter.id" class="starter-item"><div><strong>{{ starter.title }}</strong><p>{{ starter.description }}</p></div><button type="button" @click="emit('createProject', { kind: 'inline', source: starter.source })">{{ copy.starterAction }}</button></article>
+						<article class="starter-item"><div><strong>{{ guidedJourney.title }}</strong><p>{{ guidedJourney.description }}</p></div><button type="button" @click="emit('createProject', { kind: 'guide' })">{{ copy.guidedJourneyAction }}</button></article>
 					</div>
 					<div v-if="activeTopic.id === 'diagnostics'" class="help-export"><button type="button" @click="emit('exportDiagnostics')">{{ copy.diagnosticExportAction }}</button></div>
 				</article>

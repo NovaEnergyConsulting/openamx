@@ -171,10 +171,10 @@ non-finite`.
 
 ## 6. Examples and Limits
 
-Runnable examples demonstrate runtime type checks,
-[mathematics and Measurements](../examples/v0.14-math-and-measurements.amx),
-and [text and formatting](../examples/v0.14-text-and-formatting.amx). See also
-the [runtime type-check example](../examples/v0.14-runtime-type-checks.amx).
+Runnable examples demonstrate
+[runtime type checks](../examples/09_Runtime_Type_Checks.amx),
+[mathematics and Measurements](../examples/10_Mathematics_and_Measurement_Operations.amx),
+and [text and formatting](../examples/11_Text_and_Numeric_Formatting.amx).
 
 V0.14 does not add flow-sensitive type narrowing, nominal enum identity,
 angle units, additional locales, non-numeric format patterns, or new editor

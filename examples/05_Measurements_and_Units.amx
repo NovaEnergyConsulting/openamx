@@ -16,10 +16,11 @@ needs no module import or external input file.
 
 ## Desktop workflow
 
-In OpenAMX Desktop, open the folder containing this checkout, then open
-`examples/05_Measurements_and_Units.amx` in the project explorer. Select
-**Run** to inspect the Measurement bindings and **Preview** to read their
-displayed values and units.
+In a project created with **OpenAMX learning guide**, open
+`05_Measurements_and_Units.amx` at the project root. If using the repository
+checkout, open `examples/05_Measurements_and_Units.amx` under `examples/`.
+Select **Run** to inspect the Measurement bindings and **Preview** to read
+their displayed values and units.
 
 ## Quantities and conversion
 

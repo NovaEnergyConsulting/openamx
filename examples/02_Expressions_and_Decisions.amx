@@ -16,9 +16,11 @@ imports or external input files.
 
 ## Desktop workflow
 
-In OpenAMX Desktop, open the folder containing this checkout, then open
-`examples/02_Expressions_and_Decisions.amx` in the project explorer. Select
-**Run** to inspect each binding and **Preview** to read the results.
+In a project created with **OpenAMX learning guide**, open
+`02_Expressions_and_Decisions.amx` at the project root. If using the
+repository checkout, open `examples/02_Expressions_and_Decisions.amx` under
+the `examples/` folder. Select **Run** to inspect each binding and
+**Preview** to read the results.
 
 ## Expressions and decisions
 

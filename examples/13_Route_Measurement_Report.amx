@@ -18,16 +18,18 @@ sequence. Lessons [05](./05_Measurements_and_Units.amx),
 
 ## Desktop workflow
 
-Open this document in OpenAMX Desktop. Keep its local library and route data
-at the relative paths below, map `trips` to the JSON fixture, then select
-**Run** and **Preview**. Choose a separate scratch destination for the named
-JSON output.
+In a project created with **OpenAMX learning guide**, open
+`13_Route_Measurement_Report.amx` at the project root. Keep its local library
+and route data at the relative paths below, map `trips` to the JSON fixture,
+then select **Run** and **Preview**. If using the repository checkout, open
+this file under `examples/` and prefix those paths with `examples/`. Choose a
+separate scratch destination for the named JSON output.
 
 ## Inputs and support files
 
 | Logical input | File | Type |
 | --- | --- | --- |
-| `trips` | `examples/data/measurement-trips.json` | `Trip[]` from `libraries/travel-measurements.amx` |
+| `trips` | `data/measurement-trips.json` | `Trip[]` from `libraries/travel-measurements.amx` |
 
 Run from the repository root, choosing an output path that does not replace
 an existing file:

@@ -17,11 +17,13 @@ there. Do not use the invalid-only fixtures for a successful run.
 
 ## Desktop workflow
 
-In OpenAMX Desktop, open the folder containing this checkout and open
-`examples/07_Tables_Charts_and_Named_Outputs.amx`. Keep `data/` and
+In a project created with **OpenAMX learning guide**, open
+`07_Tables_Charts_and_Named_Outputs.amx` at the project root. Keep `data/` and
 `libraries/` at their relative paths and map the three logical inputs as in
-lesson 06. Select **Run** to inspect bindings; **Preview** displays the table,
-chart, and narrative.
+lesson 06. If using the repository checkout, open
+`examples/07_Tables_Charts_and_Named_Outputs.amx` under `examples/`. Select
+**Run** to inspect bindings; **Preview** displays the table, chart, and
+narrative.
 
 ## Inputs and support files
 

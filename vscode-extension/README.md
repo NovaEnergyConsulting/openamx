@@ -10,16 +10,17 @@ targets do not navigate. It requires VS Code 1.85.0 or newer. Editor analysis do
 not run documents or load CSV/JSON inputs; runtime validation remains a CLI
 concern.
 
-The [V0.13 diagram language specification](../docs/language-spec-v0.13.md) and
-the [crank-slider](../examples/v0.13-crank-slider.amx) and
-[battery-resistor](../examples/v0.13-battery-resistor.amx) examples describe
-the approved authoring contract and its recorded limits.
+The [V0.15 numbered learning guide](../examples/00_Table_of_Contents.amx)
+provides the current example path. Its [formula-driven diagrams lesson](../examples/08_Formula_Driven_Diagrams.amx)
+and [battery-resistor reference](../examples/14_Battery_Resistor_Circuit.amx)
+illustrate the V0.13 contract documented in the
+[V0.13 diagram language specification](../docs/language-spec-v0.13.md).
 
 The additive [V0.14 language specification](../docs/language-spec-v0.14.md)
-and the [runtime type checks](../examples/v0.14-runtime-type-checks.amx),
-[math and Measurements](../examples/v0.14-math-and-measurements.amx), and
-[text and formatting](../examples/v0.14-text-and-formatting.amx) examples
-describe the implemented V0.14 authoring features and their limits.
+and the numbered guide's [runtime type checks](../examples/09_Runtime_Type_Checks.amx),
+[math and Measurements](../examples/10_Mathematics_and_Measurement_Operations.amx),
+and [text and formatting](../examples/11_Text_and_Numeric_Formatting.amx)
+lessons describe the implemented V0.14 authoring features and their limits.
 
 The root package is the release version authority; the current extension
 package version is `0.8.0` and its publisher is `EngineersTools`. The quick fix rechecks document version,
