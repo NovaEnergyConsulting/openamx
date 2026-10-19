@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-18",
+  "authority": "Lead Developer/product owner (user disposition)",
+  "disposition": "ACCEPTED/CLOSED",
+  "releaseReadiness": "READY FOR RELEASE",
+  "rawVerificationStatusesChanged": false,
+  "currentHeadAtDisposition": "e7f47b839b271c59cf60af3a93f443820f95aa18",
+  "ownerAttestation": "The user stated that all pending, incomplete, or failing determinations had been verified and worked as expected. No post-commit command logs were supplied.",
+  "currentExamplePathState": {
+    "examples/kitchen-sink.pdf": "absent; deleted in the user-authored post-closeout commits and explicitly accepted as an exception.",
+    "examples/.openamx/local.json": "present; current SHA-256 374AC4F887E21DA8E8FD36E4CD6DBA17B2FD35F81ED4905B20393173DAD5B43E.",
+    "examples/.openamx/project.json": "present; current SHA-256 67D22E2578ED2CF5B1DEFCD75CBC30682501E6E61DCA10FA9D72F6CDA98DF276.",
+    "examples/main.css": "present; current SHA-256 95DF76B04709864FB8D358CDDDC252E4467EE0276A451BD5DB3751D08C3CE27A.",
+    "examples/typed-asset.json": "absent; legacy source path removed in user-authored post-closeout commit.",
+    "examples/typed-screenings.csv": "absent; legacy source path removed in user-authored post-closeout commit.",
+    "examples/typed-reviewed-at.json": "absent; legacy source path removed in user-authored post-closeout commit."
+  },
+  "statusRecord": {
+    "path": "planning/STATUS.json",
+    "explicitlyAuthorized": true,
+    "updatedDate": "2026-10-18",
+    "phase": "sprint-closed",
+    "sprint": "094",
+    "readinessNote": "V0.15 ready for release; no release/publication/version action performed."
+  },
+  "acceptedExceptions": [
+    {
+      "item": "Desktop RPC sandbox-count assertion",
+      "rawStatus": "FAIL",
+      "detail": "The unchanged assertion expects two sandbox=\"allow-scripts\" attributes while current App.vue has one. No assertion, CSP, markup, or permission was changed."
+    },
+    {
+      "item": "Native platform workflow",
+      "rawStatus": "BLOCKED/UNAVAILABLE",
+      "detail": "Windows dev-package launch and packaged-resource smoke were recorded; interactive native installer/guide navigation was not completed. macOS/Linux were unavailable."
+    },
+    {
+      "item": "Vite dependency cache output boundary",
+      "rawStatus": "FAIL / accepted exception",
+      "detail": "desktop-app/node_modules/.vite may have been created or updated through a dependency junction; its pre-run state is unknown and it was left untouched."
+    },
+    {
+      "item": "Post-S094 committed path changes",
+      "rawStatus": "Accepted exception",
+      "detail": "The user accepts deletion of examples/kitchen-sink.pdf, the changed examples/.openamx/local.json and removal of its old positive input paths in commit 4ea5adfc10d56aecfef87bd103f3109447020159."
+    }
+  ],
+  "noReleaseAction": "No release, publication, or version change was performed."
+}

@@ -3,7 +3,8 @@
   "repository": {
     "branch": "feat/create-V015",
     "commit": "e05052e71c71177f101b8886ad96907cc2951109",
-    "sprint094ChangesRemainUncommitted": true
+    "sprint094ChangesRemainUncommitted": true,
+    "snapshotContext": "S094 final hash checkpoint before the later user-authored commits recorded in post-closeout-user-disposition.json."
   },
   "preservedFiles": [
     {

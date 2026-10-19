@@ -2,10 +2,14 @@
 
 ## Status
 
-**Builder recommendation: `BLOCKED/OPEN`. V0.15 remains `BLOCKED/OPEN`; no release or publication is authorized.**
+**Builder recommendation: `BLOCKED/OPEN`. Separate product-owner disposition: `ACCEPTED/CLOSED` with exceptions; V0.15 is declared ready for release. No release or publication was performed.**
 
 A separate Lead Developer/product-owner V0.15 disposition was received on
-2026-10-18: `BLOCKED/OPEN`. No exceptions were accepted.
+2026-10-18: `ACCEPTED/CLOSED` with exceptions. The product owner stated that
+the pending/incomplete/failing determinations were verified and work as
+expected, accepted the current committed path changes, and declared V0.15
+ready for release. The raw results below remain unchanged; this is a separate
+owner disposition, not a retest or release.
 The desktop RPC sandbox-count result remains a raw failure, and direct
 interactive/native workflow evidence is incomplete.
 
@@ -101,7 +105,7 @@ Statuses below preserve raw outcomes; `NOT RUN` is not acceptance evidence.
 | Requirement | Status | Evidence / residual |
 |---|---|---|
 | `V15-CLOSE-GATE-01` | PASS | Separate S090-093 dispositions, explicit S094 authorization, exact plan approval, and baseline are recorded above. |
-| `V15-CLOSE-INV-01` | PASS | 00-14 guide retained; 14 legacy AMX files and exact test closure moved; four snapshots removed after tests; local state and its three referenced data files retained and excluded from package. |
+| `V15-CLOSE-INV-01` | PASS with accepted post-closeout exception | S094 moved 14 legacy AMX files and their test closure, removed four snapshots after tests, and preserved local state/data at its final verification. Later user commits changed local state and removed old positive data paths; the product owner explicitly accepted those current paths as an exception. |
 | `V15-CLOSE-INDEX-01` | PASS | Full root suite includes the numbered-guide index/navigation/role checks. |
 | `V15-CLOSE-LINK-01` | PASS | Numbered-guide containment checks and current README/spec/Help/VS Code/authoring links pass. Only `docs/language-spec-v0.1.md` retains historical legacy paths. |
 | `V15-CLOSE-ASSET-01` | PASS | Numbered-guide valid/invalid mappings and module closure pass; packaged resource test creates/runs a project from packaged data/modules. |
@@ -109,18 +113,18 @@ Statuses below preserve raw outcomes; `NOT RUN` is not acceptance evidence.
 | `V15-CLOSE-NEG-01` | PASS | Invalid JSON/CSV diagnostics, aggregate/fail-fast behavior, and no partial output assertions pass. |
 | `V15-CLOSE-FEAT-01` | PASS | Full root suite passes existing language, formatting, renderer, report, and V0.14 feature assertions; numbered-guide matrix passes. |
 | `V15-CLOSE-OUTPUT-01` | PASS | Four temporary-render structural/content tests pass; before hashes are recorded and only the four authorized snapshots were removed. |
-| `V15-CLOSE-OUTPUT-02` | PASS | Protected files and all hashed S093 package/build/release output trees match their initial hashes. |
+| `V15-CLOSE-OUTPUT-02` | PASS at S094 final check; later accepted exception | S094's protected files and hashed S093 package/build/release trees matched the initial hashes. A later user commit deleted the Kitchen Sink PDF; the product owner explicitly accepted that post-closeout change. The S094 hashes remain the raw historical check. |
 | `V15-CLOSE-REF-01` | PASS | Active code/docs/tests/scripts use numbered guide or test-owned fixtures. V0.1 historical mentions and preserved local-state mappings are classified. |
 | `V15-CLOSE-TEST-ROOT-01` | PASS | `bun run build` PASS; full `bun test` PASS: 545 tests, 4,092 expectations, 0 failures. |
-| `V15-CLOSE-TEST-DESKTOP-01` | FAIL | `bun run test` exits 1 after 9 focused tests pass (99 expectations); RPC contract check fails at the unchanged sandbox-count assertion (actual 1, expected 2). `typecheck`, `build:web`, and 5 focused UI tests pass. |
+| `V15-CLOSE-TEST-DESKTOP-01` | FAIL; accepted by product owner as an exception | `bun run test` exits 1 after 9 focused tests pass (99 expectations); RPC contract check fails at the unchanged sandbox-count assertion (actual 1, expected 2). `typecheck`, `build:web`, and 5 focused UI tests pass. Raw failure is retained. |
 | `V15-CLOSE-PACKAGE-01` | PASS | Exact 24-file, 56,096-byte package has per-file SHA-256 parity with the staged canonical allowlist; package resource test passes. |
 | `V15-CLOSE-OFFLINE-01` | PASS | Packaged-resource project smoke materializes the index/data/modules and runs lessons 06, 07, 12, and 13; Help/chart-security browser checks report no external requests. |
-| `V15-CLOSE-NATIVE-01` | BLOCKED/UNAVAILABLE | Windows dev package launched and WebView2 loaded packaged files. Manual installer and interactive native guide workflow were not completed; macOS/Linux are unavailable. |
+| `V15-CLOSE-NATIVE-01` | BLOCKED/UNAVAILABLE; accepted by product owner as an exception | Windows dev package launched and WebView2 loaded packaged files. Manual installer and interactive native guide workflow were not completed; macOS/Linux are unavailable. |
 | `V15-CLOSE-DESKTOP-01` | PASS | Packaged service tests cover ordinary project creation, guide creation, rejection/cancel cases; Help/Starter UI tests pass. |
-| `V15-CLOSE-SECURITY-01` | BLOCKED/UNAVAILABLE | Migrated chart-security and navigation UI tests pass and no security code changed, but the RPC script stops at the unresolved sandbox-count assertion before later boundary assertions. |
+| `V15-CLOSE-SECURITY-01` | BLOCKED/UNAVAILABLE; accepted by product owner as an exception | Migrated chart-security and navigation UI tests pass and no security code changed, but the RPC script stops at the unresolved sandbox-count assertion before later boundary assertions. |
 | `V15-CLOSE-INCIDENT-01` | PASS | S093 build incident and exception remain accurately represented; original post-incident directory and accepted package attempts match baseline hashes. |
-| `V15-CLOSE-SCOPE-01` | FAIL / owner disposition required | No product/runtime/release/version scope changed, but a junctioned desktop dependency directory allowed Vite to write/update an ignored `.vite` cache in the original checkout; its pre-run contents were not hashed. |
-| `V15-CLOSE-DISPOSITION-01` | BLOCKED/OPEN | Separate Lead Developer/product-owner disposition received on 2026-10-18; no exceptions accepted. Raw failures and residual owners remain as recorded. |
+| `V15-CLOSE-SCOPE-01` | FAIL; accepted by product owner as an exception | No runtime/product feature, release, publication, version, `planning/STATUS.json`, or historical sprint record changed during S094 execution. The unbaselined ignored Vite cache side effect and subsequent user commits are explicitly accepted exceptions; raw details remain recorded. |
+| `V15-CLOSE-DISPOSITION-01` | PASS — `ACCEPTED/CLOSED` with exceptions | Separate Lead Developer/product-owner disposition received on 2026-10-18; V0.15 declared ready for release. Raw failures and residuals remain as recorded. |
 
 ## Accepted feature-to-test trace
 
@@ -174,9 +178,35 @@ acceptance.
   Preserve it until an owner explicitly approves any cleanup.
 - **Native-platform owners:** this workspace is Windows. macOS/Linux native
   routes remain unavailable here and cannot be represented as acceptance.
-- **Local-project owner:** `examples/.openamx/local.json` remains unchanged.
-  Its referenced positive data files remain at their current paths; the guide
-  package excludes all local state and legacy support copies.
+- **Local-project owner:** at the S094 final hash check,
+  `examples/.openamx/local.json` and its three referenced data files were
+  unchanged. A later user-authored commit changed that local config and
+  removed the three legacy data paths; the product owner accepted those
+  post-closeout path changes as exceptions. Current state and commit are
+  recorded below; no file restoration was performed.
+
+## Post-verification user commits and disposition
+
+The following user-authored commits arrived after the S094 raw verification
+checkpoint and are part of current `HEAD`:
+
+- `d450fbbd0380fbdaed9c7fd12458c72495bb28eb` added the legacy example sources
+  that the approved migration then moved to test fixtures.
+- `4ea5adfc10d56aecfef87bd103f3109447020159` committed the test/fixture
+  migration and also deleted `examples/kitchen-sink.pdf`, changed
+  `examples/.openamx/local.json`, and removed the three old positive typed
+  input files.
+- `e7f47b839b271c59cf60af3a93f443820f95aa18` added
+  `examples/.openamx/project.json` and `examples/main.css`.
+
+On 2026-10-18, the Lead Developer/product owner explicitly accepted those
+current committed path changes as exceptions, stated that all pending,
+incomplete, or failing determinations had been verified and worked as
+expected, and directed that V0.15 be `ACCEPTED/CLOSED` and ready for release.
+No post-commit command logs were supplied; the Builder's earlier raw logs
+remain the only command evidence and are not relabeled. The separate
+disposition is recorded in
+[`artifacts/post-closeout-user-disposition.json`](artifacts/post-closeout-user-disposition.json).
 
 ## Raw results and outputs
 
@@ -242,7 +272,8 @@ the native interactive install workflow is incomplete; and the original
 checkout's ignored Vite cache has an unbaselined S094 write/update due to the
 dependency junction. These are named residuals, not passes.
 
-The Lead Developer/product-owner separately selected `BLOCKED/OPEN` on
-2026-10-18 and accepted no exceptions. V0.15 remains `BLOCKED/OPEN`. No
-release, publication, version change, or historical status update is
-authorized.
+The Lead Developer/product-owner separately selected `ACCEPTED/CLOSED` with
+exceptions on 2026-10-18 and declared V0.15 ready for release. The raw
+desktop `FAIL`, native `BLOCKED/UNAVAILABLE`, and output-isolation deviation
+remain visible and are not converted into passes. No release or publication
+was performed.

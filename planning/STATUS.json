@@ -1,5 +1,5 @@
 {
   "phase": "sprint-closed",
-  "sprint": "089",
-  "note": "Sprint 089 was separately ACCEPTED/CLOSED by the user on 2026-10-16 with named residual owners recorded in Builder evidence. The Builder recommendation remains BLOCKED/OPEN and raw FAIL/BLOCKED results are preserved. A post-closeout Windows worktree path fix shortened Sprint 089 screenshot paths in the working tree; commit these changes before any release worktree can see them. release:desktop was not rerun and no release, publication, version change, package release, or platform certification is authorized."
+  "sprint": "094",
+  "note": "Sprint 094 and V0.15 were separately ACCEPTED/CLOSED by the Lead Developer/product owner on 2026-10-18 with named exceptions recorded in planning/sprints/0094-v15-example-test-migration-acceptance-closeout/builder-evidence-and-closeout.md. The product owner declared V0.15 ready for release. Raw FAIL/BLOCKED results and accepted post-closeout path changes remain documented; this status update does not perform or authorize release, publication, or version changes."
 }
