@@ -11,6 +11,7 @@ import { inspectTarZstdMembers } from "./archive";
 const APPLICATION_NAME = "OpenAMX Desktop";
 const APPLICATION_IDENTIFIER = "dev.openamx.desktop";
 const PDF_FONT_FILES = ["Roboto-Regular.ttf", "Roboto-Medium.ttf", "Roboto-Italic.ttf", "Roboto-MediumItalic.ttf"];
+const DESKTOP_BUILD_WORKTREE_PATHS = ["desktop-app", "examples", "src"] as const;
 const ROOT_DIRECTORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 type NativeOs = "linux" | "win" | "mac";
@@ -35,6 +36,31 @@ function run(command: string, args: string[], cwd: string): string {
 
 function git(rootDirectory: string, args: string[]): string {
 	return execFileSync("git", args, { cwd: rootDirectory, encoding: "utf8" }).trim();
+}
+
+function localGitConfigValues(rootDirectory: string, key: string): string[] {
+	const result = spawnSync("git", ["config", "--local", "--get-all", key], { cwd: rootDirectory, encoding: "utf8" });
+	if (result.error) throw result.error;
+	if (result.status === 0) return (result.stdout ?? "").trim().split(/\r?\n/).filter(Boolean);
+	if (result.status === 1) return [];
+	throw new Error(`git config --local --get-all ${key} failed: ${(result.stderr ?? "").trim()}`);
+}
+
+export function restoreDesktopBuildWorktreeConfig(rootDirectory: string, originalValues: string[]): void {
+	const key = "extensions.worktreeConfig";
+	const currentValues = localGitConfigValues(rootDirectory, key);
+	if (currentValues.length === originalValues.length && currentValues.every((value, index) => value === originalValues[index])) return;
+	if (currentValues.length !== 1 || currentValues[0] !== "true") {
+		throw new Error(`Refusing to overwrite ${key}; its value changed during the desktop release build.`);
+	}
+	run("git", ["config", "--local", "--unset-all", key], rootDirectory);
+	for (const value of originalValues) run("git", ["config", "--local", "--add", key, value], rootDirectory);
+}
+
+export function prepareDesktopBuildWorktree(rootDirectory: string, worktreeDirectory: string, commit: string): void {
+	run("git", ["-C", worktreeDirectory, "sparse-checkout", "init", "--cone"], rootDirectory);
+	run("git", ["-C", worktreeDirectory, "sparse-checkout", "set", "--cone", ...DESKTOP_BUILD_WORKTREE_PATHS], rootDirectory);
+	run("git", ["-C", worktreeDirectory, "checkout", "--detach", commit], rootDirectory);
 }
 
 function sha256(contents: Uint8Array): string {
@@ -310,11 +336,15 @@ export async function runDesktopRelease(rootDirectory = ROOT_DIRECTORY): Promise
 	}
 	const sourceDirectory = path.join(attemptDirectory, "source");
 	let worktreeAdded = false;
+	let originalWorktreeConfig: string[] | undefined;
+	let worktreeConfigRestored = false;
 	let buildLog = "";
 	try {
 		if (await stat(acceptedBundle).then(() => true, () => false)) throw new Error(`Refusing to overwrite existing target bundle ${targetName} for version ${packageManifest.version}.`);
-		run("git", ["worktree", "add", "--detach", sourceDirectory, commit], rootDirectory);
+		originalWorktreeConfig = localGitConfigValues(rootDirectory, "extensions.worktreeConfig");
+		run("git", ["worktree", "add", "--detach", "--no-checkout", sourceDirectory, commit], rootDirectory);
 		worktreeAdded = true;
+		prepareDesktopBuildWorktree(rootDirectory, sourceDirectory, commit);
 		const desktopDirectory = path.join(sourceDirectory, "desktop-app");
 		buildLog += run("bun", ["install", "--frozen-lockfile"], sourceDirectory);
 		buildLog += run("bun", ["install", "--frozen-lockfile"], desktopDirectory);
@@ -361,6 +391,10 @@ export async function runDesktopRelease(rootDirectory = ROOT_DIRECTORY): Promise
 			warnings,
 			manualInstallLaunch: { status: "not_performed", reason: "No manual native install/launch result is inferred from packaging checks." },
 		};
+		run("git", ["worktree", "remove", "--force", sourceDirectory], rootDirectory);
+		worktreeAdded = false;
+		restoreDesktopBuildWorktreeConfig(rootDirectory, originalWorktreeConfig ?? []);
+		worktreeConfigRestored = true;
 		const manifest = {
 			schemaVersion: 1,
 			product: APPLICATION_NAME,
@@ -388,6 +422,10 @@ export async function runDesktopRelease(rootDirectory = ROOT_DIRECTORY): Promise
 				worktreeRemoved = true;
 			}
 			catch { /* Preserve the incomplete attempt for manual recovery. */ }
+		}
+		if (worktreeRemoved && originalWorktreeConfig && !worktreeConfigRestored) {
+			restoreDesktopBuildWorktreeConfig(rootDirectory, originalWorktreeConfig);
+			worktreeConfigRestored = true;
 		}
 		if (worktreeRemoved) await rm(sourceDirectory, { recursive: true, force: true }).catch(() => undefined);
 		if (await stat(path.join(attemptDirectory, "bundle")).then(() => true, () => false)) await rm(path.join(attemptDirectory, "bundle"), { recursive: true, force: true });

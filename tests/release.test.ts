@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { execFileSync, spawnSync } from "node:child_process";
 import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { inspectRelease, isStableVersion, manifestPaths, mapNativeTarget, prepareVersion } from "../scripts/release";
-import { binaryArchitecture, finalizeTargetBundle, findInstaller, installerFormat, runDesktopRelease, sanitizeBuildWarning, unsupportedInstallerArchiveMembers, verifyBuiltApp, verifyUpdateMetadata } from "../scripts/release/desktop";
+import { binaryArchitecture, finalizeTargetBundle, findInstaller, installerFormat, prepareDesktopBuildWorktree, restoreDesktopBuildWorktreeConfig, runDesktopRelease, sanitizeBuildWarning, unsupportedInstallerArchiveMembers, verifyBuiltApp, verifyUpdateMetadata } from "../scripts/release/desktop";
 import { appMetadata } from "../desktop-app/app-metadata";
 import { localInstallInvocation } from "../vscode-extension/install-local.mjs";
 import JSZip from "jszip";
@@ -297,6 +298,70 @@ describe("desktop release packaging", () => {
 	test("rejects app payload member paths that require unsupported GNU long-name records", () => {
 		expect(unsupportedInstallerArchiveMembers(["OpenAMXDesktop/Resources/app/bun/jobWorker.js"])).toEqual([]);
 		expect(unsupportedInstallerArchiveMembers(["OpenAMXDesktop/Resources/app/bun/node_modules/@img/sharp-libvips-linux-x64/lib/glib-2.0/include/glibconfig.h"])).toHaveLength(1);
+	});
+
+	test("sparse release worktree includes desktop build inputs and omits planning artifacts", async () => {
+		const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "openamx-sparse-release-"));
+		temporaryDirectories.push(temporaryRoot);
+		const repository = path.join(temporaryRoot, "repository");
+		const worktree = path.join(temporaryRoot, "source");
+		const planningArtifact = path.join(
+			repository,
+			"planning/sprints/0094-v15-example-test-migration-acceptance-closeout/artifacts/ui-results/help-center.pw.ts-help-fra-3e38b-hrome-and-a-scrollable-body/sprint046-help-1440x900.png"
+		);
+		for (const [relativePath, contents] of [
+			["package.json", '{"name":"openamx","version":"0.15.0"}\n'],
+			["bun.lock", "fixture lock\n"],
+			["README.md", "release fixture\n"],
+			["desktop-app/package.json", '{"name":"openamx-desktop"}\n'],
+			["desktop-app/hutch.config.ts", 'export default { version: "2.0.1" }\n'],
+			["examples/00_Table_of_Contents.amx", "# Guide\n"],
+			["src/runtime.ts", "export const runtime = true\n"],
+			["tests/release.test.ts", "root release tests are not build inputs\n"],
+		] as const) {
+			const filePath = path.join(repository, relativePath);
+			await mkdir(path.dirname(filePath), { recursive: true });
+			await writeFile(filePath, contents);
+		}
+		await mkdir(path.dirname(planningArtifact), { recursive: true });
+		await writeFile(planningArtifact, "planning-only evidence");
+		execFileSync("git", ["init", "-q"], { cwd: repository });
+		execFileSync("git", ["config", "user.email", "release-test@example.invalid"], { cwd: repository });
+		execFileSync("git", ["config", "user.name", "Release Test"], { cwd: repository });
+		execFileSync("git", ["add", "-A"], { cwd: repository });
+		execFileSync("git", ["commit", "-qm", "fixture"], { cwd: repository });
+		const initialConfig = spawnSync("git", ["config", "--local", "--get-all", "extensions.worktreeConfig"], { cwd: repository, encoding: "utf8" });
+		if (initialConfig.error) throw initialConfig.error;
+		if (initialConfig.status !== 0 && initialConfig.status !== 1) throw new Error(initialConfig.stderr);
+		const originalWorktreeConfig = initialConfig.status === 0 ? initialConfig.stdout.trim().split(/\r?\n/).filter(Boolean) : [];
+
+		let worktreeAdded = false;
+		try {
+			const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8" }).trim();
+			execFileSync("git", ["worktree", "add", "--detach", "--no-checkout", worktree, commit], { cwd: repository });
+			worktreeAdded = true;
+			prepareDesktopBuildWorktree(repository, worktree, commit);
+
+			expect(execFileSync("git", ["-C", worktree, "sparse-checkout", "list"], { encoding: "utf8" }).trim().split(/\r?\n/).sort())
+				.toEqual(["desktop-app", "examples", "src"]);
+			expect(existsSync(path.join(worktree, "package.json"))).toBe(true);
+			expect(existsSync(path.join(worktree, "desktop-app/hutch.config.ts"))).toBe(true);
+			expect(existsSync(path.join(worktree, "examples/00_Table_of_Contents.amx"))).toBe(true);
+			expect(existsSync(path.join(worktree, "src/runtime.ts"))).toBe(true);
+			expect(existsSync(path.join(worktree, "planning/sprints/0094-v15-example-test-migration-acceptance-closeout"))).toBe(false);
+			expect(existsSync(path.join(worktree, "tests/release.test.ts"))).toBe(false);
+			expect(execFileSync("git", ["-C", worktree, "status", "--porcelain", "--untracked-files=all"], { encoding: "utf8" }).trim()).toBe("");
+			expect(existsSync(planningArtifact)).toBe(true);
+		} finally {
+			if (worktreeAdded) {
+				execFileSync("git", ["worktree", "remove", "--force", worktree], { cwd: repository });
+				restoreDesktopBuildWorktreeConfig(repository, originalWorktreeConfig);
+			}
+		}
+		const restoredConfig = spawnSync("git", ["config", "--local", "--get-all", "extensions.worktreeConfig"], { cwd: repository, encoding: "utf8" });
+		if (restoredConfig.error) throw restoredConfig.error;
+		if (restoredConfig.status !== 0 && restoredConfig.status !== 1) throw new Error(restoredConfig.stderr);
+		expect(restoredConfig.status === 0 ? restoredConfig.stdout.trim().split(/\r?\n/).filter(Boolean) : []).toEqual(originalWorktreeConfig);
 	});
 
 	test("detects x64 and arm64 from ELF, PE, and Mach-O headers", () => {
