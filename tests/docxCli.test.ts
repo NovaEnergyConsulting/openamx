@@ -86,8 +86,10 @@ Narrative after
     const result = await runCli('export', 'docx', input, '--out', output);
     expect(result.exitCode).toBe(0);
     const archive = await JSZip.loadAsync(await Bun.file(output).arrayBuffer());
+    const documentXml = await archive.file('word/document.xml')?.async('string');
     const relationships = await archive.file('word/_rels/document.xml.rels')?.async('string');
-    expect(relationships).toContain('Target="../source/companions/asset%20one.txt?download=1#page"');
+    expect(documentXml).toContain('w:anchor="page"');
+    expect(relationships).toContain('Target="../source/companions/asset%20one.txt?download=1"');
     expect(relationships).not.toContain(directory);
     expect(relationships).not.toContain('.tmp');
     expect(await Bun.file(join(outputDirectory, 'companions', 'asset one.txt')).exists()).toBe(false);

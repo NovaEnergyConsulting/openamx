@@ -12,7 +12,7 @@
     "directory": "vscode-extension"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.140.0"
   },
   "categories": [
     "Programming Languages"
@@ -52,17 +52,17 @@
     "install-local": "node ./install-local.mjs"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.14",
+    "@types/bun": "^1.4.4",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^22.20.1",
-    "@types/vscode": "^1.85.0",
+    "@types/node": "^22.20.5",
+    "@types/vscode": "^1.140.0",
     "@vscode/test-electron": "^2.5.2",
-    "@vscode/vsce": "^3.3.2",
-    "esbuild": "^0.25.5",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.25.12",
     "mocha": "^10.8.2",
     "typescript": "^5.9.3",
     "vscode-oniguruma": "^2.0.1",
     "vscode-textmate": "^9.3.2",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.1"
   }
 }

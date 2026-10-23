@@ -74,7 +74,8 @@ diagram desktopFigure {
 		expect(documentXml).toContain('title="Desktop static diagram"');
 		expect(documentXml).toContain('descr="Offline desktop export figure"');
 		expect(Object.keys(archive.files).filter(name => name.startsWith("word/media/") && name.endsWith(".png"))).toHaveLength(1);
-		expect(relationships).toContain('Target="../source/companions/asset%20one.txt?download=1#page"');
+		expect(documentXml).toContain('w:anchor="page"');
+		expect(relationships).toContain('Target="../source/companions/asset%20one.txt?download=1"');
 		expect(relationships).not.toContain(root);
 		expect(relationships).not.toContain(".tmp");
 		expect(await Bun.file(join(outputDirectory, "companions", "asset one.txt")).exists()).toBe(false);

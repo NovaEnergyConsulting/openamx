@@ -539,7 +539,8 @@ show threeAxes
     expect(numberingXml).toContain('w:numFmt w:val="decimal"');
     expect(numberingXml).toContain('w:numFmt w:val="bullet"');
     expect(relsXml).toContain('Target="https://example.com/report?q=1"');
-    expect(relsXml).toContain('Target="../../source/companions/asset%20one.txt?download=1#page"');
+    expect(documentXml).toContain('w:anchor="page"');
+    expect(relsXml).toContain('Target="../../source/companions/asset%20one.txt?download=1"');
     expect(relsXml).not.toContain(root);
     expect(relsXml).not.toContain('.tmp');
     expect([...parts.keys()].some(name => name.startsWith('word/media/') && name.endsWith('.png'))).toBe(true);
