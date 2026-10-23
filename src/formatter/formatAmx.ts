@@ -144,10 +144,10 @@ function scanBraces(line: string): { opens: number; closes: number; leadingClosu
       leading = false;
       const end = findStringLiteralEnd(line, index);
       if (end !== undefined) index = end;
-    } else if (character === '{') {
+    } else if (character === '{' || character === '[') {
       leading = false;
       opens++;
-    } else if (character === '}') {
+    } else if (character === '}' || character === ']') {
       if (leading) leadingClosures++;
       closes++;
       leading = false;
