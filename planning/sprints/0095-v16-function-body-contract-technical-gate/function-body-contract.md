@@ -1,152 +1,174 @@
-# Sprint 095 Draft: V0.16 Function Body Contract
+# Sprint 095 Accepted Contract: V0.16 Function Bodies
 
-## Status and Authority
+## Disposition
 
-This is a draft contract scaffold prepared by the Architect. The V0.16 master
-plan confirms the product decisions below. Candidate syntax details and
-resolution rules remain unapproved until Sprint 095 review and separate
-Lead Developer/product-owner disposition. This document is not an
-implementation specification until that disposition is recorded.
+The product owner recorded **ACCEPTED/CLOSED** on 2026-10-23. Decisions
+D-095-01 through D-095-12 and D-095-14/15 are approved below. D-095-13 is an
+accepted Sprint 097 residual: the defensive runtime-fallthrough diagnostic
+remains unallocated and blocks Sprint 097. This disposition does not authorize
+implementation, release, publication, or Sprint 096 execution.
+
+Labels distinguish **FACT** (source-observed), **CONFIRMED** (V0.16 master
+plan), **APPROVED** (product-owner choice), and **RESIDUAL** (accepted follow-up
+with a downstream blocker).
 
 ## Confirmed Requirements
 
-- Keep expression-bodied declarations such as
-  `fn triple(value: Number): Number = value * 3` fully supported.
-- Add a brace-delimited body containing multiple statements.
-- A compatible value must be returned on every reachable path.
-- A return nested in an if or statement loop exits the function call.
-- Parameters and locals are local to the call. Assignment cannot change
-  caller bindings.
-- Every list parameter receives a deep, independent local copy, including
-  nested lists and repeated arguments.
-- A local list may be mutated and returned as the function result.
-- Limit body statements to local declarations, assignment, if/else,
-  statement-form loops, return, and list mutation. Exclude module/document
-  declarations and output actions.
-- Preserve visibility and declaration-order behavior. Do not add recursion,
-  forward references, or closures.
+- Preserve expression-bodied declarations such as
+  `fn triple(value: Number): Number = value * 3` and their existing parse,
+  evaluation, typing, formatting, visibility, and compatibility behavior.
+- Add brace-delimited multi-statement function bodies.
+- Every reachable path must return a value compatible with the declared type.
+- A return statement nested in an `if` or statement-form loop exits the
+  function call. Expression-form loop returns continue to collect one value
+  per iteration and never signal function exit.
+- Parameters and locals are call-local. Assignment cannot mutate caller
+  bindings.
+- Each list-typed parameter receives its own recursive list copy, including
+  nested and repeated arguments. Local lists may be mutated and returned.
+- Preserve function declaration visibility/order and do not add recursion,
+  forward references, closures, or general object-copy behavior.
 
-## Candidate Grammar and Body Rules
+## Forms and Body Statements
 
-The following is a candidate surface form for contract review, not a parser
-grammar approval:
+Accepted forms:
 
 ```amx
-fn name(parameter: Type): ReturnType {
-  let local = expression
-  if condition {
-    return expression
-  } else {
-    return expression
-  }
+fn expressionBody(value: Number): Number = value * 2
+
+fn statementBody(value: Number): Number {
+  let local = value * 2
+  return local
 }
 ```
 
-The contract must decide and record:
+Newlines separate statements; semicolons are invalid. The `=` and `{` body
+introducers are exclusive. A brace inside a string is not a body delimiter;
+the matching closing brace terminates a braced function. A braced expression
+must not be reinterpreted as a statement body without an unambiguous function
+body boundary.
 
-- Whether statement separation follows existing newline-based statement
-  parsing, and whether semicolons are always invalid.
-- Whether nested statement loops remain prohibited as in the existing
-  statement parser, or whether V0.16 explicitly adds them. Do not assume
-  nested-loop support from the general phrase "statement-form loops."
-- The exact set of declarations/actions rejected in function bodies, including
-  imports/exports, type/enum/dimension/unit/input declarations, view
-  declarations, `show`, and document output actions.
-- How malformed or unclosed function braces are located in the original
-  document, including strings and nested control-flow braces.
-- Whether function-body assignments may target parameters, locals from an
-  enclosing block, and mutable local list parameters. Confirm rebinding and
-  list mutation are separate operations with the same caller-isolation rule.
+The legal function-body statements are initialized `let`, assignment, `+=`,
+standalone `if` with optional `else`, statement-form `for`, `return`, and
+named-list `add`/`remove`. These may appear in branch and loop bodies. Nested
+statement loops, `break`, and `continue` remain prohibited.
 
-The `=` expression-body branch keeps its current expression parser and
-behavior. The `{` statement-body branch must not reinterpret a braced
-expression as a statement body without an unambiguous declaration boundary.
+Imports, exports/re-exports, type/enum/dimension/unit/input declarations,
+table/chart/diagram declarations, `show`, and other document-level actions
+are prohibited in function bodies. They fail during parsing with
+`AMX3006: The '{keyword}' statement is not allowed in a function body.`
 
-## Candidate Return and Flow Rules
+Expression-form loops are prohibited inside both function forms, preserving
+the V0.3 pure-function placement rule. Where expression-form loops are
+otherwise legal, their `return` still contributes one value per iteration.
 
-Use the following as the proposed flow model to test and either approve or
-amend:
+## Return Analysis and Runtime
 
-| Form | Candidate flow result |
-| --- | --- |
-| `return expression` | Terminates the current function path. |
-| Sequential statement after a terminating statement | Runtime unreachable; static treatment of its non-return statements is a decision for Sprint 095. Every explicit return remains subject to declared-type checking. |
-| `if` with no `else` | May fall through, even if its consequent returns. |
-| `if/else` | Terminates only when both branches terminate. |
-| `if/else` with one returning branch | May fall through through the other branch; later statements remain relevant. |
-| Statement-form loop | May execute zero times and therefore never proves function return by itself. A return executed in an iteration exits the function. |
-| Loop followed by a return | The later return can close the zero-iteration path. |
-| Nested conditional/loop return | Propagates to the function call, not merely to the innermost block or loop. |
-| Expression-form loop return | Preserves established per-iteration collection behavior; it is not a function return. |
+A statement sequence returns only if every reachable continuation terminates.
+An `if` without `else` has a false-path fallthrough; an `if/else` returns only
+when both branches return. A statement-form loop may execute zero times and
+cannot prove a return by itself. A later return can close any remaining path.
 
-The checker must model reachable paths, not just search the body for a return
-node. It must distinguish a partial return from a complete function and must
-report an incomplete function at a stable, source-grounded location. Sprint
-095 must decide whether unreachable non-return statements are accepted and
-type-checked, warned, or rejected. Do not silently stop static checking after
-the first return if that would violate the confirmed requirement to type-check
-every explicit return.
+Every statement is statically checked, including unreachable statements. Every
+explicit return is checked against the declared function return type, including
+returns after an unconditional return. No unreachable-code warning is added.
 
-## Candidate Scope Rules
+At runtime, a function-body return exits the function, including when nested
+in a statement-form conditional or loop. Statements after the return do not
+execute. The runtime retains a defensive failure if an invalid function body
+falls through, but its diagnostic is the residual below.
 
-Confirmed behavior is lexical and call-local. Sprint 095 must turn that into
-precise rules for these cases:
+A braced-if used as an expression retains V0.12 semantics: branch `return`
+expressions produce that conditional expression's value and do not themselves
+exit an enclosing function. A return statement in a statement-form `if` body
+does exit the function. An outer `return expression` exits after evaluating
+its expression.
 
-- Parameters form the function's outer local scope and may be assigned
-  without affecting caller bindings.
-- Nested if/else and loop blocks have lexical lifetimes. Names declared only
-  inside a block do not escape it.
-- Assignment resolves to an existing visible local/parameter and mutates that
-  local binding; it does not create a binding or mutate a module binding.
-- Decide whether and how a local declaration may shadow a parameter or an
-  enclosing local, and whether repeated `let` follows existing update
-  behavior or creates a lexical binding.
-- Loop iterator shadowing/restoration must remain consistent with the
-  established loop contract unless an approved decision says otherwise.
-- Functions continue to see only the names allowed by established
-  source-order/module rules. They do not capture document or caller locals.
+Incomplete functions report:
 
-## Candidate List Value Rules
+- Code: `AMXF4001`
+- Message: `Missing return value from function`
+- Primary location: closing function-body brace
 
-- At call entry, each argument corresponding to a list-typed parameter is
-  copied recursively before the body can mutate it.
-- If the same caller list is supplied to two list parameters, each parameter
-  receives an independent copy from the original argument value. A mutation
-  through one parameter cannot be observed through the other or by the caller.
-- Nested lists are copied at every depth. Sprint 095 must determine whether
-  records or other aggregate values inside a list are traversed for nested
-  list fields and whether any identity-bearing value is intentionally shared.
-- `add`/`remove` mutation of a copied list changes only the local copy.
-- A function may return a local list after mutation. The returned list is the
-  call result. Confirm whether return transfers that local value directly or
-  requires any additional copy; do not imply caller-visible aliases that the
-  language cannot create.
-- Non-list parameters retain the current value semantics. Do not add
-  copy-on-write, general object cloning, or new mutation forms.
+`AMX3021` remains reserved for `Every possible path in an if expression must
+return a value`.
 
-## Diagnostic Contract To Finalize
+## Lexical Scope and Visibility
 
-For each invalid fixture, record parse/type/runtime phase, exact diagnostic
-identity and message, primary source range, and any useful secondary range.
-Verify reuse against the existing catalog. Required categories include
-malformed/unclosed bodies, forbidden statements, incompatible return values,
-incomplete return paths, out-of-scope/unknown bindings, and defensive runtime
-fallthrough. New stable diagnostic codes/messages require explicit
-allocation/disposition; this draft allocates none.
+Parameters are visible throughout the function body. Locals become visible in
+source order and are not hoisted. Branch and loop bodies establish lexical
+scopes; declarations do not escape their block. A repeated `let` in the same
+scope updates that binding. A declaration in a nested lexical scope may shadow
+a parameter or enclosing local, and the shadow does not escape.
+
+Assignment updates an already-visible parameter/local; it does not create a
+binding or mutate a module binding. The loop iterator shadows and restores an
+existing binding. Functions retain established module dependency and
+source-order visibility; they do not capture document/caller bindings and may
+not recurse or refer forward.
+
+## List Value Semantics
+
+At each call boundary, every list-typed parameter gets an independent
+recursive copy of its argument. Repeated arguments are copied separately, so
+mutation through one parameter cannot affect another parameter or the caller.
+Nested arrays are copied at every depth.
+
+Only arrays are copied. Non-list elements, including records and measurements,
+are opaque and are not cloned. This does not authorize mutation through shared
+non-list elements or define broader object-copy behavior. Non-list parameters
+retain existing value semantics.
+
+`add`/`remove` on a copied/local list affects only that function-local list. A
+mutated local list may be returned directly as the function result; no extra
+copy-on-return rule applies.
+
+## Diagnostic Contract
+
+Locations below use raw fixture source, 1-based lines and columns, and exclude
+Markdown fence offsets. The diagnostics are approved planning identities and
+messages; feature-path behavior and source mapping remain unimplemented and
+must be verified by the owner sprint.
+
+| Condition | Phase | Approved diagnostic | Anchor |
+| --- | --- | --- | --- |
+| Malformed function-body statement | Parse | `AMX3006: Invalid syntax in function body` | Offending token |
+| Unclosed function body | Parse | `AMX3006: Unclosed function body` | Opening function brace |
+| Prohibited function-body statement | Parse | `AMX3006: The '{keyword}' statement is not allowed in a function body.` | Prohibited keyword |
+| Missing return path | Static check | `AMXF4001: Missing return value from function` | Closing function brace |
+| Incompatible explicit return | Static check | Existing `AMX3002: Expected {expected}, got {actual}` | Return expression |
+| Unknown/out-of-scope binding | Static check | Existing `AMX3001: Unknown identifier '{name}'` | Identifier |
+| Unknown function (forward reference/recursion) | Static check | Existing `AMX3004: Unknown function '{name}'` | Call expression |
+| Return outside a function or expression-form loop | Parse | `AMX3006: Return is only valid inside a function or expression-form loop` | `return` keyword |
+| Defensive runtime fallthrough | Runtime | **RESIDUAL: identity/message unallocated**; do not reuse `AMX1007` | Harness-created invalid function; location TBD |
+
+`AMX1007` means return outside an expression-form loop and is not a valid
+function-fallthrough diagnostic. Editor token ranges use exclusive ends when
+available; runtime diagnostics currently expose point locations only. Existing
+editor conventions use 1-based locations, tolerate CRLF, and count UTF-16 code
+units. Exact function-feature locations remain **NOT RUN** pending implementation.
+
+The product owner allocated `AMXF4001`; repository search on 2026-10-23 found
+no prior use. The code registration and implementation belong to Sprint 098.
+The defensive runtime-fallthrough identity/message remains unallocated by
+explicit product-owner choice and blocks Sprint 097.
 
 ## Decision Register
 
-| ID | Decision required | Initial candidate / evidence | Disposition |
-| --- | --- | --- | --- |
-| D-095-01 | Newline/semicolon and block statement separation | Follow existing statement parsing; confirm against parser and fixtures. | OPEN |
-| D-095-02 | Nested statement loops in function bodies | Preserve existing nested-loop restriction unless the confirmed scope requires otherwise. | OPEN |
-| D-095-03 | Lexical shadowing and repeated `let` | Preserve parameter isolation and block lifetime; resolve declaration/update behavior with executable fixtures. | OPEN |
-| D-095-04 | Static checking of unreachable statements | Check every explicit return; choose whether other unreachable statements are checked, warned, or rejected. | OPEN |
-| D-095-05 | Exact source for incomplete-return diagnostic | Prefer closing function-body brace; verify original-document mapping and stable diagnostic category. | OPEN |
-| D-095-06 | Deep copy of aggregate elements | Nested arrays are required; decide recursive treatment of record-contained lists and document the boundary. | OPEN |
-| D-095-07 | Return-list copy/transfer behavior | Returned local list is the function result; decide whether transfer or extra copying is observable/required. | OPEN |
-| D-095-08 | Function-body prohibited statements and diagnostic mapping | Enumerate all non-approved statement kinds and allocate/reuse only verified diagnostics. | OPEN |
-
-Close each row with the decision, evidence, approver/date, and affected
-fixtures. If a row is outside Sprint 095 authority, mark it BLOCKED and name
-the owner and Sprint 096 impact.
+| ID | Decision | Approved disposition / owner |
+| --- | --- | --- |
+| D-095-01 | Statement separators | Newlines separate statements; semicolons invalid. Product owner, 2026-10-23. |
+| D-095-02 | Nested statement loops | Remain prohibited. Product owner, 2026-10-23. |
+| D-095-03 | Shadowing and repeated `let` | Same-scope `let` updates; nested lexical scopes may shadow. Product owner, 2026-10-23. |
+| D-095-04 | Unreachable statements | Check all statements; no warning. Product owner, 2026-10-23. |
+| D-095-05 | Missing-return anchor | Closing function brace. Product owner, 2026-10-23. |
+| D-095-06 | Aggregate deep-copy treatment | Recursively copy arrays only; non-list elements opaque. Product owner, 2026-10-23. |
+| D-095-07 | Returned-list behavior | Return local list directly without another copy. Product owner, 2026-10-23. |
+| D-095-08 | Prohibited statement diagnostics | Parse rejection with the approved AMX3006 template. Product owner, 2026-10-23. |
+| D-095-09 | Nested loop preservation | Preserve V0.2 nested-loop restriction. Product owner, 2026-10-23. |
+| D-095-10 | Unreachable non-return checking | Type-check all statements; no warning. Product owner, 2026-10-23. |
+| D-095-11 | Records/aggregates in copied lists | Copy arrays recursively; do not clone non-list values. Product owner, 2026-10-23. |
+| D-095-12 | Missing-return identity | `AMXF4001: Missing return value from function`, closing-brace anchor. Product owner, 2026-10-23. |
+| D-095-13 | Runtime-fallthrough identity | **RESIDUAL:** unallocated; do not reuse AMX1007. Diagnostic owner (Lead Developer/product owner); blocks Sprint 097. |
+| D-095-14 | Lexical `let` behavior | Same-scope update; nested shadowing permitted. Product owner, 2026-10-23. |
+| D-095-15 | Expression-loop placement | Prohibited inside functions; preserve collection semantics elsewhere. Product owner, 2026-10-23. |
