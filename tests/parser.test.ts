@@ -591,6 +591,23 @@ describe("Sprint 015 function, import, and export parsing", () => {
     expect(letDecl).toMatchObject({ type: 'variableDeclaration', name: 'ready', exported: true, source: { line: 5, column: 8 } });
   });
 
+  it("ends an expression-bodied function before a following record constructor", () => {
+    const statements = parseStatements([
+      'export type Point {',
+      '  x: Number',
+      '  y: Number',
+      '}',
+      'export fn distanceSquared(a: Point, b: Point): Number = (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2',
+      'export let origin: Point = Point { x = 0, y = 0 }'
+    ].join('\n'));
+
+    expect(statements.map(statement => statement.type)).toEqual([
+      'typeDeclaration', 'functionDeclaration', 'variableDeclaration'
+    ]);
+    expect(statements[1]).toMatchObject({ type: 'functionDeclaration', name: 'distanceSquared', exported: true });
+    expect(statements[2]).toMatchObject({ type: 'variableDeclaration', name: 'origin', exported: true });
+  });
+
   it("rejects fn, import, and export declarations inside loop bodies", () => {
     expect(() => parseStatements("for item in [1] {\n  fn bad(n: Number): Number = n\n}")).toThrow(/cannot occur in loops/);
     expect(() => parseStatements("for item in [1] {\n  import { A } from \"./a.amx\"\n}")).toThrow(/cannot occur in loops/);

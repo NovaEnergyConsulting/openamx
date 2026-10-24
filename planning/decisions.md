@@ -1,5 +1,21 @@
 # Planning Decisions
 
+## V0.16 Sprint 098 Parser Boundary Resolution and Disposition (2026-10-24)
+
+- The module compatibility failure was traced to `findFunctionEnd` scanning
+  beyond a valid one-line expression-bodied function and treating a later
+  record-constructor brace as part of that function.
+- The user separately approved the exact follow-up paths
+  `src/parser/parseStatements.ts` and `tests/parser.test.ts` before edits.
+  The parser now stops at a successfully parsed one-line expression body and
+  retains the existing brace scan for multiline braced expressions. The
+  regression test and imported-module compatibility case pass.
+- This is a parser-boundary correction, not a change to the accepted Sprint
+  095 function contract. Sprint 095-097 historical artifacts remain unchanged.
+- Sprint 098 Builder recommendation: ACCEPT. The user separately
+  ACCEPTED/CLOSED Sprint 098 on 2026-10-24 after all approved focused gates
+  passed. No V0.16 integrated acceptance or release authority follows.
+
 ## V0.14 Sprint 089 Builder Authorization (2026-10-16)
 
 - The user explicitly authorized Sprint 089 integrated verification and

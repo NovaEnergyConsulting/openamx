@@ -272,7 +272,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   let diagramElementCount = 0;
   let loopDepth = 0;
   let allowListMutation = true;
-  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010' | 'AMX3011' | 'AMX3012' | 'AMX3013' | 'AMX3014' | 'AMX3015' | 'AMX3016' | 'AMX3017' | 'AMX3018' | 'AMX3019' | 'AMX3020' | 'AMX3021' | 'AMXD001' | 'AMXD002' | 'AMXD003' | 'AMXD004' | 'AMXD005' | 'AMXD006' | 'AMXD007' | 'AMXD008' | 'AMXD009' | 'AMXD010' | 'AMXD011' | 'AMXD012' | 'AMXD013' | 'AMXD014' | 'AMXD015', message: string, source?: SourceLocation, declarationSource?: SourceLocation): never => staticError(code, message, source, file, declarationSource);
+  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010' | 'AMX3011' | 'AMX3012' | 'AMX3013' | 'AMX3014' | 'AMX3015' | 'AMX3016' | 'AMX3017' | 'AMX3018' | 'AMX3019' | 'AMX3020' | 'AMX3021' | 'AMXF4001' | 'AMXD001' | 'AMXD002' | 'AMXD003' | 'AMXD004' | 'AMXD005' | 'AMXD006' | 'AMXD007' | 'AMXD008' | 'AMXD009' | 'AMXD010' | 'AMXD011' | 'AMXD012' | 'AMXD013' | 'AMXD014' | 'AMXD015', message: string, source?: SourceLocation, declarationSource?: SourceLocation): never => staticError(code, message, source, file, declarationSource);
   const failDeclaration = (message: string, source?: SourceLocation, declarationSource?: SourceLocation): never =>
     staticError('AMX3008', message, source, file, declarationSource);
 
@@ -1026,6 +1026,59 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     return result!;
   }
 
+  function checkFunctionSequence(statements: StatementNode[], returnType: CheckedType): boolean {
+    let canFallThrough = true;
+    for (const statement of statements) {
+      const statementCanFallThrough = checkFunctionStatement(statement, returnType);
+      if (canFallThrough) canFallThrough = statementCanFallThrough;
+    }
+    return canFallThrough;
+  }
+
+  function checkFunctionScopedSequence(statements: StatementNode[], returnType: CheckedType): boolean {
+    const original = bindings;
+    bindings = new Map(original);
+    try {
+      return checkFunctionSequence(statements, returnType);
+    } finally {
+      bindings = original;
+    }
+  }
+
+  function checkFunctionStatement(statement: StatementNode, returnType: CheckedType): boolean {
+    switch (statement.type) {
+      case 'returnStatement': {
+        const actual = infer(statement.expression, returnType);
+        requireType(actual, returnType, statement.expression.source ?? statement.source);
+        return false;
+      }
+      case 'bracedIfStatement': {
+        requireType(infer(statement.test), named('Boolean'), statement.test.source);
+        const consequentCanFallThrough = checkFunctionScopedSequence(statement.consequent, returnType);
+        if (!statement.alternate) return true;
+        const alternateCanFallThrough = checkFunctionScopedSequence(statement.alternate, returnType);
+        return consequentCanFallThrough || alternateCanFallThrough;
+      }
+      case 'forStatement': {
+        const iterable = infer(statement.iterable);
+        if (iterable.kind !== 'list') fail(iterable.kind === 'measurement' ? 'AMX3007' : 'AMX3003',
+          'For loop needs a list or range', statement.iterable.source ?? statement.source);
+        const original = bindings;
+        bindings = new Map(original);
+        bindings.set(statement.variable, (iterable as { kind: 'list'; element: CheckedType }).element);
+        try {
+          checkFunctionSequence(statement.body, returnType);
+        } finally {
+          bindings = original;
+        }
+        return true;
+      }
+      default:
+        checkStatement(statement);
+        return true;
+    }
+  }
+
   function checkDefault(expression: V02ExpressionNode, target: CheckedType): void {
     if (expression.type === 'listLiteral') {
       for (const item of expression.elements) checkDefault(item, target.kind === 'list' ? target.element : target);
@@ -1447,15 +1500,21 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
           paramScope.set(parameter.name, resolve(parameter.annotation));
         }
         const returnType = resolve(statement.returnType);
-        if (statement.body.kind !== 'expression') {
-          throw new Error('Statement-body function checking is not supported yet');
-        }
-        if (bodyContainsForExpression(statement.body.expression)) fail('AMX3003', 'Function bodies cannot contain a for expression', statement.body.expression.source ?? statement.source);
         const outerBindings = bindings;
         bindings = paramScope;
         try {
-          const actual = infer(statement.body.expression, returnType);
-          requireType(actual, returnType, statement.body.expression.source ?? statement.source);
+          if (statement.body.kind === 'expression') {
+            if (bodyContainsForExpression(statement.body.expression)) fail('AMX3003', 'Function bodies cannot contain a for expression', statement.body.expression.source ?? statement.source);
+            const actual = infer(statement.body.expression, returnType);
+            requireType(actual, returnType, statement.body.expression.source ?? statement.source);
+          } else {
+            if (bodyContainsForStatements(statement.body.statements)) {
+              fail('AMX3003', 'Function bodies cannot contain a for expression', statement.body.source ?? statement.source);
+            }
+            if (checkFunctionSequence(statement.body.statements, returnType)) {
+              fail('AMXF4001', 'Missing return value from function', statement.body.closingSource);
+            }
+          }
         } finally {
           bindings = outerBindings;
         }

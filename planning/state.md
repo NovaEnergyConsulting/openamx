@@ -1,5 +1,27 @@
 # Planning State
 
+## V0.16 Sprint 098 Builder Closeout (2026-10-24)
+
+- Sprint 098 execution and the initial checker/test/evidence file plan were
+  separately authorized before implementation. After the module regression
+  exposed a parser boundary defect, the user separately approved the exact
+  parser source/test follow-up before those edits.
+- The approved checker work registers and emits static
+  `AMXF4001: Missing return value from function`, validates every explicit
+  statement-body return, and tracks reachable fallthrough while preserving
+  expression-body and expression-local return behavior. Runtime `AMXF4002`
+  remains distinct and unchanged.
+- The parser follow-up fixes function-end detection when a complete one-line
+  expression body is followed by a record constructor. Its regression and the
+  module integration case pass. No parser/runtime behavior beyond this
+  separately approved boundary fix was changed.
+- Final focused checker/type-check/evaluator/parser gate passed 193 tests,
+  0 failures. Parser plus module suites passed 100 tests, 0 failures.
+  `bunx tsc --noEmit`, changed-file diagnostics, and `git diff --check` passed.
+- User separately ACCEPTED/CLOSED Sprint 098 on 2026-10-24. Sprint 099-101,
+  V0.16 integrated acceptance, release, publication, version changes, and
+  platform certification remain separate gates and are not authorized.
+
 ## V0.14 Sprint 089 Builder Execution (2026-10-16)
 
 - The user separately authorized Sprint 089 execution and approved the exact

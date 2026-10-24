@@ -794,6 +794,16 @@ function parseImportDeclaration(rawLine: string, source: SourceLocation): Import
 }
 
 function findFunctionEnd(lines: string[], startIndex: number, source: SourceLocation): number {
+  const firstLine = lines[startIndex] ?? '';
+  const expressionBody = firstLine.match(/^\s*fn\s+[A-Za-z][A-Za-z0-9_]*\s*\([^)]*\)\s*:\s*[A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*\s*=\s*(.*)$/);
+  if (expressionBody?.[1]) {
+    try {
+      parseExpression(expressionBody[1], source);
+      return startIndex;
+    } catch {
+    }
+  }
+
   const text = lines.slice(startIndex).join('\n');
   let depth = 0;
   let openingOffset: number | undefined;

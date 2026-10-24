@@ -1,3 +1,46 @@
+# ARCHITECT BRIEFING — Sprint 098 Builder Closeout
+
+## Where things stand
+Sprint 098's statement-body return checking is implemented, and the module parser blocker was resolved under a separately approved parser follow-up. The user separately ACCEPTED/CLOSED Sprint 098 on 2026-10-24. Sprint 099-101 and V0.16 integrated acceptance remain separate gates.
+
+## Executive summary
+**Business outcome**: Statement-body functions receive static explicit-return type checking and reachable-path analysis with the accepted `AMXF4001` diagnostic, while preserving expression-body and runtime `AMXF4002` behavior.
+
+**Current focus**: Sprint 098 is accepted and closed; prepare the next V0.16 sprint under its own approved scope.
+
+**What is proven**: The focused checker/type-check/evaluator/parser gate passed 193 tests with 0 failures. Parser and module suites passed 100 tests with 0 failures. `bunx tsc --noEmit`, changed-file diagnostics, and `git diff --check` passed. The exact fixtures, source locations, authorization, and residual review are recorded in Sprint 098 builder evidence.
+
+**What is not proven/live**: V0.16 integrated acceptance, formatter/editor/docs/examples integration, release, publication, version changes, and platform certification are not included in Sprint 098.
+
+## Readiness signals
+
+| Signal | Status | Evidence |
+|---|---|---|
+| Sprint 096/097 accepted baselines | passed | Separately accepted before Sprint 098 execution |
+| Sprint 098 checker and parser follow-up | passed | Approved files implemented; 193/0 combined focused tests |
+| Parser/module compatibility | passed | 100/0 across parser and module suites; former imported-function failure is covered |
+| V0.16 integrated acceptance and release | attention | Sprint 101 and separate release authorization remain outstanding |
+
+## Recommended next Architect action
+**Do**: Prepare and gate Sprint 099 independently.
+**Owner**: Lead Developer / product owner.
+**Decision**: Sprint 098 is ACCEPTED/CLOSED. No Sprint 099-101 execution, V0.16 integrated acceptance, release, publication, version change, or platform certification is authorized by this disposition.
+
+## Evidence
+- `bun test tests/functionBodyTypeChecking.test.ts tests/isTypeChecking.test.ts tests/evaluator.test.ts tests/parser.test.ts` — 193 passed, 0 failed.
+- `bun test tests/parser.test.ts tests/modules.test.ts` — 100 passed, 0 failed.
+- `bunx tsc --noEmit`, changed-file `get_errors`, and `git diff --check` passed.
+- Authorization, separately approved parser file-plan amendment, exact outcomes, and changed-path ledger are in `planning/sprints/0098-v16-return-path-type-checking/builder-evidence.md`.
+
+## Plan corrections
+- The module compatibility gate exposed that `findFunctionEnd` could absorb a following record constructor after a one-line expression function. The user separately approved the narrow parser fix and test before edits; no parser changes beyond that defect were made.
+
+## Validation / test status
+**Tests:** 193 passing, 0 failing.
+Parser/module compatibility: 100 passing, 0 failing. `bunx tsc --noEmit` and `git diff --check` passed.
+
+---
+
 # ARCHITECT BRIEFING — Sprint 089 Builder Evidence Submission
 
 ## Where things stand
