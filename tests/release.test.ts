@@ -316,6 +316,7 @@ describe("desktop release packaging", () => {
 			["desktop-app/package.json", '{"name":"openamx-desktop"}\n'],
 			["desktop-app/hutch.config.ts", 'export default { version: "2.0.1" }\n'],
 			["examples/00_Table_of_Contents.amx", "# Guide\n"],
+			["scripts/build-diagram-runtime.ts", "export const build = true\n"],
 			["src/runtime.ts", "export const runtime = true\n"],
 			["tests/release.test.ts", "root release tests are not build inputs\n"],
 		] as const) {
@@ -343,10 +344,11 @@ describe("desktop release packaging", () => {
 			prepareDesktopBuildWorktree(repository, worktree, commit);
 
 			expect(execFileSync("git", ["-C", worktree, "sparse-checkout", "list"], { encoding: "utf8" }).trim().split(/\r?\n/).sort())
-				.toEqual(["desktop-app", "examples", "src"]);
+				.toEqual(["desktop-app", "examples", "scripts", "src"]);
 			expect(existsSync(path.join(worktree, "package.json"))).toBe(true);
 			expect(existsSync(path.join(worktree, "desktop-app/hutch.config.ts"))).toBe(true);
 			expect(existsSync(path.join(worktree, "examples/00_Table_of_Contents.amx"))).toBe(true);
+			expect(existsSync(path.join(worktree, "scripts/build-diagram-runtime.ts"))).toBe(true);
 			expect(existsSync(path.join(worktree, "src/runtime.ts"))).toBe(true);
 			expect(existsSync(path.join(worktree, "planning/sprints/0094-v15-example-test-migration-acceptance-closeout"))).toBe(false);
 			expect(existsSync(path.join(worktree, "tests/release.test.ts"))).toBe(false);
