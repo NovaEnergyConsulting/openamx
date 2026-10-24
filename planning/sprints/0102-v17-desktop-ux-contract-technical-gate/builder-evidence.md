@@ -3,7 +3,12 @@
 ## Status
 
 Sprint 102 planning and prototype execution were separately authorized.
-Product implementation and contract disposition remain pending.
+Product implementation remained outside this sprint's scope.
+
+**Separate contract disposition: ACCEPTED/CLOSED by the product owner on
+2026-10-25.** Sprint 103 is authorized to proceed after the separately
+approved closeout of Sprints 100 and 101. This contract disposition does not
+select a Sprint 107 resizer implementation path.
 
 **Resizer result: OPEN.** The all-percent prototype preserved bounds,
 keyboard adjustment, focus modes, and responsive behavior without Reka layout
@@ -198,7 +203,8 @@ deliverables.
   reported as passing here.
 - No product source, tests, dependencies, package/version files, generated
   build outputs, status ledgers, or historical sprint records were changed.
-- Separate contract disposition: **PENDING**. Sprint 103 onward remains
-  blocked until V0.16 Sprints 100-101 are closed and Sprint 102 is separately
-  dispositioned. No release, publication, version change, or certification
+- Separate contract disposition: **ACCEPTED/CLOSED by the product owner on
+  2026-10-25.** The resizer technical result remains **OPEN**; Sprint 107 must
+  not select a product path until actual service RPC and App.vue integration
+  are exercised. No release, publication, version change, or certification
   is authorized.

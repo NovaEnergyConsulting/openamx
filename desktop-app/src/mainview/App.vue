@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { CircleHelp, Database, Download, ExternalLink, Eye, FolderOpen, Pause, Play, RefreshCw, Settings, SlidersHorizontal } from "@lucide/vue";
+import { CircleHelp, Database, Download, Eye, Pause, Play, RefreshCw, Settings, SlidersHorizontal } from "@lucide/vue";
 import packageMetadata from "../../package.json";
 import type { ActiveDocumentRequestIdentity, DataInputSchema, DataOutputSchema, DesktopExportAction, DesktopJobOperation, DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
 import CodeEditor from "./CodeEditor.vue";
@@ -12,6 +12,7 @@ import InputsPanel from "./components/InputsPanel.vue";
 import PreferencesDialog from "./components/PreferencesDialog.vue";
 import ProjectExplorer from "./components/ProjectExplorer.vue";
 import ReportSettingsDialog from "./components/ReportSettingsDialog.vue";
+import RuntimePanel from "./components/RuntimePanel.vue";
 import WelcomeView from "./components/WelcomeView.vue";
 import WorkbenchTabs from "./components/WorkbenchTabs.vue";
 import { createDiagnosticSummary } from "./diagnosticSummary";
@@ -77,7 +78,6 @@ const exportBusy = ref(false);
 const exportDialogError = ref("");
 const completedOutputId = ref("");
 const completedOutputName = ref("");
-const runtimeExpanded = ref(false);
 const files = ref<ProjectFile[]>([]);
 const folders = ref<string[]>([]);
 const status = ref("Open a project and an .amx file to begin.");
@@ -1337,10 +1337,6 @@ async function openExportedOutput(action: DesktopExportAction) {
 	status.value = result.ok ? `${action === "open" ? "Opened" : "Revealed"} ${completedOutputName.value}.` : result.error.message;
 }
 
-function displayDiagnostic(item: TextDiagnostic): string {
-	const context = [item.inputName, item.dataPath, item.dataLine ? `data line ${item.dataLine}` : ""].filter(Boolean).join(" · ");
-	return context ? `${item.message} (${context})` : item.message;
-}
 </script>
 
 <template>
@@ -1399,33 +1395,28 @@ function displayDiagnostic(item: TextDiagnostic): string {
 					<div v-else class="file-kind-shell"><strong>Context</strong><p>Select an AMX document to show its live report preview.</p></div>
 				</template>
 			</section>
-			<section class="runtime-drawer" aria-label="Runtime drawer">
-				<div class="drawer-heading">
-					<strong>RUNTIME</strong><span class="state" :class="`state-${activeJobId !== null ? 'running' : runState}`">{{ activeJobId !== null ? "running" : runState }}</span>
-					<span v-if="jobStage" class="drawer-stage">{{ jobStage }}</span><span class="header-spacer"></span>
-					<button v-if="document?.kind === 'amx'" type="button" title="Run active document" aria-label="Run active document" @click="runAnalysis"><Play :size="14" /></button>
-					<button v-if="activeJobId !== null" type="button" title="Cancel current job" aria-label="Cancel current job" @click="cancelActiveJob">Cancel</button>
-					<button type="button" :aria-expanded="runtimeExpanded" @click="runtimeExpanded = !runtimeExpanded">{{ runtimeExpanded ? "Hide details" : "Details" }}</button>
-					<button type="button" :aria-pressed="drawerDock === 'bottom'" @click="setDrawerDock('bottom')">Bottom</button>
-					<button type="button" :aria-pressed="drawerDock === 'right'" @click="setDrawerDock('right')">Right</button>
-				</div>
-				<p class="runtime-status" role="status" aria-live="polite">{{ status }}<span v-if="jobStage"> · {{ jobStage }}</span></p>
-				<progress v-if="activeJobId !== null" class="runtime-progress" aria-label="Current operation is running"></progress>
-				<p v-if="cleanupPending" class="runtime-status" role="status" aria-live="polite">Worker cleanup is pending.</p>
-				<p v-if="exportStatus" class="export-status" aria-live="polite">{{ exportStatus }}</p>
-				<div v-if="completedOutputId" class="output-actions">
-					<button type="button" title="Open exported file" aria-label="Open exported file" @click="openExportedOutput('open')"><ExternalLink :size="14" /> Open</button>
-					<button type="button" title="Reveal exported file" aria-label="Reveal exported file" @click="openExportedOutput('reveal')"><FolderOpen :size="14" /> Reveal</button>
-				</div>
-				<div v-if="runtimeExpanded" class="runtime-details">
-					<p v-for="(item, index) in staticAnalysis.diagnostics" :key="`static-${item.code}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Static {{ item.code }}: {{ displayDiagnostic(item) }}</button></p>
-					<p v-for="(item, index) in analysis.diagnostics" :key="`run-${item.code}-${index}`"><button class="diagnostic-link" :disabled="!item.file || !item.line" @click="navigateDiagnostic(item)">Run {{ item.code }}: {{ displayDiagnostic(item) }}</button></p>
-					<p v-for="item in previewDiagramErrors" :key="item.diagramId" role="alert">{{ item.diagnostic.code }} · {{ item.diagnostic.message }}<small v-if="item.diagnostic.file || item.diagnostic.line"> ({{ item.diagnostic.file }}<template v-if="item.diagnostic.line">:{{ item.diagnostic.line }}<template v-if="item.diagnostic.column">:{{ item.diagnostic.column }}</template></template>)</small></p>
-					<p v-for="item in summary.values" :key="item.name"><code>{{ item.name }}</code> {{ item.value }}</p>
-					<p v-for="item in inputConfiguration.diagnostics" :key="`input-${item.code}-${item.inputName}`"><button class="diagnostic-link" :disabled="!item.line && !item.inputName" @click="navigateInputDiagnostic(item)">Input {{ item.code }}: {{ displayDiagnostic(item) }}</button></p>
-					<p v-if="!analysis.diagnostics.length && !staticAnalysis.diagnostics.length && !previewDiagramErrors.length && !summary.values.length && !inputConfiguration.diagnostics.length" class="muted">No runtime details.</p>
-				</div>
-			</section>
+			<RuntimePanel
+				:can-run="document?.kind === 'amx'"
+				:running="activeJobId !== null"
+				:run-state="runState"
+				:stage="jobStage"
+				:status="status"
+				:cleanup-pending="cleanupPending"
+				:export-status="exportStatus"
+				:completed-output-id="completedOutputId"
+				:drawer-dock="drawerDock"
+				:static-diagnostics="staticAnalysis.diagnostics"
+				:run-diagnostics="analysis.diagnostics"
+				:preview-diagram-errors="previewDiagramErrors"
+				:input-diagnostics="inputConfiguration.diagnostics"
+				:summary="summary"
+				@run="runAnalysis"
+				@cancel="cancelActiveJob"
+				@output-action="openExportedOutput"
+				@navigate-diagnostic="navigateDiagnostic"
+				@navigate-input-diagnostic="navigateInputDiagnostic"
+				@dock-change="setDrawerDock"
+			/>
 		</div>
 		<CommandPalette :open="palette" :commands="commands" @dismiss="dismissPalette" />
 		<HelpCenterDialog :open="helpOpen" :initial-section="helpSection" :shortcuts="commands" @close="helpOpen = false" @create-project="helpOpen = false; createProject($event)" @export-diagnostics="downloadDiagnosticSummary" />
