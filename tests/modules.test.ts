@@ -112,6 +112,14 @@ describe("Sprint 015 modules, imports, and exports", () => {
     expect(values).not.toHaveProperty("libOnly");
   });
 
+  it("imports and evaluates an exported statement-bodied function", async () => {
+    const dir = await makeDir();
+    await write(dir, "lib.amx", "```amx\nexport fn increment(value: Number): Number {\n  return value + 1\n}\n```\n");
+    const entry = await write(dir, "entry.amx", "```amx\nimport { increment } from \"./lib.amx\"\nlet result: Number = increment(4)\n```\n");
+    const { env } = await loadEntryModule(entry);
+    expect(env.toObject()).toMatchObject({ result: 5 });
+  });
+
   it("implements RI-V04 for an imported and exported record parent", async () => {
     const dir = await makeDir();
     await write(dir, "library.amx", [

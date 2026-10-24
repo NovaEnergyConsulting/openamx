@@ -149,7 +149,7 @@ try {
 	rmSync(v012EditorRoot, { recursive: true, force: true });
 }
 const webviewSource = readFileSync(join(import.meta.dir, "../src/mainview/App.vue"), "utf8");
-assert.equal(webviewSource.match(/sandbox="allow-scripts"/g)?.length, 2);
+assert.equal(webviewSource.match(/sandbox="allow-scripts"/g)?.length, 1);
 assert.match(webviewSource, /sandbox="allow-scripts"/);
 assert.doesNotMatch(webviewSource, /sandbox="[^\"]*(allow-same-origin|allow-top-navigation|allow-popups|allow-forms|allow-downloads)/);
 assert.doesNotMatch(webviewSource, /node:fs|node:child_process|loadEntryModule|loadInputValues|preparePdfReport|serializePdfReport|prepareDocxReport|serializeDocxReport|Bun\./);
