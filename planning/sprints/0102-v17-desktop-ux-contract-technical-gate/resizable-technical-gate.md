@@ -2,12 +2,14 @@
 
 ## Decision Status
 
-**Architect recommendation: conditional GO for shadcn-vue Resizable backed by
-the already-declared Reka UI dependency.** This is a technical recommendation,
-not an accepted product decision. Sprint 102 must verify the exact installed
-API and a focused workbench proof before recording the final path. If any
-required behavior regresses, use the equivalent accessible implementation
-allowed by the V0.17 master plan.
+**Decision: OPEN.** The installed Reka splitter API is present and supports
+keyboard resizing, but the tested pixel-unit three-panel adapter normalized
+its initial layout and did not restore the seeded pixel sizes exactly. The
+prototype used mock per-project RPC persistence; it did not call the actual
+desktop service. Do not approve this adapter or select Reka for Sprint 107
+until an alternative constraint mapping and actual `setPanelSizes` round-trip
+pass the gate. The shadcn-vue component path is a local generated wrapper,
+not an installed runtime export.
 
 ## Current Baseline
 
@@ -21,39 +23,53 @@ allowed by the V0.17 master plan.
 - At viewport widths up to 900 px, the layout changes to a vertical stack and
   the dividers are hidden. Editor/preview focus modes conditionally hide
   panels.
+- The current custom separators are focusable but have pointer handlers only;
+  keyboard adjustment is a confirmed requirement not currently met.
 - The V0.6 UX contract establishes 1024x720 as the minimum workbench size.
-- `desktop-app/package.json` declares `shadcn-vue` 2.8.2 as a dev dependency
-  and `reka-ui` 2.10.5 as an application dependency. The repository does not
-  currently have a generated local `components/ui/resizable` wrapper.
+- `desktop-app/package.json` and installed manifests report shadcn-vue 2.8.2
+  and Reka UI 2.10.5. shadcn-vue exports CLI/registry APIs, not a runtime
+  Resizable component. There is no generated local wrapper.
+- `setPanelSizes` stores dimensions in each recent-project record. This RPC
+  authority is required; local storage is not a substitute.
 
 ## Candidate Capability
 
-The shadcn-vue Resizable usage is a set of locally composed
-`ResizablePanelGroup`, `ResizablePanel`, and `ResizableHandle` components
-backed by Reka UI's splitter primitives. The documented Reka API provides:
+## Installed API and Prototype Result
 
-- horizontal/vertical groups with layout events;
-- panel minimum/maximum bounds and pixel sizing;
-- keyboard interaction and focusable resize handles;
-- accessible window-splitter semantics;
-- layout persistence hooks and an `autoSaveId` convenience option.
-
-This capability fits the three-column/two-handle layout in principle. The
-convenience persistence option defaults to local storage and must not be used
-as the OpenAMX persistence authority: it conflicts with existing
-per-project dimensions and could restore one project's layout into another.
+- `reka-ui` 2.10.5 exports `SplitterGroup`, `SplitterPanel`, and
+  `SplitterResizeHandle`. The group accepts `direction`,
+  `keyboardResizeBy`, `autoSaveId`, and a storage adapter and emits a
+  `layout` array. It has no controlled-layout prop.
+- Panels accept `defaultSize`, `minSize`, `maxSize`, and `sizeUnit` (`px` or
+  `%`). Pixel constraints convert against the full measured group width.
+  Handles support Arrow keys, Home/End, F6 cycling, and expose separator
+  semantics with percentage-based ARIA values.
+- The installed shadcn-vue 2.8.2 package exports CLI/registry APIs, not
+  runtime Resizable components. A local generated wrapper over Reka is
+  required if that component style is selected.
+- The prototype's pixel-unit mapping normalized initial sizes because handle
+  width is excluded from the CSS panel tracks but included in Reka's pixel
+  constraint conversion. An all-percent mapping converted stored pixel bounds
+  using `(group width - two 8px handles)` and preserved the seeded 220px/44%
+  layout without Reka normalization warnings.
+- The all-percent prototype exercised mock `setPanelSizes` state only. Reka's
+  `autoSaveId` writes local storage and was not enabled. Actual desktop RPC and
+  App.vue integration remain unverified.
 
 ## Required Integration Shape
 
-1. Use a horizontal group with three panels and two vertical handles for the
+1. Use the tested all-percent layout with three panels and two vertical
+  handles. Convert stored pixel widths using available panel-track width,
+  excluding both handles; translate the context track back to a percentage
+  of the full group width. Do not use Reka pixel `sizeUnit` without
+  compensating for handle width.
    desktop layout. Keep component wrappers local to this repository; do not
    add or update packages unless the installed dependency cannot meet the
    gate and a separate dependency decision is approved.
-2. Translate splitter layout changes to the existing
-   `{ explorerWidth, previewWidth }` representation and persist through the
-   desktop RPC after a completed pointer/keyboard adjustment. Maintain
-   project-specific restore behavior. Do not enable global `autoSaveId`
-   persistence.
+2. Load sizes from the active recent-project record and persist only completed
+  pointer/keyboard adjustments through the real `setPanelSizes` RPC. Verify
+  project A/B restoration independently. Do not enable `autoSaveId` or use
+  local storage as a substitute.
 3. Preserve explorer 160-400 px, editor/context minimums, contextual-pane
    25-65% range, and a reachable center editor at 1024x720. If Reka's single
    layout model cannot represent these bounds without violating them, record
@@ -67,8 +83,8 @@ per-project dimensions and could restore one project's layout into another.
 
 ## Technical Gate Cases
 
-| ID | Check | Pass condition |
-| --- | --- | --- |
+| ID | Check | Pass condition | Sprint 102 result |
+| --- | --- | --- | --- |
 | `S102-TG-01` | Exact package/API availability | The installed Reka UI 2.10.5 exports the required splitter parts and actual prop/event behavior matches the API used by the proposed wrapper. No runtime install/update is needed. |
 | `S102-TG-02` | Three-panel sizing model | A three-panel group can preserve the explorer pixel bounds, editor/context minimums, and context percentage bounds together at 1024x720 and a larger viewport. |
 | `S102-TG-03` | Per-project persistence | Pointer and keyboard resizing round-trip through the existing RPC/recent-project record. Reopening project A and project B restores each project's independent sizes; local-storage auto-save is not authoritative. |
@@ -78,17 +94,16 @@ per-project dimensions and could restore one project's layout into another.
 
 ## Evidence Required Before Final GO
 
-- Confirm actual exports and type signatures from the installed lockfile/
-  package rather than relying only on current online documentation.
-- Build a throwaway or test-only harness/prototype under the separately
-  approved Sprint 102 artifact scope; do not add production components or
-  alter dependencies during the planning gate.
-- Record viewport dimensions, starting/restored sizes, handle keyboard
-  behavior, min/max outcomes, responsive transition, focus modes, and per-
-  project persistence results.
-- Prefer focused desktop Playwright verification. If native host behavior is
-  unavailable, label it `BLOCKED/UNAVAILABLE`; do not imply platform
-  certification.
+## Remaining Evidence Before Final GO/NO-GO
+
+- Invoke the actual desktop `setPanelSizes` RPC and verify recent-project A/B
+  persistence with pointer and keyboard adjustments.
+- Mount the candidate in the actual App.vue shell and verify that focus modes,
+  project changes, hidden panels, and the existing runtime row do not create
+  bogus persistence or alter workbench behavior.
+- Recheck restored bounds after real recent-project data is loaded. Record
+  native-host behavior as `BLOCKED/UNAVAILABLE` if it cannot be exercised;
+  do not imply platform certification.
 
 ## Decision Rule
 

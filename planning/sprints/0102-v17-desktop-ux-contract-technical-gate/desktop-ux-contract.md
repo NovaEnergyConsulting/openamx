@@ -12,6 +12,32 @@ The V0.17 runtime is bottom-only. This version-specific decision overrides
 the V0.6 bottom-or-right runtime-drawer requirement without changing the
 historical V0.6 contract.
 
+## Authority Markers
+
+- **Confirmed by the V0.17 master plan:** desktop-only scope; shell/RPC
+	ownership stays in `App.vue`; the approved first-load activation paths;
+	project search and whole-project `folders/files` counts; the V0.6 explorer
+	operation set; command-palette keyboard behavior; replacement of the three
+	custom dividers only if bounds, persistence, keyboard, and responsive
+	behavior are preserved; and a fixed-bottom runtime panel with current
+	actions/content retained.
+- **Historical V0.6 requirements retained:** 1024x720 minimum workbench;
+	editor/context minimum tracks; 160-400 px explorer and 25-65% context
+	bounds; keyboard-adjustable splitters; reversible focus modes preserving
+	tabs, selection, scroll, sizes, and focus; transactional AMX import
+	rewrites; no silent collision overwrite; and resolution of open-tab and
+	external-change conflicts before mutation.
+- **Candidate proposals, not approved:** exact menu/context-menu contents,
+	generated-output action availability, count eligibility details,
+	case-only rename handling, folder drag/drop targets, and a service-owned
+	complete-tree operation for folder mutations. These details require the
+	separate contract disposition.
+- **Open blockers:** no service-owned folder duplicate/move/trash/restore API
+	exists today. The all-percent Reka prototype passed geometric and responsive
+	checks with an in-memory per-project RPC mock, but the actual desktop RPC
+	and App.vue integration were not exercised. See section 3.5 and the resizer
+	technical gate.
+
 ## 1. Shell and Component Ownership
 
 | ID | Observable contract |
@@ -90,18 +116,36 @@ handlers as their toolbar/command equivalents.
 
 ### 3.5 Folder-Operation Decision Required
 
-The current RPC/service exposes validated file duplicate/move and file
-trash/list/restore, but no folder duplicate/move/trash/restore operation. The
-trash DTO also models only file kinds. Sprint 102 must explicitly decide the
-folder operation contract and required typed RPC additions. The candidate is
-a service-owned project-entry operation that preflights a complete folder
-tree, descendant/inbound AMX imports for moves, open tabs, external changes,
-and all target collisions, then commits or rolls back atomically. Folder
-trash/restore moves and restores the complete subtree; restore is all-or-
 nothing. Direct renderer-side directory operations are not acceptable. If
-these guarantees cannot be proved, narrow the affected folder actions and
-downstream scope through separate disposition before Sprint 105; do not
-quietly ship a weaker path.
+**Confirmed source boundary:** `desktopService.ts` owns file duplication,
+file move, file trash, and file restore. File move already preflights current
+AMX revisions/imports, checks source and dependent-file disk hashes, rejects
+an existing destination, stages rewritten files, rolls back a failed commit,
+and retargets open tabs after success. `TrashItem` is file-kind typed; restore
+accepts only a regular file. `rpc.ts` and the service have no complete folder
+duplicate/move/trash/restore operation.
+
+**Candidate folder contract, not approved:** any future folder operation is
+service-owned and treats the folder as one complete contained tree. Duplicate
+and move preflight the complete tree, reject symlinks and every destination
+collision, and never merge, overwrite, or silently rename. A move accounts
+for every descendant AMX import whose relative path changes and every
+inbound import from outside the tree; it uses current open-buffer revisions
+only after dirty/conflicted tabs are resolved. Open tabs retain identity and
+are retargeted only after commit. Any disk-hash/external-change mismatch
+aborts without changing files or tabs. The folder rename and all import
+rewrites commit as one transaction; a failure restores the original tree,
+destinations, and all rewritten sources or reports an explicit rollback
+failure. Folder trash moves the complete tree; restore preflights every
+descendant destination and either restores the whole tree or none of it.
+
+**Disposition and downstream block:** these guarantees are a proposal, not
+an implemented or accepted capability. Until the product owner separately
+dispositions the contract and Sprint 105 proves the service transaction, do
+not expose folder duplicate, rename/move, folder drag/drop, trash, or restore.
+Sprint 105 folder-operation work is blocked pending that disposition. File
+operations may use only their existing service-owned paths. Renderer-side
+filesystem mutation is prohibited in all cases.
 
 ## 4. Command Palette
 

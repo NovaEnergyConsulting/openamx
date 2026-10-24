@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer';
 import { gzipSync } from 'node:zlib';
 import { serializeDiagramSceneModel, type DiagramSceneModel } from '../runtime/diagramModel';
 
-export const MAX_INTERACTIVE_DIAGRAM_HTML_BYTES = 1024 * 1024;
+export const MAX_INTERACTIVE_DIAGRAM_HTML_BYTES = 100 * 1024 * 1024;
 
 export function assertDiagramHtmlSize(html: string, hasDiagrams: boolean): void {
   if (!hasDiagrams) return;

@@ -4,6 +4,11 @@ This matrix is the traceability index for Sprint 102. It defines downstream
 verification ownership; it does not claim that the new behaviors or tests
 already exist or pass.
 
+V0.17 master-plan decisions and V0.6 historical requirements are confirmed
+authority. Specific menu placement, folder-operation mechanics, and the final
+resizer path remain proposals until separate disposition. Rows assign future
+tests; no downstream behavior test is reported as passing in Sprint 102.
+
 | Requirement group | Contract cases | Owner sprint | Focused verification surface |
 | --- | --- | --- | --- |
 | Shell ownership and behavior preservation | `S102-SHELL-01`, `S102-SHELL-02`, `S102-SHELL-03`, `S102-SHELL-04` | 103 | Desktop component/UI tests for parent-owned RPC orchestration, panel props/events, focus modes, and unchanged shell workflows. |
@@ -13,7 +18,8 @@ already exist or pass.
 | Selection, paused preview, non-AMX | `S102-ACT-04`, `S102-ACT-05`, `S102-ACT-06` | 104 | Focused activation tests for switching, pause/resume, CSV/JSON/CSS, and no implicit runtime Run. |
 | Cancellation, stale results, identity | `S102-ACT-07`, `S102-ACT-08` | 104 | Extend `desktop-app/tests/ui/preview-freshness.pw.ts` or companion tests; use delayed RPC/job results to prove stale commits are ignored. |
 | Explorer search/count | `S102-EXP-01`, `S102-EXP-02`, `S102-EXP-03` | 105 | Explorer UI test with nested folders/files, ignored entries, and a changing search filter; assert stable `folders/files` totals and accessible count. |
-| Action menu and file/folder actions | Action-placement tables; `S102-EXP-04`, `S102-EXP-09`, `S102-EXP-10` | 105 | Explorer UI plus desktop RPC-contract tests for file/folder duplicate, create, rename/move, trash/tree restore, typed trash entries, file-kind availability, confirmation, reveal/open fallback, and empty trash. |
+| File action menu and operations | Proposed action-placement tables; `S102-EXP-04`, `S102-EXP-09`, `S102-EXP-10` | 105 | Explorer UI and service/RPC tests for supported file create, duplicate, move, trash/restore, file-kind availability, confirmation, reveal/open fallback, and empty trash. Do not imply folder RPC support. |
+| Folder operation extension | Proposed folder actions; `S102-EXP-05`, `S102-EXP-07`, `S102-EXP-08`, `S102-EXP-09`, `S102-EXP-11` | 105, **blocked pending separate disposition** | Only after disposition: service/RPC tests for complete-tree duplicate/move/trash/restore, descendant and inbound import rewrites, collisions, tabs, external changes, and rollback. Renderer filesystem access is prohibited. |
 | Drag/drop, collision, transaction safeguards | `S102-EXP-05`, `S102-EXP-06`, `S102-EXP-07`, `S102-EXP-08`, `S102-EXP-11` | 105 | Explorer UI drag/drop tests plus RPC tests for collisions, containment, dirty/conflicted tabs, external changes, import rewrites, complete folder descendants, rollback, and no partial mutation. |
 | Command-palette keyboard behavior | `S102-CMD-01`, `S102-CMD-02`, `S102-CMD-03`, `S102-CMD-04`, `S102-CMD-05` | 106 | `CommandPalette.vue` component/UI coverage for open/filter, enabled selection, non-wrapping navigation, disabled commands, Enter/Return, empty state, click parity, and focus restoration. |
 | Resizable implementation and sizing | `S102-SIZE-01`, `S102-SIZE-02`, `S102-SIZE-03`, `S102-SIZE-04`, `S102-SIZE-05`, `S102-TG-01`, `S102-TG-02`, `S102-TG-03`, `S102-TG-04`, `S102-TG-05`, `S102-TG-06` | 107 | Focused Playwright at 1024x720 and larger desktop size; assert two handles, three columns, bounds, keyboard, persistence across projects, focus modes, responsive stack, and no overflow. |
