@@ -352,7 +352,7 @@ export function editorSymbolFacts(
 									parent: functionParent,
 									declaration: true,
 									kind: "binding",
-									detail: `binding ${item.name}${item.annotation ? `: ${item.annotation.name ?? item.annotation.type}` : ""}`
+									detail: `variable ${item.name}${item.annotation ? `: ${item.annotation.name ?? item.annotation.type}` : ""}`
 								};
 								result.push(localFact);
 								scope.set(item.name, localFact);
@@ -405,7 +405,7 @@ export function editorSymbolFacts(
 				if (declared && "name" in statement && !duplicates.has(statement.name)) {
 					if (statement.type === "variableDeclaration") {
 						const inferred = module?.checkResult.bindingTypes.get(statement.name) ?? (file === entryFile ? analysis?.bindingTypes?.get(statement.name) : undefined);
-						if (inferred) declared.detail = `binding ${statement.name}: ${typeText(inferred)}`;
+						if (inferred) declared.detail = `variable ${statement.name}: ${typeText(inferred)}`;
 					}
 					if (statement.type !== "diagramDeclaration") visible.set(statement.name, declared);
 					result.push(declared);
