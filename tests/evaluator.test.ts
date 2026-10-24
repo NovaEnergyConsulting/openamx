@@ -1169,6 +1169,13 @@ describe("evaluator - Sprint 008 mutation, ranges, and loops", () => {
     expect(env.has("step")).toBe(false);
   });
 
+  it("restores a shadowed binding after a braced branch", () => {
+    const env = new Environment();
+    env.set("value", 2);
+    evaluateStatements(parseStatements("if true {\n  let value = 7\n}"), env);
+    expect(env.get("value")).toBe(2);
+  });
+
   it("collects one expression-loop return per iteration and runs later statements", () => {
     const env = new Environment();
     evaluateStatements(parseStatements(
@@ -1215,5 +1222,260 @@ describe("evaluator - Sprint 008 mutation, ranges, and loops", () => {
       expect(error.code).toBe("AMX1006");
       expect(error.line).toBe(11);
     }
+  });
+});
+
+describe("evaluator - Sprint 097 statement-body functions", () => {
+  const runWithoutChecking = (source: string) => {
+    const document = parseDocumentText(`\`\`\`amx\n${source}\n\`\`\`\n`);
+    const env = new Environment();
+    for (const node of document.nodes) {
+      if (node.type === "executableCodeBlock") evaluateStatements(node.statements, env, "case.amx");
+    }
+    return env;
+  };
+
+  it("returns from a nested statement conditional at the function boundary", () => {
+    const env = runWithoutChecking([
+      "fn choose(value: Number): Number {",
+      "  if value > 0 {",
+      "    if value > 10 {",
+      "      return 10",
+      "    } else {",
+      "      return value",
+      "    }",
+      "  } else {",
+      "    return 0",
+      "  }",
+      "}",
+      "let result = choose(4)",
+      "let other = choose(0)"
+    ].join("\n"));
+    expect(env.get("result")).toBe(4);
+    expect(env.get("other")).toBe(0);
+  });
+
+  it("returns from statement loops and runs fallback returns only for empty lists", () => {
+    const env = runWithoutChecking([
+      "fn first(values: Number[]): Number {",
+      "  for value in values {",
+      "    return value",
+      "  }",
+      "  return 0",
+      "}",
+      "let firstValue = first([7, 8])",
+      "let emptyValue = first([])"
+    ].join("\n"));
+    expect(env.get("firstValue")).toBe(7);
+    expect(env.get("emptyValue")).toBe(0);
+  });
+
+  it("restores a loop iterator that shadows a function parameter", () => {
+    const env = runWithoutChecking([
+      "fn preserve(value: Number): Number {",
+      "  for value in [7] {",
+      "    let observed = value",
+      "  }",
+      "  return value",
+      "}",
+      "let result = preserve(2)"
+    ].join("\n"));
+    expect(env.get("result")).toBe(2);
+  });
+
+  it("keeps outer function locals visible and restores nested shadows", () => {
+    const env = runWithoutChecking([
+      "fn update(value: Number): Number {",
+      "  let result = value",
+      "  if true {",
+      "    result = 2",
+      "    result += 1",
+      "    let value = 7",
+      "  }",
+      "  return result + value",
+      "}",
+      "let result = update(2)"
+    ].join("\n"));
+    expect(env.get("result")).toBe(5);
+  });
+
+  it("keeps parameter assignment inside the isolated call frame", () => {
+    const env = runWithoutChecking([
+      "fn localValue(value: Number): Number {",
+      "  value = value + 1",
+      "  return value",
+      "}",
+      "let original = 4",
+      "let result = localValue(original)"
+    ].join("\n"));
+    expect(env.get("result")).toBe(5);
+    expect(env.get("original")).toBe(4);
+  });
+
+  it("does not expose branch locals after their lexical block", () => {
+    expect(() => runWithoutChecking([
+      "fn scoped(): Number {",
+      "  if true {",
+      "    let local = 8",
+      "  }",
+      "  return local",
+      "}",
+      "let result = scoped()"
+    ].join("\n"))).toThrow(expect.objectContaining({ code: "AMX1004" }));
+  });
+
+  it("updates repeated let declarations in the same function scope", () => {
+    const env = runWithoutChecking([
+      "fn repeated(value: Number): Number {",
+      "  let result = value",
+      "  let result = result + 1",
+      "  return result",
+      "}",
+      "let result = repeated(4)"
+    ].join("\n"));
+    expect(env.get("result")).toBe(5);
+  });
+
+  it("keeps braced-if expression returns local to the expression", () => {
+    const env = runWithoutChecking([
+      "fn choose(value: Number): Number {",
+      "  let selected: Number = if value > 0 {",
+      "    return 1",
+      "  } else {",
+      "    return 0",
+      "  }",
+      "  return selected + 10",
+      "}",
+      "let result = choose(1)"
+    ].join("\n"));
+    expect(env.get("result")).toBe(11);
+  });
+
+  it("raises the allocated diagnostic at statement-body fallthrough", () => {
+    try {
+      runWithoutChecking([
+        "fn incomplete(): Number {",
+        "  let value = 1",
+        "}",
+        "let result = incomplete()"
+      ].join("\n"));
+      throw new Error("Expected defensive function fallthrough diagnostic");
+    } catch (error) {
+      expect(error).toBeInstanceOf(AmxError);
+      expect(error).toMatchObject({
+        code: "AMXF4002",
+        message: "Function finished without returning a valid expression",
+        file: "case.amx",
+        line: 4,
+        column: 1
+      });
+    }
+  });
+
+  it("recursively copies nested list parameters", () => {
+    const env = runWithoutChecking([
+      "fn appendToRows(values: Number[][]): Number[][] {",
+      "  for row in values {",
+      "    add 9 to row",
+      "  }",
+      "  return values",
+      "}",
+      "let input = [[1], [2]]",
+      "let result = appendToRows(input)"
+    ].join("\n"));
+    expect(env.get("input")).toEqual([[1], [2]]);
+    expect(env.get("result")).toEqual([[1, 9], [2, 9]]);
+  });
+
+  it("copies repeated list arguments independently per parameter", () => {
+    const env = runWithoutChecking([
+      "fn changeOne(first: Number[], second: Number[]): Number[] {",
+      "  add 9 to first",
+      "  return second",
+      "}",
+      "let input = [1]",
+      "let result = changeOne(input, input)"
+    ].join("\n"));
+    expect(env.get("input")).toEqual([1]);
+    expect(env.get("result")).toEqual([1]);
+  });
+
+  it("returns mutated local lists directly", () => {
+    const env = runWithoutChecking([
+      "fn build(value: Number): Number[] {",
+      "  let values = [value]",
+      "  add 2 to values",
+      "  remove 1 from values",
+      "  return values",
+      "}",
+      "let result = build(1)"
+    ].join("\n"));
+    expect(env.get("result")).toEqual([1]);
+  });
+
+  it("does not execute statements after a function return", () => {
+    const env = runWithoutChecking([
+      "fn stop(values: Number[]): Number[] {",
+      "  return values",
+      "  add 9 to values",
+      "}",
+      "let input = [1]",
+      "let result = stop(input)"
+    ].join("\n"));
+    expect(env.get("input")).toEqual([1]);
+    expect(env.get("result")).toEqual([1]);
+  });
+
+  it("propagates runtime failures from a statement-body function", () => {
+    expect(() => runWithoutChecking([
+      "fn fail(): Number {",
+      "  missing = 1",
+      "  return 0",
+      "}",
+      "let result = fail()"
+    ].join("\n"))).toThrow(expect.objectContaining({ code: "AMX1004" }));
+  });
+
+  it("validates the runtime result of a statement-body function", () => {
+    expect(() => runWithoutChecking([
+      "fn invalid(): Number {",
+      "  return \"wrong\"",
+      "}",
+      "let result = invalid()"
+    ].join("\n"))).toThrow(expect.objectContaining({ code: "AMX4003" }));
+  });
+
+  it("copies nullable list parameters and preserves null", () => {
+    const env = runWithoutChecking([
+      "fn append(values: Number[]?): Number[]? {",
+      "  if values != null {",
+      "    add 2 to values",
+      "  }",
+      "  return values",
+      "}",
+      "let input = [1]",
+      "let result = append(input)",
+      "let absent = append(null)"
+    ].join("\n"));
+    expect(env.get("input")).toEqual([1]);
+    expect(env.get("result")).toEqual([1, 2]);
+    expect(env.get("absent")).toBeNull();
+  });
+
+  it("keeps non-array list elements opaque during recursive copying", () => {
+    const env = runWithoutChecking([
+      "type Point {",
+      "  x: Number",
+      "}",
+      "fn copy(values: Point[]): Point[] {",
+      "  return values",
+      "}",
+      "let input = [Point { x = 1 }]",
+      "let result = copy(input)"
+    ].join("\n"));
+    const input = env.get("input") as unknown[];
+    const result = env.get("result") as unknown[];
+    expect(result).not.toBe(input);
+    expect(result[0]).toBe(input[0]);
   });
 });

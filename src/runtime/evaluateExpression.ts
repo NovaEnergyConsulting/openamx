@@ -22,7 +22,7 @@ import {
   AddStatementNode,
   RemoveStatementNode
 } from '../ast/types';
-import { inputError, staticError, throwInputErrors, throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext, throwListOperationError, throwMeasurementDomainError } from '../diagnostics/errors';
+import { inputError, staticError, throwInputErrors, throwInvalidLoopIterable, throwInvalidRangeBounds, throwInvalidReturnContext, throwFunctionFallthrough, throwListOperationError, throwMeasurementDomainError } from '../diagnostics/errors';
 import { ChartViewEmission, Environment, ViewDataValue, ViewEmission } from './environment';
 import { evaluateStandardLibraryCall, isMathematicalFunction } from './standardLibrary';
 import type { CheckedType } from '../typechecker/checkDocument';
@@ -508,8 +508,14 @@ class ForExpressionReturn {
   constructor(readonly value: unknown) {}
 }
 
+class FunctionBodyReturn {
+  constructor(readonly value: unknown) {}
+}
+
 const conditionalReturnDepth = new WeakMap<Environment, number>();
 const forExpressionDepth = new WeakMap<Environment, number>();
+const functionReturnDepth = new WeakMap<Environment, number>();
+const scopedBindings = new WeakMap<Environment, Array<Map<string, { existed: boolean; value: unknown }>>>();
 
 function withDepth<T>(depths: WeakMap<Environment, number>, env: Environment, run: () => T): T {
   depths.set(env, (depths.get(env) ?? 0) + 1);
@@ -522,14 +528,28 @@ function withDepth<T>(depths: WeakMap<Environment, number>, env: Environment, ru
   }
 }
 
+function rememberScopedBinding(name: string, env: Environment): void {
+  const scopes = scopedBindings.get(env);
+  const currentScope = scopes?.[scopes.length - 1];
+  if (!currentScope || currentScope.has(name)) return;
+  const existed = env.has(name);
+  currentScope.set(name, { existed, value: existed ? env.get(name) : undefined });
+}
+
 function evaluateScopedStatements(statements: StatementNode[], env: Environment, file?: string): void {
-  const existing = new Set(Object.keys(env.toObject()));
+  const scopes = scopedBindings.get(env) ?? [];
+  const bindings = new Map<string, { existed: boolean; value: unknown }>();
+  scopes.push(bindings);
+  scopedBindings.set(env, scopes);
   try {
     evaluateStatements(statements, env, file);
   } finally {
-    for (const name of Object.keys(env.toObject())) {
-      if (!existing.has(name)) env.delete(name);
+    scopes.pop();
+    for (const [name, previous] of bindings) {
+      if (previous.existed) env.set(name, previous.value);
+      else env.delete(name);
     }
+    if (!scopes.length) scopedBindings.delete(env);
   }
 }
 
@@ -587,6 +607,14 @@ function functionArgumentSource(expression: V02ExpressionNode, fallback?: Source
   return expression.source ?? fallback;
 }
 
+function copyArrayTree(value: unknown): unknown {
+  return Array.isArray(value) ? value.map(copyArrayTree) : value;
+}
+
+function isListParameter(type: CheckedType): boolean {
+  return type.kind === 'list' || (type.kind === 'nullable' && type.element.kind === 'list');
+}
+
 function evalFunctionCall(
   node: FunctionCallNode,
   env: Environment,
@@ -598,18 +626,33 @@ function evalFunctionCall(
     const functionRegistry = fieldRegistry(userFunction, env.dimensionRegistry);
     const parameters: Record<string, unknown> = {};
     userFunction.parameters.forEach((parameter, index) => {
-      validateRuntimeValue(args[index], checkedType(parameter.annotation, functionRegistry), env, node.arguments[index]?.source ?? node.source, file, `function ${node.callee}.${parameter.name}`);
-      parameters[parameter.name] = args[index];
+      const parameterType = checkedType(parameter.annotation, functionRegistry);
+      validateRuntimeValue(args[index], parameterType, env, node.arguments[index]?.source ?? node.source, file, `function ${node.callee}.${parameter.name}`);
+      const value = args[index];
+      parameters[parameter.name] = isListParameter(parameterType) && value !== null
+        ? copyArrayTree(value)
+        : value;
     });
     const frame = env.createCallFrame(parameters);
     frame.dimensionRegistry = functionRegistry;
     userFunction.parameters.forEach(parameter => {
       frame.bindingTypes.set(parameter.name, checkedType(parameter.annotation, functionRegistry));
     });
-    if (userFunction.body.kind !== 'expression') {
-      throw new Error('Statement-body functions are not supported by the runtime');
+    let result: unknown;
+    const body = userFunction.body;
+    if (body.kind === 'expression') {
+      result = evaluateExpression(body.expression, frame, file);
+    } else {
+      let returned = false;
+      try {
+        withDepth(functionReturnDepth, frame, () => evaluateStatements(body.statements, frame, file));
+      } catch (error) {
+        if (!(error instanceof FunctionBodyReturn)) throw error;
+        returned = true;
+        result = error.value;
+      }
+      if (!returned) throwFunctionFallthrough(body.closingSource, file);
     }
-    const result = evaluateExpression(userFunction.body.expression, frame, file);
     validateRuntimeValue(result, checkedType(userFunction.returnType, functionRegistry), env, node.source, file, `function ${node.callee} return`);
     return result;
   }
@@ -974,6 +1017,7 @@ function evaluateStatement(statement: StatementNode, env: Environment, file?: st
       return;
     case 'variableDeclaration':
       {
+        rememberScopedBinding(statement.name, env);
         const value = evaluateExpression(statement.expression, env, file);
         const type = env.bindingTypes.get(statement.name);
         if (type) validateRuntimeValue(value, type, env, statement.source, file, statement.name);
@@ -1018,6 +1062,9 @@ function evaluateStatement(statement: StatementNode, env: Environment, file?: st
       }
       if (forExpressionDepth.has(env)) {
         throw new ForExpressionReturn(evaluateExpression(statement.expression, env, file));
+      }
+      if (functionReturnDepth.has(env)) {
+        throw new FunctionBodyReturn(evaluateExpression(statement.expression, env, file));
       }
       throwInvalidReturnContext(statement.source, file);
   }
@@ -1097,7 +1144,10 @@ function evalRange(node: RangeExpressionNode, env: Environment, file?: string): 
 
 function evalForStatement(node: ForStatementNode, env: Environment, file?: string): void {
   const values = evaluateLoopIterable(node.iterable, env, file);
-  withLoopBinding(node.variable, values, env, () => evaluateStatements(node.body, env, file));
+  withLoopBinding(node.variable, values, env, () => {
+    if (functionReturnDepth.has(env)) evaluateScopedStatements(node.body, env, file);
+    else evaluateStatements(node.body, env, file);
+  });
 }
 
 function evalForExpression(node: ForExpressionNode, env: Environment, file?: string): unknown[] {

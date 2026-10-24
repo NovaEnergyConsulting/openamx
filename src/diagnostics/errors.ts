@@ -139,6 +139,16 @@ export function throwInvalidReturnContext(source?: SourceLocation, file?: string
   });
 }
 
+export function throwFunctionFallthrough(source?: SourceLocation, file?: string): never {
+  throw new AmxError({
+    code: 'AMXF4002',
+    message: 'Function finished without returning a valid expression',
+    file,
+    line: source?.line,
+    column: source?.column
+  });
+}
+
 export function throwListOperationError(message: string, source?: SourceLocation, file?: string): never {
   throw new AmxError({ code: 'AMX1008', message, file, line: source?.line, column: source?.column });
 }
