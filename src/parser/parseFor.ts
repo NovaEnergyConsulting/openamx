@@ -29,12 +29,13 @@ function parseLoop(text: string, source?: SourceLocation): ParsedLoop {
   };
 }
 
-export function parseForStatement(text: string, source?: SourceLocation): ForStatementNode {
+export function parseForStatement(
+  text: string,
+  source?: SourceLocation,
+  context: { allowFunctionReturn?: boolean; inFunctionBody?: boolean } = {}
+): ForStatementNode {
   const loop = parseLoop(text, source);
-  if (/^\s*return\b/m.test(loop.bodyText)) {
-    throw new Error(`Statement-form for loops cannot contain return at ${source?.line ?? 1}:${source?.column ?? 1}`);
-  }
-  const body = parseStatements(loop.bodyText, loop.bodySource, { allowFor: false });
+  const body = parseStatements(loop.bodyText, loop.bodySource, { ...context, allowFor: false });
   return {
     type: 'forStatement',
     variable: loop.variable,

@@ -294,7 +294,7 @@ export function editorSymbolFacts(
 					statement.consequent.forEach(item => nestedStatement(item));
 					statement.alternate?.forEach(item => nestedStatement(item));
 				}
-				if (statement.type === "functionDeclaration") expression(statement.body);
+				if (statement.type === "functionDeclaration" && statement.body.kind === "expression") expression(statement.body.expression);
 				const declared = declaration(moduleText, file, statement);
 				if (declared && "name" in statement && !duplicates.has(statement.name)) {
 					if (statement.type === "variableDeclaration") {

@@ -31,7 +31,7 @@ export function parseBracedIfExpression(text: string, source?: SourceLocation): 
 export function parseBracedIfStatement(
   text: string,
   source?: SourceLocation,
-  context: { allowReturn?: boolean; allowFor?: boolean } = {}
+  context: { allowReturn?: boolean; allowFunctionReturn?: boolean; inFunctionBody?: boolean; allowFor?: boolean } = {}
 ): { statement: BracedIfStatementNode; lineCount: number } {
   const blocks = readIfBlocks(text, source);
   const statementText = text.slice(0, blocks.endOffset);

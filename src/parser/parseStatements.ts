@@ -7,6 +7,8 @@ import { findStringLiteralEnd, withoutStringLiterals } from './stringScanner';
 
 interface ParseContext {
   allowReturn?: boolean;
+  allowFunctionReturn?: boolean;
+  inFunctionBody?: boolean;
   allowFor?: boolean;
 }
 
@@ -29,6 +31,16 @@ export function parseStatements(
 
     if (rawLine.trim().length === 0) {
       continue;
+    }
+
+    if (context.inFunctionBody) {
+      const prohibited = functionBodyProhibitedStatement(rawLine);
+      if (prohibited) {
+        syntaxError(`The '${prohibited.keyword}' statement is not allowed in a function body.`, {
+          line: lineNumber,
+          column: i === 0 ? start.column + prohibited.column - 1 : prohibited.column
+        });
+      }
     }
 
     const reExportMatch = rawLine.match(/^(\s*)export\s*\{\s*([^}]*)\s*\}\s*$/);
@@ -271,7 +283,10 @@ export function parseStatements(
         throw new Error(`Nested loops are unsupported at ${source.line}:${source.column}`);
       }
       const endIndex = findLoopEnd(lines, i, { line: lineNumber, column: source.column });
-      statements.push(parseForStatement(lines.slice(i, endIndex + 1).join('\n'), source));
+      statements.push(parseForStatement(lines.slice(i, endIndex + 1).join('\n'), source, {
+        allowFunctionReturn: context.allowFunctionReturn,
+        inFunctionBody: context.inFunctionBody
+      }));
       i = endIndex;
       continue;
     }
@@ -280,16 +295,24 @@ export function parseStatements(
       throw new Error(`Unsupported loop control statement at ${source.line}:${source.column}`);
     }
 
-    const returnMatch = rawLine.match(/^\s*return\s+(.+)\s*$/);
-    if (returnMatch) {
-      if (context.allowReturn !== true) {
-        throw new Error(`Return is only valid inside an expression-form for loop at ${source.line}:${source.column}`);
+    const returnKeyword = /^\s*return\b/.exec(rawLine);
+    if (returnKeyword) {
+      const returnMatch = rawLine.match(/^\s*return\s+(.+?)\s*$/);
+      if (context.allowReturn !== true && context.allowFunctionReturn !== true) {
+        syntaxError('Return is only valid inside a function or expression-form loop', source);
+      }
+      if (!returnMatch) {
+        syntaxError(context.inFunctionBody ? 'Invalid syntax in function body' : 'Invalid return statement', source);
       }
       const expressionText = collectExpressionLoop(lines, i, returnMatch[1], start);
+      const expressionSource = context.allowFunctionReturn === true
+        ? statementExpressionLocation(rawLine, rawLine.indexOf(returnMatch[1]), source)
+        : containsMatchExpression(expressionText.text)
+          ? { line: source.line, column: rawLine.indexOf(returnMatch[1]) + 1 }
+          : start;
       statements.push({
         type: 'returnStatement',
-        expression: parseExpression(expressionText.text, containsMatchExpression(expressionText.text)
-          ? { line: source.line, column: rawLine.indexOf(returnMatch[1]) + 1 } : source),
+        expression: parseExpression(expressionText.text, expressionSource),
         source
       });
       i += expressionText.lineCount - 1;
@@ -300,10 +323,7 @@ export function parseStatements(
     if (addMatch) {
       const collected = collectDelimitedExpression(lines, i, addMatch[1]);
       const remainder = collected.text;
-      const remainderSource = locationAtOffset(remainder, 0, {
-        line: source.line,
-        column: rawLine.length - addMatch[1].length + 1
-      });
+      const remainderSource = statementExpressionLocation(rawLine, rawLine.lastIndexOf(addMatch[1]), source);
       const split = findTopLevelKeyword(remainder, 'to');
       if (!split) syntaxError('Invalid add statement', source);
       const valueText = remainder.slice(0, split.start).trim();
@@ -334,10 +354,7 @@ export function parseStatements(
     if (removeMatch) {
       const collected = collectDelimitedExpression(lines, i, removeMatch[1]);
       const remainder = collected.text;
-      const remainderSource = locationAtOffset(remainder, 0, {
-        line: source.line,
-        column: rawLine.length - removeMatch[1].length + 1
-      });
+      const remainderSource = statementExpressionLocation(rawLine, rawLine.lastIndexOf(removeMatch[1]), source);
       const split = findTopLevelKeyword(remainder, 'from');
       if (!split) syntaxError('Invalid remove statement', source);
       const countText = remainder.slice(0, split.start).trim();
@@ -371,8 +388,12 @@ export function parseStatements(
       const expressionText = collectExpressionLoop(lines, i, letMatch[3], start);
       let expression;
       try {
+        const expressionOffset = rawLine.lastIndexOf(letMatch[3]);
+        const expressionSource = context.inFunctionBody
+          ? statementExpressionLocation(rawLine, expressionOffset, source)
+          : { line: source.line, column: expressionOffset + 1 };
         expression = parseExpression(expressionText.text, containsForExpression(expressionText.text) && !containsMatchExpression(expressionText.text)
-          ? source : { line: source.line, column: rawLine.lastIndexOf(letMatch[3]) + 1 });
+          ? source : expressionSource);
       } catch (error) {
         if (error instanceof AmxError) throw error;
         const message = error instanceof Error ? error.message : String(error);
@@ -392,6 +413,14 @@ export function parseStatements(
       continue;
     }
 
+    if (context.inFunctionBody && /^\s*let\b/.test(rawLine)) {
+      const invalidToken = rawLine.indexOf('=') >= 0 ? rawLine.indexOf('=') : rawLine.search(/\S/);
+      syntaxError('Invalid syntax in function body', {
+        line: lineNumber,
+        column: i === 0 ? start.column + invalidToken : invalidToken + 1
+      });
+    }
+
     const compoundMatch = rawLine.match(/^\s*([A-Za-z][A-Za-z0-9_]*)\s*\+=\s*(.*)$/);
     const assignmentMatch = rawLine.match(/^\s*([A-Za-z][A-Za-z0-9_]*)\s*=(?!=)\s*(.*)$/);
     const assignment = compoundMatch ?? assignmentMatch;
@@ -402,7 +431,9 @@ export function parseStatements(
           type: compoundMatch ? 'compoundAssignmentStatement' : 'assignmentStatement',
           name: assignment[1],
           ...(compoundMatch ? { operator: '+=' as const } : {}),
-          expression: parseExpression(expressionText.text, { line: source.line, column: rawLine.lastIndexOf(assignment[2]) + 1 }),
+          expression: parseExpression(expressionText.text, context.inFunctionBody
+            ? statementExpressionLocation(rawLine, rawLine.lastIndexOf(assignment[2]), source)
+            : { line: source.line, column: rawLine.lastIndexOf(assignment[2]) + 1 }),
           source
         } as StatementNode);
       } catch (error) {
@@ -414,6 +445,7 @@ export function parseStatements(
       continue;
     }
 
+    if (context.inFunctionBody) syntaxError('Invalid syntax in function body', source);
     throw new Error(`Unsupported statement at ${source.line}:${source.column}`);
   }
 
@@ -426,6 +458,35 @@ function locationAtOffset(text: string, offset: number, source: SourceLocation):
     line: source.line + before.length - 1,
     column: (before.length === 1 ? source.column : 1) + before[before.length - 1].length
   };
+}
+
+function statementExpressionLocation(rawLine: string, offset: number, statementSource: SourceLocation): SourceLocation {
+  const indentation = rawLine.length - rawLine.trimStart().length;
+  return locationAtOffset(rawLine, offset, {
+    line: statementSource.line,
+    column: statementSource.column - indentation
+  });
+}
+
+function functionBodyProhibitedStatement(rawLine: string): { keyword: string; column: number } | undefined {
+  const prefix = rawLine.match(/^\s*(export)\b/);
+  if (prefix) return { keyword: prefix[1], column: rawLine.indexOf(prefix[1]) + 1 };
+  const statement = rawLine.match(/^\s*(import|type|enum|dimension|unit|input|table|chart|diagram|show|fn)\b/);
+  if (!statement) return undefined;
+  return { keyword: statement[1], column: rawLine.indexOf(statement[1]) + 1 };
+}
+
+function findUnquotedSemicolon(text: string): number | undefined {
+  for (let offset = 0; offset < text.length; offset++) {
+    if (text[offset] === '"' || text[offset] === "'") {
+      const end = findStringLiteralEnd(text, offset);
+      if (end === undefined) return undefined;
+      offset = end;
+    } else if (text[offset] === ';') {
+      return offset;
+    }
+  }
+  return undefined;
 }
 
 function findTopLevelKeyword(text: string, keyword: string): { start: number; end: number } | undefined {
@@ -733,48 +794,37 @@ function parseImportDeclaration(rawLine: string, source: SourceLocation): Import
 }
 
 function findFunctionEnd(lines: string[], startIndex: number, source: SourceLocation): number {
+  const text = lines.slice(startIndex).join('\n');
   let depth = 0;
-  let sawOpen = false;
-  let quote: string | undefined;
+  let openingOffset: number | undefined;
 
-  const scan = (line: string) => {
-    for (const ch of line) {
-      if (quote) {
-        if (ch === quote) quote = undefined;
-        continue;
+  for (let offset = 0; offset < text.length; offset++) {
+    if (text[offset] === '"' || text[offset] === "'") {
+      const end = findStringLiteralEnd(text, offset);
+      if (end === undefined) {
+        if (openingOffset !== undefined) syntaxError('Invalid syntax in function body', functionTextLocation(text, offset, source));
+        return startIndex;
       }
-      if (ch === '"' || ch === "'") quote = ch;
-      else if (ch === '{') { depth++; sawOpen = true; }
-      else if (ch === '}') depth--;
+      offset = end;
+      continue;
     }
-  };
-
-  scan(lines[startIndex]);
-  if (!sawOpen) return startIndex; // single-line body with no braced constructs
-
-  let index = startIndex;
-  while (depth > 0) {
-    index++;
-    if (index >= lines.length) throw new Error(`Unclosed function body at ${source.line}:${source.column}`);
-    scan(lines[index]);
+    if (text[offset] === '{') {
+      if (openingOffset === undefined) openingOffset = offset;
+      depth++;
+    } else if (text[offset] === '}' && openingOffset !== undefined) {
+      depth--;
+      if (depth === 0) return startIndex + text.slice(0, offset).split('\n').length - 1;
+    }
   }
-  return index;
+
+  if (openingOffset === undefined) return startIndex;
+  syntaxError('Unclosed function body', functionTextLocation(text, openingOffset, source));
 }
 
 function parseFunctionDeclaration(text: string, source: SourceLocation, exported: boolean): FunctionDeclarationNode {
-  const match = text.match(/^\s*fn\s+([A-Za-z][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*)\s*=\s*([\s\S]*)$/);
+  const match = text.match(/^\s*fn\s+([A-Za-z][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*)\s*([\s\S]*)$/);
   if (!match) throw new Error(`Invalid function declaration at ${source.line}:${source.column}`);
-  const [, name, paramsText, returnTypeText, bodyText] = match;
-  const bodyOffset = text.indexOf(bodyText, text.indexOf('='));
-  const nestedDeclaration = /^(?:\s*)(?:(?:export\s+)?(?:dimension|unit)\s+[A-Za-z][A-Za-z0-9_]*|export\s*\{)/m.exec(bodyText);
-  if (nestedDeclaration) {
-    const declarationOffset = bodyOffset + nestedDeclaration.index + nestedDeclaration[0].search(/\S/);
-    const before = text.slice(0, declarationOffset).split(/\r?\n/);
-    staticError('AMX3008', 'Dimension/unit declarations and re-exports may only occur at module scope', {
-      line: source.line + before.length - 1,
-      column: before[before.length - 1].length + 1
-    });
-  }
+  const [, name, paramsText, returnTypeText, bodySuffix] = match;
   const paramsRaw = paramsText.trim();
   const parameters: FunctionParameterNode[] = [];
   if (paramsRaw) {
@@ -784,14 +834,76 @@ function parseFunctionDeclaration(text: string, source: SourceLocation, exported
       parameters.push({ name: paramMatch[1], annotation: parseTypeReference(paramMatch[2], source), source });
     }
   }
-  const bodyTrimmed = bodyText.trim();
+  const bodyOffset = text.length - bodySuffix.length;
+  const bodyTrimmed = bodySuffix.trim();
   if (!bodyTrimmed) throw new Error(`Missing function body at ${source.line}:${source.column}`);
-  let body;
-  try {
-    body = parseExpression(bodyTrimmed, source);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid function body at ${source.line}:${source.column}: ${message}`);
+
+  let body: FunctionDeclarationNode['body'];
+  if (bodyTrimmed.startsWith('=')) {
+    const expressionText = bodyTrimmed.slice(1).trim();
+    const nestedDeclaration = /^(?:\s*)(?:(?:export\s+)?(?:dimension|unit)\s+[A-Za-z][A-Za-z0-9_]*|export\s*\{)/m.exec(expressionText);
+    if (nestedDeclaration) {
+      const declarationOffset = bodyOffset + bodySuffix.indexOf(expressionText) + nestedDeclaration.index + nestedDeclaration[0].search(/\S/);
+      staticError('AMX3008', 'Dimension/unit declarations and re-exports may only occur at module scope',
+        functionTextLocation(text, declarationOffset, source));
+    }
+    if (!expressionText) throw new Error(`Missing function body at ${source.line}:${source.column}`);
+    let expression;
+    try {
+      expression = parseExpression(expressionText, source);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Invalid function body at ${source.line}:${source.column}: ${message}`);
+    }
+    body = { kind: 'expression', expression };
+  } else if (bodyTrimmed.startsWith('{')) {
+    const openingOffset = bodyOffset + bodySuffix.indexOf('{');
+    const openingSource = functionTextLocation(text, openingOffset, source);
+    const closingOffset = matchingFunctionBrace(text, openingOffset, source);
+    if (closingOffset === undefined) syntaxError('Unclosed function body', openingSource);
+    const trailingText = text.slice(closingOffset + 1);
+    if (trailingText.trim()) {
+      const trailingOffset = closingOffset + 1 + trailingText.search(/\S/);
+      syntaxError('Invalid syntax in function body', functionTextLocation(text, trailingOffset, source));
+    }
+
+    const statementText = text.slice(openingOffset + 1, closingOffset);
+    const statementsSource = functionTextLocation(text, openingOffset + 1, source);
+    const semicolonOffset = findUnquotedSemicolon(statementText);
+    if (semicolonOffset !== undefined) {
+      syntaxError('Invalid syntax in function body', functionTextLocation(text, openingOffset + 1 + semicolonOffset, source));
+    }
+    let statements: StatementNode[];
+    try {
+      statements = parseStatements(statementText, statementsSource, {
+        allowFunctionReturn: true,
+        inFunctionBody: true
+      });
+    } catch (error) {
+      if (error instanceof AmxError && (
+        error.message === 'Invalid syntax in function body'
+        || error.message === 'Return is only valid inside a function or expression-form loop'
+        || /^The '.+' statement is not allowed in a function body\.$/.test(error.message)
+      )) throw error;
+      if (error instanceof Error && /^(Nested loops are unsupported|Unsupported loop control statement)/.test(error.message)) {
+        throw error;
+      }
+      const location = error instanceof AmxError && error.line && error.column
+        ? { line: error.line, column: error.column }
+        : error instanceof Error
+          ? errorLocationFromMessage(error.message) ?? openingSource
+          : openingSource;
+      syntaxError('Invalid syntax in function body', location);
+    }
+    body = {
+      kind: 'statements',
+      statements,
+      source: openingSource,
+      openingSource,
+      closingSource: functionTextLocation(text, closingOffset, source)
+    };
+  } else {
+    syntaxError('Invalid syntax in function body', functionTextLocation(text, bodyOffset, source));
   }
   return {
     type: 'functionDeclaration',
@@ -802,6 +914,31 @@ function parseFunctionDeclaration(text: string, source: SourceLocation, exported
     ...(exported ? { exported } : {}),
     source
   };
+}
+
+function matchingFunctionBrace(text: string, openingOffset: number, source: SourceLocation): number | undefined {
+  let depth = 0;
+  for (let offset = openingOffset; offset < text.length; offset++) {
+    if (text[offset] === '"' || text[offset] === "'") {
+      const end = findStringLiteralEnd(text, offset);
+      if (end === undefined) syntaxError('Invalid syntax in function body', functionTextLocation(text, offset, source));
+      offset = end;
+      continue;
+    }
+    if (text[offset] === '{') depth++;
+    else if (text[offset] === '}' && --depth === 0) return offset;
+  }
+  return undefined;
+}
+
+function functionTextLocation(text: string, offset: number, source: SourceLocation): SourceLocation {
+  const functionOffset = text.indexOf('fn');
+  return locationAtOffset(text.slice(functionOffset), offset - functionOffset, source);
+}
+
+function errorLocationFromMessage(message: string): SourceLocation | undefined {
+  const match = message.match(/(?:at\s+)?(\d+):(\d+)\b/);
+  return match ? { line: Number(match[1]), column: Number(match[2]) } : undefined;
 }
 
 function findLoopEnd(lines: string[], startIndex: number, source: SourceLocation): number {

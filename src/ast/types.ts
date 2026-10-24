@@ -92,12 +92,22 @@ export interface FunctionParameterNode {
   source?: SourceLocation;
 }
 
+export type FunctionBodyNode =
+  | { kind: 'expression'; expression: V02ExpressionNode }
+  | {
+      kind: 'statements';
+      statements: StatementNode[];
+      source: SourceLocation;
+      openingSource: SourceLocation;
+      closingSource: SourceLocation;
+    };
+
 export interface FunctionDeclarationNode {
   type: 'functionDeclaration';
   name: string;
   parameters: FunctionParameterNode[];
   returnType: TypeReferenceNode;
-  body: V02ExpressionNode;
+  body: FunctionBodyNode;
   exported?: boolean;
   source?: SourceLocation;
 }

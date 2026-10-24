@@ -606,7 +606,10 @@ function evalFunctionCall(
     userFunction.parameters.forEach(parameter => {
       frame.bindingTypes.set(parameter.name, checkedType(parameter.annotation, functionRegistry));
     });
-    const result = evaluateExpression(userFunction.body, frame, file);
+    if (userFunction.body.kind !== 'expression') {
+      throw new Error('Statement-body functions are not supported by the runtime');
+    }
+    const result = evaluateExpression(userFunction.body.expression, frame, file);
     validateRuntimeValue(result, checkedType(userFunction.returnType, functionRegistry), env, node.source, file, `function ${node.callee} return`);
     return result;
   }

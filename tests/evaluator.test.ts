@@ -1114,7 +1114,7 @@ describe("evaluator - Sprint 008 mutation, ranges, and loops", () => {
     });
 
     it("preserves return restrictions outside expression-local and loop contexts", () => {
-      expect(() => parseStatements("return 1")).toThrow(/Return is only valid inside an expression-form for loop/);
+      expect(() => parseStatements("return 1")).toThrow(/Return is only valid inside a function or expression-form loop/);
     });
   });
 

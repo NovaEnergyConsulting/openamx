@@ -17,7 +17,7 @@ import { parseFrontMatter } from "../src/parser/parseFrontMatter";
 import { parseStatements } from "../src/parser/parseStatements";
 import { parseExpression } from "../src/parser/parseExpression";
 import { parseDocument, parseDocumentText } from "../src/parser/parseDocument";
-import { ExecutableCodeBlockNode, MatchExpressionNode, NarrativeNode, VariableDeclarationNode } from "../src/ast/types";
+import { ExecutableCodeBlockNode, FunctionDeclarationNode, MatchExpressionNode, NarrativeNode, VariableDeclarationNode } from "../src/ast/types";
 import { checkDocument } from "../src/typechecker/checkDocument";
 
 const tmpFiles: string[] = [];
@@ -277,8 +277,24 @@ describe("parseStatements", () => {
     expect(() => parseExpression("for item in [1] {\nreturn item\nreturn item + 1\n}"))
       .toThrow(/exactly one return expression/);
     expect(() => parseStatements("for item in [1] {\nreturn item\n}"))
-      .toThrow(/cannot contain return/);
+      .toThrow(expect.objectContaining({
+        code: 'AMX3006',
+        message: 'Return is only valid inside a function or expression-form loop',
+        line: 2,
+        column: 1
+      }));
     expect(() => parseStatements("return 1")).toThrow(/only valid inside/);
+    expect(() => parseStatements("if true {\n  return 1\n}")).toThrow(expect.objectContaining({
+      code: 'AMX3006',
+      message: 'Return is only valid inside a function or expression-form loop',
+      line: 2,
+      column: 3
+    }));
+    expect(() => parseExpression("if true {\n  for item in [1] {\n    return item\n  }\n  return 0\n} else {\n  return 0\n}"))
+      .toThrow(expect.objectContaining({
+        code: 'AMX3006',
+        message: 'Return is only valid inside a function or expression-form loop'
+      }));
     expect(() => parseStatements("for item in [1] {\nfor nested in [2] {\n}\n}"))
       .toThrow(/Nested loops/);
     expect(() => parseStatements("break")).toThrow(/Unsupported loop control/);
@@ -371,13 +387,188 @@ describe("Sprint 015 function, import, and export parsing", () => {
       ],
       source: { line: 3, column: 1 }
     });
-    expect((fn as any).body.type).toBe('binaryExpression');
+    expect((fn as FunctionDeclarationNode).body).toMatchObject({
+      kind: 'expression',
+      expression: { type: 'binaryExpression' }
+    });
     expect((fn as any).exported).toBeUndefined();
   });
 
   it("parses a multi-line function body containing a braced match expression", () => {
     const [fn] = parseStatements("fn classify(score: Number): String = match score {\n  case 1 => \"low\"\n  default => \"high\"\n}");
-    expect((fn as any).body.type).toBe('matchExpression');
+    expect((fn as FunctionDeclarationNode).body).toMatchObject({
+      kind: 'expression',
+      expression: { type: 'matchExpression' }
+    });
+  });
+
+  it("parses statement bodies with ordered statements and both brace locations", () => {
+    const [declaration] = parseStatements(
+      "fn choose(value: Number): Number {\n  let local = value\n  if local > 0 {\n    return local\n  } else {\n    return 0\n  }\n}",
+      { line: 8, column: 1 }
+    );
+    const fn = declaration as FunctionDeclarationNode;
+    expect(fn.body.kind).toBe('statements');
+    if (fn.body.kind !== 'statements') throw new Error('Expected statement body');
+    expect(fn.body.statements.map(statement => statement.type)).toEqual(['variableDeclaration', 'bracedIfStatement']);
+    expect(fn.body.statements[1]).toMatchObject({
+      consequent: [{ type: 'returnStatement', source: { line: 11, column: 5 } }],
+      alternate: [{ type: 'returnStatement', source: { line: 13, column: 5 } }]
+    });
+    expect(fn.body.openingSource).toEqual({ line: 8, column: 34 });
+    expect(fn.body.closingSource).toEqual({ line: 15, column: 1 });
+  });
+
+  it("permits returns through statement loops without changing expression-loop context", () => {
+    const [declaration] = parseStatements("fn first(values: Number[]): Number {\n  for value in values {\n    if value > 0 {\n      return value\n    }\n  }\n  return 0\n}");
+    const body = (declaration as FunctionDeclarationNode).body;
+    expect(body.kind).toBe('statements');
+    if (body.kind !== 'statements') throw new Error('Expected statement body');
+    expect(body.statements[0]).toMatchObject({
+      type: 'forStatement',
+      body: [{ type: 'bracedIfStatement', consequent: [{ type: 'returnStatement' }] }]
+    });
+    expect(() => parseStatements('return 1')).toThrow(expect.objectContaining({
+      code: 'AMX3006',
+      message: 'Return is only valid inside a function or expression-form loop',
+      line: 1,
+      column: 1
+    }));
+    expect(parseStatements('let values = for item in [1] {\n  return item\n}')[0]).toMatchObject({
+      expression: { type: 'forExpression' }
+    });
+  });
+
+  it("parses every approved function statement form in source order", () => {
+    const [declaration] = parseStatements(
+      "fn mutate(values: Number[]): Number {\n  let result = 1\n  result = result + 1\n  result += 1\n  add result to values\n  remove 1 from values\n  return result\n}"
+    );
+    const body = (declaration as FunctionDeclarationNode).body;
+    expect(body.kind).toBe('statements');
+    if (body.kind !== 'statements') throw new Error('Expected statement body');
+    expect(body.statements.map(statement => statement.type)).toEqual([
+      'variableDeclaration',
+      'assignmentStatement',
+      'compoundAssignmentStatement',
+      'addStatement',
+      'removeStatement',
+      'returnStatement'
+    ]);
+  });
+
+  it("keeps expression-loop and braced-if returns inside their expression nodes", () => {
+    const [declaration] = parseStatements(
+      "fn select(values: Number[]): Number {\n  let collected = for item in values {\n    return item\n  }\n  let selected = if true {\n    return 1\n  } else {\n    return 2\n  }\n  return selected\n}"
+    );
+    const body = (declaration as FunctionDeclarationNode).body;
+    if (body.kind !== 'statements') throw new Error('Expected statement body');
+    const collected = body.statements[0] as VariableDeclarationNode;
+    const selected = body.statements[1] as VariableDeclarationNode;
+    expect(collected.expression).toMatchObject({
+      type: 'forExpression',
+      body: [{ type: 'returnStatement' }]
+    });
+    expect(selected.expression).toMatchObject({
+      type: 'bracedIfExpression',
+      consequent: [{ type: 'returnStatement' }],
+      alternate: [{ type: 'returnStatement' }]
+    });
+    expect(body.statements[2].type).toBe('returnStatement');
+  });
+
+  it("keeps braces in quoted strings inside a statement body", () => {
+    const [declaration, following] = parseStatements(
+      "fn text(): String {\n  let left = \"}\"\n  let right = '{'\n  return left + right\n}\nlet after = 1"
+    );
+    expect((declaration as FunctionDeclarationNode).body.kind).toBe('statements');
+    expect(following).toMatchObject({ type: 'variableDeclaration', name: 'after', source: { line: 6, column: 1 } });
+    const [adjacent] = parseStatements('fn closer(): String { return "}" }');
+    const adjacentBody = (adjacent as FunctionDeclarationNode).body;
+    expect(adjacentBody).toMatchObject({
+      kind: 'statements',
+      statements: [{ type: 'returnStatement' }]
+    });
+    if (adjacentBody.kind !== 'statements') throw new Error('Expected statement body');
+    expect((adjacentBody.statements[0] as { expression: { source?: { line: number; column: number } } }).expression.source)
+      .toEqual({ line: 1, column: 'fn closer(): String { return '.length + 1 });
+    const escaped = String.raw`fn escaped(): String { return "quote: \" }" }`;
+    expect((parseStatements(escaped)[0] as FunctionDeclarationNode).body.kind).toBe('statements');
+  });
+
+  it("preserves function-body loop-control prohibitions", () => {
+    expect(() => parseStatements('fn invalid(): Number {\n  for item in [1] {\n    for other in [2] {\n      return other\n    }\n  }\n  return 0\n}')).toThrow(/Nested loops are unsupported/);
+    expect(() => parseStatements('fn invalid(): Number {\n  break\n  return 0\n}')).toThrow(/Unsupported loop control statement/);
+    expect(() => parseStatements('fn invalid(): Number {\n  continue\n  return 0\n}')).toThrow(/Unsupported loop control statement/);
+  });
+
+  it("reports the approved malformed, unclosed, and trailing-token diagnostics", () => {
+    expect(() => parseStatements('fn invalid(): Number {\n  let = 1\n}')).toThrow(expect.objectContaining({
+      code: 'AMX3006', message: 'Invalid syntax in function body', line: 2, column: 7
+    }));
+    expect(() => parseStatements('fn invalid(value: Number): Number{')).toThrow(expect.objectContaining({
+      code: 'AMX3006', message: 'Unclosed function body', line: 1, column: 34
+    }));
+    expect(() => parseStatements('fn value(): Number { return 1 } trailing')).toThrow(expect.objectContaining({
+      code: 'AMX3006', message: 'Invalid syntax in function body', line: 1, column: 33
+    }));
+    expect(() => parseStatements('fn invalid(): Number {\n  let value = 1; return value\n}')).toThrow(expect.objectContaining({
+      code: 'AMX3006', message: 'Invalid syntax in function body', line: 2, column: 16
+    }));
+  });
+
+  it("rejects prohibited body statements at their keyword with the approved message", () => {
+    const prohibited = [
+      ['import { Value } from "./value.amx"', 'import'],
+      ['export let value = 1', 'export'],
+      ['type Value {\n  }', 'type'],
+      ['enum Value = {\n  }', 'enum'],
+      ['dimension Length', 'dimension'],
+      ['unit Meter: Length', 'unit'],
+      ['input value: Number', 'input'],
+      ['table values = table(data) {\n  }', 'table'],
+      ['chart values = bar(data) {\n  }', 'chart'],
+      ['diagram values {\n  }', 'diagram'],
+      ['show values', 'show'],
+      ['export { value }', 'export'],
+      ['fn nested(): Number = 1', 'fn']
+    ];
+    for (const [statement, keyword] of prohibited) {
+      expect(() => parseStatements(`fn invalid(): Number {\n  ${statement}\n}`)).toThrow(expect.objectContaining({
+        code: 'AMX3006',
+        message: `The '${keyword}' statement is not allowed in a function body.`,
+        line: 2,
+        column: 3
+      }));
+    }
+    expect(() => parseStatements('fn invalid(): Number { import { Value } from "./value.amx" }')).toThrow(expect.objectContaining({
+      code: 'AMX3006',
+      message: "The 'import' statement is not allowed in a function body.",
+      line: 1,
+      column: 24
+    }));
+  });
+
+  it("preserves function-body locations through fenced LF and CRLF documents", () => {
+    const documents = ['\n', '\r\n'].map(newline => parseDocumentText(
+      `narrative${newline}\`\`\`amx${newline}fn value(): Number {${newline}  return 1${newline}}${newline}\`\`\`${newline}`
+    ));
+    for (const document of documents) {
+      const block = document.nodes.find(node => node.type === 'executableCodeBlock') as ExecutableCodeBlockNode;
+      const fn = block.statements[0] as FunctionDeclarationNode;
+      expect(fn.source).toEqual({ line: 3, column: 1 });
+      expect(fn.body.kind).toBe('statements');
+      if (fn.body.kind !== 'statements') throw new Error('Expected statement body');
+      expect(fn.body.openingSource).toEqual({ line: 3, column: 20 });
+      expect(fn.body.closingSource).toEqual({ line: 5, column: 1 });
+      expect(fn.body.statements[0].source).toEqual({ line: 4, column: 3 });
+    }
+
+    const unicodeLine = 'fn unicode(): String { return "😀}" }';
+    const unicodeDocument = parseDocumentText(`\`\`\`amx\n${unicodeLine}\n\`\`\`\n`);
+    const unicodeBlock = unicodeDocument.nodes.find(node => node.type === 'executableCodeBlock') as ExecutableCodeBlockNode;
+    const unicodeFunction = unicodeBlock.statements[0] as FunctionDeclarationNode;
+    if (unicodeFunction.body.kind !== 'statements') throw new Error('Expected statement body');
+    expect(unicodeFunction.body.closingSource).toEqual({ line: 2, column: unicodeLine.lastIndexOf('}') + 1 });
   });
 
   it("parses named local imports with per-name and path source locations", () => {

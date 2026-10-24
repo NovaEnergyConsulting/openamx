@@ -1447,12 +1447,15 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
           paramScope.set(parameter.name, resolve(parameter.annotation));
         }
         const returnType = resolve(statement.returnType);
-        if (bodyContainsForExpression(statement.body)) fail('AMX3003', 'Function bodies cannot contain a for expression', statement.body.source ?? statement.source);
+        if (statement.body.kind !== 'expression') {
+          throw new Error('Statement-body function checking is not supported yet');
+        }
+        if (bodyContainsForExpression(statement.body.expression)) fail('AMX3003', 'Function bodies cannot contain a for expression', statement.body.expression.source ?? statement.source);
         const outerBindings = bindings;
         bindings = paramScope;
         try {
-          const actual = infer(statement.body, returnType);
-          requireType(actual, returnType, statement.body.source ?? statement.source);
+          const actual = infer(statement.body.expression, returnType);
+          requireType(actual, returnType, statement.body.expression.source ?? statement.source);
         } finally {
           bindings = outerBindings;
         }

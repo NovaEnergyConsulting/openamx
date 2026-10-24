@@ -173,7 +173,7 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 		}
 		if (node.type === "enumDeclaration") for (const member of node.members) add(member.nameSource, member.name, "declaration");
 		if (node.type === "variableDeclaration") { typeReference(node.annotation); expression(node.expression); }
-		else if (node.type === "functionDeclaration") { node.parameters.forEach(param => typeReference(param.annotation)); typeReference(node.returnType); expression(node.body); }
+		else if (node.type === "functionDeclaration") { node.parameters.forEach(param => typeReference(param.annotation)); typeReference(node.returnType); if (node.body.kind === "expression") expression(node.body.expression); }
 		else if (node.type === "tableDeclaration" || node.type === "chartDeclaration") add(node.bindingSource, node.binding, "reference");
 		else if (node.type === "showStatement") add(node.nameSource, node.name, "reference");
 		else if (node.type === "assignmentStatement" || node.type === "compoundAssignmentStatement") expression(node.expression);
