@@ -1,0 +1,102 @@
+---
+title: Vector rotation
+---
+# Vector rotation
+
+```amx
+dimension Frequency
+unit Hz: Frequency
+
+dimension Angle
+unit radians: Angle
+unit degrees = radians * 180/3.1416
+
+let canvasWidth = 800
+let canvasHeight = 400
+let canvasCenterX = canvasWidth / 2
+let canvasCenterY = canvasHeight / 2
+let canvasQtrX = canvasWidth / 4
+let marginWidth = 2
+let marginHeight = 2
+let chartingWidth = canvasWidth - canvasCenterX - 2*marginWidth
+
+let animationStart = 0
+let animationEnd = 2
+let animationDuration = 2
+let slowdownFactor = 100
+
+let systemFrequency = 50 Hz
+
+let vectorLength = 150
+
+fn timeToAngle(t: Number, f: Number): Number = 2 * PI * f * t
+fn angleToDegrees(a: Number): Number = a * 180/PI
+fn vectorEndX(x0: Number, l: Number, a: Number, o:Number): Number = x0 + l * cos(a + o)
+fn vectorEndY(y0: Number, l: Number, a: Number, o: Number): Number = y0 + l * sin(a + o)
+fn timeCursor(t: Number, d: Number, l: Number): Number = l * (t/d)
+
+diagram vectorRotation {
+  title: "Vector Rotation"
+  description: "A demonstration of three-phase Vector Rotation"
+  width: canvasWidth
+  height: canvasHeight
+  time ti from animationStart to animationEnd duration animationDuration
+  line phaseA {
+    x1: canvasQtrX
+    y1: canvasCenterY
+    x2: vectorEndX(canvasQtrX, vectorLength, timeToAngle(ti, 50) / slowdownFactor, 0)
+    y2: vectorEndY(canvasCenterY, vectorLength, timeToAngle(ti, 50) / slowdownFactor, 0)
+    stroke: "#FF0000"
+    lineWidth: 2
+    arrow: "end"
+  }
+  line phaseB {
+    x1: canvasQtrX
+    y1: canvasCenterY
+    x2: vectorEndX(canvasQtrX, vectorLength, timeToAngle(ti, 50) / slowdownFactor, 2*PI/3)
+    y2: vectorEndY(canvasCenterY, vectorLength, timeToAngle(ti, 50) / slowdownFactor, 2*PI/3)
+    stroke: "#00FF00"
+    lineWidth: 2
+    arrow: "end"
+  }
+  line phaseC {
+    x1: canvasQtrX
+    y1: canvasCenterY
+    x2: vectorEndX(canvasQtrX, vectorLength, timeToAngle(ti, 50) / slowdownFactor, -2*PI/3)
+    y2: vectorEndY(canvasCenterY, vectorLength, timeToAngle(ti, 50) / slowdownFactor, -2*PI/3)
+    stroke: "#0000FF"
+    lineWidth: 2
+    arrow: "end"
+  }
+  circle phaseADot {
+    cx: canvasCenterX + timeCursor(ti,animationDuration,chartingWidth)
+    cy: vectorEndY(canvasCenterY, vectorLength, timeToAngle(ti, 50) / slowdownFactor, 0)
+    r: 3
+    stroke: "#FF0000"
+    fill: "#FF0000"
+    lineWidth: 1
+  }
+  circle phaseBDot {
+    cx: canvasCenterX + timeCursor(ti,animationDuration,chartingWidth)
+    cy: vectorEndY(canvasCenterY, vectorLength, timeToAngle(ti, 50) / slowdownFactor, 2*PI/3)
+    r: 3
+    stroke: "#00FF00"
+    fill: "#00FF00"
+    lineWidth: 1
+  }
+  circle phaseCDot {
+    cx: canvasCenterX + timeCursor(ti,animationDuration,chartingWidth)
+    cy: vectorEndY(canvasCenterY, vectorLength, timeToAngle(ti, 50) / slowdownFactor, -2*PI/3)
+    r: 3
+    stroke: "#0000FF"
+    fill: "#0000FF"
+    lineWidth: 1
+  }
+  text timeLabel {
+    x: 18
+    y: 24
+    value: "Angle: ${round(angleToDegrees(timeToAngle(ti, 50))/slowdownFactor,0)}"
+    fill: "#000000"
+  }
+}
+```

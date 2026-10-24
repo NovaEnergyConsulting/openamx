@@ -49,6 +49,7 @@ function withHealthyDiagram(document: string): string {
 function createRenderedFixtures(directory: string): void {
 	const crank = amxBody(fixture("D-CRANK-01"));
 	const battery = amxBody(fixture("D-BATTERY-01"));
+	const vectorRotation = readFileSync(resolve(repositoryRoot, "tests/fixtures/examples/v0.16-vector-rotation.amx"), "utf8");
 	const combined = `---
 title: Interactive mechanism and circuit
 ---
@@ -106,6 +107,7 @@ diagram quick {
 	}));
 	const inputs = [
 		{ file: "combined.amx", source: combined, mode: "standalone" },
+		{ file: "VectorRotation-preview.amx", source: vectorRotation, mode: "preview" },
 		{ file: "stress.amx", source: stress, mode: "standalone" },
 		{ file: "quick.amx", source: quick, mode: "standalone" },
 		...failures.flatMap(({ id, source }) => [
@@ -369,10 +371,19 @@ test("desktop preview bridge reports frame diagnostics in the active token-bound
 		if (!original) throw new Error("The workbench preview did not provide srcdoc.");
 		const token = original.match(/const token="([a-f0-9]{64})"/)?.[1];
 		if (!token) throw new Error("The active preview token was not found in trusted preview bootstrap.");
+		const vectorHtml = readFileSync(join(directory, "VectorRotation-preview.html"), "utf8")
+			.replace(/const token="[a-f0-9]{64}"/, `const token="${token}"`);
+		await iframe.evaluate((element, html) => { (element as HTMLIFrameElement).srcdoc = html; }, vectorHtml);
+		const frame = page.frameLocator('iframe[title="OpenAMX live HTML preview"]').last();
+		const vectorDiagram = frame.locator("[data-openamx-diagram]").first();
+		await expect(vectorDiagram).toBeVisible();
+		await expect(vectorDiagram.locator('[data-diagram-element="phaseA"]')).toHaveAttribute("x2", "350");
+		await expect(vectorDiagram.locator('[data-diagram-element="timeLabel"]')).toHaveText("Angle: 0");
+		await expect(vectorDiagram.locator("[data-diagram-error]")).toBeHidden();
+		await expect(page.locator(".runtime-status")).not.toContainText("DIAGRAM_RUNTIME");
 		const previewHtml = readFileSync(join(directory, "D-NEG-24-preview.html"), "utf8")
 			.replace(/const token="[a-f0-9]{64}"/, `const token="${token}"`);
 		await iframe.evaluate((element, html) => { (element as HTMLIFrameElement).srcdoc = html; }, previewHtml);
-		const frame = page.frameLocator('iframe[title="OpenAMX live HTML preview"]').last();
 		await frame.locator("[data-openamx-diagram]").nth(0).getByRole("slider").evaluate(element => {
 			const slider = element as HTMLInputElement;
 			slider.value = "1";

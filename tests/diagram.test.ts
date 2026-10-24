@@ -89,6 +89,41 @@ describe('diagram language and shared scene model', () => {
     expect(currentLabel).toMatchObject({ primitive: 'text', value: 'I = 0.6 A' });
   });
 
+  it('evaluates the rotating-vector example before and after browser serialization', () => {
+    const source = readFileSync(new URL('./fixtures/examples/v0.16-vector-rotation.amx', import.meta.url), 'utf8');
+    const model = captureModel(source, 'VectorRotationDiagram.amx');
+    const browserModel = deserializeDiagramSceneModel(serializeDiagramSceneModel(model));
+    const expectedFrames = [
+      { time: 0, vectorX: 350, cursorX: 400, angle: 'Angle: 0' },
+      { time: 1, vectorX: 50, cursorX: 598, angle: 'Angle: 180' },
+      { time: 2, vectorX: 350, cursorX: 796, angle: 'Angle: 360' }
+    ];
+
+    for (const candidate of [model, browserModel]) {
+      for (const expected of expectedFrames) {
+        const elements = new Map(evaluateDiagramFrame(candidate, expected.time).elements.map(element => [element.name, element]));
+        const phaseA = elements.get('phaseA');
+        const phaseADot = elements.get('phaseADot');
+        if (phaseA?.primitive !== 'line' || phaseADot?.primitive !== 'circle') {
+          throw new Error('Expected the phase A vector and dot.');
+        }
+        expect(phaseA.x2).toBeCloseTo(expected.vectorX, 8);
+        expect(phaseA.y2).toBeCloseTo(200, 8);
+        expect(phaseADot.cx).toBeCloseTo(expected.cursorX, 8);
+        expect(phaseADot.cy).toBeCloseTo(200, 8);
+        expect(elements.get('timeLabel')).toMatchObject({ value: expected.angle });
+      }
+    }
+    expect(model.initialFrame).toEqual(evaluateDiagramFrame(browserModel, 0));
+    const phaseB = model.initialFrame.elements.find(element => element.name === 'phaseB');
+    const phaseC = model.initialFrame.elements.find(element => element.name === 'phaseC');
+    if (phaseB?.primitive !== 'line' || phaseC?.primitive !== 'line') throw new Error('Expected three vector lines.');
+    expect(phaseB.x2).toBeCloseTo(125, 8);
+    expect(phaseB.y2).toBeCloseTo(329.9038, 3);
+    expect(phaseC.x2).toBeCloseTo(125, 8);
+    expect(phaseC.y2).toBeCloseTo(70.0962, 3);
+  });
+
   it('preserves all 24 invalid-fixture diagnostics and their original-document locations', () => {
     const expected: Array<{
       id: string;
