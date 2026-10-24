@@ -38,6 +38,13 @@ function git(rootDirectory: string, args: string[]): string {
 	return execFileSync("git", args, { cwd: rootDirectory, encoding: "utf8" }).trim();
 }
 
+export function releaseSourceChanges(rootDirectory: string): string[] {
+	const trackedChanges = git(rootDirectory, ["diff", "--name-only", "HEAD", "--"]);
+	const untrackedFiles = git(rootDirectory, ["ls-files", "--others", "--exclude-standard"]);
+	const paths = [trackedChanges, untrackedFiles].flatMap(output => output ? output.split(/\r?\n/) : []);
+	return [...new Set(paths)].sort();
+}
+
 function localGitConfigValues(rootDirectory: string, key: string): string[] {
 	const result = spawnSync("git", ["config", "--local", "--get-all", key], { cwd: rootDirectory, encoding: "utf8" });
 	if (result.error) throw result.error;
@@ -356,8 +363,9 @@ export async function runDesktopRelease(rootDirectory = ROOT_DIRECTORY): Promise
 		const installer = await findInstaller(artifactRoot, target.nativeOs, target.nativeArchitecture);
 		const appInspection = await verifyBuiltApp(buildRoot, { name: APPLICATION_NAME, identifier: APPLICATION_IDENTIFIER, version: packageManifest.version, architecture: target.architecture, nativeOs: target.nativeOs, electrobunVersion });
 		const updateMetadata = await verifyUpdateMetadata(artifactRoot, target.nativeOs, target.nativeArchitecture, packageManifest.version, appInspection.hash);
-		if (git(sourceDirectory, ["status", "--porcelain", "--untracked-files=all"])) {
-			throw new Error("Release build modified tracked or non-ignored source files in the clean worktree.");
+		const sourceChanges = releaseSourceChanges(sourceDirectory);
+		if (sourceChanges.length > 0) {
+			throw new Error(`Release build modified tracked or non-ignored source files in the clean worktree:\n${sourceChanges.join("\n")}`);
 		}
 		const bundleDirectory = path.join(attemptDirectory, "bundle");
 		const bundleArtifacts = path.join(bundleDirectory, "artifacts");

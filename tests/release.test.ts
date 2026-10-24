@@ -7,7 +7,7 @@ import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "no
 import os from "node:os";
 import path from "node:path";
 import { inspectRelease, isStableVersion, manifestPaths, mapNativeTarget, prepareVersion } from "../scripts/release";
-import { binaryArchitecture, finalizeTargetBundle, findInstaller, installerFormat, prepareDesktopBuildWorktree, restoreDesktopBuildWorktreeConfig, runDesktopRelease, sanitizeBuildWarning, unsupportedInstallerArchiveMembers, verifyBuiltApp, verifyUpdateMetadata } from "../scripts/release/desktop";
+import { binaryArchitecture, finalizeTargetBundle, findInstaller, installerFormat, prepareDesktopBuildWorktree, releaseSourceChanges, restoreDesktopBuildWorktreeConfig, runDesktopRelease, sanitizeBuildWarning, unsupportedInstallerArchiveMembers, verifyBuiltApp, verifyUpdateMetadata } from "../scripts/release/desktop";
 import { appMetadata } from "../desktop-app/app-metadata";
 import { localInstallInvocation } from "../vscode-extension/install-local.mjs";
 import JSZip from "jszip";
@@ -353,6 +353,10 @@ describe("desktop release packaging", () => {
 			expect(existsSync(path.join(worktree, "planning/sprints/0094-v15-example-test-migration-acceptance-closeout"))).toBe(false);
 			expect(existsSync(path.join(worktree, "tests/release.test.ts"))).toBe(false);
 			expect(execFileSync("git", ["-C", worktree, "status", "--porcelain", "--untracked-files=all"], { encoding: "utf8" }).trim()).toBe("");
+			expect(releaseSourceChanges(worktree)).toEqual([]);
+			await writeFile(path.join(worktree, "desktop-app/hutch.config.ts"), 'export default { version: "2.0.2" }\n');
+			await writeFile(path.join(worktree, "desktop-app/build-output.txt"), "generated output\n");
+			expect(releaseSourceChanges(worktree)).toEqual(["desktop-app/build-output.txt", "desktop-app/hutch.config.ts"]);
 			expect(existsSync(planningArtifact)).toBe(true);
 		} finally {
 			if (worktreeAdded) {

@@ -17,7 +17,7 @@ if (!bundle) throw new Error('The offline diagram runtime build produced no outp
 const contents = await bundle.text();
 const generated = `const diagramBrowserRuntime = ${JSON.stringify(contents)};\nexport default diagramBrowserRuntime;\n`;
 const current = existsSync(sourceBundle) ? await readFile(sourceBundle, 'utf8') : undefined;
-if (current !== generated) {
+if (current === undefined || current.replace(/\r\n/g, '\n') !== generated) {
   await mkdir(fileURLToPath(new URL('../src/renderer', import.meta.url)), { recursive: true });
   await Bun.write(sourceBundle, generated);
 }
