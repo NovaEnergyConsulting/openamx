@@ -5,7 +5,7 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
-export const DESKTOP_GUIDE_STAGE_RELATIVE_PATH = ".cottontail-tmp/sprint-093-guide-attempt-2";
+export const DESKTOP_GUIDE_STAGE_RELATIVE_PATH = "dist/guide";
 
 export const DESKTOP_GUIDE_FILES = [
 	"00_Table_of_Contents.amx",

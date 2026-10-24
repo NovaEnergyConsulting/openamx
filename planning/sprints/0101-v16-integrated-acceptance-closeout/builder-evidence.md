@@ -136,12 +136,38 @@ temp artifact root.
 | Path/output | Approved purpose | Baseline/result |
 | --- | --- | --- |
 | `tests/modules.test.ts` | Approved narrow test-only braced function export/import roundtrip. | Added; focused test passes 1/1; included in full focused and root suites. |
+| `desktop-app/src/bun/guideResources.ts` | Post-closeout fix for stale ignored guide staging destination. | Stage path changed from `.cottontail-tmp/sprint-093-guide-attempt-2` to `dist/guide`, which Vite recreates before guide staging. Focused guide suite passes 8/8. |
+| `desktop-app/electrobun.config.ts` | Embed resources from the generated guide stage. | Electrobun source now maps `dist/guide` to packaged `bun/guide`; isolated dev package parity passes for 26 files. |
+| `desktop-app/src/bun/guideResources.test.ts` | Prevent staging/package path drift. | Resolver test asserts stage is `dist/guide` and Electrobun copies that key to `bun/guide`; focused suite passes 8/8, 103 assertions. |
 | `desktop-app/tests/rpc-contract-check.ts` | User-authorized correction of stale sandbox occurrence count. | Expected count changed from 2 to 1, matching the single preview iframe; RPC contract and full desktop package tests pass. No markup/CSP change. |
 | `vscode-extension/src/test/runTest.ts` | User-authorized default test-host maintenance. | Host pin changed from incompatible 1.85.0 to compatible 1.143.1; configured suite passes 26/26. |
 | `planning/sprints/0101-v16-integrated-acceptance-closeout/integrated-evidence-matrix.md` | Approved Sprint 101 raw result matrix. | Updated with command/results, owners, separate pending dispositions. |
 | `planning/sprints/0101-v16-integrated-acceptance-closeout/builder-evidence.md` | Approved Sprint 101 closeout evidence. | Updated with authorization, environment, first attempts/retries, outputs, residuals, and recommendation. |
 | `src/renderer/diagramBrowserRuntime.ts` | No change approved; product owner later authorized backup and restoration. | Initial generated diff backed up at `/tmp/openamx-sprint101-0k8S5A/artifacts/diagramBrowserRuntime.before-restore.ts` (SHA-256 `6a39ecbc9367abf60c5284da8d02edf683f2798bf1bf6ebb403bdabc5e2edad9`) then restored from entry commit; current file matches entry SHA-256 `d9e8cbdef2b3a06c038a46b58c9323b605ea2aac076b464d741c71fc707c2bd3`. |
 | `/tmp/openamx-sprint101-0k8S5A/artifacts/` | Approved raw output location outside repository. | Contains first attempts, retries, logs, and host results; UI files under isolated `desktop-app/test-results/sprint101-v16-ui-0k8S5A/`. |
+
+## Post-Closeout `run:app` Follow-Up
+
+The user reported root `bun run run:app` failing when the current `examples/`
+tree no longer matched the stale ignored desktop guide stage. The existing
+`.cottontail-tmp/sprint-093-guide-attempt-2` held an older 00-14 tree while the
+canonical allowlist includes reference 15 and 26 total resources. Staging
+correctly rejected the stale destination instead of overwriting it.
+
+The stage now targets `desktop-app/dist/guide`, which Vite empties before each
+build, and `electrobun.config.ts` copies `dist/guide` to packaged `bun/guide`.
+The invalid old ignored stage was left untouched. `bun test
+src/bun/guideResources.test.ts` passes 8/8 tests (103 assertions), including a
+regression assertion that staging and Electrobun copy paths match.
+
+An isolated copy of the current commit with this fix ran root `bun run run:app`.
+Vite built, the stage emitted 26 allowlisted files, Electrobun dev build
+completed, and `verifyDesktopGuideParity` passed against packaged `bun/guide`
+(26 files; `15_Function_Bodies.amx` present). The app entered GTK/X11 startup,
+then logged `X11 Error: GLXBadWindow (code 170)`; the isolated process was
+stopped. Thus guide staging and embedding are verified; a usable native window
+was not verified in this Linux environment. Raw log:
+`/tmp/openamx-run-app-Fn9om2/artifacts/run-app.log`.
 
 ## Requirement Status and Disposition
 

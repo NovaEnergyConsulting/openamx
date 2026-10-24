@@ -17,7 +17,7 @@ export default {
 			"dist/jobWorker.js": "bun/jobWorker.js",
 			"dist/native-sharp": "bun/node_modules",
 			"dist/pdfmake-fonts": "bun/pdfmake-fonts",
-			".cottontail-tmp/sprint-093-guide-attempt-2": "bun/guide",
+			"dist/guide": "bun/guide",
 		},
 		// Ignore Vite output in watch mode — HMR handles view rebuilds separately
 		watchIgnore: ["dist/**", ".cottontail-tmp/**"],

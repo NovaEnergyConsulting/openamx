@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createDesktopService } from "./desktopService";
+import electrobunConfig from "../../electrobun.config";
 import {
 	DESKTOP_GUIDE_FILES, DESKTOP_GUIDE_STAGE_RELATIVE_PATH, materializeDesktopGuide,
 	resolveDesktopGuideResourceDirectory, stageDesktopGuideResources, verifyDesktopGuideParity
@@ -57,6 +58,8 @@ describe("desktop guide resources", () => {
 	it("resolves only the fixed packaged or development guide resource location", () => {
 		const temporaryRoot = mkdtempSync(join(tmpdir(), "openamx-guide-resolver-"));
 		try {
+			expect(DESKTOP_GUIDE_STAGE_RELATIVE_PATH).toBe("dist/guide");
+			expect(electrobunConfig.build.copy[DESKTOP_GUIDE_STAGE_RELATIVE_PATH]).toBe("bun/guide");
 			const developmentRuntime = join(temporaryRoot, "desktop-app", "src", "bun");
 			const developmentResources = join(temporaryRoot, "desktop-app", ...DESKTOP_GUIDE_STAGE_RELATIVE_PATH.split("/"));
 			mkdirSync(developmentRuntime, { recursive: true });
