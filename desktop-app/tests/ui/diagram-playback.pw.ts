@@ -200,6 +200,14 @@ test("standalone local-file playback is paused, accessible, independent, respons
 		await expect(crankPlay).toHaveText("Play");
 		await crank.getByRole("button", { name: "Reset Crank-slider mechanism" }).click();
 		await expect(crankTime).toHaveText("0");
+		await crankScrubber.evaluate(element => {
+			const slider = element as HTMLInputElement;
+			slider.value = "0.1234567";
+			slider.dispatchEvent(new Event("input", { bubbles: true }));
+		});
+		await expect(crankTime).toHaveText("0.123");
+		await expect(crankScrubber).toHaveValue("0.1234567");
+		await expect(crankScrubber).toHaveAttribute("aria-valuetext", "0.123");
 
 		const batteryScrubber = battery.getByRole("slider", { name: "Time for Battery-resistor DC circuit" });
 		await batteryScrubber.evaluate(element => {
@@ -208,7 +216,7 @@ test("standalone local-file playback is paused, accessible, independent, respons
 			slider.dispatchEvent(new Event("input", { bubbles: true }));
 		});
 		await expect(battery.locator("[data-diagram-time]")).toHaveText("2");
-		await expect(crankTime).toHaveText("0");
+		await expect(crankTime).toHaveText("0.123");
 		await expect(battery.locator('[data-diagram-element="currentIndicator"]')).toHaveAttribute("x1", "108");
 
 		const bounds = await crank.locator("svg").boundingBox();

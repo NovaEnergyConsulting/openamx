@@ -1,5 +1,5 @@
 import { AmxError } from '../diagnostics/errors';
-import { deserializeDiagramSceneModel, evaluateDiagramFrame, type DiagramSceneModel, type DiagramFrame } from '../runtime/diagramModel';
+import { deserializeDiagramSceneModel, evaluateDiagramFrame, type DiagramFrame, type DiagramSceneModel } from '../runtime/diagramModel';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const activeStates = new Set<PlaybackState>();
@@ -113,12 +113,13 @@ async function deserializePayload(payload: HTMLScriptElement): Promise<DiagramSc
 
 function syncControls(state: PlaybackState): void {
   const title = state.model.title;
+  const displayTime = state.time.toFixed(3).toString();
   state.playButton.textContent = state.running ? 'Pause' : 'Play';
   state.playButton.setAttribute('aria-label', `${state.running ? 'Pause' : 'Play'} ${title}`);
   state.scrubber.value = String(state.time);
-  state.scrubber.setAttribute('aria-valuetext', String(state.time));
-  state.timeOutput.value = String(state.time);
-  state.timeOutput.textContent = String(state.time);
+  state.scrubber.setAttribute('aria-valuetext', displayTime);
+  state.timeOutput.value = displayTime;
+  state.timeOutput.textContent = displayTime;
 }
 
 function stop(state: PlaybackState): void {

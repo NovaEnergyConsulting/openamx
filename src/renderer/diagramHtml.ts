@@ -23,9 +23,9 @@ export function renderDiagramFigure(model: DiagramSceneModel, id: string): strin
   <div class="openamx-diagram-controls" role="group" aria-label="Playback controls for ${escapeHtml(model.title)}">
     <button type="button" data-diagram-play aria-label="Play ${escapeHtml(model.title)}">Play</button>
     <button type="button" data-diagram-reset aria-label="Reset ${escapeHtml(model.title)}">Reset</button>
+    <label><input type="checkbox" data-diagram-loop aria-label="Loop ${escapeHtml(model.title)}"> Loop</label>
     <label><span>Time</span><input type="range" data-diagram-scrubber min="${from}" max="${to}" step="any" value="${from}" aria-label="Time for ${escapeHtml(model.title)}"></label>
     <output data-diagram-time aria-live="polite">${from}</output>
-    <label><input type="checkbox" data-diagram-loop aria-label="Loop ${escapeHtml(model.title)}"> Loop</label>
   </div>
   <svg class="openamx-diagram-canvas" data-diagram-canvas width="${model.canvas.width}" height="${model.canvas.height}" viewBox="0 0 ${model.canvas.width} ${model.canvas.height}" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="${titleId}" aria-describedby="${descriptionId}"></svg>
   <p class="openamx-diagram-error" data-diagram-error role="alert" hidden></p>
