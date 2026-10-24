@@ -1,5 +1,6 @@
 import type {
 	DocumentNode,
+	FunctionDeclarationNode,
 	BracedIfExpressionNode,
 	BracedIfStatementNode,
 	DiagramDeclarationNode,
@@ -11,6 +12,7 @@ import type {
 	OpenAmxDocument,
 	RangeExpressionNode,
 	StatementNode,
+	TypeReferenceNode,
 	TypeDeclarationNode,
 	V02ExpressionNode
 } from "../ast/types";
@@ -142,6 +144,15 @@ function statementEndOffset(text: string, statement: StatementNode): number {
 		else if (character === "\n" && depth <= 0) return offset;
 	}
 	return text.length;
+}
+
+function expressionFunctionBodyBounds(text: string, fn: FunctionDeclarationNode): { from: number; to: number } | undefined {
+	if (fn.body.kind !== "expression") return undefined;
+	const start = sourceOffset(text, fn.source);
+	if (start === undefined) return undefined;
+	const signature = text.slice(start).match(/^fn\s+[A-Za-z][A-Za-z0-9_]*\s*\([^)]*\)\s*:\s*[A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*\s*=/);
+	if (!signature) return undefined;
+	return { from: start + signature[0].length, to: statementEndOffset(text, fn) };
 }
 
 function blockBounds(text: string, source: StatementNode["source"]): { open: number; close: number } | undefined {
@@ -405,12 +416,90 @@ function visibleSymbols(text: string, parsed: OpenAmxDocument, cursorOffset: num
 	};
 	const collectRange = (expression: RangeExpressionNode) => { collectExpression(expression.start); collectExpression(expression.end); };
 
-	for (const node of parsed.nodes) {
-		if (node.type === "executableCodeBlock" && node.source && (sourceOffset(text, node.source) ?? Number.MAX_SAFE_INTEGER) < cursorOffset) {
-			collectStatements(node.statements);
+	const functionDeclarations = statementsOf(parsed).filter((statement): statement is FunctionDeclarationNode =>
+		statement.type === "functionDeclaration");
+	const activeFunction = functionDeclarations.find(statement => {
+		if (statement.body.kind === "expression") {
+			const bounds = expressionFunctionBodyBounds(text, statement);
+			return !!bounds && cursorOffset >= bounds.from && cursorOffset <= bounds.to;
+		}
+		const opening = sourceOffset(text, statement.body.openingSource);
+		const closing = sourceOffset(text, statement.body.closingSource);
+		return opening !== undefined && closing !== undefined && cursorOffset > opening && cursorOffset <= closing;
+	});
+
+	if (activeFunction) {
+		const functionStart = sourceOffset(text, activeFunction.source) ?? Number.MAX_SAFE_INTEGER;
+		const moduleDeclarations = statementsOf(parsed).filter(statement => {
+			const start = sourceOffset(text, statement.source);
+			return start !== undefined && start < functionStart && [
+				"functionDeclaration", "typeDeclaration", "enumDeclaration", "dimensionDeclaration", "unitDeclaration"
+			].includes(statement.type);
+		});
+		collectStatements(moduleDeclarations);
+		for (const imported of statementsOf(parsed).filter((statement): statement is Extract<StatementNode, { type: "importDeclaration" }> =>
+			statement.type === "importDeclaration" && (sourceOffset(text, statement.source) ?? Number.MAX_SAFE_INTEGER) < functionStart)) {
+			for (const item of imported.names) {
+				if (analysis?.importedTypes.has(item.name)) types.add(item.name);
+				if (analysis?.importedEnums.has(item.name)) {
+					types.add(item.name);
+					enums.set(item.name, analysis.importedEnums.get(item.name)!);
+				}
+				if (analysis?.importedFunctions.has(item.name)) functions.add(item.name);
+			}
+		}
+
+		const namedType = (type: TypeReferenceNode | undefined): string | undefined => {
+			if (!type) return undefined;
+			if (type.type === "namedType") return type.name;
+			return namedType(type.element);
+		};
+		let functionScope = new Map(activeFunction.parameters.map(parameter => [parameter.name, namedType(parameter.annotation)]));
+		const collectFunctionScope = (statements: StatementNode[], scope: Map<string, string | undefined>): Map<string, string | undefined> => {
+			for (const statement of statements) {
+				const start = sourceOffset(text, statement.source);
+				if (start === undefined || start >= cursorOffset) continue;
+				if (statement.type === "variableDeclaration") {
+					if (statementEndOffset(text, statement) <= cursorOffset) {
+						const inferred = namedType(statement.annotation)
+							?? (statement.expression.type === "recordConstructor" ? statement.expression.name : undefined);
+						scope.set(statement.name, inferred);
+					}
+				} else if (statement.type === "bracedIfStatement") {
+					if (insideIfBranch(text, statement, cursorOffset, false)) {
+						return collectFunctionScope(statement.consequent, new Map(scope));
+					}
+					if (statement.alternate && insideIfBranch(text, statement, cursorOffset, true)) {
+						return collectFunctionScope(statement.alternate, new Map(scope));
+					}
+				} else if (statement.type === "forStatement") {
+					const bounds = loopBounds(text, statement);
+					if (bounds && cursorOffset > bounds.open && cursorOffset <= bounds.close) {
+						const loopScope = new Map(scope);
+						loopScope.set(statement.variable, undefined);
+						return collectFunctionScope(statement.body, loopScope);
+					}
+				}
+			}
+			return scope;
+		};
+		if (activeFunction.body.kind === "statements") {
+			functionScope = collectFunctionScope(activeFunction.body.statements, functionScope);
+		}
+		variables.clear();
+		localBindingTypes.clear();
+		for (const [name, typeName] of functionScope) {
+			variables.add(name);
+			if (typeName) localBindingTypes.set(name, typeName);
+		}
+	} else {
+		for (const node of parsed.nodes) {
+			if (node.type === "executableCodeBlock" && node.source && (sourceOffset(text, node.source) ?? Number.MAX_SAFE_INTEGER) < cursorOffset) {
+				collectStatements(node.statements);
+			}
 		}
 	}
-	for (const iterator of activeIterators) variables.add(iterator);
+	if (!activeFunction) for (const iterator of activeIterators) variables.add(iterator);
 	for (const [name, typeName] of localBindingTypes) {
 		const declaration = localTypeDeclarations.get(typeName) ?? analysis?.importedTypes.get(typeName);
 		if (declaration) recordTypes.set(name, declaration);

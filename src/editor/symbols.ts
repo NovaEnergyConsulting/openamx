@@ -55,6 +55,17 @@ function enumMemberSource(text: string, source: StatementNode["source"]): Statem
 	return { line: source!.line, column: source!.column + 1 + whitespace };
 }
 
+function loopVariableRange(text: string, loop: Extract<StatementNode, { type: "forStatement" }>): EditorRange | undefined {
+	const start = sourceOffset(text, loop.source);
+	if (start === undefined) return undefined;
+	const lineEnd = text.indexOf("\n", start);
+	const header = text.slice(start, lineEnd < 0 ? text.length : lineEnd).replace(/\r$/, "");
+	const match = header.match(/^for\s+([A-Za-z][A-Za-z0-9_]*)\s+in\b/);
+	if (!match || match[1] !== loop.variable) return undefined;
+	const from = start + match[0].indexOf(loop.variable);
+	return { from, to: from + loop.variable.length };
+}
+
 /** Build identity-bearing symbol occurrences; uncertain parser spans and duplicate declarations have no target. */
 export function editorSymbolFacts(
 	text: string,
@@ -294,7 +305,102 @@ export function editorSymbolFacts(
 					statement.consequent.forEach(item => nestedStatement(item));
 					statement.alternate?.forEach(item => nestedStatement(item));
 				}
-				if (statement.type === "functionDeclaration" && statement.body.kind === "expression") expression(statement.body.expression);
+				if (statement.type === "functionDeclaration") {
+					const functionDeclaration = declaration(moduleText, file, statement);
+					const functionParent = functionDeclaration && !duplicates.has(statement.name) ? functionDeclaration.target : undefined;
+					const functionScope = new Map([...visible].filter(([, fact]) =>
+						!["binding", "input", "table", "chart", "diagram"].includes(fact.kind)));
+					const declarationsInScope = new Set<string>();
+					for (const parameter of statement.parameters) {
+						typeReference(parameter.annotation, visible);
+						const range = sourceTokenRange(moduleText, parameter.source, parameter.name);
+						if (!range || !functionParent) continue;
+						const parameterFact: EditorSymbolFact = {
+							...range,
+							file,
+							name: parameter.name,
+							target: { file, ...range },
+							parent: functionParent,
+							declaration: true,
+							kind: "parameter",
+							detail: `parameter ${parameter.name}: ${parameter.annotation.name ?? parameter.annotation.type}`
+						};
+						result.push(parameterFact);
+						functionScope.set(parameter.name, parameterFact);
+						declarationsInScope.add(parameter.name);
+					}
+					typeReference(statement.returnType, visible);
+
+					const walkFunctionStatements = (items: StatementNode[], scope: Map<string, EditorSymbolFact>, declared: Set<string>): void => {
+						for (const item of items) {
+							if (item.type === "variableDeclaration") {
+								expression(item.expression, scope);
+								if (item.annotation) typeReference(item.annotation, visible);
+								const range = declarationNameRange(moduleText, item);
+								if (!range) continue;
+								const existing = declared.has(item.name) ? scope.get(item.name) : undefined;
+								if (existing) {
+									result.push({ ...existing, ...range, file, declaration: false });
+									continue;
+								}
+								if (!functionParent) continue;
+								const localFact: EditorSymbolFact = {
+									...range,
+									file,
+									name: item.name,
+									target: { file, ...range },
+									parent: functionParent,
+									declaration: true,
+									kind: "binding",
+									detail: `binding ${item.name}${item.annotation ? `: ${item.annotation.name ?? item.annotation.type}` : ""}`
+								};
+								result.push(localFact);
+								scope.set(item.name, localFact);
+								declared.add(item.name);
+							} else if (item.type === "assignmentStatement" || item.type === "compoundAssignmentStatement") {
+								add(item.source, item.name, scope.get(item.name));
+								expression(item.expression, scope);
+							} else if (item.type === "addStatement") {
+								add(item.targetSource, item.name, scope.get(item.name));
+								expression(item.value, scope);
+								if (item.index) expression(item.index, scope);
+							} else if (item.type === "removeStatement") {
+								add(item.targetSource, item.name, scope.get(item.name));
+								expression(item.count, scope);
+								if (item.index) expression(item.index, scope);
+							} else if (item.type === "forStatement") {
+								expression(item.iterable, scope);
+								const loopScope = new Map(scope);
+								const loopDeclared = new Set<string>();
+								const range = loopVariableRange(moduleText, item);
+								if (range && functionParent) {
+									const iteratorFact: EditorSymbolFact = {
+										...range,
+										file,
+										name: item.variable,
+										target: { file, ...range },
+										parent: functionParent,
+										declaration: true,
+										kind: "iterator",
+										detail: `loop variable ${item.variable}`
+									};
+									result.push(iteratorFact);
+									loopScope.set(item.variable, iteratorFact);
+									loopDeclared.add(item.variable);
+								}
+								walkFunctionStatements(item.body, loopScope, loopDeclared);
+							} else if (item.type === "bracedIfStatement") {
+								expression(item.test, scope);
+								walkFunctionStatements(item.consequent, new Map(scope), new Set());
+								if (item.alternate) walkFunctionStatements(item.alternate, new Map(scope), new Set());
+							} else if (item.type === "returnStatement") expression(item.expression, scope);
+							else nestedStatement(item, scope);
+						}
+					};
+
+					if (statement.body.kind === "expression") expression(statement.body.expression, functionScope);
+					else walkFunctionStatements(statement.body.statements, functionScope, declarationsInScope);
+				}
 				const declared = declaration(moduleText, file, statement);
 				if (declared && "name" in statement && !duplicates.has(statement.name)) {
 					if (statement.type === "variableDeclaration") {

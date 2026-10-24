@@ -108,6 +108,16 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 		if (node.type === "namedType" && node.name) add(node.source, node.name, "type");
 		if (node.element) typeReference(node.element);
 	};
+	const loopVariable = (node: Extract<StatementNode, { type: "forStatement" }>): void => {
+		const start = sourceOffset(text, node.source);
+		if (start === undefined) return;
+		const lineEnd = text.indexOf("\n", start);
+		const header = text.slice(start, lineEnd < 0 ? text.length : lineEnd).replace(/\r$/, "");
+		const match = header.match(/^for\s+([A-Za-z][A-Za-z0-9_]*)\s+in\b/);
+		if (!match || match[1] !== node.variable) return;
+		const from = start + match[0].indexOf(node.variable);
+		facts.push({ from, to: from + node.variable.length, kind: "declaration" });
+	};
 	const statement = (node: StatementNode): void => {
 		const keyword: Partial<Record<StatementNode["type"], string>> = {
 			variableDeclaration: "let", typeDeclaration: "type", enumDeclaration: "enum", functionDeclaration: "fn",
@@ -173,13 +183,25 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 		}
 		if (node.type === "enumDeclaration") for (const member of node.members) add(member.nameSource, member.name, "declaration");
 		if (node.type === "variableDeclaration") { typeReference(node.annotation); expression(node.expression); }
-		else if (node.type === "functionDeclaration") { node.parameters.forEach(param => typeReference(param.annotation)); typeReference(node.returnType); if (node.body.kind === "expression") expression(node.body.expression); }
+		else if (node.type === "functionDeclaration") {
+			node.parameters.forEach(param => {
+				const range = sourceTokenRange(text, param.source, param.name);
+				if (range) facts.push({ ...range, kind: "declaration" });
+				typeReference(param.annotation);
+			});
+			typeReference(node.returnType);
+			if (node.body.kind === "expression") expression(node.body.expression);
+			else node.body.statements.forEach(statement);
+		}
 		else if (node.type === "tableDeclaration" || node.type === "chartDeclaration") add(node.bindingSource, node.binding, "reference");
 		else if (node.type === "showStatement") add(node.nameSource, node.name, "reference");
-		else if (node.type === "assignmentStatement" || node.type === "compoundAssignmentStatement") expression(node.expression);
+		else if (node.type === "assignmentStatement" || node.type === "compoundAssignmentStatement") {
+			add(node.source, node.name, "reference");
+			expression(node.expression);
+		}
 		else if (node.type === "addStatement") { add(node.targetSource, node.name, "reference"); expression(node.value); if (node.index) expression(node.index); }
 		else if (node.type === "removeStatement") { add(node.targetSource, node.name, "reference"); expression(node.count); if (node.index) expression(node.index); }
-		else if (node.type === "forStatement") { expression(node.iterable); node.body.forEach(statement); }
+		else if (node.type === "forStatement") { loopVariable(node); expression(node.iterable); node.body.forEach(statement); }
 		else if (node.type === "bracedIfStatement") {
 			expression(node.test);
 			node.consequent.forEach(statement);

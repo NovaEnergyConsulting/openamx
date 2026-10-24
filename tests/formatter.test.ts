@@ -38,6 +38,77 @@ describe('formatAmxDocument', () => {
     expect(formatAmxDocument(source)).toBe('# Mixed\r\n```amx\nlet first = 1\n```\r\n```amx\r\nlet second = 2\r\n```');
   });
 
+  it('formats statement function bodies idempotently without changing surrounding text or expression spelling', () => {
+    const source = [
+      '# Function formatting  ',
+      '',
+      '```amx',
+      '  fn choose(value: Number): Number {',
+      ' if value > 0 {',
+      ' return value',
+      '} else {',
+      '  return 0',
+      ' }',
+      '}',
+      'fn describe(value: Number): String {',
+      'let marker: String = "brace } and {"',
+      'return "value=${value} }"',
+      '}',
+      'fn first(values: Number[]): Number {',
+      'for item in values {',
+      'return item',
+      '}',
+      'return 0',
+      '}',
+      'fn triple(value: Number): Number = value*3',
+      'let result = choose(3)',
+      '```',
+      '```text',
+      'fn inert(value: Number): Number {',
+      ' return value',
+      '}',
+      '```',
+      ''
+    ].join('\r\n');
+    const expected = [
+      '# Function formatting  ',
+      '',
+      '```amx',
+      'fn choose(value: Number): Number {',
+      '  if value > 0 {',
+      '    return value',
+      '  } else {',
+      '    return 0',
+      '  }',
+      '}',
+      'fn describe(value: Number): String {',
+      '  let marker: String = "brace } and {"',
+      '  return "value=${value} }"',
+      '}',
+      'fn first(values: Number[]): Number {',
+      '  for item in values {',
+      '    return item',
+      '  }',
+      '  return 0',
+      '}',
+      'fn triple(value: Number): Number = value*3',
+      'let result = choose(3)',
+      '```',
+      '```text',
+      'fn inert(value: Number): Number {',
+      ' return value',
+      '}',
+      '```',
+      ''
+    ].join('\r\n');
+
+    const formatted = formatAmxDocument(source);
+    expect(formatted).toBe(expected);
+    expect(formatAmxDocument(formatted)).toBe(formatted);
+    expect(evaluateDocument(parseDocumentText(formatted))).toEqual(evaluateDocument(parseDocumentText(source)));
+    expect(formatted).toContain('fn triple(value: Number): Number = value*3\r\n');
+  });
+
   it('leaves illustrative fences and documents without executable blocks unchanged', () => {
     const sources = [
       '',

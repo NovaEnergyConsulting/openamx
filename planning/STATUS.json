@@ -1,5 +1,5 @@
 {
   "phase": "sprint-closed",
-  "sprint": "098",
-  "note": "Sprint 098 was separately ACCEPTED/CLOSED by the user on 2026-10-24 after the approved return-path checker work and separately approved parser-boundary follow-up passed focused verification. Exact evidence is in planning/sprints/0098-v16-return-path-type-checking/builder-evidence.md. This does not claim V0.16 integrated acceptance or authorize Sprint 099-101, release, publication, version changes, or platform certification."
+  "sprint": "099",
+  "note": "Sprint 099 was separately ACCEPTED/CLOSED WITH RECORDED RESIDUALS by the user on 2026-10-24 after approved formatter/editor integration passed focused shared, VS Code Extension Development Host, and desktop CodeMirror Playwright verification. Exact evidence is in planning/sprints/0099-v16-formatter-editor-integration/builder-evidence.md. This does not claim V0.16 integrated acceptance or authorize Sprint 100/101, release, publication, version changes, or platform certification."
 }

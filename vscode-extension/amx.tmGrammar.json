@@ -369,15 +369,35 @@
             ]
         },
         "amx-function-declaration": {
-            "match": "\\b(fn)(\\s+)([A-Za-z][A-Za-z0-9_]*)",
-            "captures": {
-                "1": {
-                    "name": "keyword.declaration.function.amx"
+            "begin": "\\b(fn)(\\s+)([A-Za-z][A-Za-z0-9_]*)(\\s*\\()",
+            "end": "(?=\\s*(?:=|\\{))",
+            "name": "meta.function.signature.amx",
+            "beginCaptures": {
+                "1": { "name": "keyword.declaration.function.amx" },
+                "3": { "name": "entity.name.function.amx" },
+                "4": { "name": "punctuation.section.parameters.begin.amx" }
+            },
+            "patterns": [
+                {
+                    "match": "\\b([A-Za-z][A-Za-z0-9_]*)(\\s*:\\s*)([A-Za-z][A-Za-z0-9_]*(?:(?:\\[\\])|\\?)*)",
+                    "captures": {
+                        "1": { "name": "variable.parameter.function.amx" },
+                        "2": { "name": "punctuation.separator.type.amx" },
+                        "3": { "name": "storage.type.annotation.amx" }
+                    }
                 },
-                "3": {
-                    "name": "entity.name.function.amx"
-                }
-            }
+                {
+                    "match": "(:\\s*)([A-Za-z][A-Za-z0-9_]*(?:(?:\\[\\])|\\?)*)",
+                    "captures": {
+                        "1": { "name": "punctuation.separator.type.amx" },
+                        "2": { "name": "storage.type.annotation.amx" }
+                    }
+                },
+                { "include": "#amx-strings" },
+                { "include": "#amx-types" },
+                { "include": "#amx-operators" },
+                { "include": "#amx-punctuation" }
+            ]
         },
         "amx-type-declaration": {
             "match": "\\b(type)(\\s+)([A-Za-z][A-Za-z0-9_]*)",

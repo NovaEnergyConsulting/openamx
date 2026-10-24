@@ -357,6 +357,108 @@ suite('OpenAMX providers', () => {
     }
   });
 
+  test('provides scoped function completion, parameter/local navigation and rename, formatting, and diagnostics', async () => {
+    const content = [
+      '😀 narrative',
+      '```amx',
+      'let caller: Number = 9',
+      'fn helper(value: Number): Number = value',
+      'fn choose(value: Number, values: Number[]): Number {',
+      'let total = value',
+      'if true {',
+      '  let branchOnly = total',
+      '  let value = total',
+      '  let shadowAgain = value',
+      '  return shadowAgain',
+      '}',
+      'for item in values {',
+      '  return item',
+      '}',
+      'return total',
+      '}',
+      'fn doubled(value: Number): Number = value*2',
+      '```'
+    ].join('\r\n');
+    const document = await vscode.workspace.openTextDocument({ language: 'amx', content });
+    await vscode.window.showTextDocument(document);
+    assert.equal((await waitForDiagnostics(document.uri, true)).length, 0);
+
+    const completionOffset = content.indexOf('if true {');
+    const completions = await vscode.commands.executeCommand<vscode.CompletionList>(
+      'vscode.executeCompletionItemProvider', document.uri, document.positionAt(completionOffset)
+    );
+    const labels = new Set(completions?.items.map(item => String(item.label)) ?? []);
+    for (const label of ['value', 'values', 'total', 'helper', 'Number', 'PI']) assert.ok(labels.has(label), label);
+    for (const absent of ['caller', 'branchOnly']) assert.ok(!labels.has(absent), absent);
+
+    const parameterOffset = content.indexOf('value', content.indexOf('fn choose'));
+    const parameterPosition = document.positionAt(parameterOffset);
+    const definition = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeDefinitionProvider', document.uri, parameterPosition
+    );
+    assert.equal(definition?.length, 1);
+    assert.deepEqual(definition[0].range, new vscode.Range(4, 10, 4, 15));
+    const references = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeReferenceProvider', document.uri, parameterPosition, { includeDeclaration: true }
+    );
+    assert.equal(references?.length, 2);
+    const rename = await vscode.commands.executeCommand<vscode.WorkspaceEdit | undefined>(
+      'vscode.executeDocumentRenameProvider', document.uri, parameterPosition, 'score'
+    );
+    assert.ok(rename);
+    assert.equal(rename.get(document.uri).length, 2);
+    assert.ok(rename.get(document.uri).every(edit => edit.newText === 'score'));
+
+    const localOffset = content.indexOf('branchOnly');
+    const localDefinition = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeDefinitionProvider', document.uri, document.positionAt(localOffset)
+    );
+    assert.equal(localDefinition?.length, 1);
+    assert.deepEqual(localDefinition[0].range, new vscode.Range(7, 6, 7, 16));
+    const shadowOffset = content.indexOf('value', content.indexOf('let value = total'));
+    const shadowPosition = document.positionAt(shadowOffset);
+    const shadowDefinition = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeDefinitionProvider', document.uri, shadowPosition
+    );
+    assert.equal(shadowDefinition?.length, 1);
+    assert.deepEqual(shadowDefinition[0].range, new vscode.Range(8, 6, 8, 11));
+    const shadowReferences = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeReferenceProvider', document.uri, shadowPosition, { includeDeclaration: true }
+    );
+    assert.equal(shadowReferences?.length, 2);
+    const shadowRename = await vscode.commands.executeCommand<vscode.WorkspaceEdit | undefined>(
+      'vscode.executeDocumentRenameProvider', document.uri, shadowPosition, 'branchValue'
+    );
+    assert.ok(shadowRename);
+    assert.equal(shadowRename.get(document.uri).length, 2);
+    assert.ok(shadowRename.get(document.uri).every(edit => edit.newText === 'branchValue'));
+    const formatted = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+      'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 2, insertSpaces: true }
+    );
+    assert.ok(formatted?.length);
+    const formatEdit = new vscode.WorkspaceEdit();
+    formatted!.forEach(edit => formatEdit.replace(document.uri, edit.range, edit.newText));
+    assert.ok(await vscode.workspace.applyEdit(formatEdit));
+    assert.equal((await vscode.commands.executeCommand<vscode.TextEdit[]>(
+      'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 2, insertSpaces: true }
+    ))?.length ?? 0, 0);
+
+    const missing = await vscode.workspace.openTextDocument({ language: 'amx', content: [
+      '😀 narrative', '```amx', 'fn maybe(value: Number): Number {', '  if value > 0 {', '    return value', '  }', '}', '```'
+    ].join('\r\n') });
+    await vscode.window.showTextDocument(missing);
+    const missingDiagnostic = (await waitForDiagnostics(missing.uri, true)).find(item => item.code === 'AMXF4001');
+    assert.ok(missingDiagnostic);
+    assert.deepEqual(missingDiagnostic.range.start, missing.positionAt(missing.getText().lastIndexOf('}')));
+
+    const incompatible = await vscode.workspace.openTextDocument({ language: 'amx', content: [
+      '```amx', 'fn invalid(value: Number): Number {', '  if value > 0 {', '    return "positive"', '  } else {', '    return 0', '  }', '}', '```'
+    ].join('\n') });
+    const incompatibleDiagnostic = (await waitForDiagnostics(incompatible.uri, true)).find(item => item.code === 'AMX3002');
+    assert.ok(incompatibleDiagnostic);
+    assert.deepEqual(incompatibleDiagnostic.range.start, new vscode.Position(3, 11));
+  });
+
   test('formats V0.3 type and constructor layout without changing surrounding Markdown or V0.2 fences', async () => {
     const original = [
       '---',
@@ -441,7 +543,7 @@ suite('OpenAMX providers', () => {
       assert.ok(!outsideLabels.has(fn), fn);
     }
   });
-  test('tokenizes V0.9-V0.14 syntax with the actual TextMate grammar and preserves Markdown boundaries', async () => {
+  test('tokenizes V0.9-V0.16 syntax with the actual TextMate grammar and preserves Markdown boundaries', async () => {
     const extension = vscode.extensions.getExtension('EngineersTools.openamx-vscode');
     assert.ok(extension);
     const wasm = await fs.readFile(require.resolve('vscode-oniguruma/release/onig.wasm'));
@@ -471,6 +573,16 @@ suite('OpenAMX providers', () => {
       'Narrative dimension and unit remain prose.',
       'Narrative is PI and sin remain prose.',
       '```amx',
+      'fn review(value: Sample, samples: Number[]): Sample {',
+      '  let selected: Sample = value',
+      '  if true {',
+      '    for sample in samples {',
+      '      return selected',
+      '    }',
+      '  }',
+      '  return selected',
+      '}',
+      'fn triple(value: Number): Number = value*3',
       'dimension Length',
       'unit meter: Length',
       'let rows: Number[] = [1, 2, 3]',
@@ -521,6 +633,7 @@ suite('OpenAMX providers', () => {
       'let malformedInterpolation = "${second + }"',
       '```',
       '```js',
+      'fn inert(value: Number): Number = value',
       'let inert = 1 meter',
       '```',
       'Narrative {{2 meter}} and unit.'
@@ -552,6 +665,15 @@ suite('OpenAMX providers', () => {
     hasScope(mathLine, 'PI', 'constant.language.amx');
     hasScope(mathLine, 'E', 'constant.language.amx');
     hasScope('let converted = 2 kilometer in meter', 'in', 'keyword.control.amx');
+    hasScope('fn review(value: Sample, samples: Number[]): Sample {', 'fn', 'keyword.declaration.function.amx');
+    hasScope('fn review(value: Sample, samples: Number[]): Sample {', 'review', 'entity.name.function.amx');
+    hasScope('fn review(value: Sample, samples: Number[]): Sample {', 'value', 'variable.parameter.function.amx');
+    hasScope('fn review(value: Sample, samples: Number[]): Sample {', 'Sample', 'storage.type.annotation.amx');
+    hasScope('fn review(value: Sample, samples: Number[]): Sample {', 'samples', 'variable.parameter.function.amx');
+    hasScope('fn review(value: Sample, samples: Number[]): Sample {', 'Number', 'storage.type.annotation.amx');
+    hasScope('      return selected', 'return', 'keyword.control.amx');
+    hasScope('fn triple(value: Number): Number = value*3', 'triple', 'entity.name.function.amx');
+    hasScope('fn triple(value: Number): Number = value*3', 'value', 'variable.parameter.function.amx');
     hasScope('add 4 to rows at 2', 'add', 'keyword.control.amx');
     hasScope('remove 1 from rows', 'remove', 'keyword.control.amx');
     hasScope('enum Status = {', 'enum', 'keyword.declaration.enum.amx');
@@ -584,6 +706,7 @@ suite('OpenAMX providers', () => {
     lacksScope('Narrative is PI and sin remain prose.', 'PI', 'constant.language.amx');
     lacksScope('Narrative is PI and sin remain prose.', 'sin', 'support.function.builtin.amx');
     lacksScope('let inert = 1 meter', 'let', 'keyword.control.amx');
+    lacksScope('fn inert(value: Number): Number = value', 'fn', 'keyword.declaration.function.amx');
     hasScope('Narrative {{2 meter}} and unit.', '2', 'constant.numeric.amx');
     lacksScope('Narrative {{2 meter}} and unit.', 'and', 'meta.interpolation.amx');
 

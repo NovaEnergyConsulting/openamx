@@ -394,6 +394,32 @@ describe("Sprint 015 function, import, and export parsing", () => {
     expect((fn as any).exported).toBeUndefined();
   });
 
+  it("anchors function parameter and type locations to their exact signature tokens", () => {
+    const source = [
+      "😀 narrative",
+      "```amx",
+      "export fn classify(severity: Number, label: String[]): Number {",
+      "  return 1",
+      "}",
+      "```",
+      ""
+    ].join("\r\n");
+    const document = parseDocumentText(source);
+    const block = document.nodes.find(node => node.type === "executableCodeBlock") as ExecutableCodeBlockNode;
+    const fn = block.statements[0] as FunctionDeclarationNode;
+    const header = source.split(/\r?\n/)[2]!;
+    const sourceAt = (token: string, after = 0) => ({ line: 3, column: header.indexOf(token, after) + 1 });
+    const labelType = fn.parameters[1]!.annotation.type === "listType"
+      ? fn.parameters[1]!.annotation.element?.source
+      : fn.parameters[1]!.annotation.source;
+
+    expect(fn.parameters[0]!.source).toEqual(sourceAt("severity"));
+    expect(fn.parameters[0]!.annotation.source).toEqual(sourceAt("Number"));
+    expect(fn.parameters[1]!.source).toEqual(sourceAt("label"));
+    expect(labelType).toEqual(sourceAt("String"));
+    expect(fn.returnType.source).toEqual(sourceAt("Number", header.indexOf("):")));
+  });
+
   it("parses a multi-line function body containing a braced match expression", () => {
     const [fn] = parseStatements("fn classify(score: Number): String = match score {\n  case 1 => \"low\"\n  default => \"high\"\n}");
     expect((fn as FunctionDeclarationNode).body).toMatchObject({

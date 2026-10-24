@@ -102,6 +102,220 @@ test("shared editor ranges preserve UTF-16 offsets across CRLF and non-BMP text"
 	expect(text.indexOf("total")).toBe(total!.from);
 });
 
+test("V0.16 function highlighting and completion use exact scoped facts", () => {
+	const text = [
+		"😀 narrative caller remains outside the function",
+		"```js",
+		"let inert = 1",
+		"```",
+		"```amx",
+		"let caller: Number = 9",
+		"type Item {",
+		"  id: Number",
+		"}",
+		"fn helper(value: Number): Number = value",
+		"fn scoped(value: Number, rows: Number[]): Number {",
+		"  let before = value",
+		"  if value > 0 {",
+		"    let value = before",
+		"    let branchLocal = value",
+		"    for value in rows {",
+		"      let loopLocal = value",
+		"      add value to rows",
+		"      remove 1 from rows",
+		"      ",
+		"      return loopLocal",
+		"    }",
+		"    let afterLoop = value",
+		"  }",
+		"  let afterBranch = value",
+		"  return afterBranch",
+		"  let later = afterBranch",
+		"}",
+		"```",
+		""
+	].join("\r\n");
+	const analysis = analyzeEditorModules(text, "/project/v16-editor.amx");
+	const highlights = editorHighlightFacts(text, analysis.document);
+	const hasToken = (token: string, kind?: string) => highlights.some(fact =>
+		text.slice(fact.from, fact.to) === token && (!kind || fact.kind === kind)
+	);
+	const exactRanges = (token: string, kind: string) => highlights
+		.filter(fact => fact.kind === kind && text.slice(fact.from, fact.to) === token)
+		.map(({ from, to }) => ({ from, to }));
+	const headerOffset = text.indexOf("fn scoped");
+	const parameterOffset = text.indexOf("value", headerOffset);
+	const parameterTypeOffset = text.indexOf("Number", headerOffset);
+	const localOffset = text.indexOf("before = value");
+	const loopVariableOffset = text.indexOf("for value in") + "for ".length;
+
+	expect(exactRanges("value", "declaration")).toContainEqual({ from: parameterOffset, to: parameterOffset + 5 });
+	expect(exactRanges("Number", "type")).toContainEqual({ from: parameterTypeOffset, to: parameterTypeOffset + 6 });
+	expect(exactRanges("before", "declaration")).toContainEqual({ from: localOffset, to: localOffset + 6 });
+	expect(exactRanges("value", "declaration")).toContainEqual({ from: loopVariableOffset, to: loopVariableOffset + 5 });
+	for (const token of ["if", "for", "return", "add", "remove"]) expect(hasToken(token, "keyword")).toBe(true);
+	expect(highlights.some(fact => text.slice(fact.from, fact.to) === "inert")).toBe(false);
+	expect(highlights.some(fact => text.slice(fact.from, fact.to) === "caller" && fact.from < text.indexOf("```amx"))).toBe(false);
+
+	const bodyCursor = text.indexOf("if value > 0") + "if value > 0".length;
+	const bodyLabels = editorCompletionFacts(text, bodyCursor, analysis.document, analysis).map(item => item.label);
+	expect(bodyLabels).toContain("value");
+	expect(bodyLabels).toContain("rows");
+	expect(bodyLabels).toContain("before");
+	expect(bodyLabels).toContain("helper");
+	expect(bodyLabels).toContain("Item");
+	expect(bodyLabels).toContain("PI");
+	expect(bodyLabels).not.toContain("caller");
+
+	const branchCursor = text.indexOf("for value in rows");
+	const branchLabels = editorCompletionFacts(text, branchCursor, analysis.document, analysis).map(item => item.label);
+	expect(branchLabels).toContain("branchLocal");
+	expect(branchLabels).not.toContain("loopLocal");
+
+	const loopCursor = text.indexOf("      \r\n") + "      ".length;
+	const loopLabels = editorCompletionFacts(text, loopCursor, analysis.document, analysis).map(item => item.label);
+	expect(loopLabels).toContain("value");
+	expect(loopLabels).toContain("loopLocal");
+	expect(loopLabels).not.toContain("caller");
+
+	const afterLoopCursor = text.indexOf("let afterLoop = value") + "let afterLoop = ".length;
+	const afterLoopLabels = editorCompletionFacts(text, afterLoopCursor, analysis.document, analysis).map(item => item.label);
+	expect(afterLoopLabels).toContain("value");
+	expect(afterLoopLabels).not.toContain("loopLocal");
+	const afterBranchCursor = text.indexOf("let afterBranch = value") + "let afterBranch = ".length;
+	const afterBranchLabels = editorCompletionFacts(text, afterBranchCursor, analysis.document, analysis).map(item => item.label);
+	expect(afterBranchLabels).not.toContain("branchLocal");
+	expect(afterBranchLabels).not.toContain("caller");
+	expect(afterBranchLabels).not.toContain("later");
+});
+
+test("V0.16 expression-function completion exposes parameters without document captures", () => {
+	const text = [
+		"```amx",
+		"let caller: Number = 9",
+		"fn helper(value: Number): Number = value",
+		"fn double(value: Number): Number = value + 2 + 3",
+		"```",
+		""
+	].join("\n");
+	const document = parseDocumentText(text);
+	const cursor = text.indexOf("2 + 3") + "2 +".length;
+	const labels = editorCompletionFacts(text, cursor, document).map(item => item.label);
+
+	expect(labels).toContain("value");
+	expect(labels).toContain("helper");
+	expect(labels).not.toContain("caller");
+});
+
+test("V0.16 function symbol facts preserve lexical binding identities", () => {
+	const text = [
+		"```amx",
+		"fn trace(value: Number, values: Number[]): Number {",
+		"  let total = value",
+		"  let total = total + 1",
+		"  total += value",
+		"  if true {",
+		"    let value = total",
+		"    let local = value",
+		"    value = local",
+		"  }",
+		"  for value in values {",
+		"    let value = value",
+		"    add value to values",
+		"    remove 1 from values",
+		"    return value",
+		"  }",
+		"  return value",
+		"}",
+		"```",
+		""
+	].join("\n");
+	const analysis = analyzeEditorModules(text, "/project/v16-symbols.amx");
+	const symbols = editorSymbolFacts(text, "/project/v16-symbols.amx", analysis.document, analysis);
+	const factAt = (offset: number) => symbols.find(fact => fact.from <= offset && offset < fact.to);
+	const declarationAt = (from: number, name: string) => symbols.find(fact =>
+		fact.declaration && fact.from === from && fact.to === from + name.length
+	);
+	const parameterOffset = text.indexOf("value", text.indexOf("fn trace"));
+	const firstTotalOffset = text.indexOf("total", text.indexOf("let total"));
+	const shadowOffset = text.indexOf("value", text.indexOf("let value ="));
+	const loopOffset = text.indexOf("value", text.indexOf("for value in"));
+	const parameter = declarationAt(parameterOffset, "value");
+	const total = declarationAt(firstTotalOffset, "total");
+	const shadow = declarationAt(shadowOffset, "value");
+	const loop = declarationAt(loopOffset, "value");
+
+	expect(parameter?.kind).toBe("parameter");
+	expect(total?.kind).toBe("binding");
+	expect(shadow?.target).not.toEqual(parameter?.target);
+	expect(loop?.target).not.toEqual(parameter?.target);
+	expect(factAt(text.indexOf("total + 1"))?.target).toEqual(total?.target);
+	expect(factAt(text.indexOf("total += value"))?.target).toEqual(total?.target);
+	expect(factAt(text.indexOf("let local = value") + "let local = ".length)?.target).toEqual(shadow?.target);
+	expect(factAt(text.indexOf("value = local"))?.target).toEqual(shadow?.target);
+	expect(factAt(text.indexOf("add value to values") + "add ".length)?.target).toEqual(loop?.target);
+	expect(factAt(text.indexOf("let value = value", text.indexOf("for value in")) + "let value = ".length)?.target).toEqual(loop?.target);
+	expect(factAt(text.indexOf("add value to values") + "add value to ".length)?.target)
+		.toEqual(symbols.find(fact => fact.declaration && fact.name === "values")?.target);
+	expect(factAt(text.lastIndexOf("return value") + "return ".length)?.target).toEqual(parameter?.target);
+	expect(editorRenameFact(symbols, "/project/v16-symbols.amx", text.indexOf("value = local"))?.edits.length).toBe(3);
+	expect(editorRenameFact(symbols, "/project/v16-symbols.amx", text.indexOf("let total = total + 1") + "let ".length)?.edits.length).toBeGreaterThanOrEqual(5);
+});
+
+test("V0.16 function diagnostics preserve accepted identities and document positions", () => {
+	for (const newline of ["\n", "\r\n"]) {
+		const missingReturn = [
+			"😀 narrative",
+			"```amx",
+			"fn maybe(value: Number): Number {",
+			"  if value > 0 {",
+			"    return value",
+			"  }",
+			"}",
+			"```",
+			""
+		].join(newline);
+		try {
+			analyzeEditorModules(missingReturn, "/project/v16-missing-return.amx");
+			throw new Error("Expected missing-return diagnostic");
+		} catch (error) {
+			expect(error).toMatchObject({ code: "AMXF4001", file: "/project/v16-missing-return.amx", line: 7, column: 1 });
+			const diagnostic = error as { line: number; column: number };
+			const range = sourceTokenRange(missingReturn, { line: diagnostic.line, column: diagnostic.column }, "}");
+			expect(range).toBeDefined();
+			expect(missingReturn.slice(range!.from, range!.to)).toBe("}");
+		}
+
+		const incompatibleReturn = [
+			"```amx",
+			"fn invalid(value: Number): Number {",
+			"  if value > 0 {",
+			'    return "positive"',
+			"  } else {",
+			"    return 0",
+			"  }",
+			"}",
+			"```",
+			""
+		].join(newline);
+		try {
+			analyzeEditorModules(incompatibleReturn, "/project/v16-incompatible-return.amx");
+			throw new Error("Expected incompatible-return diagnostic");
+		} catch (error) {
+			expect(error).toMatchObject({ code: "AMX3002", file: "/project/v16-incompatible-return.amx", line: 4, column: 12 });
+			expect(incompatibleReturn.split(/\r?\n/)[3]?.slice(11)).toBe('"positive"');
+		}
+
+		const prohibited = ["```amx", "fn invalid(): Number {", "  import { value } from \"./value.amx\"", "  return 1", "}", "```", ""].join(newline);
+		expect(() => analyzeEditorModules(prohibited, "/project/v16-prohibited.amx")).toThrow(expect.objectContaining({
+			code: "AMX3006",
+			message: "The 'import' statement is not allowed in a function body.",
+			line: 3,
+			column: 3
+		}));
+	}
+});
+
 test("shared editor ranges withhold unproven declaration tokens", () => {
 	const text = "```amx\nlet amount: Number = 1\n```\n";
 	const document = parseDocumentText(text);

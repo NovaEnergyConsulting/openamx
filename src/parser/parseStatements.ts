@@ -837,13 +837,28 @@ function parseFunctionDeclaration(text: string, source: SourceLocation, exported
   const [, name, paramsText, returnTypeText, bodySuffix] = match;
   const paramsRaw = paramsText.trim();
   const parameters: FunctionParameterNode[] = [];
+  const functionKeywordOffset = text.indexOf('fn');
+  const functionNameOffset = text.indexOf(name, functionKeywordOffset + 'fn'.length);
+  const paramsOffset = text.indexOf('(', functionNameOffset + name.length) + 1;
+  let parameterCursor = 0;
   if (paramsRaw) {
-    for (const part of paramsRaw.split(',')) {
-      const paramMatch = part.trim().match(/^([A-Za-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*)$/);
+    for (const part of paramsText.split(',')) {
+      const leadingWhitespace = part.length - part.trimStart().length;
+      const parameterText = part.trim();
+      const paramMatch = parameterText.match(/^([A-Za-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*)$/);
       if (!paramMatch) throw new Error(`Invalid function parameter at ${source.line}:${source.column}`);
-      parameters.push({ name: paramMatch[1], annotation: parseTypeReference(paramMatch[2], source), source });
+      const nameOffset = paramsOffset + parameterCursor + leadingWhitespace + parameterText.indexOf(paramMatch[1]);
+      const typeOffset = paramsOffset + parameterCursor + leadingWhitespace
+        + parameterText.indexOf(paramMatch[2], parameterText.indexOf(paramMatch[1]) + paramMatch[1].length);
+      parameters.push({
+        name: paramMatch[1],
+        annotation: parseTypeReference(paramMatch[2], functionTextLocation(text, typeOffset, source)),
+        source: functionTextLocation(text, nameOffset, source)
+      });
+      parameterCursor += part.length + 1;
     }
   }
+  const returnTypeOffset = text.indexOf(returnTypeText, text.indexOf(')') + 1);
   const bodyOffset = text.length - bodySuffix.length;
   const bodyTrimmed = bodySuffix.trim();
   if (!bodyTrimmed) throw new Error(`Missing function body at ${source.line}:${source.column}`);
@@ -919,7 +934,7 @@ function parseFunctionDeclaration(text: string, source: SourceLocation, exported
     type: 'functionDeclaration',
     name,
     parameters,
-    returnType: parseTypeReference(returnTypeText, source),
+    returnType: parseTypeReference(returnTypeText, functionTextLocation(text, returnTypeOffset, source)),
     body,
     ...(exported ? { exported } : {}),
     source

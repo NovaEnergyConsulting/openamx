@@ -1,5 +1,22 @@
 # Planning State
 
+## V0.16 Sprint 099 Builder Closeout (2026-10-24)
+
+- Sprint 099 execution was separately authorized with the exact
+  shared/editor/parser-anchor, VS Code grammar/host-test, desktop UI-test, and
+  evidence paths approved before edits.
+- Final focused verification passed: shared parser/formatter/editor suites
+  109/109 with 615 assertions; root TypeScript and desktop typecheck passed;
+  VS Code Extension Development Host passed 26/26 on installed VS Code
+  1.143.1, including actual TextMate tokenization; focused desktop Playwright
+  passed 1/1; `git diff --check` was clean.
+- The default VS Code runner's 1.85.0 pin, Linux Playwright fallback build,
+  and stale VS Code editor diagnostics remain recorded in Sprint 099 evidence.
+- User separately ACCEPTED/CLOSED Sprint 099 with recorded residuals on
+  2026-10-24. Sprint 100/101, integrated V0.16 acceptance, release,
+  publication, version changes, and platform certification remain separate
+  gates and are not authorized.
+
 ## V0.16 Sprint 098 Builder Closeout (2026-10-24)
 
 - Sprint 098 execution and the initial checker/test/evidence file plan were

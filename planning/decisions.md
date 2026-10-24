@@ -1,5 +1,20 @@
 # Planning Decisions
 
+## V0.16 Sprint 099 Disposition (2026-10-24)
+
+- The user separately ACCEPTED/CLOSED Sprint 099 with recorded residuals on
+  2026-10-24 after reviewing the builder evidence.
+- Shared formatter/editor behavior, parser-grounded signature anchors, the
+  actual VS Code TextMate/provider host, and focused desktop CodeMirror
+  acceptance are recorded in
+  `planning/sprints/0099-v16-formatter-editor-integration/builder-evidence.md`.
+- The VS Code default test runner's 1.85.0 pin and Linux Playwright fallback
+  remain recorded residuals; focused VS Code tests passed on installed 1.143.1
+  and the desktop harness Playwright test passed.
+- Sprint 100/101, integrated V0.16 acceptance, release, publication, version
+  changes, and platform certification remain separately gated and are not
+  authorized by this disposition.
+
 ## V0.16 Sprint 098 Parser Boundary Resolution and Disposition (2026-10-24)
 
 - The module compatibility failure was traced to `findFunctionEnd` scanning
