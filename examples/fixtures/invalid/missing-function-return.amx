@@ -1,0 +1,12 @@
+---
+title: Missing function return
+fixture: NEG100-RETURN-01
+---
+
+```amx
+fn maybe(value: Number): Number {
+  if value > 0 {
+    return value
+  }
+}
+```

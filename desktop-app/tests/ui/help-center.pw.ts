@@ -1,7 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 const expectedTopicIds = [
-	"getting-started", "starters", "language", "language-v0.12", "language-v0.13", "language-v0.14", "language-v0.9", "documents", "data",
+	"getting-started", "starters", "language", "language-v0.12", "language-v0.13", "language-v0.14", "language-v0.16", "language-v0.9", "documents", "data",
 	"preview-export", "recovery", "diagnostics", "release-notes"
 ];
 const expectedSearchTerms = [
@@ -10,6 +10,7 @@ const expectedSearchTerms = [
 	["language", "language syntax code fence markdown let type function import export input record table chart cli"],
 	["language-v0.13", "language v0.13 diagram animated animation time canvas crank slider battery resistor line rectangle circle text arrow playback scrub loop AMXD PDF DOCX accessibility offline"],
 	["language-v0.14", "language v0.14 is type check structural record enum list optional nullable measurement dimension PI E sin cos tan asin acos atan sinh cosh tanh asinh acosh atanh ln log exp len trim left right format Unicode code points locale grouping percent currency AMXSL001 AMXSL002 AMXSL003 AMXSL004 AMXSL005 AMXSL006"],
+	["language-v0.16", "language v0.16 function body function bodies statements braced expression body return AMXF4001 AMXF4002 AMX3002 AMX3006 lexical local scope parameter list copy deep nested array loop fallback"],
 	["language-v0.12", "language v0.12 record inheritance extends override effective fields enum enumeration primitive values braced if expression statement return AMX3011 AMX3021"],
 	["language-v0.9", "v0.9 migration record constructor equals = colon annotation string escape interpolation list index dimension unit measurement conversion JSON CSV"],
 	["documents", "active tab import source editor save intelligence rename"],
@@ -86,6 +87,14 @@ test("bundled help keeps stable topics, local search, registry shortcuts, routin
 	await expect(page.locator(".help-content")).toContainText("dimensionless Measurements");
 	await expect(page.locator(".help-content")).toContainText("Unicode 15.1 White_Space");
 	await expect(page.locator(".help-content")).toContainText("Integrated acceptance, release, and publication remain separate");
+	await search.fill("function body");
+	const v016Topic = page.locator(".help-topics [data-topic-id='language-v0.16']");
+	await expect(v016Topic).toBeVisible();
+	await v016Topic.click();
+	await expect(page.locator(".help-content")).toContainText("AMXF4001 marks missing return at the closing brace");
+	await expect(page.locator(".help-content")).toContainText("independent recursive array copy");
+	await expect(page.locator(".help-content")).toContainText("docs/language-spec-v0.16.md");
+	await expect(page.locator(".help-content")).toContainText("examples/15_Function_Bodies.amx");
 	await search.fill("measurement conversion");
 	await expect(v09Topic).toBeVisible();
 	await v09Topic.click();
@@ -117,6 +126,7 @@ test("bundled help keeps stable topics, local search, registry shortcuts, routin
 	await page.locator("button[aria-label='Help and shortcuts']").click();
 	const startersTopic = page.locator(".help-topics [data-topic-id='starters']");
 	await startersTopic.click();
+	await expect(page.locator(".help-content")).toContainText("numbered 00-15 guide");
 	const starterItems = page.locator(".starter-list .starter-item");
 	await expect(starterItems).toHaveCount(3);
 	await expect(starterItems.nth(0)).toContainText("Hello OpenAMX");

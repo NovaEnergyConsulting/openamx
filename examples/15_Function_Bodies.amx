@@ -1,0 +1,158 @@
+---
+title: Function bodies
+---
+
+# Function Bodies
+
+## Objective
+
+Compare expression-bodied and statement-bodied functions, then inspect
+function return flow, call-local bindings, and list argument values.
+
+## Prerequisites
+
+This is a standalone reference, not a prerequisite in the guided sequence.
+Lesson [03](./03_Collections_and_Functions.amx) introduces expression-bodied
+functions and expression-loop collection.
+
+## Desktop workflow
+
+In a project created with **OpenAMX learning guide**, open
+`15_Function_Bodies.amx` at the project root. If using the repository
+checkout, open `examples/15_Function_Bodies.amx` under the `examples/` folder.
+Select **Run** to inspect the calculated bindings and **Preview** to read the
+results.
+
+## Inputs and support files
+
+This reference is input-free and imports no modules.
+
+## Expression and statement bodies
+
+An expression body remains concise. A statement body can declare a local and
+return its result explicitly.
+
+```amx
+fn triple(value: Number): Number = value * 3
+
+fn addAllowance(value: Number): Number {
+  let adjusted = value + 2
+  return adjusted
+}
+
+let expressionResult = triple(4)
+let statementResult = addAllowance(12)
+```
+
+The results are `expressionResult = 12` and `statementResult = 14`.
+
+## Nested returns and loop fallback
+
+Each nested statement branch returns from the function. A statement loop may
+run zero times, so `firstOrDefault` has a later fallback return.
+
+```amx
+fn classify(value: Number): String {
+  if value > 10 {
+    return "high"
+  } else {
+    if value > 0 {
+      return "positive"
+    } else {
+      return "other"
+    }
+  }
+}
+
+fn scoped(value: Number): Number {
+  if value > 0 {
+    let local = value + 1
+    return local
+  } else {
+    let local = 0
+    return local
+  }
+}
+
+fn firstOrDefault(values: Number[]): Number {
+  for value in values {
+    return value
+  }
+  return 0
+}
+
+let highResult = classify(12)
+let positiveResult = classify(4)
+let otherResult = classify(0)
+let scopedResult = scoped(4)
+let emptyFallback = firstOrDefault([])
+let firstValue = firstOrDefault([7, 8])
+```
+
+The results are `"high"`, `"positive"`, and `"other"`; the branch-local
+`scopedResult` is `5`. The empty list produces `0`, while `[7, 8]` produces
+`7`.
+
+## Call-local bindings and lists
+
+Parameters and locals belong to one function call. Each list parameter gets
+its own recursive array copy, including when the same nested list is passed
+more than once.
+
+```amx
+fn incrementLocally(value: Number): Number {
+  value += 1
+  let localResult = value
+  return localResult
+}
+
+fn preserveParameter(value: Number): Number {
+  for value in [99] {
+    let observed = value
+  }
+  return value
+}
+
+fn makeList(value: Number): Number[] {
+  let values = [value]
+  add 9 to values
+  return values
+}
+
+fn updateRows(values: Number[][]): Number[][] {
+  for row in values {
+    add 9 to row
+  }
+  return values
+}
+
+fn changeFirst(first: Number[], second: Number[]): Number[] {
+  add 9 to first
+  return second
+}
+
+let originalValue = 4
+let localValue = incrementLocally(originalValue)
+let restoredParameter = preserveParameter(2)
+let returnedList = makeList(6)
+let nestedInput = [[1], [2]]
+let nestedResult = updateRows(nestedInput)
+let repeatedInput = [3]
+let repeatedResult = changeFirst(repeatedInput, repeatedInput)
+```
+
+Run reports `originalValue = 4`, `localValue = 5`, and
+`restoredParameter = 2`. The returned local list is `[6, 9]`; `nestedInput`
+remains `[[1], [2]]` while `nestedResult` is `[[1, 9], [2, 9]]`. Passing
+`repeatedInput` to both parameters leaves `repeatedInput` and
+`repeatedResult` equal to `[3]`.
+
+## Expected outcome
+
+The bindings above show expression and statement results, nested returns,
+zero-iteration fallback, call-local parameter updates, iterator restoration,
+local list returns, and isolated nested/repeated list arguments.
+
+## Navigation
+
+[Index](./00_Table_of_Contents.amx) | [Collections and Functions](./03_Collections_and_Functions.amx)

@@ -20,7 +20,7 @@
       "terms": "example templates hello asset management operation note guided guide journey numbered offline",
       "steps": [
         "Hello OpenAMX and Operations Note are compact, input-free single-report starters saved through the normal conflict-aware autosave path.",
-        "OpenAMX learning guide creates a multi-file project from the numbered 00-14 guide and its approved local data, fixtures, and libraries, then opens the table of contents.",
+        "OpenAMX learning guide creates a multi-file project from the numbered 00-15 guide and its approved local data, fixtures, and libraries, then opens the table of contents.",
         "The guide and its support files are bundled locally; no network request or explicit Run command is needed to create the project."
       ]
     },
@@ -72,6 +72,19 @@
         "len and string slices count Unicode code points. trim uses the approved Unicode 15.1 White_Space set.",
         "format supports a bounded numeric pattern subset and the en-US, de-DE, and fr-FR locales; Measurement output keeps its displayed value and unit.",
         "See docs/language-spec-v0.14.md and the V0.14 examples for exact syntax, diagnostics, and limits. Integrated acceptance, release, and publication remain separate."
+      ]
+    },
+    {
+      "id": "language-v0.16",
+      "title": "V0.16 function bodies",
+      "summary": "Write multi-statement functions with explicit returns.",
+      "terms": "language v0.16 function body function bodies statements braced expression body return AMXF4001 AMXF4002 AMX3002 AMX3006 lexical local scope parameter list copy deep nested array loop fallback",
+      "steps": [
+        "Keep fn name(...): Type = expression unchanged, or use fn name(...): Type { statements }.",
+        "Braced bodies allow initialized let, assignment, +=, standalone if/else, statement for, return, and named-list add/remove. Newlines separate statements; semicolons are invalid.",
+        "Every reachable path must return a compatible value. An if without else may fall through; loops may execute zero times. AMXF4001 marks missing return at the closing brace; AMXF4002 is a defensive runtime guard.",
+        "Parameters and locals use call-local lexical scope. Each list parameter gets an independent recursive array copy; non-array elements are opaque. Returned local lists pass through directly.",
+        "See docs/language-spec-v0.16.md and examples/15_Function_Bodies.amx for exact syntax, semantics, and examples. Integrated acceptance, release, and publication remain separate."
       ]
     },
     {

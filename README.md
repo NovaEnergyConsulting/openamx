@@ -21,10 +21,11 @@ not certified risk models or industry standards.
   results as JSON or CSV.
 - **Build visual explanations.** Create tables, charts, and formula-driven 2D
   diagrams alongside the narrative.
-- **Use the latest language additions.** V0.14 adds runtime type predicates,
-  mathematical functions, text helpers, and bounded numeric formatting with
-  `en-US`, `de-DE`, and `fr-FR` locales. Earlier additions include record
-  inheritance, enums, and braced conditionals.
+- **Use the latest language additions.** V0.16 adds statement-bodied
+  functions while preserving expression-bodied functions. V0.14 adds runtime
+  type predicates, mathematical functions, text helpers, and bounded numeric
+  formatting with `en-US`, `de-DE`, and `fr-FR` locales. Earlier additions
+  include record inheritance, enums, and braced conditionals.
 - **Publish reports in familiar formats.** Render standalone, offline HTML or
   export PDF and DOCX. Charts are interactive in HTML; PDF charts are static
   with their data retained in tables. DOCX charts are editable native charts
@@ -137,9 +138,9 @@ unified HTML/PDF/DOCX export workflow.
 - [Mapped data and validation](examples/06_Mapped_Data_and_Validation.amx)
   introduces explicit JSON/CSV input mappings.
 - [Complete asset screening report](examples/12_Complete_Asset_Screening_Report.amx)
-  is the guided destination; [route measurements](examples/13_Route_Measurement_Report.amx)
-  and the [battery-resistor circuit](examples/14_Battery_Resistor_Circuit.amx)
-  are standalone references.
+  is the guided destination; [route measurements](examples/13_Route_Measurement_Report.amx),
+  the [battery-resistor circuit](examples/14_Battery_Resistor_Circuit.amx), and
+  [function bodies](examples/15_Function_Bodies.amx) are standalone references.
 - V0.12 features: [records and enums](examples/04_Typed_Records_Enums_and_Modules.amx)
   and [expressions and decisions](examples/02_Expressions_and_Decisions.amx).
 - V0.13 diagrams: [formula-driven diagrams](examples/08_Formula_Driven_Diagrams.amx)
@@ -152,7 +153,8 @@ Read the [V0.9 language specification](docs/language-spec-v0.9.md) and
 [V0.9 migration guide](docs/migrating-to-v0.9.md), then the additive
 [V0.12 language specification](docs/language-spec-v0.12.md),
 [V0.13 diagram specification](docs/language-spec-v0.13.md), and
-[V0.14 language specification](docs/language-spec-v0.14.md) for the current
+[V0.14 language specification](docs/language-spec-v0.14.md) and
+[V0.16 language specification](docs/language-spec-v0.16.md) for the current
 language contract. Browse the [examples](examples/) and [documentation](docs/). The
 [desktop guide](desktop-app/README.md) and
 [VS Code guide](vscode-extension/README.md) cover their respective tools.

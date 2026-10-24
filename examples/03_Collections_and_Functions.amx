@@ -69,3 +69,6 @@ None. Lists, loops, the function, and the match are defined here.
 ## Navigation
 
 [Index](./00_Table_of_Contents.amx) | [Previous: Expressions and Decisions](./02_Expressions_and_Decisions.amx) | [Next: Typed Records, Enums, and Modules](./04_Typed_Records_Enums_and_Modules.amx)
+
+For statement-bodied functions and list argument isolation, see the standalone
+[Function Bodies reference](./15_Function_Bodies.amx).

@@ -20,7 +20,8 @@ const guidedPaths = [
 ];
 const referencePaths = [
   "examples/13_Route_Measurement_Report.amx",
-  "examples/14_Battery_Resistor_Circuit.amx"
+  "examples/14_Battery_Resistor_Circuit.amx",
+  "examples/15_Function_Bodies.amx"
 ];
 const lessonPaths = [...guidedPaths, ...referencePaths];
 const validInputs = [
@@ -32,6 +33,15 @@ const routeInputs = ["--input", "trips=examples/data/measurement-trips.json"];
 
 async function runCli(...arguments_: string[]) {
   const command = Bun.spawnSync([process.execPath, "run", "dist/cli.js", ...arguments_]);
+  return {
+    exitCode: command.exitCode,
+    stdout: new TextDecoder().decode(command.stdout),
+    stderr: new TextDecoder().decode(command.stderr)
+  };
+}
+
+async function runSourceCli(...arguments_: string[]) {
+  const command = Bun.spawnSync([process.execPath, "run", "src/cli.ts", ...arguments_]);
   return {
     exitCode: command.exitCode,
     stdout: new TextDecoder().decode(command.stdout),
@@ -56,11 +66,15 @@ function expectCliSuccess(result: Awaited<ReturnType<typeof runCli>>): unknown {
   return JSON.parse(result.stdout);
 }
 
-describe("V0.15 numbered guide", () => {
+describe("V0.16 numbered guide", () => {
   it("keeps the index, navigation, link containment, and support closure aligned", async () => {
     const guideRoot = await realpath("examples");
     const index = await Bun.file(indexPath).text();
     expect(parseLinks(index)).toEqual(lessonPaths.map(lesson => `./${path.basename(lesson)}`));
+    const guidedSection = index.split("## Guided lessons and destination report")[1]?.split("## Standalone references")[0] ?? "";
+    const referenceSection = index.split("## Standalone references")[1]?.split("## Desktop workflow")[0] ?? "";
+    expect(parseLinks(guidedSection)).toEqual(guidedPaths.map(lesson => `./${path.basename(lesson)}`));
+    expect(parseLinks(referenceSection)).toEqual(referencePaths.map(reference => `./${path.basename(reference)}`));
     expect(index).toContain("## Guided lessons and destination report");
     expect(index).toContain("## Standalone references");
     expect(index).toContain("not a prerequisite");
@@ -68,7 +82,7 @@ describe("V0.15 numbered guide", () => {
     const expectedNavigation = [
       ["./00_Table_of_Contents.amx", "./02_Expressions_and_Decisions.amx"],
       ["./00_Table_of_Contents.amx", "./01_First_Computable_Document.amx", "./03_Collections_and_Functions.amx"],
-      ["./00_Table_of_Contents.amx", "./02_Expressions_and_Decisions.amx", "./04_Typed_Records_Enums_and_Modules.amx"],
+      ["./00_Table_of_Contents.amx", "./02_Expressions_and_Decisions.amx", "./04_Typed_Records_Enums_and_Modules.amx", "./15_Function_Bodies.amx"],
       ["./00_Table_of_Contents.amx", "./03_Collections_and_Functions.amx", "./05_Measurements_and_Units.amx"],
       ["./00_Table_of_Contents.amx", "./04_Typed_Records_Enums_and_Modules.amx", "./06_Mapped_Data_and_Validation.amx"],
       ["./00_Table_of_Contents.amx", "./05_Measurements_and_Units.amx", "./07_Tables_Charts_and_Named_Outputs.amx"],
@@ -108,7 +122,8 @@ describe("V0.15 numbered guide", () => {
         "./06_Mapped_Data_and_Validation.amx",
         "./07_Tables_Charts_and_Named_Outputs.amx"
       ],
-      ["./00_Table_of_Contents.amx", "./08_Formula_Driven_Diagrams.amx"]
+      ["./00_Table_of_Contents.amx", "./08_Formula_Driven_Diagrams.amx"],
+      ["./00_Table_of_Contents.amx", "./03_Collections_and_Functions.amx"]
     ];
 
     for (let index = 0; index < lessonPaths.length; index += 1) {
@@ -149,7 +164,8 @@ describe("V0.15 numbered guide", () => {
       "examples/data/reviewed-at.json",
       "examples/data/measurement-trips.json",
       "examples/fixtures/invalid/asset.json",
-      "examples/fixtures/invalid/screenings.csv"
+      "examples/fixtures/invalid/screenings.csv",
+      "examples/fixtures/invalid/missing-function-return.amx"
     ]) {
       expect(await Bun.file(supportPath).exists()).toBe(true);
     }
@@ -478,6 +494,26 @@ describe("V0.15 numbered guide", () => {
 
       const circuit = expectCliSuccess(await runCli("run", lessonPaths[13])) as Record<string, unknown>;
       expect(circuit).toMatchObject({ supplyVoltage: 9, resistance: 15, current: 0.6 });
+
+      const functionBodies = expectCliSuccess(await runSourceCli("run", lessonPaths[14]!)) as Record<string, unknown>;
+      expect(functionBodies).toMatchObject({
+        expressionResult: 12,
+        statementResult: 14,
+        highResult: "high",
+        positiveResult: "positive",
+        otherResult: "other",
+        scopedResult: 5,
+        emptyFallback: 0,
+        firstValue: 7,
+        originalValue: 4,
+        localValue: 5,
+        restoredParameter: 2,
+        returnedList: [6, 9],
+        nestedInput: [[1], [2]],
+        nestedResult: [[1, 9], [2, 9]],
+        repeatedInput: [3],
+        repeatedResult: [3]
+      });
 
       for (const [lessonPath, filename, title] of [
         [lessonPaths[7]!, "diagram08.html", "Crank-slider mechanism"],

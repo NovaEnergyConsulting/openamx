@@ -10,7 +10,7 @@ targets do not navigate. It requires VS Code 1.85.0 or newer. Editor analysis do
 not run documents or load CSV/JSON inputs; runtime validation remains a CLI
 concern.
 
-The [V0.15 numbered learning guide](../examples/00_Table_of_Contents.amx)
+The [V0.16 numbered learning guide](../examples/00_Table_of_Contents.amx)
 provides the current example path. Its [formula-driven diagrams lesson](../examples/08_Formula_Driven_Diagrams.amx)
 and [battery-resistor reference](../examples/14_Battery_Resistor_Circuit.amx)
 illustrate the V0.13 contract documented in the
@@ -21,6 +21,11 @@ and the numbered guide's [runtime type checks](../examples/09_Runtime_Type_Check
 [math and Measurements](../examples/10_Mathematics_and_Measurement_Operations.amx),
 and [text and formatting](../examples/11_Text_and_Numeric_Formatting.amx)
 lessons describe the implemented V0.14 authoring features and their limits.
+
+The additive [V0.16 language specification](../docs/language-spec-v0.16.md)
+and standalone [function-body reference](../examples/15_Function_Bodies.amx)
+describe statement-bodied functions, return paths, lexical scope, and list
+argument isolation while preserving expression-bodied functions.
 
 The root package is the release version authority; the current extension
 package version is `0.8.0` and its publisher is `EngineersTools`. The quick fix rechecks document version,

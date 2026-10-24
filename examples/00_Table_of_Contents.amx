@@ -7,7 +7,7 @@ title: OpenAMX learning guide
 This is the entry point for a desktop-first path from a first computable
 document to a complete illustrative analysis. Lessons 01-11 build the
 concepts in order; lesson 12 is the destination report. The standalone
-references 13 and 14 are useful topic examples, not prerequisites.
+references 13-15 are useful topic examples, not prerequisites.
 
 ## Guided lessons and destination report
 
@@ -35,6 +35,7 @@ prerequisite sequence.
 | --- | --- | --- |
 | [13 - Route Measurement Report](./13_Route_Measurement_Report.amx) | Mapped route data, Measurement units, a table, chart, and named output. | Uses `data/measurement-trips.json` and `libraries/travel-measurements.amx`. |
 | [14 - Battery-Resistor Circuit](./14_Battery_Resistor_Circuit.amx) | A time-dependent circuit schematic with a constant-current interpretation. | No imports or input files. |
+| [15 - Function Bodies](./15_Function_Bodies.amx) | Expression and statement bodies, returns, local scope, and list argument values. | No imports or input files. |
 
 ## Desktop workflow
 
@@ -53,5 +54,5 @@ also under `examples/`.
 
 Lessons 01-11 introduce the concepts used by the destination report in 12.
 The report links back to focused topics and is not a prerequisite for any
-earlier lesson. References 13 and 14 remain separate from that learning
+earlier lesson. References 13-15 remain separate from that learning
 sequence.

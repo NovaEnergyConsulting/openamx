@@ -7,6 +7,7 @@ import { evaluateDocument } from "../src/runtime/evaluateDocument";
 import { analyzeEditorModules } from "../src/editor/moduleAnalysis";
 import { renderHtml } from "../src/renderer/renderHtml";
 import { formatAmxDocument } from "../src/formatter/formatAmx";
+import { checkDocument } from "../src/typechecker/checkDocument";
 
 async function runCli(...arguments_: string[]) {
   const command = Bun.spawnSync([process.execPath, "run", "src/cli.ts", ...arguments_]);
@@ -281,6 +282,93 @@ describe("V0.14 language documentation and examples", () => {
       const diagnostic = error as { line: number; column: number };
       expect(source.split("\n")[diagnostic.line - 1]?.slice(diagnostic.column - 1, diagnostic.column + 6)).toBe('"0..00"');
     }
+  });
+});
+
+describe("V0.16 language documentation and examples", () => {
+  it("links the additive specification and indexes searchable Help", async () => {
+    const readme = await Bun.file("README.md").text();
+    const extensionHelp = await Bun.file("vscode-extension/README.md").text();
+    const specification = await Bun.file("docs/language-spec-v0.16.md").text();
+    const help = JSON.parse(await Bun.file("desktop-app/src/mainview/components/help-content.json").text()) as {
+      topics: Array<{ id: string; terms: string; steps: string[] }>;
+    };
+    const topic = help.topics.find(item => item.id === "language-v0.16");
+
+    expect(readme).toContain("[V0.16 language specification](docs/language-spec-v0.16.md)");
+    expect(readme).toContain("[function bodies](examples/15_Function_Bodies.amx)");
+    expect(extensionHelp).toContain("../docs/language-spec-v0.16.md");
+    expect(extensionHelp).toContain("../examples/15_Function_Bodies.amx");
+    expect(specification).toContain("FunctionBody        ::= \"{\" { FunctionStatement } \"}\"");
+    expect(specification).toContain("Every reachable path must return a compatible value");
+    expect(specification).toContain("Nested arrays are copied at every depth");
+    expect(specification).toContain("AMXF4001: Missing return value from function");
+    expect(specification).toContain("AMXF4002: Function finished without returning a valid expression");
+    expect(topic?.terms).toContain("AMXF4001");
+    expect(topic?.steps.join(" ")).toContain("docs/language-spec-v0.16.md");
+    expect(topic?.steps.join(" ")).toContain("examples/15_Function_Bodies.amx");
+    expect(new Set(help.topics.map(item => item.id)).size).toBe(help.topics.length);
+  });
+
+  it("runs the standalone reference and preserves expression-body results", async () => {
+    const referencePath = "examples/15_Function_Bodies.amx";
+    const source = await Bun.file(referencePath).text();
+    const analysis = analyzeEditorModules(source, referencePath);
+    const expected = {
+      expressionResult: 12,
+      statementResult: 14,
+      highResult: "high",
+      positiveResult: "positive",
+      otherResult: "other",
+      scopedResult: 5,
+      emptyFallback: 0,
+      firstValue: 7,
+      originalValue: 4,
+      localValue: 5,
+      restoredParameter: 2,
+      returnedList: [6, 9],
+      nestedInput: [[1], [2]],
+      nestedResult: [[1, 9], [2, 9]],
+      repeatedInput: [3],
+      repeatedResult: [3]
+    };
+    const values = evaluateDocument(analysis.document, referencePath);
+    const cliRun = await runCli("run", referencePath);
+    const lesson03 = await runCli("run", "examples/03_Collections_and_Functions.amx");
+
+    expect(values).toEqual(expected);
+    expect(cliRun.exitCode).toBe(0);
+    expect(cliRun.stderr).toBe("");
+    expect(JSON.parse(cliRun.stdout)).toEqual(expected);
+    expect(lesson03.exitCode).toBe(0);
+    expect(JSON.parse(lesson03.stdout)).toMatchObject({
+      levels: [1, 2, 3],
+      doubledReadings: [4, 8, 12],
+      loopTotal: 12,
+      tripledTotal: 36,
+      decision: "Target reached"
+    });
+    expect(formatAmxDocument(formatAmxDocument(source))).toBe(formatAmxDocument(source));
+  });
+
+  it("keeps the missing-return fixture negative and anchors AMXF4001 at its closing brace", async () => {
+    const fixturePath = "examples/fixtures/invalid/missing-function-return.amx";
+    const source = await Bun.file(fixturePath).text();
+    let diagnostic: unknown;
+    try {
+      checkDocument(parseDocumentText(source), fixturePath);
+    } catch (error) {
+      diagnostic = error;
+    }
+
+    expect(diagnostic).toMatchObject({
+      code: "AMXF4001",
+      message: "Missing return value from function",
+      file: fixturePath,
+      line: 11,
+      column: 1
+    });
+    expect(source.split(/\r?\n/)[10]).toBe("}");
   });
 });
 

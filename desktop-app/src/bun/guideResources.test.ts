@@ -42,6 +42,7 @@ describe("desktop guide resources", () => {
 				"12_Complete_Asset_Screening_Report.amx",
 				"13_Route_Measurement_Report.amx",
 				"14_Battery_Resistor_Circuit.amx",
+				"15_Function_Bodies.amx",
 				"data",
 				"fixtures",
 				"libraries",
@@ -136,6 +137,7 @@ describe("desktop guide resources", () => {
 			for (const path of DESKTOP_GUIDE_FILES) {
 				expect(readFileSync(join(project, ...path.split("/")))).toEqual(readFileSync(join(packageResources, ...path.split("/"))));
 			}
+			expect(DESKTOP_GUIDE_FILES).toContain("fixtures/invalid/missing-function-return.amx");
 
 			const renderedIndexPath = join(temporaryRoot, "guide-index.html");
 			const renderedIndex = runGuideCli(project, "render", "00_Table_of_Contents.amx", "--out", renderedIndexPath);
@@ -144,6 +146,7 @@ describe("desktop guide resources", () => {
 			const indexHtml = readFileSync(renderedIndexPath, "utf8");
 			expect(indexHtml).toContain("01 - First Computable Document");
 			expect(indexHtml).toContain("14 - Battery-Resistor Circuit");
+			expect(indexHtml).toContain("15 - Function Bodies");
 
 			const inputs = [
 				"--input", "asset=data/asset.json",
@@ -162,6 +165,18 @@ describe("desktop guide resources", () => {
 			const routeReport = runGuideCli(project, "run", "13_Route_Measurement_Report.amx", "--input", "trips=data/measurement-trips.json");
 			if (routeReport.exitCode !== 0) throw new Error(`13_Route_Measurement_Report.amx: ${new TextDecoder().decode(routeReport.stderr)}`);
 			expect(routeReport.exitCode).toBe(0);
+			const functionBodies = runGuideCli(project, "run", "15_Function_Bodies.amx");
+			if (functionBodies.exitCode !== 0) throw new Error(`15_Function_Bodies.amx: ${new TextDecoder().decode(functionBodies.stderr)}`);
+			expect(JSON.parse(new TextDecoder().decode(functionBodies.stdout))).toMatchObject({
+				expressionResult: 12,
+				statementResult: 14,
+				scopedResult: 5,
+				emptyFallback: 0,
+				nestedInput: [[1], [2]],
+				nestedResult: [[1, 9], [2, 9]],
+				repeatedInput: [3],
+				repeatedResult: [3]
+			});
 		} finally {
 			rmSync(temporaryRoot, { recursive: true, force: true });
 		}

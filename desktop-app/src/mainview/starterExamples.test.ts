@@ -8,6 +8,7 @@ describe("bundled desktop starter reports", () => {
 		expect(starterExamples).toHaveLength(2);
 		expect(starterExamples.map(starter => starter.id)).toEqual(["hello", "operations-note"]);
 		expect(guidedJourney.id).toBe("guide");
+		expect(guidedJourney.description).toContain("numbered 00-15 guide");
 		for (const starter of starterExamples) {
 			const document = parseDocumentText(starter.source);
 			expect(evaluateDocument(document)).toEqual(starter.id === "hello"

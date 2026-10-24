@@ -16,7 +16,7 @@ export const starterExamples = [
 export const guidedJourney = {
 	id: "guide",
 	title: "OpenAMX learning guide",
-	description: "Create an offline project with the numbered 00-14 learning path and its approved support files."
+	description: "Create an offline project with the numbered 00-15 guide and its approved support files."
 } as const;
 
 export type StarterSelection =
