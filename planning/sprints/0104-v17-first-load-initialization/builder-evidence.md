@@ -2,10 +2,10 @@
 
 ## Status
 
-Architect-prepared evidence template. Sprint 104 implementation and
-verification have not started under this preparation.
+Sprint 104 execution authorized on 2026-10-25. Implementation and verification
+are complete; separate product acceptance remains pending.
 
-**Builder recommendation:** PENDING authorized execution.
+**Builder recommendation:** RECOMMEND ACCEPTANCE.
 **Separate acceptance disposition:** PENDING.
 
 ## Preconditions and Baseline
@@ -31,27 +31,49 @@ verification have not started under this preparation.
 
 ## Approved Execution Plan
 
-Pending separate authorization. Record the exact approved source, test,
-output, and evidence paths here before implementation edits.
+Authorized execution paths:
+
+- Source: `desktop-app/src/mainview/App.vue`.
+- Test harness: `desktop-app/spikes/sprint042-workflow-harness/src/mockRpc.ts`.
+- Focused test: `desktop-app/tests/ui/initial-active-document.pw.ts`.
+- Evidence: `planning/sprints/0104-v17-first-load-initialization/builder-evidence.md`.
+- Isolated Playwright outputs: `desktop-app/test-results/sprint104-first-load/`
+  and `desktop-app/test-results/sprint104-preview-freshness/`.
+- No other source, test, package, shared RPC/service, planning-ledger, or
+  generated build paths are approved for edits. If implementation requires an
+  additional path, stop and request a scope amendment before editing it.
 
 ## Verification Log
 
 | Check | Result |
 | --- | --- |
-| Starting worktree/path inventory | NOT RUN. |
-| Active-document transition audit | NOT RUN. |
-| Focused `initial-active-document.pw.ts` | NOT RUN. |
-| `preview-freshness.pw.ts` | NOT RUN. |
-| Desktop typecheck | NOT RUN. |
-| RPC-contract check, if required by an approved schema change | NOT RUN. |
-| `git diff --check` and exact path inventory | NOT RUN. |
+| Starting worktree/path inventory | PASS. Worktree was clean before execution; final changed paths match the approved list below. |
+| Active-document transition audit | PASS. Project open, recent/recovery restore, selection, reload helper, and create/duplicate/move assignment paths were reviewed. |
+| Focused `initial-active-document.pw.ts` | PASS, 7/7. Output: `desktop-app/test-results/sprint104-first-load/`. |
+| `preview-freshness.pw.ts` | PASS, 1/1. Output: `desktop-app/test-results/sprint104-preview-freshness/`. |
+| Preview navigation regression | PASS, 2/2. Output: `desktop-app/test-results/sprint104-first-load/`. |
+| `bun run typecheck` | BLOCKED. `hutch electrobun prepare && vue-tsc --noEmit` produced no output or completion after repeated checks and was stopped. |
+| Direct `bunx vue-tsc --noEmit` fallback | PASS. Run from `desktop-app/`; completed without diagnostics. |
+| RPC-contract check | NOT REQUIRED. No shared RPC schema or desktop service change was made. |
+| `git diff --check` and exact path inventory | PASS. Final modified paths: `desktop-app/src/mainview/App.vue`, `desktop-app/spikes/sprint042-workflow-harness/src/mockRpc.ts`, `desktop-app/tests/ui/initial-active-document.pw.ts`, and this evidence file. |
 
 ## Scope and Residuals
 
-- No source or test files were changed during Architect preparation.
+- The Playwright webServer's configured `./node_modules/.bin/vite` command
+  failed to launch in Windows PowerShell (`'.' is not recognized`). The
+  approved harness was started directly with `bunx vite --config
+  spikes/sprint042-workflow-harness/vite.config.ts --host 127.0.0.1 --port
+  4183 --strictPort`; the listed UI checks then passed.
+- The existing private `reload()` helper has no current UI call site. It now
+  forces the shared initializer, but no new product control was introduced;
+  reload-specific UI behavior is therefore not independently exercisable in
+  this sprint's existing workflow.
+- No shared RPC/service contract, package/version, generated build, release,
+  or downstream sprint path was changed.
 - The S102 Resizable gate and S105 folder operation disposition are unrelated
   to Sprint 104 and remain with their owner sprints.
-- Record unrun or unavailable checks as NOT RUN/BLOCKED with exact reasons;
-  do not infer PASS from the contract or mock-harness result.
+- Sprint 103's recorded typecheck, diagram-time assertions, and native WebView
+  residuals remain as stated in Preconditions and Baseline; they were not
+  treated as Sprint 104 regressions.
 - No release, publication, package/version change, platform certification,
   or downstream sprint execution is authorized by this document package.

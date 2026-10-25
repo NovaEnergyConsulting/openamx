@@ -8,14 +8,26 @@ import { parseDocumentText } from "../../../../src/parser/parseDocument";
 import { checkDocument } from "../../../../src/typechecker/checkDocument";
 import type { DesktopRPCClient, DesktopJobIdentity, DesktopJobSnapshot, DesktopJobResult, OpenDocument, TextAnalysis, TextDiagnostic, WorkbenchState } from "../../../src/shared/rpc";
 
-const projectRoot = "/sprint042-browser-fixture";
+const fixtureScenario = new URLSearchParams(window.location.search).get("scenario") ?? "";
+let projectRoot = "/sprint042-browser-fixture";
 let activePath = `${projectRoot}/report.amx`;
-const secondPath = `${projectRoot}/second.amx`;
-const linkedAmxPath = `${projectRoot}/linked.amx`;
+let secondPath = `${projectRoot}/second.amx`;
+let cssPath = `${projectRoot}/styles.css`;
+let csvPath = `${projectRoot}/data.csv`;
+let jsonPath = `${projectRoot}/data.json`;
+let linkedAmxPath = `${projectRoot}/linked.amx`;
+const reportSource = "# Sprint 042 report\n\n```amx\nexport let result: Number = 3\n```\n";
+const secondSource = "# Second fixture\n\n```amx\nexport let result: Number = 5\n```\n";
+const cssSource = ".fixture { color: #123456; }\n";
+const csvSource = "value\n3\n";
+const jsonSource = "{\"value\":3}\n";
+const recoveredSource = "# Recovered unsaved fixture\n\n```amx\nexport let result: Number = 41\n```\n";
+const staleSource = "# Stale analysis fixture\n\n```amx\nexport let result: Number = \"stale\"\n```\n";
 let documentRevision = 0;
 let generation = 0;
 let inputSettingsRevision = 0;
-let currentText = "# Sprint 042 report\n\n```amx\nexport let result: Number = 3\n```\n";
+let hasActiveDocument = true;
+let currentText = reportSource;
 let savedText = currentText;
 let lastAnalysis: TextAnalysis | undefined;
 let autosaveDelayMs = 500;
@@ -23,15 +35,51 @@ let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
 let previewCompletions = 0;
 let previewAutosavedAtCompletion: boolean[] = [];
 let previewStartedAt: number[] = [];
+let previewCompletionLog: Array<{ identity: DesktopJobIdentity; status: string; currentPath: string | null }> = [];
+let analysisRequests: Array<{ path: string; revision: number; cursorOffsetProvided: boolean; identity: NonNullable<WorkbenchState["requestIdentity"]> }> = [];
+let analysisCompletionLog: Array<{ path: string; revision: number; diagnosticCount: number; currentPath: string | null }> = [];
+let jobRequests: Array<{ operation: string; identity: NonNullable<WorkbenchState["requestIdentity"]> }> = [];
+let bufferWrites: Array<{ path: string; text: string }> = [];
 let previewNavigationCalls: Array<{ targetId: string; previewToken: string }> = [];
 let windowsExplorerPathFixture = false;
 let lastOpenedPath = "";
 let inputSettingsKey = "[]";
 let nextJobId = 0;
 let selectedId = 0;
+let initialFailureUsed = false;
 const jobs = new Map<number, DesktopJobSnapshot>();
-const createdCssFiles = new Map<string, string>();
+const createdFiles = new Map<string, { kind: "amx" | "csv" | "json" | "css"; text: string }>();
 export const failNextPreview = ref(false);
+
+function kindForPath(path: string): "amx" | "csv" | "json" | "css" {
+	if (path.endsWith(".css")) return "css";
+	if (path.endsWith(".csv")) return "csv";
+	if (path.endsWith(".json")) return "json";
+	return "amx";
+}
+
+function sourceForPath(path: string): string {
+	const created = createdFiles.get(path);
+	if (created) return created.text;
+	if (fixtureScenario === "stale" && path.endsWith("/report.amx")) return staleSource;
+	if (path === secondPath) return secondSource;
+	if (path === cssPath) return cssSource;
+	if (path === csvPath) return csvSource;
+	if (path === jsonPath) return jsonSource;
+	if (path === linkedAmxPath) return "# Linked AMX fixture\n";
+	if (path.endsWith("/recovered.amx")) return recoveredSource;
+	return reportSource;
+}
+
+function projectPaths(root: string) {
+	projectRoot = root;
+	activePath = `${root}/report.amx`;
+	secondPath = `${root}/second.amx`;
+	cssPath = `${root}/styles.css`;
+	csvPath = `${root}/data.csv`;
+	jsonPath = `${root}/data.json`;
+	linkedAmxPath = `${root}/linked.amx`;
+}
 
 function analyzeSingleDocument(document: ReturnType<typeof parseDocumentText>, file: string): EditorModuleAnalysis {
 	return {
@@ -117,6 +165,7 @@ function analyzeBufferText(text: string, file: string, cursorOffset?: number): T
 }
 
 function identity(): WorkbenchState["requestIdentity"] {
+	if (!hasActiveDocument) return undefined;
 	return {
 		canonicalActiveUri: `file://${activePath}`,
 		projectGeneration: generation,
@@ -126,14 +175,15 @@ function identity(): WorkbenchState["requestIdentity"] {
 }
 
 function state(): WorkbenchState {
+	const active = hasActiveDocument ? activePath : undefined;
 	return {
-		tabs: [{ path: activePath, kind: activePath.endsWith(".css") ? "css" : "amx", dirty: false, conflict: false, revision: documentRevision }],
-		active: activePath, generation, inputSettingsRevision, requestIdentity: identity()
+		tabs: active ? [{ path: active, kind: kindForPath(active), dirty: documentRevision > 0, conflict: false, revision: documentRevision }] : [],
+		active, generation, inputSettingsRevision, requestIdentity: identity()
 	};
 }
 
 function document(): OpenDocument {
-	return { path: activePath, kind: activePath.endsWith(".css") ? "css" : "amx", text: currentText, diskHash: "fixture", dirty: documentRevision > 0, conflict: false, revision: documentRevision };
+	return { path: activePath, kind: kindForPath(activePath), text: currentText, diskHash: "fixture", dirty: documentRevision > 0, conflict: false, revision: documentRevision };
 }
 
 function previewBootstrap(token: string): string {
@@ -154,8 +204,13 @@ function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchStat
 		setTimeout(() => {
 			previewCompletions++;
 			previewAutosavedAtCompletion.push(savedText === previewSource);
-			if (failNextPreview.value) {
+			if (pending.status === "cancelled" || pending.status === "superseded") {
+				previewCompletionLog.push({ identity: jobIdentity, status: pending.status, currentPath: hasActiveDocument ? activePath : null });
+				return;
+			}
+			if (failNextPreview.value || (fixtureScenario === "initial-failure" && !initialFailureUsed)) {
 				failNextPreview.value = false;
+				initialFailureUsed = true;
 				pending.status = "failed";
 				pending.diagnostics = [{ code: "AMX3001", message: "Simulated current-buffer diagnostic", file: activePath, line: 3, column: 1 }];
 			} else {
@@ -175,9 +230,14 @@ function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchStat
 					html: `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-fixture-nonce'; img-src data:; connect-src 'none'">${bootstrap}</head><body><h1>Current preview</h1><p>${value}</p>${navigation}${scrollRows}</body></html>`
 				};
 			}
-		}, 250);
+			previewCompletionLog.push({ identity: jobIdentity, status: pending.status, currentPath: hasActiveDocument ? activePath : null });
+		}, fixtureScenario === "stale" && jobIdentity.canonicalActiveUri.endsWith("/report.amx") ? 800 : 250);
 		return pending;
 	} else if (operation === "run") result = { kind: "run", summary: { values: [{ name: "result", value: 3 }] } };
+	else if (operation === "validate-data") result = {
+		kind: "data-validation", valid: true,
+		schema: { name: "DataRecord", type: "JSON", acceptedFormats: ["json"], fields: [{ name: "value", type: "Number", optional: false, hasDefault: false }] }
+	};
 	else result = { kind: "export", outputId: `mock-output-${jobIdentity.jobId}`, fileName: `report.${operation === "export-data" ? "json" : operation}`, bytes: 256, ...(operation === "export-data" ? { name: "result" } : {}) };
 	const job: DesktopJobSnapshot = { identity: jobIdentity, operation: operation as DesktopJobSnapshot["operation"], status, cleanupPending: false, diagnostics, result };
 	jobs.set(jobIdentity.jobId, job);
@@ -186,7 +246,18 @@ function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchStat
 
 const request = {
 	async ping({ nonce }: { nonce: string }) { return { nonce, runtime: "bun" as const, version: "browser-harness" }; },
-	async pickProject() { generation++; return { ok: true as const, cancelled: false, root: projectRoot }; },
+	async pickProject() {
+		if (projectRoot !== "/sprint042-browser-fixture") generation++;
+		if (fixtureScenario === "empty") hasActiveDocument = false;
+		else {
+			hasActiveDocument = true;
+			projectPaths("/sprint042-browser-fixture");
+			currentText = reportSource;
+			savedText = currentText;
+			documentRevision = 0;
+		}
+		return { ok: true as const, cancelled: false, root: projectRoot };
+	},
 	async pickCreateProject() { generation++; return { ok: true as const, cancelled: false, root: projectRoot }; },
 	async getWorkbench() { return { ok: true as const, state: state() }; },
 	async getProjectContext() { return { ok: true as const, root: projectRoot, state: state() }; },
@@ -202,50 +273,146 @@ const request = {
 				folders: ["libraries"]
 			};
 		}
-		return { ok: true as const, files: [{ path: `${projectRoot}/report.amx`, kind: "amx" as const }, { path: secondPath, kind: "amx" as const }, ...[...createdCssFiles.keys()].map(path => ({ path, kind: "css" as const }))], folders: [] };
+		return {
+			ok: true as const,
+			files: [
+				{ path: `${projectRoot}/report.amx`, kind: "amx" as const },
+				{ path: secondPath, kind: "amx" as const },
+				{ path: cssPath, kind: "css" as const },
+				{ path: csvPath, kind: "csv" as const },
+				{ path: jsonPath, kind: "json" as const },
+				...[...createdFiles].map(([path, file]) => ({ path, kind: file.kind }))
+			],
+			folders: []
+		};
 	},
-	async createProjectFile({ path, kind }: { path: string; kind: "css" }) {
+	async createProjectFile({ path, kind }: { path: string; kind: "amx" | "csv" | "json" | "css" }) {
 		activePath = `${projectRoot}/${path}`;
-		currentText = "\n";
+		hasActiveDocument = true;
+		currentText = kind === "amx" ? "# New AMX fixture\n" : "\n";
 		documentRevision = 0;
-		createdCssFiles.set(activePath, currentText);
+		createdFiles.set(activePath, { kind, text: currentText });
 		generation++;
 		return { ok: true as const, document: document(), state: state() };
 	},
-	async getRecents() { return { ok: true as const, projects: [] }; },
-	async getRecovery() { return { ok: true as const, available: false, items: [] }; },
+	async duplicateProjectFile({ source, destination }: { source: string; destination: string }) {
+		const kind = kindForPath(source);
+		activePath = `${projectRoot}/${destination}`;
+		hasActiveDocument = true;
+		currentText = source === activePath ? currentText : sourceForPath(source);
+		documentRevision = 0;
+		createdFiles.set(activePath, { kind, text: currentText });
+		generation++;
+		return { ok: true as const, document: document(), state: state() };
+	},
+	async moveProjectFile({ source, destination }: { source: string; destination: string }) {
+		const kind = kindForPath(source);
+		activePath = `${projectRoot}/${destination}`;
+		hasActiveDocument = true;
+		createdFiles.set(activePath, { kind, text: currentText });
+		generation++;
+		return { ok: true as const, state: state() };
+	},
+	async getRecents() {
+		return { ok: true as const, projects: ["recent", "empty-recent"].includes(fixtureScenario) ? [{ root: "/sprint042-recent-fixture", active: "/sprint042-recent-fixture/report.amx" }] : [] };
+	},
+	async getRecovery() {
+		const available = ["recovery", "recovery-empty"].includes(fixtureScenario);
+		return { ok: true as const, available, items: available ? [{ path: "/sprint042-recovery-fixture/recovered.amx", kind: "amx" as const }] : [] };
+	},
+	async resolveRecovery({ action }: { action: "restore" | "discard" }) {
+		if (action === "discard") return { ok: true as const, state: state() };
+		projectPaths("/sprint042-recovery-fixture");
+		hasActiveDocument = fixtureScenario !== "recovery-empty";
+		currentText = recoveredSource;
+		savedText = "# Saved recovery fixture version\n";
+		documentRevision = 1;
+		generation++;
+		return { ok: true as const, root: projectRoot, state: state() };
+	},
+	async restoreProject({ root }: { root: string }) {
+		projectPaths(root);
+		hasActiveDocument = fixtureScenario !== "empty-recent";
+		currentText = "# Recent project fixture\n\n```amx\nexport let result: Number = 23\n```\n";
+		savedText = currentText;
+		documentRevision = 0;
+		generation++;
+		return { ok: true as const, root, state: state() };
+	},
 	async setAutosave({ enabled, delayMs }: { enabled: boolean; delayMs: number }) { autosaveDelayMs = delayMs; return { ok: true as const, enabled, delayMs }; },
-	async readDocument() { return { ok: true as const, document: document() }; },
+	async readDocument() { return hasActiveDocument ? { ok: true as const, document: document() } : { ok: false as const, error: { code: "NO_ACTIVE_DOCUMENT", message: "No active document" } }; },
 	async formatBuffer() { return { ok: true as const, text: formatAmxDocument(currentText) }; },
 	async openDocument({ path }: { path: string }) {
+		const changedPath = path !== activePath;
 		activePath = path;
+		hasActiveDocument = true;
 		lastOpenedPath = path;
-		if (createdCssFiles.has(activePath)) currentText = createdCssFiles.get(activePath)!;
-		else if (activePath === secondPath && !currentText.includes("Second fixture")) currentText = "# Second fixture\n\n```amx\nexport let result: Number = 5\n```\n";
-		else if (activePath.endsWith("/report.amx") && !currentText.includes("Sprint 042 report")) currentText = "# Sprint 042 report\n\n```amx\nexport let result: Number = 3\n```\n";
+		if (changedPath) documentRevision = 0;
+		currentText = sourceForPath(activePath);
+		savedText = currentText;
 		return { ok: true as const, document: document() };
 	},
-	async selectTab({ path }: { path: string }) { activePath = path; return { ok: true as const, document: document() }; },
+	async selectTab({ path }: { path: string }) {
+		const changedPath = path !== activePath;
+		activePath = path;
+		hasActiveDocument = true;
+		if (changedPath) { currentText = sourceForPath(path); savedText = currentText; documentRevision = 0; }
+		return { ok: true as const, document: document() };
+	},
 	async setInputSettings({ inputMappings, validation }: { inputMappings: string[]; validation: "aggregate" | "fail-fast" }) {
 		const next = JSON.stringify({ inputMappings, validation });
 		if (next !== inputSettingsKey) { inputSettingsKey = next; inputSettingsRevision++; }
 		return { ok: true as const, state: state() };
 	},
-	async getInputConfiguration() { return { ok: true as const, configuration: { inputs: [], diagnostics: [] } }; },
-	async analyzeBuffer({ cursorOffset }: { path?: string; revision?: number; cursorOffset?: number } = {}) {
-		const analysis = analyzeBufferText(currentText, activePath, cursorOffset);
+	async getInputConfiguration() {
+		return {
+			ok: true as const,
+			configuration: {
+				inputs: fixtureScenario === "mapped" ? [{ name: "sourceData", type: "Record", source: "project" as const, status: "unvalidated" as const, line: 1, column: 1 }] : [],
+				diagnostics: [],
+				...(fixtureScenario === "mapped" ? { revisions: { local: "local-revision", project: "project-revision" } } : {})
+			}
+		};
+	},
+	async openMappedInput({ name }: { name: string }) {
+		activePath = `${projectRoot}/mapped-data.json`;
+		hasActiveDocument = true;
+		currentText = jsonSource;
+		savedText = currentText;
+		documentRevision = 0;
+		generation++;
+		return {
+			ok: true as const,
+			document: { ...document(), kind: "external-data" as const, external: true, dataFormat: "json" as const, inputName: name },
+			inputName: name,
+			schema: { name: "DataRecord", type: "JSON", acceptedFormats: ["json" as const], fields: [{ name: "value", type: "Number", optional: false, hasDefault: false }] },
+			diagnostics: []
+		};
+	},
+	async analyzeBuffer({ path: requestedPath, revision: requestedRevision, cursorOffset }: { path?: string; revision?: number; cursorOffset?: number } = {}) {
+		const path = requestedPath ?? activePath;
+		const revision = requestedRevision ?? documentRevision;
+		const requestIdentity = { canonicalActiveUri: `file://${path}`, projectGeneration: generation, documentRevision: revision, inputSettingsRevision };
+		analysisRequests.push({ path, revision, cursorOffsetProvided: cursorOffset !== undefined, identity: requestIdentity });
+		const requestedText = sourceForPath(path);
+		if (fixtureScenario === "stale" && path.endsWith("/report.amx")) await new Promise(resolve => setTimeout(resolve, 700));
+		const analysis = analyzeBufferText(requestedText, path, cursorOffset);
+		analysisCompletionLog.push({ path, revision, diagnosticCount: analysis.diagnostics.length, currentPath: hasActiveDocument ? activePath : null });
 		lastAnalysis = analysis;
 		return { ok: true as const, analysis };
 	},
 	async updateBuffer({ text }: { text: string }) {
 		currentText = text;
-		if (activePath.endsWith(".css")) createdCssFiles.set(activePath, text);
+		bufferWrites.push({ path: activePath, text });
+		const created = createdFiles.get(activePath);
+		if (created) createdFiles.set(activePath, { ...created, text });
 		documentRevision++;
 		if (autosaveTimer) clearTimeout(autosaveTimer);
 		autosaveTimer = setTimeout(() => { savedText = currentText; autosaveTimer = undefined; }, autosaveDelayMs);
 		return { ok: true as const, document: document() };
 	},
 	async startJob({ operation, identity: requestIdentity }: { operation: string; identity: NonNullable<WorkbenchState["requestIdentity"]> }) {
+		jobRequests.push({ operation, identity: { ...requestIdentity } });
 		if (operation === "preview") previewStartedAt.push(performance.now());
 		return { ok: true as const, job: finishJob(operation, requestIdentity) };
 	},
@@ -256,9 +423,10 @@ const request = {
 	async cancelJob({ jobId }: { jobId: number }) {
 		const prior = jobs.get(jobId);
 		if (!prior) return { ok: false as const, error: { code: "MISSING", message: "Job missing" } };
-		const job = { ...prior, status: "cancelled" as const, result: undefined };
-		jobs.set(jobId, job);
-		return { ok: true as const, job };
+		prior.status = "cancelled";
+		prior.result = undefined;
+		jobs.set(jobId, prior);
+		return { ok: true as const, job: prior };
 	},
 	async openPreviewTarget({ targetId, previewToken }: { targetId: string; previewToken: string }) {
 		if (!["eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "ffffffffffffffffffffffffffffffff"].includes(targetId)
@@ -268,6 +436,7 @@ const request = {
 		previewNavigationCalls.push({ targetId, previewToken });
 		if (targetId === "ffffffffffffffffffffffffffffffff") {
 			activePath = linkedAmxPath;
+			hasActiveDocument = true;
 			lastOpenedPath = linkedAmxPath;
 			currentText = "# Linked AMX fixture\n";
 			savedText = currentText;
@@ -282,7 +451,7 @@ const request = {
 	},
 	async openExportedOutput() { return { ok: true as const }; },
 	async setPanelSizes() { return { ok: true as const, state: state() }; },
-	async saveDocument() { documentRevision++; return { ok: true as const, document: document() }; }
+	async saveDocument() { documentRevision++; savedText = currentText; return { ok: true as const, document: document() }; }
 };
 
 export const rpc = { request } as unknown as DesktopRPCClient;
@@ -292,5 +461,23 @@ export function setWindowsExplorerPathFixture(enabled: boolean) {
 }
 
 export function harnessSnapshot() {
-	return { currentText, savedText, lastOpenedPath, lastAnalysis, previewCompletions, previewStartedAt: [...previewStartedAt], previewAutosavedAtCompletion: [...previewAutosavedAtCompletion], previewNavigationCalls: [...previewNavigationCalls] };
+	return {
+		currentText,
+		savedText,
+		lastOpenedPath,
+		lastAnalysis,
+		activePath: hasActiveDocument ? activePath : null,
+		projectRoot,
+		generation,
+		documentRevision,
+		analysisRequests: [...analysisRequests],
+		analysisCompletionLog: [...analysisCompletionLog],
+		jobRequests: [...jobRequests],
+		bufferWrites: [...bufferWrites],
+		previewCompletions,
+		previewStartedAt: [...previewStartedAt],
+		previewAutosavedAtCompletion: [...previewAutosavedAtCompletion],
+		previewCompletionLog: [...previewCompletionLog],
+		previewNavigationCalls: [...previewNavigationCalls]
+	};
 }

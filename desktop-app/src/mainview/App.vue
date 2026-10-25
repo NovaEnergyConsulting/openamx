@@ -97,6 +97,7 @@ let previewPortFrame: HTMLIFrameElement | undefined;
 let previewPortToken: string | undefined;
 let previewPortIdentity: ActiveDocumentRequestIdentity | undefined;
 const lastGoodPreviews = new Map<string, { html: string; previewToken: string; revision: number; projectGeneration: number; settingsRevision: number; stale: boolean }>();
+let activeDocumentIdentityKey: string | undefined;
 
 watch(previewFrame, (frame, previous) => {
 	if (previous && previous !== frame) closePreviewPort(true);
@@ -108,6 +109,12 @@ function samePreviewIdentity(left: ActiveDocumentRequestIdentity | undefined, ri
 		&& left.projectGeneration === right.projectGeneration
 		&& left.documentRevision === right.documentRevision
 		&& left.inputSettingsRevision === right.inputSettingsRevision;
+}
+
+function documentIdentityKey(active: OpenDocument): string | undefined {
+	const identity = workbench.value.requestIdentity;
+	if (!identity || workbench.value.active !== active.path || identity.documentRevision !== active.revision) return undefined;
+	return JSON.stringify([identity.canonicalActiveUri, identity.projectGeneration, identity.documentRevision, identity.inputSettingsRevision, active.kind]);
 }
 
 function closePreviewPort(invalidate: boolean) {
@@ -570,12 +577,14 @@ async function resolveRecovery(action: "restore" | "discard") {
 	if (action === "discard") { await syncRecovery(); status.value = "Discarded recovery snapshots."; return; }
 	if (!result.root) { status.value = "No recovery snapshot is available."; return; }
 	clearView();
+	document.value = null;
 	projectRoot.value = result.root;
 	workbench.value = result.state;
 	const active = await props.rpc.request.readDocument();
-	if (active.ok) document.value = active.document;
+	const restoredDocument = active.ok ? active.document : undefined;
 	const listingError = await loadProject();
 	await syncRecovery();
+	if (restoredDocument) await activate({ ok: true, document: restoredDocument });
 	status.value = listingError ?? "Restored unsaved buffers without writing them to disk.";
 }
 
@@ -602,10 +611,12 @@ async function restore(root: string) {
 	explorerWidth.value = recent?.explorerWidth ?? 220;
 	previewWidth.value = recent?.previewWidth ?? 44;
 	await loadProject();
+	let restoredDocument: OpenDocument | undefined;
 	if (result.state.active) {
 		const active = await props.rpc.request.selectTab({ path: result.state.active });
-		if (active.ok) document.value = active.document;
+		if (active.ok) restoredDocument = active.document;
 	} else document.value = null;
+	if (restoredDocument) await activate({ ok: true, document: restoredDocument });
 	status.value = "Project restored without unsaved text or report results.";
 }
 
@@ -838,10 +849,12 @@ async function openProject() {
 	document.value = null;
 	projectRoot.value = result.root ?? "";
 	const listingError = await loadProject();
+	let activeDocument: OpenDocument | undefined;
 	if (workbench.value.active) {
 		const active = await props.rpc.request.readDocument();
-		if (active.ok) document.value = active.document;
+		if (active.ok) activeDocument = active.document;
 	}
+	if (activeDocument) await activate({ ok: true, document: activeDocument });
 	const recent = recents.value.find(item => item.root === projectRoot.value);
 	explorerWidth.value = recent?.explorerWidth ?? 220;
 	previewWidth.value = recent?.previewWidth ?? 44;
@@ -873,11 +886,15 @@ async function createProject(selection?: StarterSelection) {
 	projectRoot.value = context.root;
 	document.value = null;
 	const listingError = await loadProject();
+	let activeDocument: OpenDocument | undefined;
 	if (workbench.value.active) {
 		const active = await props.rpc.request.readDocument();
-		if (active.ok) document.value = active.document;
+		if (active.ok) activeDocument = active.document;
 	}
-	if (starterSource && document.value?.kind === "amx") await updateText(starterSource);
+	if (activeDocument && starterSource && activeDocument.kind === "amx") {
+		await activate({ ok: true, document: activeDocument }, false);
+		await updateText(starterSource);
+	} else if (activeDocument) await activate({ ok: true, document: activeDocument });
 	status.value = failure || listingError || (guide
 		? "Created the offline guide project and opened 00_Table_of_Contents.amx."
 		: starterSource ? "Created a starter project. The report is open and will autosave locally."
@@ -885,12 +902,28 @@ async function createProject(selection?: StarterSelection) {
 				: "Created a new project. Select report.amx in the explorer.");
 }
 
-async function activate(result: Awaited<ReturnType<typeof props.rpc.request.openDocument>>) {
+async function activate(result: Awaited<ReturnType<typeof props.rpc.request.openDocument>>, initializeAmx = true, force = false) {
 	if (!result.ok) { status.value = result.error.message; return; }
-	clearView();
-	document.value = result.document;
-	contextView.value = result.document.kind === "amx" ? "preview" : "data";
+	const transitioning = force || !document.value
+		|| document.value.path !== result.document.path
+		|| document.value.revision !== result.document.revision;
+	if (transitioning) {
+		clearView();
+		document.value = result.document;
+	}
 	await syncWorkbench();
+	await syncInputSettings();
+	const identityKey = documentIdentityKey(result.document);
+	if (!force && identityKey && identityKey === activeDocumentIdentityKey) {
+		document.value = result.document;
+		return;
+	}
+	if (!transitioning) {
+		clearView();
+		document.value = result.document;
+	}
+	activeDocumentIdentityKey = identityKey;
+	contextView.value = result.document.kind === "amx" ? "preview" : "data";
 	if (result.document.kind === "amx") {
 		const cached = lastGoodPreviews.get(result.document.path);
 		preview.value = cached?.html ?? "";
@@ -900,8 +933,10 @@ async function activate(result: Awaited<ReturnType<typeof props.rpc.request.open
 			&& cached.projectGeneration === workbench.value.generation
 			&& cached.settingsRevision === (identity?.inputSettingsRevision ?? -1);
 		previewState.value = cached ? (matches ? "success" : "stale") : "idle";
-		void refreshStaticAnalysis(result.document.path, result.document.revision);
-		schedulePreview();
+		if (initializeAmx) {
+			void refreshStaticAnalysis(result.document.path, result.document.revision);
+			schedulePreview();
+		}
 	} else {
 		preview.value = "";
 		previewToken.value = "";
@@ -944,13 +979,17 @@ function navigateDataDiagnostic(path: string, item: TextDiagnostic) {
 }
 
 async function refreshStaticAnalysis(path: string, revision: number) {
+	const identity = workbench.value.requestIdentity;
+	if (!identity || workbench.value.active !== path || identity.documentRevision !== revision) return;
 	const request = ++staticRequest;
 	staticAnalysis.value = { diagnostics: [], completions: [] };
 	try {
 		const result = await props.rpc.request.analyzeBuffer({ path, revision });
-		if (request === staticRequest && document.value?.path === path && document.value.revision === revision && result.ok) staticAnalysis.value = result.analysis;
+		if (request === staticRequest && document.value?.path === path && document.value.revision === revision
+			&& samePreviewIdentity(workbench.value.requestIdentity, identity) && result.ok) staticAnalysis.value = result.analysis;
 	} catch {
-		if (request === staticRequest && document.value?.path === path && document.value.revision === revision) {
+		if (request === staticRequest && document.value?.path === path && document.value.revision === revision
+			&& samePreviewIdentity(workbench.value.requestIdentity, identity)) {
 			staticAnalysis.value = { diagnostics: [{ code: "DESKTOP_RPC", message: "Static analysis is unavailable." }], completions: [] };
 		}
 	}
@@ -1023,6 +1062,7 @@ async function createProjectFile(kind: "amx" | "csv" | "json" | "css") {
 	document.value = result.document;
 	workbench.value = result.state;
 	const listingError = await loadProject();
+	await activate({ ok: true, document: result.document });
 	status.value = listingError ?? `Created ${path}.`;
 }
 
@@ -1046,6 +1086,7 @@ async function duplicateProjectFile() {
 	document.value = result.document;
 	workbench.value = result.state;
 	const listingError = await loadProject();
+	await activate({ ok: true, document: result.document });
 	status.value = listingError ?? `Created ${destination}.`;
 }
 
@@ -1069,6 +1110,7 @@ async function moveActiveProjectFile() {
 	const movedDocument = await props.rpc.request.readDocument();
 	if (movedDocument.ok) document.value = movedDocument.document;
 	const listingError = await loadProject();
+	if (movedDocument.ok) await activate({ ok: true, document: movedDocument.document });
 	status.value = listingError ?? `Moved ${name} to ${destination}.`;
 }
 
@@ -1100,7 +1142,7 @@ async function closeTab(path: string) {
 async function reload() {
 	await pendingEdit;
 	if (!document.value || (document.value.dirty && !window.confirm("Discard unsaved changes and reload?"))) return;
-	await activate(await props.rpc.request.reloadTab({ action: "discard" }));
+	await activate(await props.rpc.request.reloadTab({ action: "discard" }), true, true);
 }
 
 async function refresh() {
@@ -1189,6 +1231,7 @@ async function updateText(text: string) {
 	if (!result.ok) { status.value = result.error.message; return; }
 	document.value = result.document;
 	await syncWorkbench();
+	activeDocumentIdentityKey = documentIdentityKey(result.document);
 	if (result.document.kind === "amx") {
 		void refreshStaticAnalysis(path, result.document.revision);
 		schedulePreview();
