@@ -3,10 +3,12 @@
 ## Status
 
 Sprint 104 execution authorized on 2026-10-25. Implementation and verification
-are complete; separate product acceptance remains pending.
+are complete. The user separately ACCEPTED/CLOSED Sprint 104 on 2026-10-25
+with the verification residuals recorded below.
 
 **Builder recommendation:** RECOMMEND ACCEPTANCE.
-**Separate acceptance disposition:** PENDING.
+**Separate product-owner disposition:** ACCEPTED/CLOSED WITH RECORDED
+VERIFICATION RESIDUALS, 2026-10-25.
 
 ## Preconditions and Baseline
 
@@ -77,3 +79,9 @@ Authorized execution paths:
   treated as Sprint 104 regressions.
 - No release, publication, package/version change, platform certification,
   or downstream sprint execution is authorized by this document package.
+
+**Disposition:** Sprint 104 is ACCEPTED/CLOSED on 2026-10-25 with the Hutch
+typecheck wrapper and unavailable reload UI-callsite residuals stated above.
+This disposition closes Sprint 104 only; it does not authorize Sprint 105 or
+any other downstream sprint, release, publication, package/version change, or
+platform certification.
