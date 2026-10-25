@@ -47,6 +47,12 @@ runtime is fixed at the bottom with all existing behavior preserved.
 - No folder operations, command-palette changes, AMX semantics, RPC unrelated
   to sizing, release/version/package behavior, publication, or platform
   certification are included.
-- Builder evidence records exact results, failures/retries, final gate
-  decision, and residuals. Separate product-owner acceptance is required;
-  S108 and release authority are not inferred.
+- Builder evidence records exact results, failures/retries, the final GO gate
+  decision, and residuals. The user accepted Sprint 107 on 2026-10-25;
+  Sprint 108 and release authority are not inferred.
+
+## Disposition
+
+**ACCEPTED/CLOSED by the user on 2026-10-25.** This closes Sprint 107 only.
+It does not authorize Sprint 108, release, publication, version changes, or
+platform certification.

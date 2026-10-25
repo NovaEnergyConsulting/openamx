@@ -164,6 +164,40 @@ writeFileSync(join(packagedWorkerRoot, "jobWorker.js"), "");
 assert.equal(fileURLToPath(desktopWorkerUrl(pathToFileURL(join(packagedWorkerRoot, "index.js")).href)), join(packagedWorkerRoot, "jobWorker.js"));
 console.log("Typed RPC and webview boundary contract passed (4 assertions)");
 
+const panelSizesRoot = mkdtempSync(join(tmpdir(), "openamx-panel-sizes-"));
+const panelProjectA = join(panelSizesRoot, "project-a");
+const panelProjectB = join(panelSizesRoot, "project-b");
+const panelSessionPath = join(panelSizesRoot, "recent-projects.json");
+mkdirSync(panelProjectA);
+mkdirSync(panelProjectB);
+try {
+	let panelService = createDesktopService(undefined, undefined, panelSessionPath);
+	assert.equal((await panelService.request.openProject({ path: panelProjectA })).ok, true);
+	assert.equal((await panelService.request.setPanelSizes({ explorerWidth: 311, previewWidth: 37 })).ok, true);
+	assert.equal((await panelService.request.openProject({ path: panelProjectB })).ok, true);
+	assert.equal((await panelService.request.setPanelSizes({ explorerWidth: 378, previewWidth: 59 })).ok, true);
+	assert.equal((await panelService.request.setPanelSizes({ explorerWidth: 159, previewWidth: 66 })).ok, false);
+	panelService = createDesktopService(undefined, undefined, panelSessionPath);
+	const panelRecents = await panelService.request.getRecents();
+	assert.equal(panelRecents.ok, true);
+	if (!panelRecents.ok) throw new Error("Recent panel-size records were not restored.");
+	const savedSizes = (root: string) => panelRecents.projects.find(project => project.root === root);
+	assert.deepEqual([savedSizes(panelProjectA)?.explorerWidth, savedSizes(panelProjectA)?.previewWidth], [311, 37]);
+	assert.deepEqual([savedSizes(panelProjectB)?.explorerWidth, savedSizes(panelProjectB)?.previewWidth], [378, 59]);
+	assert.equal((await panelService.request.restoreProject({ root: panelProjectA })).ok, true);
+	const afterRestoreA = await panelService.request.getRecents();
+	assert.ok(afterRestoreA.ok);
+	if (!afterRestoreA.ok) throw new Error("Project A panel sizes were unavailable after restore.");
+	assert.deepEqual(afterRestoreA.projects.find(project => project.root === panelProjectA) && [afterRestoreA.projects.find(project => project.root === panelProjectA)?.explorerWidth, afterRestoreA.projects.find(project => project.root === panelProjectA)?.previewWidth], [311, 37]);
+	assert.deepEqual(afterRestoreA.projects.find(project => project.root === panelProjectB) && [afterRestoreA.projects.find(project => project.root === panelProjectB)?.explorerWidth, afterRestoreA.projects.find(project => project.root === panelProjectB)?.previewWidth], [378, 59]);
+	assert.equal((await panelService.request.restoreProject({ root: panelProjectB })).ok, true);
+	const restoredPanelContext = await panelService.request.getProjectContext();
+	assert.equal(restoredPanelContext.ok && restoredPanelContext.root, panelProjectB);
+	console.log("Actual desktop service setPanelSizes A/B persistence passed (14 assertions)");
+} finally {
+	rmSync(panelSizesRoot, { recursive: true, force: true });
+}
+
 const previewFreshnessRoot = mkdtempSync(join(tmpdir(), "openamx-preview-freshness-"));
 const previewFreshnessEntry = join(previewFreshnessRoot, "report.amx");
 const savedPreviewSource = "# Freshness\n\n```amx\nlet value: Number = 1\n```\n";

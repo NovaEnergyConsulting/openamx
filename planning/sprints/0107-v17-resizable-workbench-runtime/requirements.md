@@ -2,17 +2,17 @@
 
 ## Document Status
 
-Architect-prepared Sprint 107 planning package. It defines the product
-contract, technical gate, and verification plan; it does not authorize edits.
-Obtain separate Sprint 107 execution authorization and approve the exact
-source, test, output, and evidence paths before implementation.
+Sprint 107 was implemented and verified under separate authorization, then
+ACCEPTED/CLOSED by the user on 2026-10-25. The accepted product contract,
+technical gate result, and verification evidence are recorded in this sprint
+package.
 
-Sprint 106 implementation and focused verification are complete, but its
-builder evidence still shows separate product-owner acceptance as PENDING.
-Sprint 102's overall UX contract is accepted, but its Resizable technical gate
-remains OPEN: the prototype used mock per-project persistence and did not
-exercise actual `setPanelSizes` RPC or App.vue integration. Sprint 107 must
-close that technical gate before selecting a product resizer path.
+Sprint 106's separate product-owner acceptance remains PENDING in its own
+evidence. Sprint 102's historical Resizable gate remains OPEN because its
+prototype used mock per-project persistence; Sprint 107 closed the production
+path decision with actual service A/B persistence and App.vue integration.
+Sprint 107's Reka technical gate is GO; see `technical-gate.md` and
+`builder-evidence.md`.
 
 ## Goal
 

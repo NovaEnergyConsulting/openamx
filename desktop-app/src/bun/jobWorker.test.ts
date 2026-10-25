@@ -212,10 +212,10 @@ diagram crank {
 	}
 });
 
-test("trusted worker fails explicitly when diagram HTML exceeds one MiB", async () => {
+test("trusted worker fails explicitly when rendered report HTML exceeds its limit", async () => {
 	const root = mkdtempSync(join(tmpdir(), "openamx-worker-diagram-size-"));
 	const entryPath = join(root, "report.amx");
-	const source = `# ${"x".repeat(1_050_000)}
+	const source = `# ${"&".repeat(1_700_000)}
 
 \`\`\`amx
 diagram bounded {
@@ -253,10 +253,10 @@ diagram bounded {
 		} satisfies WorkerJobRequest);
 		const result = await completed;
 		expect(result.kind).toBe("failed");
-		if (result.kind !== "failed") throw new Error("Expected an explicit oversized HTML failure.");
+		if (result.kind !== "failed") throw new Error("Expected an explicit rendered HTML size failure.");
 		expect(result.diagnostics[0]).toMatchObject({
 			code: "DESKTOP_JOB",
-			message: expect.stringContaining("Interactive diagram HTML exceeds the 1048576-byte limit")
+			message: expect.stringContaining("HTML output exceeds the 8000000-character limit")
 		});
 	} finally {
 		worker.terminate();

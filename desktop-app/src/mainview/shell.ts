@@ -9,4 +9,3 @@ export interface ShellCommand {
 
 export type ShellFocusMode = "none" | "editor" | "preview";
 export type ShellTheme = "system" | "light" | "dark";
-export type DrawerDock = "bottom" | "right";

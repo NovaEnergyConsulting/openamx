@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("runtime panel preserves details, job, output and docking workflows", async ({ page }) => {
+test("runtime panel preserves details, job, output and bottom-only layout", async ({ page }) => {
 	await page.setViewportSize({ width: 1024, height: 720 });
 	await page.goto("/");
 	await page.getByRole("button", { name: "Open project" }).click();
@@ -20,10 +20,28 @@ test("runtime panel preserves details, job, output and docking workflows", async
 	await hideDetails.click();
 	await expect(page.locator(".runtime-details")).toHaveCount(0);
 
-	await page.getByRole("button", { name: "Right", exact: true }).click();
-	await expect(page.locator(".workbench")).toHaveClass(/drawer-right/);
-	await page.getByRole("button", { name: "Bottom", exact: true }).click();
-	await expect(page.locator(".workbench")).toHaveClass(/drawer-bottom/);
+	await expect(page.locator(".runtime-drawer")).toHaveCSS("grid-row", "2");
+	await expect(page.getByRole("button", { name: /^(Bottom|Right)$/ })).toHaveCount(0);
+	await page.getByRole("button", { name: "Preferences" }).click();
+	await expect(page.getByText("Runtime drawer", { exact: true })).toHaveCount(0);
+	const appearance = page.getByLabel("Appearance");
+	const autosave = page.getByLabel("Autosave editable files");
+	const autosaveDelay = page.getByLabel(/Autosave delay/);
+	const wrapping = page.getByLabel("Wrap long editor lines");
+	await expect(appearance).toHaveValue("system");
+	await expect(autosave).toBeChecked();
+	await expect(autosaveDelay).toHaveValue("500");
+	await expect(wrapping).toBeVisible();
+	await appearance.selectOption("dark");
+	await autosaveDelay.fill("700");
+	await autosave.uncheck();
+	await page.getByRole("button", { name: "Save preferences" }).click();
+	await expect(page.locator("main")).toHaveClass(/theme-dark/);
+	await page.getByRole("button", { name: "Preferences" }).click();
+	await expect(page.getByLabel("Appearance")).toHaveValue("dark");
+	await expect(page.getByLabel("Autosave editable files")).not.toBeChecked();
+	await expect(page.getByLabel(/Autosave delay/)).toHaveValue("700");
+	await page.getByRole("button", { name: "Cancel" }).click();
 
 	await page.getByRole("button", { name: "Refresh preview" }).click();
 	const cancel = page.getByRole("button", { name: "Cancel current job" });

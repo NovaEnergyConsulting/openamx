@@ -115,16 +115,16 @@ test("long workbench panes stay bounded with independent explorer and runtime sc
 		expect(scrollPositions.editorTop).toBe(scrollPositions.afterEditor[1]);
 		expect(scrollPositions.runtimeTop).toBeGreaterThan(0);
 		if (viewport.name === "820x720-adaptive") {
-			await page.getByRole("button", { name: "Right" }).click();
 			const drawerBounds = await page.locator(".runtime-drawer").evaluate(element => {
 				const { left, right, top, bottom } = element.getBoundingClientRect();
-				return { left, right, top, bottom };
+				return { left, right, top, bottom, gridRow: getComputedStyle(element).gridRow };
 			});
 			expect(drawerBounds.left).toBeGreaterThanOrEqual(0);
 			expect(drawerBounds.right).toBeLessThanOrEqual(viewport.width);
 			expect(drawerBounds.bottom).toBeLessThanOrEqual(viewport.height);
+			expect(drawerBounds.gridRow).toBe("2");
 		}
-		await captureViewport(page, testInfo, `sprint045-${viewport.name}-light.png`);
+		await captureViewport(page, testInfo, `sprint107-${viewport.name}-light.png`);
 		if (index < viewports.length - 1) await page.goto("about:blank");
 	}
 

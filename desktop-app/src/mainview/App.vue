@@ -13,10 +13,13 @@ import PreferencesDialog from "./components/PreferencesDialog.vue";
 import ProjectExplorer from "./components/ProjectExplorer.vue";
 import ReportSettingsDialog from "./components/ReportSettingsDialog.vue";
 import RuntimePanel from "./components/RuntimePanel.vue";
+import ResizableHandle from "./components/ui/resizable/ResizableHandle.vue";
+import ResizablePanel from "./components/ui/resizable/ResizablePanel.vue";
+import ResizablePanelGroup from "./components/ui/resizable/ResizablePanelGroup.vue";
 import WelcomeView from "./components/WelcomeView.vue";
 import WorkbenchTabs from "./components/WorkbenchTabs.vue";
 import { createDiagnosticSummary } from "./diagnosticSummary";
-import type { DrawerDock, ShellCommand, ShellFocusMode, ShellTheme } from "./shell";
+import type { ShellCommand, ShellFocusMode, ShellTheme } from "./shell";
 import type { StarterSelection } from "./starterExamples";
 
 const props = defineProps<{ rpc: DesktopRPCClient }>();
@@ -34,15 +37,35 @@ const autosaveEnabled = ref(localStorage.getItem("openamx.autosave") !== "false"
 const autosaveDelayMs = ref(Number(localStorage.getItem("openamx.autosave-delay")) || 500);
 const diagnosticTrail = ref<Array<{ at: string; codes: string[] }>>([]);
 const focusMode = ref<ShellFocusMode>("none");
-const drawerDock = ref<DrawerDock>((localStorage.getItem("openamx.drawer-dock") as DrawerDock) || "bottom");
 const theme = ref<ShellTheme>((localStorage.getItem("openamx.theme") as ShellTheme) || "system");
 const explorerWidth = ref(220);
 const previewWidth = ref(44);
+const requestedExplorerWidth = ref(220);
+const requestedPreviewWidth = ref(44);
+const workbenchPanelsElement = ref<HTMLElement | null>(null);
+const workbenchPanelWidth = ref(0);
+const workbenchPanelTrackWidth = computed(() => Math.max(1, workbenchPanelWidth.value - 16));
+const panelLayoutRevision = ref(0);
+const minimumTrackPercent = computed(() => workbenchPanelWidth.value > 0 ? 260 / workbenchPanelTrackWidth.value * 100 : 25);
+const minimumExplorerPercent = computed(() => workbenchPanelWidth.value > 0 ? 160 / workbenchPanelTrackWidth.value * 100 : 0);
+const minimumContextPercent = computed(() => Math.max(25, minimumTrackPercent.value));
+const maximumExplorerWidth = computed(() => Math.min(400, Math.max(160, workbenchPanelTrackWidth.value - 260 - Math.max(260, workbenchPanelTrackWidth.value * 0.25))));
+const maximumExplorerPercent = computed(() => workbenchPanelWidth.value > 0 ? maximumExplorerWidth.value / workbenchPanelTrackWidth.value * 100 : 100);
+const defaultExplorerPercent = computed(() => workbenchPanelWidth.value > 0
+	? Math.max(160, Math.min(maximumExplorerWidth.value, requestedExplorerWidth.value)) / workbenchPanelTrackWidth.value * 100
+	: 0);
+const maximumContextPercent = computed(() => Math.min(65, 100 - minimumExplorerPercent.value - minimumTrackPercent.value));
+const defaultContextPercent = computed(() => Math.max(minimumContextPercent.value, Math.min(maximumContextPercent.value, requestedPreviewWidth.value)));
+const defaultEditorPercent = computed(() => 100 - defaultExplorerPercent.value - defaultContextPercent.value);
 const editorElement = ref<InstanceType<typeof CodeEditor> | null>(null);
 const dataEditorElement = ref<InstanceType<typeof DataEditorPane> | null>(null);
 let invoker: HTMLElement | null = null;
 let focusInvoker: HTMLElement | null = null;
 let settingsInvoker: HTMLElement | null = null;
+let workbenchResizeObserver: ResizeObserver | undefined;
+let pointerResizeActive = false;
+let keyboardResizeActive = false;
+let panelLayoutChanged = false;
 const preview = ref("");
 const previewToken = ref("");
 const previewFrame = ref<HTMLIFrameElement | null>(null);
@@ -587,6 +610,7 @@ async function resolveRecovery(action: "restore" | "discard") {
 	const active = await props.rpc.request.readDocument();
 	const restoredDocument = active.ok ? active.document : undefined;
 	const listingError = await loadProject();
+	applyProjectPanelSizes(projectRoot.value);
 	await syncRecovery();
 	if (restoredDocument) await activate({ ok: true, document: restoredDocument });
 	status.value = listingError ?? "Restored unsaved buffers without writing them to disk.";
@@ -615,6 +639,7 @@ async function restore(root: string) {
 	explorerWidth.value = recent?.explorerWidth ?? 220;
 	previewWidth.value = recent?.previewWidth ?? 44;
 	await loadProject();
+	applyProjectPanelSizes(result.root);
 	let restoredDocument: OpenDocument | undefined;
 	if (result.state.active) {
 		const active = await props.rpc.request.selectTab({ path: result.state.active });
@@ -638,15 +663,71 @@ function setFocusMode(mode: "none" | "editor" | "preview") {
 	else focusInvoker?.focus();
 }
 
-async function resizeExplorer(delta: number) {
-	explorerWidth.value = Math.max(160, Math.min(400, explorerWidth.value + delta));
-	await props.rpc.request.setPanelSizes({ explorerWidth: explorerWidth.value, previewWidth: previewWidth.value });
+function applyProjectPanelSizes(root: string) {
+	const recent = recents.value.find(item => item.root === root);
+	requestedExplorerWidth.value = recent?.explorerWidth ?? 220;
+	requestedPreviewWidth.value = recent?.previewWidth ?? 44;
+	explorerWidth.value = requestedExplorerWidth.value;
+	previewWidth.value = requestedPreviewWidth.value;
+	panelLayoutRevision.value++;
 }
 
-async function resizePreview(delta: number) {
-	previewWidth.value = Math.max(25, Math.min(65, previewWidth.value + delta));
-	await props.rpc.request.setPanelSizes({ explorerWidth: explorerWidth.value, previewWidth: previewWidth.value });
+async function persistPanelSizes() {
+	if (!projectRoot.value || focusMode.value !== "none" || window.innerWidth <= 900 || workbenchPanelWidth.value <= 0) return;
+	const root = projectRoot.value;
+	const sizes = { explorerWidth: Math.round(explorerWidth.value), previewWidth: Number(previewWidth.value.toFixed(2)) };
+	const result = await props.rpc.request.setPanelSizes(sizes);
+	if (!result.ok || projectRoot.value !== root) return;
+	recents.value = recents.value.map(recent => recent.root === root ? { ...recent, ...sizes } : recent);
 }
+
+function onPanelLayout(layout: number[]) {
+	if (layout.length !== 3 || !layout.every(Number.isFinite) || workbenchPanelWidth.value <= 0) return;
+	explorerWidth.value = layout[0]! * workbenchPanelTrackWidth.value / 100;
+	previewWidth.value = layout[2]!;
+	if (pointerResizeActive || keyboardResizeActive) panelLayoutChanged = true;
+}
+
+function onPanelDragging(dragging: boolean) {
+	if (dragging) {
+		pointerResizeActive = true;
+		panelLayoutChanged = false;
+		return;
+	}
+	pointerResizeActive = false;
+	if (panelLayoutChanged) void persistPanelSizes();
+	panelLayoutChanged = false;
+}
+
+function isPanelResizeKey(event: KeyboardEvent) {
+	return ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key);
+}
+
+function onPanelKeydown(event: KeyboardEvent) {
+	if (event.target instanceof HTMLElement && event.target.hasAttribute("data-resize-handle") && isPanelResizeKey(event)) {
+		keyboardResizeActive = true;
+		panelLayoutChanged = false;
+	}
+}
+
+function onPanelKeyup(event: KeyboardEvent) {
+	if (!keyboardResizeActive || !isPanelResizeKey(event)) return;
+	keyboardResizeActive = false;
+	if (panelLayoutChanged) void persistPanelSizes();
+	panelLayoutChanged = false;
+}
+
+watch(workbenchPanelsElement, element => {
+	workbenchResizeObserver?.disconnect();
+	if (!element) {
+		workbenchPanelWidth.value = 0;
+		return;
+	}
+	const updateWidth = () => { workbenchPanelWidth.value = element.clientWidth; };
+	updateWidth();
+	workbenchResizeObserver = new ResizeObserver(updateWidth);
+	workbenchResizeObserver.observe(element);
+}, { flush: "post" });
 
 function showPalette() {
 	invoker = window.document.activeElement instanceof HTMLElement ? window.document.activeElement : null;
@@ -744,11 +825,6 @@ function setTheme(next: ShellTheme) {
 	window.document.documentElement.dataset.theme = next;
 }
 
-function setDrawerDock(next: DrawerDock) {
-	drawerDock.value = next;
-	localStorage.setItem("openamx.drawer-dock", next);
-}
-
 function openHelp(section = "getting-started") {
 	helpSection.value = section;
 	helpOpen.value = true;
@@ -777,12 +853,11 @@ watch(() => [...staticAnalysis.value.diagnostics, ...analysis.value.diagnostics,
 	diagnosticTrail.value = [...diagnosticTrail.value, { at: new Date().toISOString(), codes: codes.slice(0, 100) }].slice(-20);
 });
 
-async function savePreferences(value: { theme: ShellTheme; drawerDock: DrawerDock; wrapLines: boolean; autosave: boolean; autosaveDelayMs: number }) {
+async function savePreferences(value: { theme: ShellTheme; wrapLines: boolean; autosave: boolean; autosaveDelayMs: number }) {
 	if (!Number.isSafeInteger(value.autosaveDelayMs) || value.autosaveDelayMs < 100 || value.autosaveDelayMs > 10_000) return;
 	const result = await props.rpc.request.setAutosave({ enabled: value.autosave, delayMs: value.autosaveDelayMs });
 	if (!result.ok) { status.value = result.error.message; return; }
 	setTheme(value.theme);
-	setDrawerDock(value.drawerDock);
 	editorWrapLines.value = value.wrapLines;
 	localStorage.setItem("openamx.editor-wrap", String(value.wrapLines));
 	autosaveEnabled.value = result.enabled;
@@ -793,24 +868,7 @@ async function savePreferences(value: { theme: ShellTheme; drawerDock: DrawerDoc
 	status.value = "Preferences saved on this device.";
 }
 
-function dragDivider(event: PointerEvent, divider: "explorer" | "preview") {
-	const start = event.clientX;
-	const initial = divider === "explorer" ? explorerWidth.value : previewWidth.value;
-	const width = window.document.querySelector<HTMLElement>(".workbench")?.clientWidth ?? 1;
-	const move = (moveEvent: PointerEvent) => {
-		if (divider === "explorer") explorerWidth.value = Math.max(160, Math.min(400, initial + moveEvent.clientX - start));
-		else previewWidth.value = Math.max(25, Math.min(65, initial - ((moveEvent.clientX - start) / width) * 100));
-	};
-	const finish = () => {
-		window.removeEventListener("pointermove", move);
-		window.removeEventListener("pointerup", finish);
-		void props.rpc.request.setPanelSizes({ explorerWidth: explorerWidth.value, previewWidth: previewWidth.value });
-	};
-	window.addEventListener("pointermove", move);
-	window.addEventListener("pointerup", finish, { once: true });
-}
-
-onMounted(() => { setTheme(theme.value); setDrawerDock(drawerDock.value); void props.rpc.request.setAutosave({ enabled: autosaveEnabled.value, delayMs: autosaveDelayMs.value }); window.addEventListener("keydown", onKeydown); void syncRecents(); void syncRecovery(); });
+onMounted(() => { setTheme(theme.value); void props.rpc.request.setAutosave({ enabled: autosaveEnabled.value, delayMs: autosaveDelayMs.value }); window.addEventListener("keydown", onKeydown); void syncRecents(); void syncRecovery(); });
 onUnmounted(() => {
 	window.removeEventListener("keydown", onKeydown);
 	if (previewTimer) clearTimeout(previewTimer);
@@ -853,15 +911,13 @@ async function openProject() {
 	document.value = null;
 	projectRoot.value = result.root ?? "";
 	const listingError = await loadProject();
+	applyProjectPanelSizes(projectRoot.value);
 	let activeDocument: OpenDocument | undefined;
 	if (workbench.value.active) {
 		const active = await props.rpc.request.readDocument();
 		if (active.ok) activeDocument = active.document;
 	}
 	if (activeDocument) await activate({ ok: true, document: activeDocument });
-	const recent = recents.value.find(item => item.root === projectRoot.value);
-	explorerWidth.value = recent?.explorerWidth ?? 220;
-	previewWidth.value = recent?.previewWidth ?? 44;
 	status.value = listingError ?? (document.value ? `Restored active file. ${files.value.length} .amx file(s) in project.` : `Project ready: ${files.value.length} .amx file(s). Select a file in the explorer or use Open file.`);
 }
 
@@ -890,6 +946,7 @@ async function createProject(selection?: StarterSelection) {
 	projectRoot.value = context.root;
 	document.value = null;
 	const listingError = await loadProject();
+	applyProjectPanelSizes(context.root);
 	let activeDocument: OpenDocument | undefined;
 	if (workbench.value.active) {
 		const active = await props.rpc.request.readDocument();
@@ -1480,7 +1537,18 @@ async function openExportedOutput(action: DesktopExportAction) {
 			<button type="button" @click="showPalette">Commands</button>
 		</header>
 		<WelcomeView v-if="!projectRoot" :recents="recents" :recovery="recovery" :status="status" @open-project="openProject" @create-project="createProject" @restore="restore" @restore-recovery="resolveRecovery('restore')" @discard-recovery="resolveRecovery('discard')" @clear-recents="clearRecents" @open-help="openHelp" />
-		<div v-else class="workbench" :class="[`focus-${focusMode}`, `drawer-${drawerDock}`]" :style="{ '--explorer-width': `${explorerWidth}px`, '--preview-width': `${previewWidth}%` }">
+		<div v-else class="workbench" :class="`focus-${focusMode}`">
+			<div ref="workbenchPanelsElement" class="workbench-panels">
+			<ResizablePanelGroup
+				v-if="workbenchPanelWidth > 0"
+				:key="`${projectRoot}:${panelLayoutRevision}`"
+				class="workbench-panel-group"
+				direction="horizontal"
+				@layout="onPanelLayout"
+				@keydown.capture="onPanelKeydown"
+				@keyup.capture="onPanelKeyup"
+			>
+			<ResizablePanel id="explorer-panel" class="workbench-explorer-panel" :default-size="defaultExplorerPercent" :min-size="minimumExplorerPercent" :max-size="maximumExplorerPercent" size-unit="%">
 			<ProjectExplorer
 				:files="files"
 				:folders="folders"
@@ -1501,7 +1569,9 @@ async function openExportedOutput(action: DesktopExportAction) {
 				@pick-open="openDocument()"
 				@manage-trash="openTrash"
 			/>
-			<div class="divider divider-explorer" role="separator" aria-label="Resize explorer" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'explorer')"></div>
+			</ResizablePanel>
+			<ResizableHandle label="Resize explorer" controls="explorer-panel" :value-text="`${Math.round(explorerWidth)} pixels`" @dragging="onPanelDragging" />
+			<ResizablePanel id="editor-panel" class="workbench-editor-panel" :default-size="defaultEditorPercent" :min-size="minimumTrackPercent" size-unit="%">
 			<section class="editor-pane" aria-label="Document editor">
 				<WorkbenchTabs :workbench="workbench" @select="selectTab" @close="closeTab" />
 				<div class="pane-header"><strong>{{ document?.label ?? document?.path ?? "No document" }}</strong><span v-if="document?.dirty" class="dirty">Unsaved</span><span v-if="document?.conflict" class="failure">Conflict</span><span class="actions"><button :disabled="document?.kind !== 'amx' && document?.kind !== 'css'" type="button" @click="editorElement?.openSearch()">Find</button><button :disabled="document?.kind !== 'amx' || pending" type="button" @click="format">Format</button><button :disabled="!document || !document.dirty" type="button" @click="save">Save</button></span></div>
@@ -1510,7 +1580,9 @@ async function openExportedOutput(action: DesktopExportAction) {
 				<DataEditorPane v-else-if="document?.kind === 'csv' || document?.kind === 'json' || document?.kind === 'external-data'" ref="dataEditorElement" :key="document.path" :kind="document.kind === 'external-data' ? document.dataFormat ?? 'json' : document.kind" :text="document.text" :revision="document.revision" :external="document.external" :input-name="dataEditorContexts.get(document.path)?.inputName ?? document.inputName" :schema="dataEditorContexts.get(document.path)?.schema" :diagnostics="dataEditorContexts.get(document.path)?.diagnostics" @change="updateText" @navigate-declaration="navigateMappedDeclaration(document.path)" />
 				<div v-else class="file-kind-shell"><strong>{{ document?.kind ?? "document" }}</strong><p>Select a document to view its content.</p></div>
 			</section>
-			<div class="divider divider-preview" role="separator" aria-label="Resize contextual pane" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'preview')"></div>
+			</ResizablePanel>
+			<ResizableHandle label="Resize editor and contextual pane" controls="editor-panel" :value-text="`${Math.round(defaultEditorPercent)} percent editor width`" @dragging="onPanelDragging" />
+			<ResizablePanel id="context-panel" class="workbench-context-panel" :default-size="defaultContextPercent" :min-size="minimumContextPercent" :max-size="maximumContextPercent" size-unit="%">
 			<section class="preview-pane" aria-label="Active document context">
 				<div class="pane-header context-pane-header">
 					<div class="context-tabs" role="tablist" aria-label="Context view">
@@ -1546,6 +1618,9 @@ async function openExportedOutput(action: DesktopExportAction) {
 					<div v-else class="file-kind-shell"><strong>Context</strong><p>Select an AMX document to show its live report preview.</p></div>
 				</template>
 			</section>
+			</ResizablePanel>
+			</ResizablePanelGroup>
+			</div>
 			<RuntimePanel
 				:can-run="document?.kind === 'amx'"
 				:running="activeJobId !== null"
@@ -1555,7 +1630,6 @@ async function openExportedOutput(action: DesktopExportAction) {
 				:cleanup-pending="cleanupPending"
 				:export-status="exportStatus"
 				:completed-output-id="completedOutputId"
-				:drawer-dock="drawerDock"
 				:static-diagnostics="staticAnalysis.diagnostics"
 				:run-diagnostics="analysis.diagnostics"
 				:preview-diagram-errors="previewDiagramErrors"
@@ -1566,12 +1640,11 @@ async function openExportedOutput(action: DesktopExportAction) {
 				@output-action="openExportedOutput"
 				@navigate-diagnostic="navigateDiagnostic"
 				@navigate-input-diagnostic="navigateInputDiagnostic"
-				@dock-change="setDrawerDock"
 			/>
 		</div>
 		<CommandPalette :open="palette" :commands="commands" @dismiss="dismissPalette" />
 		<HelpCenterDialog :open="helpOpen" :initial-section="helpSection" :shortcuts="commands" @close="helpOpen = false" @create-project="helpOpen = false; createProject($event)" @export-diagnostics="downloadDiagnosticSummary" />
-		<PreferencesDialog :open="preferencesOpen" :theme="theme" :drawer-dock="drawerDock" :wrap-lines="editorWrapLines" :autosave="autosaveEnabled" :autosave-delay-ms="autosaveDelayMs" @close="preferencesOpen = false" @save="savePreferences" />
+		<PreferencesDialog :open="preferencesOpen" :theme="theme" :wrap-lines="editorWrapLines" :autosave="autosaveEnabled" :autosave-delay-ms="autosaveDelayMs" @close="preferencesOpen = false" @save="savePreferences" />
 		<ExportDialog :open="exportDialogOpen" :active-label="document?.label ?? document?.path.split(/[\\/]/).pop() ?? ''" :outputs="exportOutputs" :selected-format="exportFormat" :selected-output="exportBinding" :file-name="exportFileName" :busy="exportBusy" :error="exportDialogError" :outputs-truncated="exportOutputsTruncated" @close="closeExportWorkflow" @format="setExportFormat" @output="setExportBinding" @file-name="exportFileName = $event" @export="performExport" />
 		<ReportSettingsDialog :open="reportSettingsOpen" :settings="reportSettings" :busy="reportSettingsBusy" :error="reportSettingsError" @close="closeReportSettings" @save="saveReportSettings" @pick-logo="pickReportLogo" @pick-stylesheet="pickReportStylesheet" />
 		<div v-if="trashOpen" class="export-backdrop" @click.self="trashOpen = false">

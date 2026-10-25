@@ -2,7 +2,6 @@
 import { ref } from "vue";
 import { ExternalLink, FolderOpen, Play } from "@lucide/vue";
 import type { DesktopExportAction, RunSummary, TextDiagnostic } from "../../shared/rpc";
-import type { DrawerDock } from "../shell";
 
 defineProps<{
 	canRun: boolean;
@@ -13,7 +12,6 @@ defineProps<{
 	cleanupPending: boolean;
 	exportStatus: string;
 	completedOutputId: string;
-	drawerDock: DrawerDock;
 	staticDiagnostics: TextDiagnostic[];
 	runDiagnostics: TextDiagnostic[];
 	previewDiagramErrors: Array<{ diagramId: string; diagnostic: TextDiagnostic }>;
@@ -27,7 +25,6 @@ const emit = defineEmits<{
 	outputAction: [action: DesktopExportAction];
 	navigateDiagnostic: [item: TextDiagnostic];
 	navigateInputDiagnostic: [item: TextDiagnostic];
-	dockChange: [dock: DrawerDock];
 }>();
 
 const expanded = ref(false);
@@ -46,8 +43,6 @@ function displayDiagnostic(item: TextDiagnostic): string {
 			<button v-if="canRun" type="button" title="Run active document" aria-label="Run active document" @click="emit('run')"><Play :size="14" /></button>
 			<button v-if="running" type="button" title="Cancel current job" aria-label="Cancel current job" @click="emit('cancel')">Cancel</button>
 			<button type="button" :aria-expanded="expanded" @click="expanded = !expanded">{{ expanded ? "Hide details" : "Details" }}</button>
-			<button type="button" :aria-pressed="drawerDock === 'bottom'" @click="emit('dockChange', 'bottom')">Bottom</button>
-			<button type="button" :aria-pressed="drawerDock === 'right'" @click="emit('dockChange', 'right')">Right</button>
 		</div>
 		<p class="runtime-status" role="status" aria-live="polite">{{ status }}<span v-if="stage"> · {{ stage }}</span></p>
 		<progress v-if="running" class="runtime-progress" aria-label="Current operation is running"></progress>
