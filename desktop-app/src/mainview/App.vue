@@ -1581,9 +1581,9 @@ async function openExportedOutput(action: DesktopExportAction) {
 					<button class="icon-button" type="button" aria-label="Close Trash" @click="trashOpen = false">×</button>
 				</header>
 				<p v-if="trashError" class="export-error" role="alert">{{ trashError }}</p>
-				<p v-else-if="trashBusy" class="inputs-empty" role="status">Loading Trash…</p>
-				<p v-else-if="!trashItems.length" class="inputs-empty">Trash is empty.</p>
-				<ul v-else class="trash-items">
+				<p v-if="trashBusy && !trashItems.length && !trashError" class="inputs-empty" role="status">Loading Trash…</p>
+				<p v-else-if="!trashBusy && !trashItems.length && !trashError" class="inputs-empty">Trash is empty.</p>
+				<ul v-else-if="trashItems.length" class="trash-items">
 					<li v-for="item in trashItems" :key="item.id">
 						<span>{{ item.path }}<small>{{ item.kind }}</small></span>
 						<button type="button" :disabled="trashBusy" @click="restoreTrashItem(item.id)">Restore</button>

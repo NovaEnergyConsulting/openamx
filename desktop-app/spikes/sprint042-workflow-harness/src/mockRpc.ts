@@ -46,6 +46,7 @@ let projectExplorerWorkflowFixture = fixtureScenario === "project-explorer-workf
 let lastOpenedPath = "";
 const explorerCalls: Array<{ operation: string; source?: string; destination?: string; path?: string; action?: "open" | "reveal"; confirmOutboundImports?: boolean; kind?: string }> = [];
 let mockTrashItems: Array<{ id: string; path: string; kind: "amx" | "csv" | "json" | "css" }> = [];
+const rejectedTrashRestores = new Set<string>();
 const workflowFolders = new Set<string>();
 const workflowRemovedFiles = new Set<string>();
 let inputSettingsKey = "[]";
@@ -197,7 +198,7 @@ function state(): WorkbenchState {
 }
 
 function document(): OpenDocument {
-	return { path: activePath, kind: kindForPath(activePath), text: currentText, diskHash: "fixture", dirty: documentRevision > 0, conflict: false, revision: documentRevision };
+	return { path: activePath, kind: kindForPath(activePath), text: currentText, diskHash: "fixture", dirty: currentText !== savedText, conflict: false, revision: documentRevision };
 }
 
 function previewBootstrap(token: string): string {
@@ -380,7 +381,10 @@ const request = {
 	async restoreTrash({ id }: { id: string }) {
 		explorerCalls.push({ operation: "restoreTrash", path: id });
 		const item = mockTrashItems.find(candidate => candidate.id === id);
-		if (projectExplorerWorkflowFixture && item?.path.includes("restore-fail")) return { ok: false as const, error: { code: "RESTORE_REJECTED", message: "Simulated restore rejection." } };
+		if (projectExplorerWorkflowFixture && item?.path.includes("restore-fail") && !rejectedTrashRestores.has(id)) {
+			rejectedTrashRestores.add(id);
+			return { ok: false as const, error: { code: "RESTORE_REJECTED", message: "Simulated restore rejection." } };
+		}
 		if (projectExplorerWorkflowFixture && item) workflowRemovedFiles.delete(workflowRelativePath(item.path));
 		mockTrashItems = mockTrashItems.filter(item => item.id !== id);
 		return { ok: true as const, state: state() };

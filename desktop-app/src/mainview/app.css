@@ -138,6 +138,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .palette input, aside input { width: 100%; }
 .palette button { display: flex; width: 100%; justify-content: space-between; gap: 8px; border: 0; border-bottom: 1px solid var(--shell-line); border-radius: 0; background: var(--shell-surface); color: var(--shell-ink); text-align: left; }
 .palette button:hover:not(:disabled) { background: var(--shell-raised); }
+.palette button.command-selected { background: var(--shell-selection); box-shadow: inset 3px 0 var(--shell-link); }
 .palette small { color: var(--shell-muted); text-align: right; }
 .focus-editor { grid-template-columns: minmax(0, 1fr) !important; }
 .focus-editor aside, .focus-editor .preview-pane { display: none; }

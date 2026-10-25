@@ -214,17 +214,16 @@ test("Trash restore reconciles successful and rejected items", async ({ page }) 
 	const failedRestoreItem = trash.locator(".trash-items li").filter({ hasText: "restore-fail.csv" });
 	await failedRestoreItem.getByRole("button", { name: "Restore" }).click();
 	await expect(trash.getByRole("alert")).toHaveText("Simulated restore rejection.");
+	await expect(trash.locator(".trash-items")).toBeVisible();
+	await expect(failedRestoreItem).toBeVisible();
 	await expect(explorer.locator(".file").filter({ hasText: "restore-fail.csv" })).toHaveCount(0);
-	await trash.getByRole("button", { name: "Close", exact: true }).click();
-	await projectActions.click();
-	await page.getByRole("menu", { name: "Project actions" }).getByRole("menuitem", { name: "Manage Trash" }).click();
-	const reopenedTrash = page.getByRole("dialog", { name: "Manage Trash" });
-	const retainedFailure = reopenedTrash.locator(".trash-items li").filter({ hasText: "restore-fail.csv" });
-	await expect(retainedFailure).toBeVisible();
 
-	const restorableItem = reopenedTrash.locator(".trash-items li").filter({ hasText: "data.csv" });
+	const restorableItem = trash.locator(".trash-items li").filter({ hasText: "data.csv" });
 	await restorableItem.getByRole("button", { name: "Restore" }).click();
 	await expect(explorer.locator(".file").filter({ hasText: "data.csv" })).toBeVisible();
-	await expect(reopenedTrash.locator(".trash-items li").filter({ hasText: "data.csv" })).toHaveCount(0);
-	await expect(retainedFailure).toBeVisible();
+	await expect(trash.locator(".trash-items li").filter({ hasText: "data.csv" })).toHaveCount(0);
+	await expect(failedRestoreItem).toBeVisible();
+	await failedRestoreItem.getByRole("button", { name: "Restore" }).click();
+	await expect(explorer.locator(".file").filter({ hasText: "restore-fail.csv" })).toBeVisible();
+	await expect(failedRestoreItem).toHaveCount(0);
 });
