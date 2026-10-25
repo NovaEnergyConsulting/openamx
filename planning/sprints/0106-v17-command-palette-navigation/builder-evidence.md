@@ -6,7 +6,9 @@ Implementation and focused verification completed under separate Sprint 106
 authorization on 2026-10-25. Final results and residuals are recorded below.
 
 **Builder recommendation:** IMPLEMENTED; request separate acceptance disposition.
-**Separate acceptance disposition:** PENDING.
+**Separate acceptance disposition:** ACCEPTED/CLOSED WITH RECORDED RESIDUALS
+by the product owner on 2026-10-25. S106-TRASH-04 and macOS Cmd+Shift+P
+remain untested as recorded below.
 
 ## Preconditions and Baseline
 

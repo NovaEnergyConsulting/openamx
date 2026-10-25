@@ -176,8 +176,10 @@ test("late analysis and cancelled preview cannot replace a newer active document
 test("create, duplicate, and move operations initialize each resulting AMX document once", async ({ page }) => {
 	await openProject(page);
 	await expectInitializedIdentity(page, "/sprint042-browser-fixture/report.amx", "3");
+	await page.locator(".explorer").getByRole("button", { name: "Project actions" }).click();
+	await page.getByRole("menu", { name: "Project actions" }).getByRole("menuitem", { name: "New", exact: true }).click();
 	page.once("dialog", dialog => dialog.accept("created.amx"));
-	await page.locator(".explorer").getByRole("button", { name: "New AMX" }).click();
+	await page.getByRole("menu", { name: "New project item" }).getByRole("menuitem", { name: "AMX file" }).click();
 	await expect.poll(async () => (await snapshot(page)).activePath).toBe("/sprint042-browser-fixture/created.amx");
 	await expect(page.locator(".preview-pane .state").last()).toHaveText("success");
 
@@ -188,8 +190,9 @@ test("create, duplicate, and move operations initialize each resulting AMX docum
 	await expect.poll(async () => (await snapshot(page)).activePath).toBe("/sprint042-browser-fixture/duplicate.amx");
 	await expect(page.locator(".preview-pane .state").last()).toHaveText("success");
 
+	await page.locator(".explorer").getByRole("button", { name: "Project actions" }).click();
 	page.once("dialog", dialog => dialog.accept("moved.amx"));
-	await page.locator(".explorer").getByRole("button", { name: "Move / rename" }).click();
+	await page.getByRole("menu", { name: "Project actions" }).getByRole("menuitem", { name: "Rename / Move active file" }).click();
 	await expect.poll(async () => (await snapshot(page)).activePath).toBe("/sprint042-browser-fixture/moved.amx");
 	await expect(page.locator(".preview-pane .state").last()).toHaveText("success");
 
