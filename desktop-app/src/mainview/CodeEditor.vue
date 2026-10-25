@@ -338,12 +338,12 @@ onUnmounted(() => { editor?.destroy(); editor = undefined; });
 			<ul v-if="outlineEntries.length">
 				<li v-for="entry in outlineEntries" :key="identityKey(entry.symbol.target)">
 					<button type="button" :aria-label="`Go to ${entry.symbol.kind} ${entry.symbol.name}`" @click="selectOutlineSymbol(entry.symbol)">
-						<span>{{ entry.symbol.name }}</span><small>{{ entry.symbol.kind }}</small>
+						<span>{{ entry.symbol.name }}</span><small>{{ entry.symbol.kind === 'binding' ? 'variable' : entry.symbol.kind }}</small>
 					</button>
 					<ul v-if="entry.children.length">
 						<li v-for="child in entry.children" :key="identityKey(child.target)">
 							<button type="button" :aria-label="`Go to ${child.kind} ${child.name}`" @click="selectOutlineSymbol(child)">
-								<span>{{ child.name }}</span><small>{{ child.kind }}</small>
+								<span>{{ child.name }}</span><small>{{ child.kind === 'binding' ? 'variable' : child.kind }}</small>
 							</button>
 						</li>
 					</ul>
