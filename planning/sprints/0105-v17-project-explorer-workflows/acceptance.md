@@ -1,8 +1,8 @@
 # Sprint 105 Acceptance Criteria
 
-Sprint 105 is complete only against an explicitly dispositioned scope. The
-current approved evidence supports file-level operations and empty-folder
-creation; it does not authorize complete-tree folder mutations.
+Sprint 105 is ACCEPTED/CLOSED on 2026-10-25 only against the explicitly
+amended file-only V0.17 scope. This disposition does not accept the broader
+V0.17 explorer master-plan scope or authorize complete-tree folder mutations.
 
 ## Explorer Behavior
 
@@ -25,17 +25,14 @@ creation; it does not authorize complete-tree folder mutations.
 
 ## Folder-Operation Decision
 
-- A separate product-owner disposition resolves the folder-operation gate
-  before any folder duplicate/move/drop/trash/restore implementation.
-- If the whole-tree contract is approved, the exact RPC/DTO/transaction and
-  test file plan is separately approved before edits. S105-FOLDER-01/02 must
-  then pass.
-- If the scope is narrowed or deferred, the amendment identifies every
-  folder action not shipped and its residual owner. Do not imply full V0.17
-  explorer acceptance from a file-only implementation.
-- If the folder decision is still open, Sprint 105 cannot be accepted as
-  complete against the full master-plan scope; a file-only partial disposition
-  must be explicit.
+- Product-owner disposition deferred folder duplicate, rename/move,
+  folder-tree drag/drop, trash, and restore from V0.17 to the product-owner
+  backlog; target version is uncommitted. Empty-folder creation and file drop
+  onto a folder remain supported.
+- S105-FOLDER-01/02 remain DEFERRED/BLOCKED and are not PASS. Full V0.17
+  explorer master-plan acceptance is not claimed. Any future folder mutation
+  requires its own approved API/transaction and exact implementation/test
+  plan before edits.
 
 ## Verification and Boundaries
 
@@ -48,6 +45,8 @@ creation; it does not authorize complete-tree folder mutations.
 - No language semantics, command-palette keyboard navigation, resizer choice,
   runtime docking, release/version/package behavior, publication, or platform
   certification changes are included.
-- `builder-evidence.md` records exact commands/results, open folder gate,
-  residuals, and recommendation. Separate product-owner acceptance is
-  required; no Sprint 106-108 or release authority is inferred.
+- `builder-evidence.md` records exact commands/results, the folder deferral,
+  residuals, and the amended-scope acceptance. A Trash restore failure is
+  surfaced, but the dialog temporarily hides the list until reopened; the
+  underlying item remains intact. This UX follow-up is assigned to Sprint 106.
+  No Sprint 106-108 execution or release authority is inferred.

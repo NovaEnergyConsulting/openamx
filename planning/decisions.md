@@ -1,5 +1,26 @@
 # Planning Decisions
 
+## V0.17 Sprint 105 Scope Amendment and Disposition (2026-10-25)
+
+- The user dispositioned Sprint 105 as a file-scoped V0.17 implementation:
+  project explorer menus, accessible file/folder actions, independent counts,
+  safe file workflows, project-scoped native open/reveal, and file drop onto
+  folders. This does not accept the broader V0.17 explorer master-plan scope.
+- Folder duplicate, folder rename/move, folder-tree drag/drop, folder trash,
+  and folder restore are deferred from V0.17 to the product-owner backlog;
+  no target version is committed. Empty-folder creation and file-to-folder
+  drop remain in the accepted slice. No folder mutation API or implementation
+  is authorized by this disposition.
+- The user ACCEPTED/CLOSED Sprint 105 on 2026-10-25 against the amended
+  file-only scope after the approved UI follow-up passed 6/6. The original
+  full master-plan scope and S105-FOLDER-01/02 remain unaccepted/deferred.
+- A restore failure is surfaced, and the trashed item remains recoverable,
+  but the current Trash dialog hides its item list while showing the error;
+  reopening Trash displays the retained item. Follow-up UX ownership is
+  assigned to Sprint 106, with no Sprint 106 execution authority implied.
+- No release, publication, package/version change, certification, or later
+  sprint execution is authorized by this disposition.
+
 ## V0.16 Sprint 099 Disposition (2026-10-24)
 
 - The user separately ACCEPTED/CLOSED Sprint 099 with recorded residuals on

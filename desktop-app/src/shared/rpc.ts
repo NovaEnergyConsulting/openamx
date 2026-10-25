@@ -146,7 +146,8 @@ export interface DesktopRPCClient {
 		createProjectFolder(params: { path: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		duplicateProjectFile(params: { source: string; destination: string }): Promise<DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }>>;
 		moveProjectFile(params: { source: string; destination: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
-		deleteProjectFile(params: { path: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		deleteProjectFile(params: { path: string; confirmOutboundImports?: boolean }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
+		openProjectItem(params: { path: string; action: "open" | "reveal" }): Promise<DesktopRPCResponse<{ opened: boolean }>>;
 		listTrash(): Promise<DesktopRPCResponse<{ items: TrashItem[] }>>;
 		restoreTrash(params: { id: string }): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
 		emptyTrash(): Promise<DesktopRPCResponse<{ state: WorkbenchState }>>;
@@ -215,7 +216,8 @@ export type DesktopRPCSchema = {
 			createProjectFolder: { params: { path: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			duplicateProjectFile: { params: { source: string; destination: string }; response: DesktopRPCResponse<{ document: OpenDocument; state: WorkbenchState }> };
 			moveProjectFile: { params: { source: string; destination: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
-			deleteProjectFile: { params: { path: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			deleteProjectFile: { params: { path: string; confirmOutboundImports?: boolean }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
+			openProjectItem: { params: { path: string; action: "open" | "reveal" }; response: DesktopRPCResponse<{ opened: boolean }> };
 			listTrash: { params: Record<string, never>; response: DesktopRPCResponse<{ items: TrashItem[] }> };
 			restoreTrash: { params: { id: string }; response: DesktopRPCResponse<{ state: WorkbenchState }> };
 			emptyTrash: { params: Record<string, never>; response: DesktopRPCResponse<{ state: WorkbenchState }> };

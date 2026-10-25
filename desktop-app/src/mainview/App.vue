@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { CircleHelp, Database, Download, Eye, Pause, Play, RefreshCw, Settings, SlidersHorizontal } from "@lucide/vue";
 import packageMetadata from "../../package.json";
-import type { ActiveDocumentRequestIdentity, DataInputSchema, DataOutputSchema, DesktopExportAction, DesktopJobOperation, DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, WorkbenchState } from "../shared/rpc";
+import type { ActiveDocumentRequestIdentity, DataInputSchema, DataOutputSchema, DesktopExportAction, DesktopJobOperation, DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, TrashItem, WorkbenchState } from "../shared/rpc";
 import CodeEditor from "./CodeEditor.vue";
 import CommandPalette from "./components/CommandPalette.vue";
 import DataEditorPane from "./components/DataEditorPane.vue";
@@ -80,6 +80,10 @@ const completedOutputId = ref("");
 const completedOutputName = ref("");
 const files = ref<ProjectFile[]>([]);
 const folders = ref<string[]>([]);
+const trashOpen = ref(false);
+const trashItems = ref<TrashItem[]>([]);
+const trashError = ref("");
+const trashBusy = ref(false);
 const status = ref("Open a project and an .amx file to begin.");
 const pending = ref(false);
 let bufferRevision = 0;
@@ -1053,8 +1057,8 @@ async function openDocument(path?: string) {
 	await activate({ ok: true, document: result.document });
 }
 
-async function createProjectFile(kind: "amx" | "csv" | "json" | "css") {
-	const path = window.prompt(`New ${kind.toUpperCase()} file path`, `untitled.${kind}`)?.trim();
+async function createProjectFile(kind: "amx" | "csv" | "json" | "css", folder = ".") {
+	const path = window.prompt(`New ${kind.toUpperCase()} file path`, folder === "." ? `untitled.${kind}` : `${folder}/untitled.${kind}`)?.trim();
 	if (!path) return;
 	const result = await props.rpc.request.createProjectFile({ path, kind });
 	if (!result.ok) { status.value = result.error.message; return; }
@@ -1066,8 +1070,8 @@ async function createProjectFile(kind: "amx" | "csv" | "json" | "css") {
 	status.value = listingError ?? `Created ${path}.`;
 }
 
-async function createProjectFolder() {
-	const path = window.prompt("New folder path")?.trim();
+async function createProjectFolder(folder = ".") {
+	const path = window.prompt("New folder path", folder === "." ? "new-folder" : `${folder}/new-folder`)?.trim();
 	if (!path) return;
 	const result = await props.rpc.request.createProjectFolder({ path });
 	if (!result.ok) { status.value = result.error.message; return; }
@@ -1076,11 +1080,24 @@ async function createProjectFolder() {
 	status.value = listingError ?? `Created ${path}.`;
 }
 
-async function duplicateProjectFile() {
-	if (!document.value) return;
-	const destination = window.prompt("Duplicate file path")?.trim();
+function projectFileName(path: string): string {
+	return path.replaceAll("\\", "/").split("/").pop() ?? path;
+}
+
+function duplicateDestination(path: string): string {
+	const normalized = path.replaceAll("\\", "/");
+	const separator = normalized.lastIndexOf("/");
+	const name = normalized.slice(separator + 1);
+	const extension = name.lastIndexOf(".");
+	const copyName = extension > 0 ? `${name.slice(0, extension)}-copy${name.slice(extension)}` : `${name}-copy`;
+	return `${normalized.slice(0, separator + 1)}${copyName}`;
+}
+
+async function duplicateProjectFile(source = document.value?.path) {
+	if (!source) return;
+	const destination = window.prompt("Duplicate file path", duplicateDestination(source))?.trim();
 	if (!destination) return;
-	const result = await props.rpc.request.duplicateProjectFile({ source: document.value.path, destination });
+	const result = await props.rpc.request.duplicateProjectFile({ source, destination });
 	if (!result.ok) { status.value = result.error.message; return; }
 	clearView();
 	document.value = result.document;
@@ -1094,24 +1111,96 @@ async function moveActiveProjectFile() {
 	await pendingEdit;
 	const active = document.value;
 	if (!active || !["amx", "csv", "json", "css"].includes(active.kind)) return;
+	const name = projectFileName(active.path);
+	const destination = window.prompt("Move or rename to project-relative path", name)?.trim();
+	if (destination) await runMoveProjectFile(active.path, destination);
+}
+
+async function moveProjectFileFromExplorer(source: string) {
+	const destination = window.prompt("Move or rename to project-relative path", source)?.trim();
+	if (destination) await runMoveProjectFile(source, destination);
+}
+
+async function runMoveProjectFile(source: string, destination: string) {
+	await pendingEdit;
 	const request = ++navigationRequest;
 	const projectGeneration = workbench.value.generation;
-	const name = active.path.split(/[\\/]/).pop() ?? "";
-	const destination = window.prompt("Move or rename to project-relative path", name)?.trim();
-	if (!destination || request !== navigationRequest) return;
-	const result = await props.rpc.request.moveProjectFile({ source: active.path, destination });
+	const result = await props.rpc.request.moveProjectFile({ source, destination });
 	if (request !== navigationRequest || workbench.value.generation !== projectGeneration) {
 		await loadProject();
 		return;
 	}
 	if (!result.ok) { status.value = result.error.message; return; }
-	clearView();
-	workbench.value = result.state;
-	const movedDocument = await props.rpc.request.readDocument();
-	if (movedDocument.ok) document.value = movedDocument.document;
+	const listingError = await reconcileProjectFileOperation(result.state);
+	status.value = listingError ?? `Moved ${projectFileName(source)} to ${destination}.`;
+}
+
+async function reconcileProjectFileOperation(state: WorkbenchState) {
+	workbench.value = state;
 	const listingError = await loadProject();
-	if (movedDocument.ok) await activate({ ok: true, document: movedDocument.document });
-	status.value = listingError ?? `Moved ${name} to ${destination}.`;
+	if (!state.active) {
+		clearView();
+		document.value = null;
+		workbench.value = state;
+		return listingError;
+	}
+	const active = await props.rpc.request.readDocument();
+	if (active.ok) await activate({ ok: true, document: active.document });
+	return listingError;
+}
+
+async function deleteProjectFile(path: string) {
+	let result = await props.rpc.request.deleteProjectFile({ path, confirmOutboundImports: false });
+	if (!result.ok && result.error.code === "DESKTOP_CONFIRMATION_REQUIRED") {
+		if (!window.confirm(result.error.message)) { status.value = "Delete cancelled."; return; }
+		result = await props.rpc.request.deleteProjectFile({ path, confirmOutboundImports: true });
+	}
+	if (!result.ok) { status.value = result.error.message; return; }
+	const listingError = await reconcileProjectFileOperation(result.state);
+	status.value = listingError ?? `Moved ${path} to Trash.`;
+}
+
+async function openTrash() {
+	trashOpen.value = true;
+	trashError.value = "";
+	trashBusy.value = true;
+	try {
+		const result = await props.rpc.request.listTrash();
+		if (!result.ok) trashError.value = result.error.message;
+		else trashItems.value = result.items;
+	} finally { trashBusy.value = false; }
+}
+
+async function restoreTrashItem(id: string) {
+	trashBusy.value = true;
+	trashError.value = "";
+	try {
+		const result = await props.rpc.request.restoreTrash({ id });
+		if (!result.ok) { trashError.value = result.error.message; return; }
+		const listingError = await reconcileProjectFileOperation(result.state);
+		status.value = listingError ?? "Restored file from Trash.";
+		const updatedTrash = await props.rpc.request.listTrash();
+		if (updatedTrash.ok) trashItems.value = updatedTrash.items;
+		else trashError.value = updatedTrash.error.message;
+	} finally { trashBusy.value = false; }
+}
+
+async function emptyTrash() {
+	if (!window.confirm(`Permanently delete ${trashItems.value.length} item${trashItems.value.length === 1 ? "" : "s"} from Trash? This cannot be undone.`)) return;
+	trashBusy.value = true;
+	trashError.value = "";
+	try {
+		const result = await props.rpc.request.emptyTrash();
+		if (!result.ok) { trashError.value = result.error.message; return; }
+		trashItems.value = [];
+		const listingError = await reconcileProjectFileOperation(result.state);
+		status.value = listingError ?? "Emptied Trash.";
+	} finally { trashBusy.value = false; }
+}
+
+async function openProjectItem(path: string, action: "open" | "reveal") {
+	const result = await props.rpc.request.openProjectItem({ path, action });
+	status.value = result.ok ? `${action === "open" ? "Opened" : "Revealed"} ${path}.` : result.error.message;
 }
 
 async function selectTab(path: string) {
@@ -1392,7 +1481,26 @@ async function openExportedOutput(action: DesktopExportAction) {
 		</header>
 		<WelcomeView v-if="!projectRoot" :recents="recents" :recovery="recovery" :status="status" @open-project="openProject" @create-project="createProject" @restore="restore" @restore-recovery="resolveRecovery('restore')" @discard-recovery="resolveRecovery('discard')" @clear-recents="clearRecents" @open-help="openHelp" />
 		<div v-else class="workbench" :class="[`focus-${focusMode}`, `drawer-${drawerDock}`]" :style="{ '--explorer-width': `${explorerWidth}px`, '--preview-width': `${previewWidth}%` }">
-			<ProjectExplorer :files="files" :folders="folders" :workbench="workbench" :can-move-active="!!document && ['amx', 'csv', 'json', 'css'].includes(document.kind)" @open="openDocument" @create-amx="createProjectFile('amx')" @create-css="createProjectFile('css')" @create-folder="createProjectFolder" @move-active="moveActiveProjectFile" />
+			<ProjectExplorer
+				:files="files"
+				:folders="folders"
+				:workbench="workbench"
+				:can-move-active="!!document && ['amx', 'csv', 'json', 'css'].includes(document.kind)"
+				@open="openDocument"
+				@create-file="createProjectFile"
+				@create-folder="createProjectFolder"
+				@duplicate-active="duplicateProjectFile"
+				@duplicate-file="duplicateProjectFile($event)"
+				@move-active="moveActiveProjectFile"
+				@move-file="moveProjectFileFromExplorer"
+				@move-to-folder="runMoveProjectFile"
+				@invalid-drop="status = $event"
+				@delete-file="deleteProjectFile"
+				@open-native-project-item="openProjectItem($event, 'open')"
+				@reveal-project-item="openProjectItem($event, 'reveal')"
+				@pick-open="openDocument()"
+				@manage-trash="openTrash"
+			/>
 			<div class="divider divider-explorer" role="separator" aria-label="Resize explorer" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="dragDivider($event, 'explorer')"></div>
 			<section class="editor-pane" aria-label="Document editor">
 				<WorkbenchTabs :workbench="workbench" @select="selectTab" @close="closeTab" />
@@ -1466,5 +1574,26 @@ async function openExportedOutput(action: DesktopExportAction) {
 		<PreferencesDialog :open="preferencesOpen" :theme="theme" :drawer-dock="drawerDock" :wrap-lines="editorWrapLines" :autosave="autosaveEnabled" :autosave-delay-ms="autosaveDelayMs" @close="preferencesOpen = false" @save="savePreferences" />
 		<ExportDialog :open="exportDialogOpen" :active-label="document?.label ?? document?.path.split(/[\\/]/).pop() ?? ''" :outputs="exportOutputs" :selected-format="exportFormat" :selected-output="exportBinding" :file-name="exportFileName" :busy="exportBusy" :error="exportDialogError" :outputs-truncated="exportOutputsTruncated" @close="closeExportWorkflow" @format="setExportFormat" @output="setExportBinding" @file-name="exportFileName = $event" @export="performExport" />
 		<ReportSettingsDialog :open="reportSettingsOpen" :settings="reportSettings" :busy="reportSettingsBusy" :error="reportSettingsError" @close="closeReportSettings" @save="saveReportSettings" @pick-logo="pickReportLogo" @pick-stylesheet="pickReportStylesheet" />
+		<div v-if="trashOpen" class="export-backdrop" @click.self="trashOpen = false">
+			<section class="export-dialog trash-dialog" role="dialog" aria-modal="true" aria-labelledby="trash-title">
+				<header class="export-dialog-header">
+					<div><p class="eyebrow">PROJECT FILES</p><h2 id="trash-title">Manage Trash</h2></div>
+					<button class="icon-button" type="button" aria-label="Close Trash" @click="trashOpen = false">×</button>
+				</header>
+				<p v-if="trashError" class="export-error" role="alert">{{ trashError }}</p>
+				<p v-else-if="trashBusy" class="inputs-empty" role="status">Loading Trash…</p>
+				<p v-else-if="!trashItems.length" class="inputs-empty">Trash is empty.</p>
+				<ul v-else class="trash-items">
+					<li v-for="item in trashItems" :key="item.id">
+						<span>{{ item.path }}<small>{{ item.kind }}</small></span>
+						<button type="button" :disabled="trashBusy" @click="restoreTrashItem(item.id)">Restore</button>
+					</li>
+				</ul>
+				<footer class="export-dialog-actions">
+					<button type="button" class="quiet-button" :disabled="trashBusy" @click="trashOpen = false">Close</button>
+					<button type="button" class="primary-button" :disabled="trashBusy || !trashItems.length" @click="emptyTrash">Empty Trash</button>
+				</footer>
+			</section>
+		</div>
 	</main>
 </template>

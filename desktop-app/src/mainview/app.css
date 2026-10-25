@@ -131,7 +131,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .tab button span { color: var(--shell-link); }
 .entry-actions { display: flex; min-height: 32px; align-items: center; gap: 8px; border-bottom: 1px solid var(--shell-line); font-size: 11px; }
 .entry-actions span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.folder { margin: 12px 0 2px; color: var(--shell-muted); overflow-wrap: anywhere; font: 11px "DM Mono", monospace; }
+.folder { display: block; width: 100%; margin: 12px 0 2px; padding: 0; border: 0; background: transparent; color: var(--shell-muted); text-align: left; overflow-wrap: anywhere; font: 11px "DM Mono", monospace; }
 .file.selected { background: var(--shell-selection); font-weight: 700; }
 .palette-backdrop { position: fixed; z-index: 20; inset: 0; display: flex; justify-content: center; align-items: flex-start; padding: min(16vh, 100px) 16px 16px; background: var(--shell-overlay); }
 .palette { width: min(100%, 520px); max-height: 75vh; overflow: auto; border: 1px solid var(--shell-line); background: var(--shell-surface); padding: 12px; box-shadow: 0 16px 40px var(--shell-shadow); }
@@ -177,9 +177,13 @@ input { min-width: 0; padding: 9px 10px; font: 12px "DM Mono", monospace; }
 .export-status { align-self: center; overflow: hidden; color: var(--shell-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .workbench { min-width: 0; min-height: 0; flex: 1; display: grid; grid-template-columns: var(--explorer-width, 220px) 8px minmax(260px, 1fr) 8px minmax(260px, var(--preview-width, 44%)); grid-template-rows: minmax(0, 1fr) auto; overflow: hidden; border: 1px solid var(--shell-line); background: var(--shell-surface); }
 .explorer { min-width: 0; overflow: auto; padding: 12px; border: 0; background: var(--shell-raised); }
-.explorer-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin-bottom: 8px; }
-.explorer-actions button { min-width: 0; min-height: 30px; padding: 4px 5px; font-size: 10px; line-height: 1.2; white-space: normal; overflow-wrap: anywhere; }
-.explorer-actions button:last-child { grid-column: 1 / -1; }
+.explorer-actions { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.explorer-actions button { min-width: 0; min-height: 30px; padding: 4px 8px; font-size: 11px; line-height: 1.2; }
+.explorer-menu { position: fixed; z-index: 120; display: grid; min-width: 220px; max-width: min(280px, calc(100vw - 16px)); gap: 2px; padding: 4px; border: 1px solid var(--shell-line); border-radius: 4px; background: var(--shell-raised); box-shadow: 0 8px 24px #0003; }
+.explorer-menu button { min-width: 0; min-height: 30px; padding: 5px 8px; border: 0; border-radius: 2px; background: transparent; color: var(--shell-ink); text-align: left; font-size: 11px; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
+.explorer-menu button:hover, .explorer-menu button:focus-visible { background: var(--shell-selection); outline: none; }
+.explorer-menu button:disabled { color: var(--shell-muted); cursor: not-allowed; }
+.explorer-submenu { position: absolute; top: 0; left: calc(100% + 4px); display: grid; min-width: 150px; gap: 2px; padding: 4px; border: 1px solid var(--shell-line); border-radius: 4px; background: var(--shell-raised); box-shadow: 0 8px 24px #0003; }
 .section-heading { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 10px; color: var(--shell-muted); font: 10px "DM Mono", monospace; }
 .section-heading button { margin: -5px 0; }
 .divider { z-index: 1; cursor: col-resize; background: var(--shell-line); touch-action: none; }
@@ -263,6 +267,11 @@ input { min-width: 0; padding: 9px 10px; font: 12px "DM Mono", monospace; }
 .export-dialog-actions button { min-height: 32px; padding: 5px 10px; font-size: 11px; }
 .export-dialog-actions .quiet-button { border-color: var(--shell-line); background: transparent; color: var(--shell-ink); }
 .export-dialog-actions .primary-button { border-color: var(--shell-accent); background: var(--shell-accent); color: var(--shell-accent-ink); }
+.trash-items { display: grid; gap: 6px; max-height: min(48vh, 420px); overflow: auto; margin: 0; padding: 0; list-style: none; }
+.trash-items li { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--shell-line); padding: 8px 0; }
+.trash-items li span { min-width: 0; overflow-wrap: anywhere; font-size: 11px; }
+.trash-items li small { display: block; margin-top: 3px; color: var(--shell-muted); font: 10px "DM Mono", monospace; }
+.trash-items li button { flex: 0 0 auto; min-height: 30px; padding: 4px 8px; }
 .settings-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; overflow: auto; padding: 20px; background: var(--shell-overlay); }
 .settings-dialog { width: min(680px, 100%); max-height: min(820px, 92vh); overflow: auto; border: 1px solid var(--shell-line); border-radius: 6px; background: var(--shell-bg); color: var(--shell-ink); box-shadow: 0 18px 60px rgb(0 0 0 / 28%); padding: 18px; }
 .settings-dialog-header { display: flex; align-items: start; justify-content: space-between; gap: 14px; }

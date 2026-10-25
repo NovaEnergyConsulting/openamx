@@ -138,6 +138,32 @@ function allowedFile(root: string, file: string): boolean {
 	return validProjectFile(file);
 }
 
+function allowedDirectory(root: string, directory: string): boolean {
+	const target = resolve(directory);
+	const path = relative(root, target);
+	if (path.startsWith("..") || path.startsWith(sep)) return false;
+	let candidate = root;
+	for (const part of path ? path.split(sep) : []) {
+		if (!part || part.startsWith(".") || IGNORED.has(part)) return false;
+		candidate = join(candidate, part);
+		if (!existsSync(candidate)) return false;
+		const entry = lstatSync(candidate);
+		if (entry.isSymbolicLink() || !entry.isDirectory()) return false;
+	}
+	return statSync(candidate).isDirectory() && realpathSync(candidate) === candidate;
+}
+
+function amxImportPaths(text: string): string[] {
+	const paths: string[] = [];
+	for (const node of parseDocumentText(text).nodes) {
+		if (node.type !== "executableCodeBlock") continue;
+		for (const statement of node.statements) {
+			if (statement.type === "importDeclaration") paths.push(statement.path);
+		}
+	}
+	return paths;
+}
+
 export function resolvePreviewNavigationTarget(
 	target: PreviewNavigationTarget,
 	projectRoot: string,
@@ -921,6 +947,20 @@ export function createDesktopService(
 		return join(root, ".openamx", "trash");
 	}
 
+	function ensureTrashRoot(root: string): string {
+		const internal = join(root, ".openamx");
+		if (existsSync(internal)) {
+			const entry = lstatSync(internal);
+			if (entry.isSymbolicLink() || !entry.isDirectory()) throw new Error("Project metadata directory is invalid.");
+		} else mkdirSync(internal, { mode: 0o700 });
+		const trash = trashRoot(root);
+		if (existsSync(trash)) {
+			const entry = lstatSync(trash);
+			if (entry.isSymbolicLink() || !entry.isDirectory()) throw new Error("Trash directory is invalid.");
+		} else mkdirSync(trash, { mode: 0o700 });
+		return trash;
+	}
+
 	function trashItem(id: string) {
 		if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error("Invalid trash item.");
 		const directory = join(trashRoot(), id);
@@ -932,7 +972,7 @@ export function createDesktopService(
 		if (!metadata || typeof metadata !== "object" || typeof (metadata as { path?: unknown }).path !== "string") throw new Error("Trash metadata is invalid.");
 		const path = (metadata as { path: string }).path;
 		const kind = documentKind(path);
-		if (!kind || path.startsWith(".") || path.split(/[\\/]/).some(part => !part || part === "." || part === ".." || part.startsWith("."))) throw new Error("Trash metadata path is invalid.");
+		if (!kind || path.startsWith(".") || path.split(/[\\/]/).some(part => !part || part === "." || part === ".." || part.startsWith(".") || IGNORED.has(part))) throw new Error("Trash metadata path is invalid.");
 		return { id, path, kind, directory, payloadPath };
 	}
 
@@ -944,7 +984,7 @@ export function createDesktopService(
 		if (relative(root, target).startsWith("..") || existsSync(target)) throw new Error("Project destination is unavailable.");
 		const parent = dirname(target);
 		const canonicalParent = within(root, parent);
-		if (!canonicalParent || !statSync(canonicalParent).isDirectory()) throw new Error("Project destination parent must be an existing contained directory.");
+		if (!canonicalParent || !allowedDirectory(root, parent) || !statSync(canonicalParent).isDirectory()) throw new Error("Project destination parent must be an existing contained directory.");
 		return target;
 	}
 
@@ -1749,6 +1789,33 @@ export function createDesktopService(
 					return errorResult<{ files: ProjectFile[]; folders: string[] }>(projectError(error instanceof Error ? error.message : String(error)));
 				}
 			},
+			async openProjectItem({ path, action }: { path: string; action: "open" | "reveal" }) {
+				try {
+					const root = requireRoot();
+					if ((action !== "open" && action !== "reveal") || typeof path !== "string" || !path || path.length > 1024
+						|| path.startsWith("/") || /^[A-Za-z]:/.test(path)
+						|| path.split(/[\\/]/).some(part => !part || part === "." || part === ".." || part.startsWith(".") || IGNORED.has(part)))
+						throw new Error("Project item path is invalid.");
+					const listing = await service.request.listProjectFiles();
+					if (!listing.ok) throw new Error(listing.error.message);
+					const file = listing.files.find(item => item.path === path);
+					const folder = listing.folders.includes(path);
+					if (!file && !folder) throw new Error("Project item is no longer listed.");
+					if (action === "open" && (!file || !["html-output", "pdf-output", "docx-output"].includes(file.kind)))
+						throw new Error("Only listed generated outputs can be opened externally.");
+					const target = resolve(root, path);
+					const canonical = within(root, target);
+					if (!canonical || (file ? !allowedFile(root, target) : !allowedDirectory(root, target)))
+						throw new Error("Project item is no longer a visible contained file or folder.");
+					const opened = action === "open"
+						? await picker?.openPath?.(canonical)
+						: await picker?.revealPath?.(canonical);
+					if (opened !== true) throw new Error(`Native ${action} is unavailable on this host.`);
+					return { ok: true, opened: true };
+				} catch (error) {
+					return errorResult<{ opened: boolean }>({ code: "DESKTOP_PROJECT_ITEM", message: error instanceof Error ? error.message.slice(0, 1000) : "Project item action was rejected." });
+				}
+			},
 			async createProjectFile({ path, kind }: { path: string; kind: "amx" | "csv" | "json" | "css" }) {
 				try {
 					const root = requireRoot();
@@ -1779,8 +1846,14 @@ export function createDesktopService(
 					if (!original || !allowedFile(root, original) || !["amx", "csv", "json", "css"].includes(documentKind(original) ?? "")) throw new Error("Only contained editable project files can be duplicated.");
 					const target = createTarget(root, destination);
 					if (extname(target) !== extname(original)) throw new Error("Duplicate destination must retain the source extension.");
+					refreshConflicts();
+					const sourceTab = tabs.get(original);
 					const text = readFileSync(original, "utf8");
+					if (sourceTab?.conflict || (sourceTab && hash(text) !== sourceTab.diskHash)) throw new Error("The source changed on disk; resolve its conflict before duplicating it.");
+					if (sourceTab?.dirty) throw new Error("Save or resolve the open file before duplicating it.");
 					if (text.length > documentTextLimit(original)) throw new Error(`Document exceeds the ${documentTextLimit(original)}-character limit.`);
+					if (documentKind(original) === "amx" && dirname(target) !== dirname(original) && amxImportPaths(text).length)
+						throw new Error("An AMX file with relative imports can only be duplicated in its current folder.");
 					writeNewFile(target, text);
 					const document = readEntry(target);
 					current = document;
@@ -1802,6 +1875,7 @@ export function createDesktopService(
 					if (!within(root, sourceCandidate) || !allowedFile(root, sourceCandidate)) throw new Error("Only visible contained project files can be moved.");
 					const sourcePath = realpathSync(sourceCandidate);
 					const kind = documentKind(sourcePath)!;
+					if (!["amx", "csv", "json", "css"].includes(kind)) throw new Error("Only editable project files can be moved.");
 					destinationPath = createTarget(root, destination);
 					if (extname(destinationPath) !== extname(sourcePath)) throw new Error("Move destination must retain the source extension.");
 					refreshConflicts();
@@ -1811,6 +1885,7 @@ export function createDesktopService(
 					if (sourceTab?.conflict || (sourceTab && hash(sourceBytes.toString("utf8")) !== sourceTab.diskHash)) {
 						return errorResult<{ state: WorkbenchState }>({ code: "DESKTOP_CONFLICT", message: "The file changed on disk; resolve its conflict before moving it." });
 					}
+					if (sourceTab?.dirty) throw new Error("Save or resolve the open file before moving it.");
 					let movedText = sourceTab?.text ?? sourceBytes.toString("utf8");
 					if (kind === "amx" && movedText.length > MAX_TEXT) throw new Error(`Document exceeds the ${MAX_TEXT}-character limit.`);
 
@@ -1883,6 +1958,7 @@ export function createDesktopService(
 							}
 							if (importer === sourcePath) movedText = updatedText;
 							else if (updatedText !== text) {
+								if (tab?.dirty) throw new Error(`Save or resolve ${relative(root, importer)} before moving the imported file.`);
 								if (tab?.conflict || (tab && hash(diskText) !== tab.diskHash)) {
 										return errorResult<{ state: WorkbenchState }>({ code: "DESKTOP_CONFLICT", message: `A dependent AMX file changed on disk; resolve its conflict before moving ${relative(root, sourcePath)}.` });
 								}
@@ -1974,21 +2050,74 @@ export function createDesktopService(
 					for (const temporary of temporaryFiles) { try { if (existsSync(temporary)) unlinkSync(temporary); } catch {} }
 				}
 			},
-			async deleteProjectFile({ path }: { path: string }) {
+			async deleteProjectFile({ path, confirmOutboundImports = false }: { path: string; confirmOutboundImports?: boolean }) {
 				try {
 					const root = requireRoot();
-					const source = within(root, path);
-					if (!source || !allowedFile(root, source)) throw new Error("Only visible contained project files can be moved to trash.");
-					const tab = tabs.get(source);
-					if (tab?.dirty || tab?.conflict) throw new Error("Save or resolve the open file before moving it to trash.");
+					const sourceCandidate = resolve(root, path);
+					const source = within(root, sourceCandidate);
+					if (!source || !allowedFile(root, source) || !["amx", "csv", "json", "css"].includes(documentKind(source) ?? ""))
+						throw new Error("Only visible editable project files can be moved to Trash.");
+					refreshConflicts();
+					const sourceTab = tabs.get(source);
+					const sourceText = readFileSync(source, "utf8");
+					if (sourceTab?.conflict || (sourceTab && hash(sourceText) !== sourceTab.diskHash))
+						return errorResult<{ state: WorkbenchState }>({ code: "DESKTOP_CONFLICT", message: "The file changed on disk; resolve its conflict before moving it to Trash." });
+					if (sourceTab?.dirty) throw new Error("Save or resolve the open file before moving it to Trash.");
+
+					const startedGeneration = generation;
+					const listing = await service.request.listProjectFiles();
+					if (!listing.ok) throw new Error(listing.error.message);
+					const inbound: string[] = [];
+					const outbound = documentKind(source) === "amx" ? amxImportPaths(sourceText) : [];
+					const snapshots = new Map<string, string>();
+					if (documentKind(source) === "amx") {
+						for (const file of listing.files.filter(item => item.kind === "amx")) {
+							const importerCandidate = resolve(root, file.path);
+							if (!allowedFile(root, importerCandidate)) continue;
+							const importer = realpathSync(importerCandidate);
+							const diskText = readFileSync(importer, "utf8");
+							snapshots.set(importer, hash(diskText));
+							const importerTab = tabs.get(importer);
+							const text = importer === source ? sourceText : importerTab?.text ?? diskText;
+							for (const importPath of amxImportPaths(text)) {
+								if (importer === source) continue;
+								const importedCandidate = resolve(dirname(importer), importPath);
+								if (!existsSync(importedCandidate)) continue;
+								if (realpathSync(importedCandidate) !== source) continue;
+								if (!allowedFile(root, importedCandidate)) throw new Error("Cannot safely trash a module referenced through a symlink.");
+								if (importerTab?.conflict || (importerTab && hash(diskText) !== importerTab.diskHash))
+									return errorResult<{ state: WorkbenchState }>({ code: "DESKTOP_CONFLICT", message: `An importing AMX file changed on disk; resolve its conflict before trashing ${relative(root, source)}.` });
+								if (importerTab?.dirty) throw new Error(`Save or resolve ${relative(root, importer)} before trashing the imported file.`);
+								inbound.push(relative(root, importer));
+							}
+						}
+					}
+					if (inbound.length) return errorResult<{ state: WorkbenchState }>({
+						code: "DESKTOP_IMPORT_DEPENDENCY",
+						message: `Cannot move ${relative(root, source)} to Trash because it is imported by: ${inbound.sort().join(", ")}.`
+					});
+					if (outbound.length && confirmOutboundImports !== true) return errorResult<{ state: WorkbenchState }>({
+						code: "DESKTOP_CONFIRMATION_REQUIRED",
+						message: `${relative(root, source)} imports ${outbound.join(", ")}. Move it to Trash anyway? This may affect documents that depend on it.`
+					});
+					if (generation !== startedGeneration || !allowedFile(root, source) || hash(readFileSync(source, "utf8")) !== hash(sourceText))
+						return errorResult<{ state: WorkbenchState }>({ code: "DESKTOP_CONFLICT", message: "The project changed during delete preflight; no files were changed." });
+					for (const [file, expectedHash] of snapshots) {
+						if (!allowedFile(root, file) || hash(readFileSync(file, "utf8")) !== expectedHash)
+							return errorResult<{ state: WorkbenchState }>({ code: "DESKTOP_CONFLICT", message: "An AMX file changed during delete preflight; no files were changed." });
+					}
+
 					const id = randomUUID();
-					const directory = join(trashRoot(root), id);
-					mkdirSync(directory, { recursive: true, mode: 0o700 });
+					const directory = join(ensureTrashRoot(root), id);
+					mkdirSync(directory, { mode: 0o700 });
 					const metadata = join(directory, "metadata.json");
 					const payload = join(directory, "payload");
-					writeFileSync(metadata, JSON.stringify({ path: relative(root, source), deletedAt: Date.now() }), { encoding: "utf8", mode: 0o600, flag: "wx" });
-					try { renameSync(source, payload); }
-					catch (error) { rmSync(directory, { recursive: true, force: true }); throw error; }
+					try {
+						writeFileSync(metadata, JSON.stringify({ path: relative(root, source), deletedAt: Date.now() }), { encoding: "utf8", mode: 0o600, flag: "wx" });
+						if (generation !== startedGeneration || !allowedFile(root, source) || hash(readFileSync(source, "utf8")) !== hash(sourceText))
+							throw new Error("The source changed during Trash commit; no files were changed.");
+						renameSync(source, payload);
+					} catch (error) { rmSync(directory, { recursive: true, force: true }); throw error; }
 					cancelAutosave(source);
 					tabs.delete(source);
 					if (current?.path === source) current = tabs.values().next().value;
@@ -2014,11 +2143,17 @@ export function createDesktopService(
 			async restoreTrash({ id }: { id: string }) {
 				try {
 					const item = trashItem(id);
-					const destination = resolve(requireRoot(), item.path);
-					if (existsSync(destination) || dirname(destination) !== resolve(requireRoot(), dirname(item.path))) throw new Error("Restore destination is unavailable or collides with an existing file.");
+					const root = requireRoot();
+					const destination = resolve(root, item.path);
+					if (existsSync(destination) || !allowedDirectory(root, dirname(destination))) throw new Error("Restore destination is unavailable or collides with an existing file.");
 					if (!lstatSync(item.payloadPath).isFile()) throw new Error("Only regular files can be restored.");
 					renameSync(item.payloadPath, destination);
-					rmSync(item.directory, { recursive: true, force: true });
+					try { rmSync(item.directory, { recursive: true, force: true }); }
+					catch (error) {
+						try { renameSync(destination, item.payloadPath); }
+						catch { throw new Error("Restore failed and rollback could not return the file to Trash."); }
+						throw error;
+					}
 					generation++;
 					invalidateStaleJobs();
 					return { ok: true, state: state() };

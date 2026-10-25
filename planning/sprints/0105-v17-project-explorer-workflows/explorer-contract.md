@@ -2,12 +2,13 @@
 
 ## Status and Authority
 
-This is the Architect-prepared Sprint 105 candidate implementation contract
-based on V0.17's confirmed scope and Sprint 102's accepted contract. Exact
-action-menu placement and file context-menu details still require separate
-Sprint 105 disposition. Folder duplicate/move/trash/restore mechanics and
-folder drag/drop remain blocked by the separate Sprint 102 folder-operation
-decision; this document does not approve them.
+This contract is dispositioned for the file-scoped V0.17 Sprint 105 slice on
+2026-10-25. The top action menu, file/folder context menus, AMX duplicate and
+delete impact rules, and project-scoped native open/reveal rules are approved
+as written below. Folder duplicate/move/trash/restore and folder-tree
+drag/drop are deferred from V0.17 to the product-owner backlog with no target
+version committed. This narrowed scope does not accept the broader explorer
+master-plan scope.
 
 ## 1. Search and Whole-Project Count
 
@@ -20,29 +21,29 @@ decision; this document does not approve them.
 
 ## 2. Top-Level Action Menu
 
-Proposed contents, subject to Sprint 105 product-owner disposition:
+Approved contents for the amended file-only scope:
 
 | Action | Availability/behavior |
 | --- | --- |
 | New AMX, CSV, JSON, CSS | Create the selected supported editable file in the project root using `createProjectFile`; file kind/extension and containment are validated by the service. |
 | New folder | Create a new empty contained folder using `createProjectFolder`. This creates one folder only; it is not folder duplication or movement. |
-| Duplicate active file | Available only for an active contained editable AMX/CSV/JSON/CSS file; preserves extension and uses `duplicateProjectFile`. For AMX files, preserve valid relative-import resolution; if a destination outside the original directory would invalidate imports, safely rewrite the duplicate's imports or reject that destination without changing the source. |
+| Duplicate active file | Available only for an active contained editable AMX/CSV/JSON/CSS file; preserves extension and uses `duplicateProjectFile`. Reject a cross-directory AMX duplicate atomically when the source contains relative imports. |
 | Rename/Move active file | Available only for an eligible active editable file; uses `moveProjectFile` and existing transactional AMX import rewrite behavior. Removes the redundant standalone Move/Rename button. |
 | Open file | Opens the existing file picker/command where appropriate; clicking an explorer file continues to open it in the workbench. |
 | Manage Trash | Presents trash items with Restore and an explicit Empty Trash action. Empty Trash requires a clear irreversible-action confirmation. |
 
-Do not place folder Duplicate, Rename/Move, folder Delete, or folder Restore
-in the menu while the folder-operation decision is open.
+Folder Duplicate, Rename/Move, folder-tree drag/drop, folder Delete, and
+folder Restore are deferred from V0.17 and must not appear in the menu.
 
 ## 3. File Context Menu
 
-Right-click/context-menu key/Shift+F10 on a file exposes actions by kind.
+Right-click/context-menu key/Shift+F10 on a file exposes approved actions by kind.
 Actions invoke the same shell/service operation paths as the top-level menu.
 
-| File kind | Proposed actions |
+| File kind | Approved actions |
 | --- | --- |
 | Editable contained AMX/CSV/JSON/CSS | Open; Duplicate; Rename/Move; Delete to Trash; Reveal in system file manager. |
-| Generated HTML/PDF/DOCX output | Open externally and Reveal only through a trusted project-scoped service action that revalidates the listed item; Delete to Trash only if the approved project policy and service support it. No editor-only actions. |
+| Generated HTML/PDF/DOCX output | Open externally and Reveal only through a trusted project-scoped service action that revalidates the listed item. No editor-only actions or delete action. |
 
 No native open/reveal action accepts an unrestricted absolute path from the
 webview. A project-scoped service/RPC validates the relative item, root,
@@ -55,10 +56,9 @@ than calling native helpers directly from the renderer.
 
 Folder context menus may offer New AMX/CSV/JSON/CSS and New folder within the
 selected folder, subject to existing service containment checks. Reveal is
-available only through an approved, revalidated service boundary. Folder
-Duplicate, Rename/Move, drag/drop, Delete to Trash, and Restore are not
-available unless a separate disposition accepts the safeguards in
-`folder-operation-gate.md` and approves the exact implementation/test paths.
+available only through the approved, revalidated service boundary. Folder
+Duplicate, Rename/Move, folder-tree drag/drop, Delete to Trash, and Restore
+are deferred from V0.17 and are not implemented.
 
 The current service supports empty-folder creation and listing, but its
 duplicate, move, trash, restore, and `TrashItem` contract are file-only.
@@ -97,18 +97,21 @@ Renderer-side directory operations are never allowed.
 - Native open/reveal unavailable: show the host error and keep the explorer
   state unchanged.
 
-## 7. Open Product Decisions
+## 7. Dispositioned Product Decisions
 
-Before Sprint 105 implementation, separately disposition:
-
-- exact action-menu and file/folder menu placement;
-- whether file creation offers CSV/JSON directly in the menu or under a New
-  submenu;
-- safe AMX duplicate behavior when the destination directory changes;
-- delete handling for imported AMX files;
-- precise native reveal/open eligibility for generated outputs;
-- whether the folder-operation contract is accepted as written, amended, or
-  deferred to a later version.
+- The top action menu uses a New submenu for AMX/CSV/JSON/CSS, plus New folder,
+  Duplicate active file, Rename/Move active file, Open file, and Manage Trash.
+- Editable-file context actions are Open, Duplicate, Rename/Move, Delete to
+  Trash, and Reveal. Generated outputs receive external Open and Reveal only.
+- Folder context actions are contained New file, New folder, and Reveal only.
+- AMX duplicates with relative imports are rejected when the destination
+  directory differs. Inbound-import AMX deletion is blocked; outbound import
+  impact requires explicit confirmation. Dirty/conflicted buffers must be
+  resolved before duplicate, move, or delete.
+- Project-scoped native Reveal supports currently listed files/folders;
+  native Open supports currently listed HTML/PDF/DOCX outputs only.
+- Folder duplicate, rename/move, folder-tree drag/drop, trash, and restore are
+  deferred from V0.17 to the product-owner backlog, target uncommitted.
 
 ## 8. Test Case Index
 

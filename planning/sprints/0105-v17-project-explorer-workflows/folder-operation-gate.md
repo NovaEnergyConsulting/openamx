@@ -2,12 +2,12 @@
 
 ## Status
 
-**OPEN / BLOCKED pending separate product-owner disposition.** Sprint 102's
-overall contract was accepted, but Sprint 102 builder evidence explicitly
-states that the folder-operation mechanics were not separately dispositioned
-and that folder variants remain blocked. Sprint 105 must not interpret the
-master-plan mention of folder actions as implementation approval for a weaker
-transaction.
+**DEFERRED FROM V0.17.** On 2026-10-25, the product owner deferred folder
+duplicate, rename/move, folder-tree drag/drop, trash, and restore to the
+product-owner backlog with no target version committed. Empty-folder creation
+and file-to-folder drop remain in V0.17. No folder mutation implementation
+or weaker transaction is approved. Any future folder work requires its own
+scope/API decision and exact implementation/test plan.
 
 ## Confirmed Current Service Boundary
 
@@ -57,6 +57,12 @@ semantics, tab behavior, and test scope require a separate disposition.
 
 ## Decision Options
 
+**Selected disposition (2026-10-25):** Option 2, narrowed V0.17 scope. Folder
+duplicate, rename/move, tree drag/drop, trash, and restore are deferred to the
+product-owner backlog; target version is uncommitted. Empty-folder creation
+and file-to-folder drop remain supported. This records no execution authority
+for a later sprint.
+
 1. **Approve whole-tree folder operations:** approve this contract and a
    detailed service/RPC design. Sprint 105 then requires a separately amended
    exact file plan including shared RPC types, desktop service, UI, and RPC
@@ -71,15 +77,14 @@ semantics, tab behavior, and test scope require a separate disposition.
 
 ## Gate Exit Criteria
 
-- Separate product-owner disposition recorded in the approved planning
-  location; this sprint package itself does not amend the global decision
-  ledger.
+- Separate product-owner disposition recorded in `planning/decisions.md` and
+  this gate.
 - Approved behavior identifies exactly which folder actions ship in V0.17
   and whether folder drag/drop is supported.
 - Approved typed RPC/DTO and atomic transaction design exists if any folder
   mutation ships.
-- Exact implementation/test/output paths are separately approved before
-  product edits.
+- Any future folder implementation requires separate exact implementation,
+  test, and output paths approved before product edits.
 
 ## Blocked Test Cases
 

@@ -42,7 +42,12 @@ let jobRequests: Array<{ operation: string; identity: NonNullable<WorkbenchState
 let bufferWrites: Array<{ path: string; text: string }> = [];
 let previewNavigationCalls: Array<{ targetId: string; previewToken: string }> = [];
 let windowsExplorerPathFixture = false;
+let projectExplorerWorkflowFixture = fixtureScenario === "project-explorer-workflows";
 let lastOpenedPath = "";
+const explorerCalls: Array<{ operation: string; source?: string; destination?: string; path?: string; action?: "open" | "reveal"; confirmOutboundImports?: boolean; kind?: string }> = [];
+let mockTrashItems: Array<{ id: string; path: string; kind: "amx" | "csv" | "json" | "css" }> = [];
+const workflowFolders = new Set<string>();
+const workflowRemovedFiles = new Set<string>();
 let inputSettingsKey = "[]";
 let nextJobId = 0;
 let selectedId = 0;
@@ -79,6 +84,15 @@ function projectPaths(root: string) {
 	csvPath = `${root}/data.csv`;
 	jsonPath = `${root}/data.json`;
 	linkedAmxPath = `${root}/linked.amx`;
+}
+
+function workflowRelativePath(path: string): string {
+	const relative = path.startsWith(`${projectRoot}/`) ? path.slice(projectRoot.length + 1) : path;
+	return relative.replaceAll("\\", "/");
+}
+
+function workflowListedPath(path: string): string {
+	return workflowRelativePath(path).replaceAll("/", "\\");
 }
 
 function analyzeSingleDocument(document: ReturnType<typeof parseDocumentText>, file: string): EditorModuleAnalysis {
@@ -248,6 +262,13 @@ const request = {
 	async ping({ nonce }: { nonce: string }) { return { nonce, runtime: "bun" as const, version: "browser-harness" }; },
 	async pickProject() {
 		if (projectRoot !== "/sprint042-browser-fixture") generation++;
+		if (projectExplorerWorkflowFixture) {
+			createdFiles.clear();
+			workflowFolders.clear();
+			workflowRemovedFiles.clear();
+			mockTrashItems = [];
+			explorerCalls.length = 0;
+		}
 		if (fixtureScenario === "empty") hasActiveDocument = false;
 		else {
 			hasActiveDocument = true;
@@ -273,6 +294,22 @@ const request = {
 				folders: ["libraries"]
 			};
 		}
+		if (projectExplorerWorkflowFixture) {
+			const baseFiles = [
+				{ path: "report.amx", kind: "amx" as const },
+				{ path: "data.csv", kind: "csv" as const },
+				{ path: "libraries\\asset-management.amx", kind: "amx" as const },
+				{ path: "reports\\preview.html", kind: "html-output" as const }
+			];
+			return {
+				ok: true as const,
+				files: [
+					...baseFiles.filter(file => !workflowRemovedFiles.has(workflowRelativePath(file.path))),
+				...[...createdFiles].filter(([path]) => !workflowRemovedFiles.has(workflowRelativePath(path))).map(([path, file]) => ({ path: workflowListedPath(path), kind: file.kind }))
+				],
+				folders: ["libraries", "reports", ...workflowFolders].map(workflowListedPath)
+			};
+		}
 		return {
 			ok: true as const,
 			files: [
@@ -287,6 +324,8 @@ const request = {
 		};
 	},
 	async createProjectFile({ path, kind }: { path: string; kind: "amx" | "csv" | "json" | "css" }) {
+		explorerCalls.push({ operation: "createProjectFile", path, kind });
+		if (projectExplorerWorkflowFixture && path.includes("reject")) return { ok: false as const, error: { code: "CREATE_REJECTED", message: "Simulated file creation rejection." } };
 		activePath = `${projectRoot}/${path}`;
 		hasActiveDocument = true;
 		currentText = kind === "amx" ? "# New AMX fixture\n" : "\n";
@@ -295,7 +334,15 @@ const request = {
 		generation++;
 		return { ok: true as const, document: document(), state: state() };
 	},
+	async createProjectFolder({ path }: { path: string }) {
+		explorerCalls.push({ operation: "createProjectFolder", path });
+		if (projectExplorerWorkflowFixture && path.includes("reject")) return { ok: false as const, error: { code: "CREATE_REJECTED", message: "Simulated folder creation rejection." } };
+		if (projectExplorerWorkflowFixture) workflowFolders.add(workflowRelativePath(path));
+		return { ok: true as const, state: state() };
+	},
 	async duplicateProjectFile({ source, destination }: { source: string; destination: string }) {
+		explorerCalls.push({ operation: "duplicateProjectFile", source, destination });
+		if (projectExplorerWorkflowFixture && destination.includes("reject")) return { ok: false as const, error: { code: "DUPLICATE_REJECTED", message: "Simulated duplicate rejection." } };
 		const kind = kindForPath(source);
 		activePath = `${projectRoot}/${destination}`;
 		hasActiveDocument = true;
@@ -306,12 +353,42 @@ const request = {
 		return { ok: true as const, document: document(), state: state() };
 	},
 	async moveProjectFile({ source, destination }: { source: string; destination: string }) {
+		explorerCalls.push({ operation: "moveProjectFile", source, destination });
+		if (projectExplorerWorkflowFixture && destination.includes("collision")) return { ok: false as const, error: { code: "MOVE_COLLISION", message: "Simulated destination collision." } };
 		const kind = kindForPath(source);
 		activePath = `${projectRoot}/${destination}`;
 		hasActiveDocument = true;
+		if (projectExplorerWorkflowFixture) {
+			workflowRemovedFiles.add(workflowRelativePath(source));
+			createdFiles.set(activePath, { kind, text: currentText });
+		}
 		createdFiles.set(activePath, { kind, text: currentText });
 		generation++;
 		return { ok: true as const, state: state() };
+	},
+	async deleteProjectFile({ path, confirmOutboundImports = false }: { path: string; confirmOutboundImports?: boolean }) {
+		explorerCalls.push({ operation: "deleteProjectFile", path, confirmOutboundImports });
+		if (path === "report.amx" && !confirmOutboundImports) return { ok: false as const, error: { code: "DESKTOP_CONFIRMATION_REQUIRED", message: "Confirm AMX import impact." } };
+		mockTrashItems = [...mockTrashItems, { id: `trash-${mockTrashItems.length + 1}`, path, kind: kindForPath(path) }];
+		if (projectExplorerWorkflowFixture) {
+			workflowRemovedFiles.add(workflowRelativePath(path));
+			if (activePath === `${projectRoot}/${workflowRelativePath(path)}`) hasActiveDocument = false;
+		}
+		return { ok: true as const, state: state() };
+	},
+	async listTrash() { explorerCalls.push({ operation: "listTrash" }); return { ok: true as const, items: [...mockTrashItems] }; },
+	async restoreTrash({ id }: { id: string }) {
+		explorerCalls.push({ operation: "restoreTrash", path: id });
+		const item = mockTrashItems.find(candidate => candidate.id === id);
+		if (projectExplorerWorkflowFixture && item?.path.includes("restore-fail")) return { ok: false as const, error: { code: "RESTORE_REJECTED", message: "Simulated restore rejection." } };
+		if (projectExplorerWorkflowFixture && item) workflowRemovedFiles.delete(workflowRelativePath(item.path));
+		mockTrashItems = mockTrashItems.filter(item => item.id !== id);
+		return { ok: true as const, state: state() };
+	},
+	async emptyTrash() { explorerCalls.push({ operation: "emptyTrash" }); mockTrashItems = []; return { ok: true as const, state: state() }; },
+	async openProjectItem({ path, action }: { path: string; action: "open" | "reveal" }) {
+		explorerCalls.push({ operation: "openProjectItem", path, action });
+		return { ok: true as const, opened: true };
 	},
 	async getRecents() {
 		return { ok: true as const, projects: ["recent", "empty-recent"].includes(fixtureScenario) ? [{ root: "/sprint042-recent-fixture", active: "/sprint042-recent-fixture/report.amx" }] : [] };
@@ -478,6 +555,7 @@ export function harnessSnapshot() {
 		previewStartedAt: [...previewStartedAt],
 		previewAutosavedAtCompletion: [...previewAutosavedAtCompletion],
 		previewCompletionLog: [...previewCompletionLog],
-		previewNavigationCalls: [...previewNavigationCalls]
+		previewNavigationCalls: [...previewNavigationCalls],
+		explorerCalls: [...explorerCalls]
 	};
 }
