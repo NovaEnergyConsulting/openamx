@@ -1,8 +1,8 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 const expectedTopicIds = [
-	"getting-started", "starters", "language", "language-v0.12", "language-v0.13", "language-v0.14", "language-v0.16", "language-v0.9", "documents", "data",
-	"preview-export", "recovery", "diagnostics", "release-notes"
+	"getting-started", "starters", "language", "language-v0.12", "language-v0.13", "language-v0.14", "language-v0.16", "language-v0.9", "documents",
+	"project-explorer", "commands", "workbench-layout", "data", "preview-export", "recovery", "diagnostics", "release-notes"
 ];
 const expectedSearchTerms = [
 	["getting-started", "welcome first project starter create open"],
@@ -14,6 +14,9 @@ const expectedSearchTerms = [
 	["language-v0.12", "language v0.12 record inheritance extends override effective fields enum enumeration primitive values braced if expression statement return AMX3011 AMX3021"],
 	["language-v0.9", "v0.9 migration record constructor equals = colon annotation string escape interpolation list index dimension unit measurement conversion JSON CSV"],
 	["documents", "active tab import source editor save intelligence rename"],
+	["project-explorer", "project explorer search folders files create AMX CSV JSON CSS duplicate move rename drag drop context menu Trash restore reveal"],
+	["commands", "commands command palette Ctrl Shift P Cmd keyboard search select up down enter return escape shortcut"],
+	["workbench-layout", "workbench layout resize splitter panels explorer editor context preview inputs runtime bottom run cancel progress details results diagnostics export focus"],
 	["data", "csv json external private mapping schema validation"],
 	["preview-export", "run preview cancel stale html offline interactive charts legend zoom static pdf data table docx json csv"],
 	["recovery", "conflict autosave crash restore discard recovery"],
@@ -48,6 +51,7 @@ test("bundled help keeps stable topics, local search, registry shortcuts, routin
 	const topicButtons = page.locator(".help-topics [data-topic-id]");
 	await expect(topicButtons).toHaveCount(expectedTopicIds.length);
 	await expect(topicButtons.evaluateAll(elements => elements.map(element => element.getAttribute("data-topic-id")))).resolves.toEqual(expectedTopicIds);
+	await expect(page.locator(".help-release h3")).toHaveText("Release notes · V0.17.0");
 
 	const search = page.getByRole("searchbox", { name: "Search help and commands" });
 	await search.fill("imports");
@@ -57,6 +61,26 @@ test("bundled help keeps stable topics, local search, registry shortcuts, routin
 		await search.fill(terms);
 		await expect(page.locator(`.help-topics [data-topic-id='${id}']`), `${id} search terms`).toBeVisible();
 	}
+	await search.fill("project explorer");
+	const explorerTopic = page.locator(".help-topics [data-topic-id='project-explorer']");
+	await explorerTopic.click();
+	await expect(page.locator(".help-content")).toContainText("whole project");
+	await expect(page.locator(".help-content")).toContainText("Folder duplicate, rename/move");
+	await search.fill("command palette");
+	const commandsTopic = page.locator(".help-topics [data-topic-id='commands']");
+	await commandsTopic.click();
+	await expect(page.locator(".help-content")).toContainText("Ctrl+Shift+P on Windows/Linux");
+	await expect(page.locator(".help-content")).toContainText("Use Up/Down");
+	await search.fill("workbench layout");
+	const layoutTopic = page.locator(".help-topics [data-topic-id='workbench-layout']");
+	await layoutTopic.click();
+	await expect(page.locator(".help-content")).toContainText("remembered separately for each project");
+	await expect(page.locator(".help-content")).toContainText("Runtime panel stays along the bottom");
+	await search.fill("v0.17.0");
+	const releaseTopic = page.locator(".help-topics [data-topic-id='release-notes']");
+	await releaseTopic.click();
+	await expect(page.locator(".help-content")).toContainText("V0.17.0 - Workbench and project workflow improvements");
+	await expect(page.locator(".help-content")).toContainText("initial live preview when activated");
 	await search.fill("offline");
 	const previewTopic = page.locator(".help-topics [data-topic-id='preview-export']");
 	await previewTopic.click();
@@ -86,7 +110,7 @@ test("bundled help keeps stable topics, local search, registry shortcuts, routin
 	await expect(page.locator(".help-content")).toContainText("A valid mismatch returns false");
 	await expect(page.locator(".help-content")).toContainText("dimensionless Measurements");
 	await expect(page.locator(".help-content")).toContainText("Unicode 15.1 White_Space");
-	await expect(page.locator(".help-content")).toContainText("Integrated acceptance, release, and publication remain separate");
+	await expect(page.locator(".help-content")).toContainText("exact syntax, diagnostics, and limits");
 	await search.fill("function body");
 	const v016Topic = page.locator(".help-topics [data-topic-id='language-v0.16']");
 	await expect(v016Topic).toBeVisible();

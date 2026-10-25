@@ -58,7 +58,7 @@
         "HTML and desktop preview start paused at the interval's lower bound. Play, pause, reset, scrubbing, and an optional loop control change only the selected time.",
         "PDF and DOCX contain a static frame at the interval's lower bound. DOCX uses an embedded PNG with alternative text; PDF titles and descriptions are visible and searchable, but tagged PDF/PDF/UA and screen-reader support are not established.",
         "Preview uses application-owned code and inert model data without remote resources. Tested accessibility and resource results are bounded to their recorded environments; no screen-reader, minimum-host, or cross-platform qualification is claimed.",
-        "See docs/language-spec-v0.13.md for the approved syntax, diagnostics, limits, and exclusions. V0.13 integration and release acceptance remain pending."
+        "See docs/language-spec-v0.13.md for the approved syntax, diagnostics, limits, and exclusions."
       ]
     },
     {
@@ -71,7 +71,7 @@
         "Math functions use radians and accept Numbers or dimensionless Measurements; their results are unitless Numbers. Existing Measurement-aware standard-library operations preserve their approved unit behavior.",
         "len and string slices count Unicode code points. trim uses the approved Unicode 15.1 White_Space set.",
         "format supports a bounded numeric pattern subset and the en-US, de-DE, and fr-FR locales; Measurement output keeps its displayed value and unit.",
-        "See docs/language-spec-v0.14.md and the V0.14 examples for exact syntax, diagnostics, and limits. Integrated acceptance, release, and publication remain separate."
+        "See docs/language-spec-v0.14.md and the V0.14 examples for exact syntax, diagnostics, and limits."
       ]
     },
     {
@@ -84,7 +84,7 @@
         "Braced bodies allow initialized let, assignment, +=, standalone if/else, statement for, return, and named-list add/remove. Newlines separate statements; semicolons are invalid.",
         "Every reachable path must return a compatible value. An if without else may fall through; loops may execute zero times. AMXF4001 marks missing return at the closing brace; AMXF4002 is a defensive runtime guard.",
         "Parameters and locals use call-local lexical scope. Each list parameter gets an independent recursive array copy; non-array elements are opaque. Returned local lists pass through directly.",
-        "See docs/language-spec-v0.16.md and examples/15_Function_Bodies.amx for exact syntax, semantics, and examples. Integrated acceptance, release, and publication remain separate."
+        "See docs/language-spec-v0.16.md and examples/15_Function_Bodies.amx for exact syntax, semantics, and examples."
       ]
     },
     {
@@ -106,9 +106,46 @@
       "terms": "active tab import source editor save intelligence rename",
       "steps": [
         "The active .amx tab is the target for analysis, preview, Run, and Export.",
+        "Activating an AMX document automatically analyzes it and refreshes its preview unless preview is paused. This does not run the document; Run remains explicit.",
         "Open imported modules in tabs; current unsaved module text is used for analysis.",
         "Save preserves exact text, including invalid drafts. Disk conflicts must be resolved before replacement.",
         "Editor completion, diagnostics, navigation, and rename are derived from the shared parser and checker."
+      ]
+    },
+    {
+      "id": "project-explorer",
+      "title": "Project explorer and file workflows",
+      "summary": "Find, create, move, and safely manage project files.",
+      "terms": "project explorer search folders files create AMX CSV JSON CSS duplicate move rename drag drop context menu Trash restore reveal",
+      "steps": [
+        "Search filters the hierarchical file list; the folder/file counts show the whole project and do not change with the search.",
+        "Create AMX, CSV, JSON, or CSS files in the project, and create empty folders. File actions are available from the Project menu and applicable file or folder context menus.",
+        "Duplicate, rename, move, or drag eligible files to a folder. File moves preserve AMX imports where required; invalid destinations and collisions do not overwrite project files.",
+        "Delete moves files to Trash. Restore returns a file to its original location when the parent still exists and the destination is available. Empty Trash requires confirmation.",
+        "Folder duplicate, rename/move, tree drag-and-drop, delete, and restore are not available in V0.17. Drag-and-drop moves eligible files only."
+      ]
+    },
+    {
+      "id": "commands",
+      "title": "Command palette",
+      "summary": "Search, navigate, and run available commands from the keyboard.",
+      "terms": "commands command palette Ctrl Shift P Cmd keyboard search select up down enter return escape shortcut",
+      "steps": [
+        "Choose Commands or press Ctrl+Shift+P on Windows/Linux or Cmd+Shift+P on macOS to open the searchable command palette.",
+        "The first enabled match is selected. Use Up/Down to move between enabled commands; navigation stops at the ends and skips disabled commands.",
+        "Press Enter/Return or click a command to run it. Disabled commands cannot run; when every match is disabled, its reason is shown and no command is selected.",
+        "Press Escape or dismiss the palette to return focus to the control that opened it."
+      ]
+    },
+    {
+      "id": "workbench-layout",
+      "title": "Workbench layout and runtime",
+      "summary": "Adjust workbench panes and follow document runs.",
+      "terms": "workbench layout resize splitter panels explorer editor context preview inputs runtime bottom run cancel progress details results diagnostics export focus",
+      "steps": [
+        "The workbench places the project explorer, document editor, and contextual pane side by side. Resize the dividers with a pointer or keyboard; valid layouts are remembered separately for each project.",
+        "The contextual pane switches between Preview, Inputs, and data details. Panes scroll independently, and the workbench adapts to narrower windows.",
+        "The Runtime panel stays along the bottom. Use it to run or cancel work and inspect status, stage, progress, diagnostics, results, and export output details."
       ]
     },
     {
@@ -167,13 +204,13 @@
     {
       "id": "release-notes",
       "title": "Release notes",
-      "summary": "V0.10.0 - First public release",
-      "terms": "version changes release notes feature",
+      "summary": "V0.17.0 - Workbench and project workflow improvements",
+      "terms": "version changes release notes feature v0.17 0.17.0 workbench explorer command palette runtime",
       "steps": [
-        "The first public release includes a cross-platform desktop workbench, a command-line interface, and a VS Code extension.",
-        "Write computable documents with Markdown narrative, executable calculations, typed records and functions, local modules, and units of measure.",
-        "Create tables and charts, map and validate JSON or CSV inputs, and export results as HTML, PDF, DOCX, JSON, or CSV.",
-        "The desktop workbench includes live preview, explicit Run, conflict-aware autosave, local recovery, structured data editing, and report export."
+        "AMX documents receive analysis and an initial live preview when activated, unless preview is paused. Running computations remains an explicit action.",
+        "The project explorer adds whole-project file/folder counts, file and empty-folder creation, guarded file duplicate/move/trash/restore workflows, file drag-and-drop, and project-scoped open/reveal actions.",
+        "The searchable command palette supports keyboard selection and execution, including Ctrl/Cmd+Shift+P. Explorer, editor, and context panes can be resized with pointer or keyboard controls, with layouts remembered per project.",
+        "The Runtime panel stays at the bottom of the workbench and exposes run/cancel status, progress, diagnostics, results, and export details. Folder duplicate/move, folder-tree drag-and-drop, folder trash, and folder restore remain out of scope."
       ]
     }
   ],
@@ -192,11 +229,12 @@
     "diagnosticExportAction": "Download diagnostic summary",
     "shortcutsTitle": "Keyboard shortcuts",
     "noMatchingShortcuts": "No matching shortcuts.",
-    "releaseNotesTitle": "Release notes · V0.10",
+    "releaseNotesTitle": "Release notes · V0.17.0",
     "releaseNotes": [
-      "First public release: cross-platform desktop workbench, command-line interface, and VS Code extension.",
-      "Computable documents support typed records and functions, local modules, units of measure, tables, charts, and validated JSON/CSV inputs.",
-      "Preview and export reports as HTML, PDF, or DOCX; export eligible data as JSON or CSV."
+      "AMX activation now initializes analysis and live preview without implicitly running computations.",
+      "Project explorer improvements add searchable whole-project counts, guarded file operations, Trash recovery, and project-scoped file actions.",
+      "Navigate and run enabled commands from the keyboard; resize workbench panes and keep runtime activity in the bottom panel.",
+      "Folder duplicate/move, folder-tree drag-and-drop, folder trash, and folder restore are not included in V0.17.0."
     ],
     "footerNote": "Search is local. No telemetry is sent.",
     "closeButton": "Close"

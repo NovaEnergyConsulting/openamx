@@ -26,7 +26,7 @@ export default {
 		},
 		linux: {
 			bundleCEF: false,
-			icon: "assets/icon.png",
+			icon: "assets/images/icon.png",
 		},
 		win: {
 			bundleCEF: false,

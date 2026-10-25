@@ -41,7 +41,7 @@
 	"devDependencies": {
 		"@playwright/test": "^1.64.1",
 		"@tailwindcss/vite": "4.3.3",
-		"@types/bun": "1.4.0",
+		"@types/bun": "1.4.4",
 		"@vitejs/plugin-vue": "5.2.4",
 		"pdfjs-dist": "6.3.289",
 		"pdfmake": "0.3.11",
