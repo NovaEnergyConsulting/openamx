@@ -4,8 +4,8 @@
  */
 
 import { describe, it, expect, afterEach } from "bun:test";
-import { mkdtemp, rm, realpath } from "fs/promises";
-import { basename, join } from "node:path";
+import { mkdir, mkdtemp, rm, realpath, symlink } from "fs/promises";
+import { basename, join, relative, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { loadEntryModule } from "../src/runtime/moduleLoader";
 import { AmxError } from "../src/diagnostics/errors";
@@ -102,6 +102,32 @@ describe("Sprint 015 pure functions", () => {
 });
 
 describe("Sprint 015 modules, imports, and exports", () => {
+  it("resolves nested imports within an explicitly selected project root", async () => {
+    const dir = await makeDir();
+    const models = join(dir, "src", "models");
+    const duval = join(dir, "src", "algorithms", "duval");
+    await mkdir(models, { recursive: true });
+    await mkdir(duval, { recursive: true });
+    const unitsPath = await write(models, "Units.amx", "```amx\nexport type Concentration {\n  value: Number\n}\nexport let ppm: Number = 1\n```\n");
+    const entry = await write(duval, "DuvalTriangleOne.algorithm.amx", "```amx\nimport { Concentration, ppm } from \"../../models/Units.amx\"\nlet value: Concentration = Concentration { value = ppm }\n```\n");
+
+    const { env } = await loadEntryModule(entry, {
+      importRoot: dir,
+      sourceOverlay: new Map([[await realpath(unitsPath), "```amx\nexport type Concentration {\n  value: Number\n}\nexport let ppm: Number = 5\n```\n"]])
+    });
+
+    expect(env.toObject()).toMatchObject({ value: { value: 5 } });
+
+    const outside = await writeRootFile("```amx\nexport let outsideValue: Number = 2\n```\n");
+    const outsideImport = relative(duval, outside).split(sep).join("/");
+    const escapingEntry = await write(duval, "Escaping.amx", `\`\`\`amx\nimport { outsideValue } from "${outsideImport}"\nlet value: Number = outsideValue\n\`\`\`\n`);
+    await expectAmxError(loadEntryModule(escapingEntry, { importRoot: dir }), "AMX5001");
+
+    await symlink(outside, join(models, "linked.amx"));
+    const symlinkEntry = await write(duval, "Symlink.amx", "```amx\nimport { outsideValue } from \"../../models/linked.amx\"\nlet value: Number = outsideValue\n```\n");
+    await expectAmxError(loadEntryModule(symlinkEntry, { importRoot: dir }), "AMX5001");
+  });
+
   it("evaluates an imported type, function, and value, deterministically once, and isolates unrelated module bindings", async () => {
     const dir = await makeDir();
     await write(dir, "lib.amx", "```amx\nlet libOnly: Number = 99\nexport type Point {\n  x: Number\n  y: Number\n}\nexport fn distanceSquared(a: Point, b: Point): Number = (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2\nexport let origin: Point = Point { x = 0, y = 0 }\n```\n");

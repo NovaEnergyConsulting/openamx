@@ -2216,9 +2216,9 @@ export function createDesktopService(
 					}
 					if (document.kind !== "amx") return { ok: true, analysis: { diagnostics: [], completions: [] } };
 					const entryPath = realpathSync(document.path);
+					const importRoot = requireRoot();
 					const resolveEditorModule = (_fromFile: string, targetPath: string, importNode: import("../../../src/ast/types").ImportDeclarationNode) => {
-						const root = requireRoot();
-						if (!allowedFile(root, targetPath)) {
+						if (!allowedFile(importRoot, targetPath)) {
 						throw new AmxError({ code: "AMX5001", message: `Module '${importNode.path}' is unavailable or outside the project`, file: document.path, line: importNode.pathSource?.line, column: importNode.pathSource?.column });
 						}
 						const canonical = realpathSync(targetPath);
@@ -2226,7 +2226,7 @@ export function createDesktopService(
 					};
 					let moduleAnalysis: ReturnType<typeof analyzeEditorModules> | undefined;
 					let analysisError: unknown;
-					try { moduleAnalysis = analyzeEditorModules(document.text, entryPath, resolveEditorModule); }
+					try { moduleAnalysis = analyzeEditorModules(document.text, entryPath, resolveEditorModule, importRoot); }
 					catch (error) { analysisError = error; }
 					let parsedDocument = moduleAnalysis?.document;
 					if (!parsedDocument) {
@@ -2241,7 +2241,7 @@ export function createDesktopService(
 						if (prepared) {
 							try {
 								const completionAnalysis = prepared.text === document.text && moduleAnalysis
-									? moduleAnalysis : analyzeEditorModules(prepared.text, entryPath, resolveEditorModule);
+									? moduleAnalysis : analyzeEditorModules(prepared.text, entryPath, resolveEditorModule, importRoot);
 								completions = editorCompletionFacts(prepared.text, offset, prepared.document, completionAnalysis, document.text)
 									.map(item => item.label).slice(0, 200);
 							} catch { /* Withhold candidates when the reachable source graph is invalid or ambiguous. */ }
@@ -2287,7 +2287,7 @@ export function createDesktopService(
 						const canonical = realpathSync(targetPath);
 						return { file: canonical, text: sourceOverlay.get(canonical) ?? readFileSync(canonical, "utf8") };
 					};
-					const analysis = analyzeEditorModules(document.text, entryPath, resolveEditorModule);
+					const analysis = analyzeEditorModules(document.text, entryPath, resolveEditorModule, root);
 					const moduleSources = new Map([...(analysis.modules ?? new Map()).keys()].map(file => [file, sourceOverlay.get(file) ?? readFileSync(file, "utf8")]));
 					const facts = editorSymbolFacts(document.text, entryPath, analysis.document, analysis, moduleSources);
 					const plan = editorRenameFact(facts, entryPath, offset);
@@ -2316,7 +2316,7 @@ export function createDesktopService(
 						if (!allowedFile(root, targetPath)) throw new AmxError({ code: "AMX5001", message: `Module '${importNode.path}' is unavailable or outside the project`, file: document.path, line: importNode.pathSource?.line, column: importNode.pathSource?.column });
 						const canonical = realpathSync(targetPath);
 						return { file: canonical, text: rewritten.get(canonical) ?? sourceOverlay.get(canonical) ?? readFileSync(canonical, "utf8") };
-					});
+					}, root);
 					const stage = (file: string, text: string, mode: number) => {
 						const temporary = join(dirname(file), `.${basename(file)}.${randomUUID()}.tmp`);
 						const handle = openSync(temporary, "wx", mode);

@@ -23,7 +23,7 @@ import type { DimensionMetadata, DimensionUnitRegistry, UnitMetadata } from '../
  * Local `.amx` module loader (Sprint 015).
  *
  * Owns all filesystem access for imports: canonicalizing paths, enforcing
- * entry-directory containment, resolving the complete dependency graph with
+ * import-root containment, resolving the complete dependency graph with
  * source-order depth-first traversal, detecting cycles, and evaluating each
  * module exactly once before its importer. AMX expressions/functions never
  * receive paths or file handles; only this loader touches the filesystem.
@@ -63,6 +63,7 @@ export interface EntryInputInspection {
 
 export interface ModuleLoadOptions {
   entryText?: string;
+  importRoot?: string;
   sourceOverlay?: ReadonlyMap<string, string>;
   inputMappings?: string[];
   validation?: ValidationMode;
@@ -152,6 +153,11 @@ function realpathOrFail(absolutePath: string, code: 'AMX5001', message: string, 
   }
 }
 
+function isWithinDirectory(root: string, candidate: string): boolean {
+  const relative = path.relative(root, candidate);
+  return relative !== '' && relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+}
+
 /**
  * Resolve, check, and evaluate the complete module graph reachable from `entryPath`,
  * returning the entry module's document and final evaluated environment.
@@ -159,7 +165,22 @@ function realpathOrFail(absolutePath: string, code: 'AMX5001', message: string, 
 export async function loadEntryModule(entryPath: string, options: ModuleLoadOptions = {}): Promise<LoadedEntryModule> {
   const absoluteEntry = path.resolve(entryPath);
   const realEntry = realpathOrFail(absoluteEntry, 'AMX5001', `Entry module '${entryPath}' could not be read`, entryPath);
-  const entryRoot = path.dirname(realEntry);
+  const importRoot = options.importRoot === undefined
+    ? path.dirname(realEntry)
+    : realpathOrFail(path.resolve(options.importRoot), 'AMX5001', `Import root '${options.importRoot}' could not be read`, entryPath);
+  let importRootStats: fs.Stats;
+  try {
+    importRootStats = fs.statSync(importRoot);
+  } catch {
+    moduleError('AMX5001', `Import root '${options.importRoot ?? importRoot}' could not be read`, undefined, entryPath);
+  }
+  if (!importRootStats.isDirectory()) {
+    moduleError('AMX5001', 'Import root must be a directory', undefined, entryPath);
+  }
+  if (realEntry !== importRoot && !isWithinDirectory(importRoot, realEntry)) {
+    moduleError('AMX5001', `Entry module '${entryPath}' resolves outside the import root directory tree`, undefined, entryPath);
+  }
+  const rootDescription = options.importRoot === undefined ? 'entry directory tree' : 'import root directory tree';
 
   if (options.sourceOverlay) {
     if (options.sourceOverlay.size > 100) {
@@ -170,9 +191,8 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
         moduleError('AMX5001', 'Source overlay paths must be canonical absolute paths', undefined, entryPath);
       }
       const canonicalOverlayPath = realpathOrFail(overlayPath, 'AMX5001', 'Source overlay module could not be read', entryPath);
-      const relativeToRoot = path.relative(entryRoot, canonicalOverlayPath);
-      if (canonicalOverlayPath !== overlayPath || relativeToRoot === '' || relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
-        moduleError('AMX5001', 'Source overlay paths must be canonical and contained by the entry directory tree', undefined, entryPath);
+      if (canonicalOverlayPath !== overlayPath || !isWithinDirectory(importRoot, canonicalOverlayPath)) {
+        moduleError('AMX5001', `Source overlay paths must be canonical and contained by the ${rootDescription}`, undefined, entryPath);
       }
     }
   }
@@ -188,7 +208,7 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
 
     const cycleIndex = visiting.indexOf(canonicalPath);
     if (cycleIndex !== -1) {
-      const cycle = [...visiting.slice(cycleIndex), canonicalPath].map(p => path.relative(entryRoot, p) || path.basename(p));
+      const cycle = [...visiting.slice(cycleIndex), canonicalPath].map(p => path.relative(importRoot, p) || path.basename(p));
       moduleError('AMX5003', `Import cycle detected: ${cycle.join(' -> ')}`, viaImportSource?.pathSource, viaImportSource?.file);
     }
 
@@ -263,9 +283,8 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
         `Module '${importNode.path}' could not be found`,
         canonicalPath
       );
-      const relativeToRoot = path.relative(entryRoot, targetReal);
-      if (relativeToRoot === '' || relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
-        moduleError('AMX5001', `Module '${importNode.path}' resolves outside the entry directory tree`, importNode.pathSource, canonicalPath);
+      if (!isWithinDirectory(importRoot, targetReal)) {
+        moduleError('AMX5001', `Module '${importNode.path}' resolves outside the ${rootDescription}`, importNode.pathSource, canonicalPath);
       }
 
       const dependency = await visit(targetReal, { pathSource: importNode.pathSource, file: canonicalPath });

@@ -59,7 +59,7 @@ Open an existing folder with **Open project**. Recent projects preserve only val
 
 ## Workbench
 
-- The active `.amx` document controls analysis, preview, explicit Run, and all export formats. Open unsaved imported modules are used by the contained module graph.
+- The active `.amx` document controls analysis, preview, explicit Run, and all export formats. Imports resolve relative to the importing module and remain inside the selected project root; open unsaved imported modules are used by the contained module graph.
 - Live preview is debounced, can be paused/resumed or refreshed, and marks retained output stale after relevant edits. Run is explicit.
 - AMX completion, diagnostics, navigation, references, rename, and safe actions use shared parser/checker facts. Only exact executable `amx` fences run; ordinary Markdown and code fences remain narrative.
 - CSV and JSON tabs offer virtualized structured editing, raw mode, schema/validation details, and edit history. Supported table data is capped at 100,000 rows; larger or unsupported values retain a bounded raw fallback without silent truncation.

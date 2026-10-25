@@ -98,6 +98,7 @@ async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
 	send({ kind: "progress", jobId: request.jobId, stage: "loading-inputs" });
 	const loaded = await loadEntryModule(request.entryPath, {
 		entryText: request.entryText,
+		importRoot: request.projectRoot,
 		sourceOverlay: new Map(request.sourceOverlay),
 		inputMappings: request.inputMappings,
 		validation: request.validation,

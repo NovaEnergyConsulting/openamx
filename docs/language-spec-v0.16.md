@@ -149,6 +149,16 @@ The function-body diagnostics are:
 | Unknown function, including a forward reference | Static check | `AMX3004: Unknown function '{name}'` | Call expression |
 | Defensive function fallthrough | Runtime | `AMXF4002: Function finished without returning a valid expression` | Function closing brace |
 
+## 7. Import Roots by Host
+
+Import paths continue to resolve relative to the module that declares each import and retain the existing relative-path syntax and `.amx` suffix requirement. The containment root depends on the host:
+
+- The CLI confines imports to the canonical entry module's directory tree unless a caller explicitly supplies another root.
+- The desktop app confines imports to the canonical selected project root.
+- The VS Code extension confines imports to the canonical workspace folder containing the entry file. If the entry file is not in a workspace folder, the entry directory remains the root.
+
+The resolved module must remain under its host's root after filesystem canonicalization. Imports cannot escape that root through parent traversal or a symbolic link. For example, a desktop entry under `src/algorithms/duval` may import `../../models/Units.amx` when the selected project root contains both directories.
+
 `AMXF4001` is the static missing-return diagnostic. `AMXF4002` is only a
 defensive runtime guard for an invalid body that reaches runtime fallthrough;
 it does not replace static checking. `AMX3021: Every possible path in an if

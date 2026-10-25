@@ -340,6 +340,18 @@ test("shared module analysis uses supplied unsaved imports without evaluation", 
 	expect(analysis.modules.get(modulePath)?.checkResult.exportedBindings.has("rate")).toBe(true);
 });
 
+test("shared module analysis allows imports inside an explicit root but keeps the default entry boundary", () => {
+	const entryFile = resolve("/project/src/algorithms/duval/DuvalTriangleOne.algorithm.amx");
+	const text = "```amx\nimport { Concentration, ppm } from \"../../models/Units.amx\"\nlet value: Concentration = Concentration { value = ppm }\n```\n";
+	const moduleText = "```amx\nexport type Concentration {\n  value: Number\n}\nexport let ppm: Number = 1\n```\n";
+	const resolveModule = (_from: string, targetPath: string) => ({ file: targetPath, text: moduleText });
+	const analysis = analyzeEditorModules(text, entryFile, resolveModule, resolve("/project"));
+
+	expect(analysis.importedTypes.has("Concentration")).toBe(true);
+	expect(analysis.importedBindings.has("ppm")).toBe(true);
+	expect(() => analyzeEditorModules(text, entryFile, resolveModule)).toThrow(/outside the entry directory tree/);
+});
+
 test("shared editor symbols preserve imported dimension and unit declaration identity", () => {
 	const entryFile = resolve("/project/entry.amx");
 	const moduleFile = resolve("/project/units.amx");

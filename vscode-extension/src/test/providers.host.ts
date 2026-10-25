@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import { INITIAL, Registry } from 'vscode-textmate';
 import { loadWASM, OnigScanner, OnigString } from 'vscode-oniguruma';
 import { parseDocumentText } from '../../../src/parser/parseDocument';
+import { analyzeEditorDocument } from '../providers/moduleAnalysis';
 import { declarationRange, tokenRange } from '../providers/symbolRanges';
 
 suite('OpenAMX providers', () => {
@@ -101,6 +102,26 @@ suite('OpenAMX providers', () => {
       assert.equal(definition?.length ?? 0, 0);
     } finally {
       await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+  test('resolves imports from nested files within the containing workspace folder', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'openamx-workspace-import-'));
+    const unitsDirectory = path.join(directory, 'src', 'models');
+    const entryDirectory = path.join(directory, 'src', 'algorithms', 'duval');
+    await fs.mkdir(unitsDirectory, { recursive: true });
+    await fs.mkdir(entryDirectory, { recursive: true });
+    await fs.writeFile(path.join(unitsDirectory, 'Units.amx'), '```amx\nexport type Concentration {\n  value: Number\n}\nexport let ppm: Number = 1\n```');
+    const entryPath = path.join(entryDirectory, 'DuvalTriangleOne.algorithm.amx');
+    const source = '```amx\nimport { Concentration, ppm } from "../../models/Units.amx"\nlet value: Concentration = Concentration { value = ppm }\n```';
+    await fs.writeFile(entryPath, source);
+    assert.ok(vscode.workspace.updateWorkspaceFolders(0, 0, { uri: vscode.Uri.file(directory), name: 'OpenAMX import test' }));
+    try {
+      const analysis = analyzeEditorDocument(source, entryPath);
+      assert.ok(analysis.importedTypes.has('Concentration'));
+      assert.ok(analysis.importedBindings.has('ppm'));
+    } finally {
+      vscode.workspace.updateWorkspaceFolders(0, 1);
+      await fs.rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
   test('outlines original record fields and withholds duplicate symbol targets', async () => {

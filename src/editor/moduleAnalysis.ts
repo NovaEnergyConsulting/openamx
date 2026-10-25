@@ -76,22 +76,30 @@ function locatedError(error: unknown, file?: string): AmxError {
 	return new AmxError({ code: "AMX3001", message, file, line: location ? Number(location[1]) : undefined, column: location ? Number(location[2]) : undefined });
 }
 
-function validateImportPath(importNode: ImportDeclarationNode, file: string, entryRoot: string): string {
+function isWithinOrEqual(root: string, candidate: string): boolean {
+	const relative = path.relative(root, candidate);
+	return relative === "" || (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+}
+
+function isWithinDirectory(root: string, candidate: string): boolean {
+	return root !== candidate && isWithinOrEqual(root, candidate);
+}
+
+function validateImportPath(importNode: ImportDeclarationNode, file: string, importRoot: string, rootDescription: string): string {
 	const importPath = importNode.path;
 	if (!(importPath.startsWith("./") || importPath.startsWith("../"))
 		|| importPath.includes("\\") || !importPath.endsWith(".amx") || path.isAbsolute(importPath)) {
 		moduleIssue("AMX5001", `Invalid local module path '${importPath}'`, file, importNode.pathSource);
 	}
 	const target = path.resolve(path.dirname(file), importPath);
-	const relativeToRoot = path.relative(entryRoot, target);
-	if (relativeToRoot === ".." || relativeToRoot.startsWith(`..${path.sep}`) || path.isAbsolute(relativeToRoot)) {
-		moduleIssue("AMX5001", `Module '${importPath}' resolves outside the entry directory tree`, file, importNode.pathSource);
+	if (!isWithinDirectory(importRoot, target)) {
+		moduleIssue("AMX5001", `Module '${importPath}' resolves outside the ${rootDescription}`, file, importNode.pathSource);
 	}
 	return target;
 }
 
 /** Parse and statically check a bounded reachable module graph without evaluating AMX or loading data. */
-export function analyzeEditorModules(text: string, entryFile?: string, resolveModule?: EditorModuleResolver): EditorModuleAnalysis {
+export function analyzeEditorModules(text: string, entryFile?: string, resolveModule?: EditorModuleResolver, importRoot?: string): EditorModuleAnalysis {
 	let entryDocument: OpenAmxDocument;
 	try { entryDocument = parseDocumentText(text); }
 	catch (error) { throw locatedError(error, entryFile); }
@@ -121,7 +129,11 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 	}
 
 	const entryPath = entryFile ? canonicalFile(entryFile) : "";
-	const entryRoot = entryPath ? path.dirname(entryPath) : "";
+	const moduleRoot = importRoot ? canonicalFile(importRoot) : entryPath ? path.dirname(entryPath) : "";
+	const rootDescription = importRoot ? "import root directory tree" : "entry directory tree";
+	if (!isWithinOrEqual(moduleRoot, entryPath)) {
+		moduleIssue("AMX5001", `Entry module '${entryFile}' resolves outside the ${rootDescription}`, entryFile!, entryImports[0].pathSource);
+	}
 	const records = new Map<string, EditorModuleRecord>();
 	const visiting: string[] = [];
 
@@ -132,7 +144,7 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 		if (existing) return existing;
 		const cycleIndex = visiting.indexOf(file);
 		if (cycleIndex >= 0) {
-			const cycle = [...visiting.slice(cycleIndex), file].map(item => path.relative(entryRoot, item) || path.basename(item)).join(" -> ");
+			const cycle = [...visiting.slice(cycleIndex), file].map(item => path.relative(moduleRoot, item) || path.basename(item)).join(" -> ");
 			moduleIssue("AMX5003", `Import cycle detected: ${cycle}`, viaImport?.file ?? file, viaImport?.source);
 		}
 		if (records.size + visiting.length >= MAX_EDITOR_MODULES) {
@@ -166,16 +178,15 @@ export function analyzeEditorModules(text: string, entryFile?: string, resolveMo
 		const importTargets = new Map<string, string>();
 
 		for (const importNode of imports) {
-			const targetPath = validateImportPath(importNode, file, entryRoot);
+			const targetPath = validateImportPath(importNode, file, moduleRoot, rootDescription);
 			let resolved: ResolvedEditorModule;
 			try { resolved = resolveModule!(file, targetPath, importNode); }
 			catch (error) {
 				if (error instanceof AmxError) throw error;
 				moduleIssue("AMX5001", `Module '${importNode.path}' could not be found`, file, importNode.pathSource);
 			}
-			const relativeToRoot = path.relative(entryRoot, resolved!.file);
-			if (relativeToRoot === ".." || relativeToRoot.startsWith(`..${path.sep}`) || path.isAbsolute(relativeToRoot)) {
-				moduleIssue("AMX5001", `Module '${importNode.path}' resolves outside the entry directory tree`, file, importNode.pathSource);
+			if (!isWithinDirectory(moduleRoot, canonicalFile(resolved!.file))) {
+				moduleIssue("AMX5001", `Module '${importNode.path}' resolves outside the ${rootDescription}`, file, importNode.pathSource);
 			}
 			let dependencyDocument: OpenAmxDocument;
 			try { dependencyDocument = parseDocumentText(resolved!.text); }

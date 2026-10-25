@@ -29,13 +29,25 @@ export function analyzeEditorDocument(text: string, entryFile?: string): EditorA
       throw new AmxError({ code: 'AMX5001', message: `Entry module '${entryFile}' could not be read`, file: entryFile });
     }
   }
-  const entryRoot = canonicalEntry ? path.dirname(canonicalEntry) : undefined;
+  let importRoot = canonicalEntry ? path.dirname(canonicalEntry) : undefined;
+  if (entryFile) {
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(entryFile));
+    if (workspaceFolder) {
+      try { importRoot = fs.realpathSync(workspaceFolder.uri.fsPath); }
+      catch {
+        throw new AmxError({ code: 'AMX5001', message: `Workspace root '${workspaceFolder.uri.fsPath}' could not be read`, file: entryFile });
+      }
+    }
+  }
 
   return analyzeEditorModules(text, canonicalEntry, imports ? (_fromFile, targetPath, importNode) => {
-    if (!entryRoot) throw new AmxError({ code: 'AMX5001', message: 'Local imports require a saved file in the workspace', file: entryFile, line: importNode.pathSource?.line, column: importNode.pathSource?.column });
+    if (!importRoot) throw new AmxError({ code: 'AMX5001', message: 'Local imports require a saved file in the workspace', file: entryFile, line: importNode.pathSource?.line, column: importNode.pathSource?.column });
 
-    const relativeTarget = path.relative(entryRoot, targetPath);
-    let segment = entryRoot;
+    const relativeTarget = path.relative(importRoot, targetPath);
+    if (relativeTarget === '' || relativeTarget === '..' || relativeTarget.startsWith(`..${path.sep}`) || path.isAbsolute(relativeTarget)) {
+      throw new AmxError({ code: 'AMX5001', message: `Module '${importNode.path}' resolves outside the workspace`, file: _fromFile, line: importNode.pathSource?.line, column: importNode.pathSource?.column });
+    }
+    let segment = importRoot;
     for (const part of relativeTarget.split(path.sep)) {
       segment = path.join(segment, part);
       try {
@@ -51,9 +63,9 @@ export function analyzeEditorDocument(text: string, entryFile?: string): EditorA
     let canonical: string;
     try { canonical = fs.realpathSync(targetPath); }
     catch { throw new AmxError({ code: 'AMX5001', message: `Module '${importNode.path}' could not be found`, file: _fromFile, line: importNode.pathSource?.line, column: importNode.pathSource?.column }); }
-    const relation = path.relative(entryRoot, canonical);
+    const relation = path.relative(importRoot, canonical);
     if (!relation || relation.startsWith('..') || path.isAbsolute(relation)) {
-      throw new AmxError({ code: 'AMX5001', message: `Module '${importNode.path}' resolves outside the entry directory tree`, file: _fromFile, line: importNode.pathSource?.line, column: importNode.pathSource?.column });
+      throw new AmxError({ code: 'AMX5001', message: `Module '${importNode.path}' resolves outside the workspace`, file: _fromFile, line: importNode.pathSource?.line, column: importNode.pathSource?.column });
     }
 
     const openDocument = vscode.workspace.textDocuments.find(document => {
@@ -62,5 +74,5 @@ export function analyzeEditorDocument(text: string, entryFile?: string): EditorA
       catch { return false; }
     });
     return { file: canonical, text: openDocument?.getText() ?? fs.readFileSync(canonical, 'utf8') };
-  } : undefined);
+  } : undefined, importRoot);
 }

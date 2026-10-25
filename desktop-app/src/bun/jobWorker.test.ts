@@ -48,6 +48,44 @@ test("trusted worker runs AMX and returns bounded path-free progress and result"
 	}
 });
 
+test("trusted worker resolves nested imports within the selected project root", async () => {
+	const root = mkdtempSync(join(tmpdir(), "openamx-job-import-root-"));
+	const modelsDirectory = join(root, "src", "models");
+	const entryDirectory = join(root, "src", "algorithms", "duval");
+	mkdirSync(modelsDirectory, { recursive: true });
+	mkdirSync(entryDirectory, { recursive: true });
+	writeFileSync(join(modelsDirectory, "Units.amx"), "```amx\nexport type Concentration {\n  value: Number\n}\nexport let ppm: Number = 1\n```\n");
+	const entryPath = join(entryDirectory, "DuvalTriangleOne.algorithm.amx");
+	const source = "```amx\nimport { Concentration, ppm } from \"../../models/Units.amx\"\nlet concentration: Concentration = Concentration { value = ppm }\nexport let value: Number = concentration.value\n```\n";
+	writeFileSync(entryPath, source);
+	const worker = new Worker(new URL("./jobWorker.ts", import.meta.url).href);
+	try {
+		const completed = new Promise<WorkerJobMessage>((resolve, reject) => {
+			worker.addEventListener("message", event => {
+				const message = event.data as WorkerJobMessage;
+				if (message.kind === "complete") resolve(message);
+				if (message.kind === "failed") reject(new Error(message.diagnostics[0]?.message ?? "Worker failed."));
+			});
+			worker.addEventListener("error", event => reject(new Error(event.message)));
+		});
+		const request: WorkerJobRequest = {
+			kind: "start", jobId: 43, operation: "run", entryPath, entryText: source,
+			projectRoot: root, sourceOverlay: [], inputMappings: [], validation: "aggregate"
+		};
+		worker.postMessage(request);
+		const result = await Promise.race([
+			completed,
+			new Promise<never>((_, reject) => setTimeout(() => reject(new Error("worker import job timed out")), 5000))
+		]);
+		expect(result.kind).toBe("complete");
+		if (result.kind !== "complete") throw new Error("Expected worker completion.");
+		expect(result.result).toEqual({ kind: "run", summary: { values: [{ name: "ppm", value: 1 }, { name: "concentration", value: "Record" }, { name: "value", value: 1 }] }, diagnostics: [] });
+	} finally {
+		worker.terminate();
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
 test("trusted worker serializes only explicitly exported compatible data bindings", async () => {
 	const root = mkdtempSync(join(tmpdir(), "openamx-job-output-"));
 	const entryPath = join(root, "report.amx");
