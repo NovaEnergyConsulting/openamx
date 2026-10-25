@@ -746,7 +746,7 @@ function closeExportWorkflow() {
 }
 
 function setExportFormat(format: "html" | "pdf" | "docx" | "json" | "csv") {
-	const base = format === "json" || format === "csv" ? exportBinding.value || "output" : "report";
+	const base = format === "json" || format === "csv" ? exportBinding.value || "output" : `${document.value ? label(document.value) : 'report'}`;
 	exportFormat.value = format;
 	exportFileName.value = `${base}.${format}`;
 }
@@ -1452,6 +1452,12 @@ async function runAnalysis() {
 	status.value = result.diagnostics.length ? "Analysis failed for the current buffer." : "Analysis completed for the current buffer.";
 }
 
+function label(doc: OpenDocument) {
+	const label = doc.label ?? doc.path.split(/[\\/]/).pop() ?? doc.path;
+
+	return label.endsWith(".amx") ? label.slice(0, -4) : label;
+}
+
 async function openExportWorkflow() {
 	await pendingEdit;
 	await syncInputSettings();
@@ -1463,9 +1469,9 @@ async function openExportWorkflow() {
 	exportDialogError.value = "";
 	exportOutputs.value = [];
 	exportOutputsTruncated.value = false;
-	exportFormat.value = "html";
+	exportFormat.value = "pdf";
 	exportBinding.value = "";
-	exportFileName.value = "report.html";
+	exportFileName.value = `${label(document.value) ?? 'report'}.pdf`;
 	try {
 		const discovered = await executeJob("discover-outputs");
 		if (document.value?.path !== path || document.value.revision !== revision) return;
@@ -1597,8 +1603,6 @@ async function openExportedOutput(action: DesktopExportAction) {
 						<button v-if="document?.kind === 'amx'" type="button" title="Refresh preview" aria-label="Refresh preview" @click="refresh"><RefreshCw :size="14" /></button>
 						<button v-if="document?.kind === 'amx'" type="button" title="Export active document" aria-label="Export active document" @click="openExportWorkflow"><Download :size="14" /> Export</button>
 						<button type="button" :disabled="document?.kind !== 'amx'" @click="openReportSettings"><SlidersHorizontal :size="14" /> Report settings</button>
-						<!-- <button v-if="document?.kind === 'amx'" type="button" :aria-pressed="focusMode === 'editor'" @click="setFocusMode('editor')">Source</button>
-						<button v-if="document?.kind === 'amx'" type="button" :aria-pressed="focusMode === 'preview'" @click="setFocusMode('preview')">Preview</button> -->
 					</span>
 				</div>
 				<InputsPanel v-if="contextView === 'inputs' && document?.kind === 'amx'" :configuration="inputConfiguration" :diagnostics="analysis.diagnostics" :validation="validation" :busy="inputsBusy" @browse="browseInput" @clear="clearInput" @promote="promoteInput" @open="openMappedInput" @diagnostic="navigateInputDiagnostic" @validation-change="validation = $event; validationChanged()" @declaration="(line, column) => editorElement?.selectLocation(line, column)" />
