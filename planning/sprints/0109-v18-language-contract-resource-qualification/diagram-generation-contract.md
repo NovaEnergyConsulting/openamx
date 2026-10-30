@@ -89,6 +89,74 @@ need explicit review and disposition; they are not yet normative.
   specification documents a 1 MiB interactive-preview constraint. This
   discrepancy remains unresolved until D109-03 is dispositioned.
 
+## Builder Source Review and Recommendation
+
+Read-only review was performed at commit
+`b9e26b846a1e3cb9a1bd5dde71081ed0ede12ba5` on a clean worktree. The following
+are **FACT** source observations, not new product requirements:
+
+- `DiagramDeclarationNode` stores a flat `elements` array. The diagram parser
+  recognizes top-level primitive declarations and diagram properties; it
+  does not parse diagram-local `for` or `if` content.
+- `checkDiagram` counts authored elements across the report and raises
+  `AMXD013` after 512. The module loader independently enforces the same
+  report-wide authored count across imported modules. The 16-diagram
+  `AMXD012` limit is separate.
+- Existing `for` checking requires a list/range and restores bindings after
+  the block; type mismatch uses the established `AMX3003`/`AMX3007` behavior.
+  Braced `if` checking requires Boolean and uses the existing type mismatch
+  diagnostic. Unknown identifiers use `AMX3001`.
+- `createDiagramModel` captures one environment; `evaluateFrame` clones that
+  environment, assigns `t`, and evaluates the declaration's flat ordered
+  element array. The model serializer preserves model data and the shared
+  captured environment. It has no production per-element environment.
+- Interactive and static renderers consume ordered `DiagramFrame.elements`.
+  The static path evaluates at the lower time bound. Interactive HTML is
+  measured as full UTF-8 bytes against 100 MiB. The desktop preview/export
+  worker also has a distinct 8,000,000-character guard.
+- The V0.13 specification records a 1 MiB interactive-preview HTML bound,
+  16.7 ms p95 frame-work target, 8 MiB incremental heap target, and 2,000
+  whole-page DOM-node target. Only the HTML/DOM portions were directly
+  sampled by this sprint's probe; no heap or low-end-host claim is made.
+
+**PROPOSAL / BUILDER RECOMMENDATION:** Count only primitives emitted from
+diagram control blocks toward the new cap. Counting all frame elements would
+apply a generated cap to existing static diagrams and conflict with preserving
+diagrams that contain no controls. Keep the 512 authored-element/report
+accounting under `AMXD013` unchanged and separate.
+
+**PROPOSAL / BUILDER RECOMMENDATION:** Set the generated-output cap to 64 per
+evaluated diagram. This is a conservative power-of-two boundary supported by
+the measured 16-diagram composition: 512 authored declarations plus 64
+generated elements per diagram produced 1,536 frame elements, 1,864 whole-page
+DOM nodes, and 247,256 UTF-8 HTML bytes. At 65 generated elements per diagram
+the same composition reached 1,880 nodes and 248,244 bytes; at 128 per diagram
+the circle and text compositions reached 2,376 DOM nodes, above the documented
+2,000-node target. The 64 value is a Builder recommendation only and requires
+separate product-owner disposition.
+
+**FACT / D109-03:** The selected candidate's measured composed HTML is below
+1 MiB, so neither the documented 1 MiB statement nor the current 100 MiB
+renderer guard constrained this candidate. The desktop worker's 8,000,000
+character guard also was not approached. Do not change any of these policies
+in this sprint.
+
+**PARTIAL / D109-05:** The prototype carried three distinct iterator binding
+descriptors inside a `DiagramSceneModel` declaration, serialized and
+deserialized them with the production scene-model serializer, and re-evaluated
+ordered frames at `t = 0`, `0.5`, and `1`. It then projected the ordered frame
+elements through the existing SVG and interactive HTML renderers. The
+prototype's own evaluator consumed the restored descriptors; production
+`evaluateDiagramFrame` does not. This proves representation and consumer
+compatibility for the measured prototype, not a production per-instance
+binding implementation.
+
+**OPEN:** D109-04 still needs stable diagnostic allocation for prohibited
+control uses, nested-loop rejection, and cap overflow. Do not reuse `AMXD013`
+for generated output. D109-06 remains limited to one high-performance Windows
+host, with peak memory not measured. See `resource-qualification.md` and
+`builder-evidence.md` for exact runs and raw artifact paths.
+
 ## Acceptance Rule
 
 This contract becomes downstream behavior authority only when the

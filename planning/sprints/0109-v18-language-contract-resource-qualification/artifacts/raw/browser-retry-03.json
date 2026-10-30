@@ -1,0 +1,216 @@
+{
+  "status": "PASS",
+  "environment": {
+    "platform": "win32",
+    "architecture": "x64",
+    "osRelease": "10.0.26300",
+    "cpuModel": "Intel(R) Core(TM) Ultra 9 285H",
+    "logicalCpuCount": 16,
+    "totalMemoryBytes": 68276973568,
+    "nodeVersion": "v26.3.0",
+    "bunVersion": "1.4.4"
+  },
+  "browserVersion": "156.0.8078.4",
+  "workloads": [
+    {
+      "count": 8,
+      "status": "PASS",
+      "pageInitializationMs": 42.059600000000046,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        15.634699999999839,
+        15.679499999999962,
+        18.46530000000007,
+        15.662699999999859,
+        13.211700000000064
+      ],
+      "frameMedianMs": 15.662699999999859,
+      "frameP95Ms": 18.46530000000007,
+      "orderedMembershipStable": true,
+      "domElements": 36,
+      "htmlCharacters": 56893,
+      "htmlUtf8Bytes": 56898,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 64,
+      "status": "PASS",
+      "pageInitializationMs": 60.050500000000056,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        11.776200000000017,
+        10.082299999999805,
+        9.212800000000016,
+        8.624000000000024,
+        8.435899999999947
+      ],
+      "frameMedianMs": 9.212800000000016,
+      "frameP95Ms": 11.776200000000017,
+      "orderedMembershipStable": true,
+      "domElements": 92,
+      "htmlCharacters": 64313,
+      "htmlUtf8Bytes": 64318,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 128,
+      "status": "PASS",
+      "pageInitializationMs": 95.59439999999995,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        16.11220000000003,
+        10.552500000000236,
+        10.233600000000024,
+        10.141700000000128,
+        7.298500000000331
+      ],
+      "frameMedianMs": 10.233600000000024,
+      "frameP95Ms": 16.11220000000003,
+      "orderedMembershipStable": true,
+      "domElements": 156,
+      "htmlCharacters": 72585,
+      "htmlUtf8Bytes": 72590,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 256,
+      "status": "PASS",
+      "pageInitializationMs": 119.36389999999983,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        20.776499999999942,
+        16.310899999999947,
+        17.783699999999953,
+        17.066200000000208,
+        16.158100000000104
+      ],
+      "frameMedianMs": 17.066200000000208,
+      "frameP95Ms": 20.776499999999942,
+      "orderedMembershipStable": true,
+      "domElements": 284,
+      "htmlCharacters": 89133,
+      "htmlUtf8Bytes": 89138,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 512,
+      "status": "PASS",
+      "pageInitializationMs": 152.99530000000004,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        44.59339999999975,
+        32.952800000000025,
+        32.12620000000015,
+        32.91989999999987,
+        37.46120000000019
+      ],
+      "frameMedianMs": 32.952800000000025,
+      "frameP95Ms": 44.59339999999975,
+      "orderedMembershipStable": true,
+      "domElements": 540,
+      "htmlCharacters": 121489,
+      "htmlUtf8Bytes": 121494,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 1024,
+      "status": "PASS",
+      "pageInitializationMs": 144.73459999999977,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        31.114599999999882,
+        43.5019999999995,
+        43.40440000000035,
+        51.799700000000485,
+        61.13100000000031
+      ],
+      "frameMedianMs": 43.5019999999995,
+      "frameP95Ms": 61.13100000000031,
+      "orderedMembershipStable": true,
+      "domElements": 1052,
+      "htmlCharacters": 183817,
+      "htmlUtf8Bytes": 183822,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 2048,
+      "status": "PASS",
+      "pageInitializationMs": 218.91769999999997,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        68.76070000000072,
+        61.33309999999983,
+        74.60069999999996,
+        69.58820000000014,
+        69.31620000000021
+      ],
+      "frameMedianMs": 69.31620000000021,
+      "frameP95Ms": 74.60069999999996,
+      "orderedMembershipStable": true,
+      "domElements": 2076,
+      "htmlCharacters": 311257,
+      "htmlUtf8Bytes": 311262,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 4096,
+      "status": "PASS",
+      "pageInitializationMs": 467.6888999999992,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        111.67590000000018,
+        90.10710000000017,
+        118.85300000000007,
+        129.58500000000004,
+        149.60620000000017
+      ],
+      "frameMedianMs": 118.85300000000007,
+      "frameP95Ms": 149.60620000000017,
+      "orderedMembershipStable": true,
+      "domElements": 4124,
+      "htmlCharacters": 566413,
+      "htmlUtf8Bytes": 566418,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 8192,
+      "status": "PASS",
+      "pageInitializationMs": 669.6868000000013,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        173.72940000000017,
+        181.28680000000168,
+        140.21829999999864,
+        90.72440000000097,
+        85.09770000000026
+      ],
+      "frameMedianMs": 140.21829999999864,
+      "frameP95Ms": 181.28680000000168,
+      "orderedMembershipStable": true,
+      "domElements": 8220,
+      "htmlCharacters": 1076781,
+      "htmlUtf8Bytes": 1076786,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 16384,
+      "status": "PASS",
+      "pageInitializationMs": 1198.5301999999992,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        142.65289999999914,
+        141.20310000000063,
+        154.65560000000005,
+        199.34929999999986,
+        156.50870000000032
+      ],
+      "frameMedianMs": 154.65560000000005,
+      "frameP95Ms": 199.34929999999986,
+      "orderedMembershipStable": true,
+      "domElements": 16412,
+      "htmlCharacters": 2095421,
+      "htmlUtf8Bytes": 2095426,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    }
+  ]
+}

@@ -1,0 +1,250 @@
+{
+  "status": "PASS",
+  "environment": {
+    "platform": "win32",
+    "architecture": "x64",
+    "osRelease": "10.0.26300",
+    "cpuModel": "Intel(R) Core(TM) Ultra 9 285H",
+    "logicalCpuCount": 16,
+    "totalMemoryBytes": 68276973568,
+    "nodeVersion": "v26.3.0",
+    "bunVersion": "1.4.4"
+  },
+  "browserVersion": "156.0.8078.4",
+  "workloads": [
+    {
+      "count": 512,
+      "status": "PASS",
+      "repetitions": [
+        {
+          "renderMs": 232.04499999999962,
+          "frameMs": 20.822000000000116,
+          "orderedMembershipStable": true,
+          "domElements": 540
+        },
+        {
+          "renderMs": 118.54200000000037,
+          "frameMs": 13.893000000000029,
+          "orderedMembershipStable": true,
+          "domElements": 540
+        },
+        {
+          "renderMs": 83.39189999999962,
+          "frameMs": 14.248799999999846,
+          "orderedMembershipStable": true,
+          "domElements": 540
+        },
+        {
+          "renderMs": 114.23120000000017,
+          "frameMs": 13.930199999999786,
+          "orderedMembershipStable": true,
+          "domElements": 540
+        },
+        {
+          "renderMs": 94.7163999999998,
+          "frameMs": 12.549600000000282,
+          "orderedMembershipStable": true,
+          "domElements": 540
+        }
+      ],
+      "htmlCharacters": 121489,
+      "htmlUtf8Bytes": 121494,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 1024,
+      "status": "PASS",
+      "repetitions": [
+        {
+          "renderMs": 184.00610000000006,
+          "frameMs": 20.00980000000027,
+          "orderedMembershipStable": true,
+          "domElements": 1052
+        },
+        {
+          "renderMs": 199.53489999999965,
+          "frameMs": 38.925600000000486,
+          "orderedMembershipStable": true,
+          "domElements": 1052
+        },
+        {
+          "renderMs": 128.71659999999974,
+          "frameMs": 21.932200000000194,
+          "orderedMembershipStable": true,
+          "domElements": 1052
+        },
+        {
+          "renderMs": 171.32449999999972,
+          "frameMs": 31.329600000000028,
+          "orderedMembershipStable": true,
+          "domElements": 1052
+        },
+        {
+          "renderMs": 173.08230000000003,
+          "frameMs": 16.04200000000037,
+          "orderedMembershipStable": true,
+          "domElements": 1052
+        }
+      ],
+      "htmlCharacters": 183817,
+      "htmlUtf8Bytes": 183822,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 2048,
+      "status": "PASS",
+      "repetitions": [
+        {
+          "renderMs": 322.8618000000006,
+          "frameMs": 27.345299999999952,
+          "orderedMembershipStable": true,
+          "domElements": 2076
+        },
+        {
+          "renderMs": 191.3868999999995,
+          "frameMs": 16.28650000000016,
+          "orderedMembershipStable": true,
+          "domElements": 2076
+        },
+        {
+          "renderMs": 253.3107,
+          "frameMs": 21.164300000000367,
+          "orderedMembershipStable": true,
+          "domElements": 2076
+        },
+        {
+          "renderMs": 258.65160000000014,
+          "frameMs": 34.929699999999684,
+          "orderedMembershipStable": true,
+          "domElements": 2076
+        },
+        {
+          "renderMs": 270.6190000000006,
+          "frameMs": 42.639500000000226,
+          "orderedMembershipStable": true,
+          "domElements": 2076
+        }
+      ],
+      "htmlCharacters": 311257,
+      "htmlUtf8Bytes": 311262,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 4096,
+      "status": "PASS",
+      "repetitions": [
+        {
+          "renderMs": 289.70820000000094,
+          "frameMs": 28.21690000000126,
+          "orderedMembershipStable": true,
+          "domElements": 4124
+        },
+        {
+          "renderMs": 356.20600000000013,
+          "frameMs": 29.128900000001522,
+          "orderedMembershipStable": true,
+          "domElements": 4124
+        },
+        {
+          "renderMs": 304.6213000000007,
+          "frameMs": 44.20710000000145,
+          "orderedMembershipStable": true,
+          "domElements": 4124
+        },
+        {
+          "renderMs": 313.8714,
+          "frameMs": 35.96069999999963,
+          "orderedMembershipStable": true,
+          "domElements": 4124
+        },
+        {
+          "renderMs": 278.6175000000003,
+          "frameMs": 28.17909999999938,
+          "orderedMembershipStable": true,
+          "domElements": 4124
+        }
+      ],
+      "htmlCharacters": 566413,
+      "htmlUtf8Bytes": 566418,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 8192,
+      "status": "PASS",
+      "repetitions": [
+        {
+          "renderMs": 558.597099999999,
+          "frameMs": 61.52400000000125,
+          "orderedMembershipStable": true,
+          "domElements": 8220
+        },
+        {
+          "renderMs": 625.5847999999987,
+          "frameMs": 54.75580000000082,
+          "orderedMembershipStable": true,
+          "domElements": 8220
+        },
+        {
+          "renderMs": 660.8119000000006,
+          "frameMs": 51.94840000000113,
+          "orderedMembershipStable": true,
+          "domElements": 8220
+        },
+        {
+          "renderMs": 612.9911000000011,
+          "frameMs": 55.66610000000037,
+          "orderedMembershipStable": true,
+          "domElements": 8220
+        },
+        {
+          "renderMs": 557.1180999999997,
+          "frameMs": 47.93890000000101,
+          "orderedMembershipStable": true,
+          "domElements": 8220
+        }
+      ],
+      "htmlCharacters": 1076781,
+      "htmlUtf8Bytes": 1076786,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 16384,
+      "status": "PASS",
+      "repetitions": [
+        {
+          "renderMs": 1252.106200000002,
+          "frameMs": 113.90899999999965,
+          "orderedMembershipStable": true,
+          "domElements": 16412
+        },
+        {
+          "renderMs": 1158.2439000000013,
+          "frameMs": 94.43379999999888,
+          "orderedMembershipStable": true,
+          "domElements": 16412
+        },
+        {
+          "renderMs": 1147.166000000001,
+          "frameMs": 112.71889999999985,
+          "orderedMembershipStable": true,
+          "domElements": 16412
+        },
+        {
+          "renderMs": 1117.0419000000002,
+          "frameMs": 123.24089999999705,
+          "orderedMembershipStable": true,
+          "domElements": 16412
+        },
+        {
+          "renderMs": 1139.976200000001,
+          "frameMs": 99.39170000000013,
+          "orderedMembershipStable": true,
+          "domElements": 16412
+        }
+      ],
+      "htmlCharacters": 2095421,
+      "htmlUtf8Bytes": 2095426,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    }
+  ]
+}

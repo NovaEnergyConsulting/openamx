@@ -1,0 +1,288 @@
+{
+  "status": "PASS",
+  "scope": "prototype schema and projected existing renderer contract only",
+  "times": [
+    0,
+    0.5,
+    1
+  ],
+  "frames": [
+    {
+      "time": 0,
+      "elements": [
+        {
+          "primitive": "circle",
+          "name": "prototype-0",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 20,
+          "cy": 0,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        },
+        {
+          "primitive": "circle",
+          "name": "prototype-1",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 50,
+          "cy": 0,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        },
+        {
+          "primitive": "circle",
+          "name": "prototype-2",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 90,
+          "cy": 0,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        }
+      ]
+    },
+    {
+      "time": 0.5,
+      "elements": [
+        {
+          "primitive": "circle",
+          "name": "prototype-0",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 20,
+          "cy": 2,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        },
+        {
+          "primitive": "circle",
+          "name": "prototype-1",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 50,
+          "cy": 2,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        },
+        {
+          "primitive": "circle",
+          "name": "prototype-2",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 90,
+          "cy": 2,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        }
+      ]
+    },
+    {
+      "time": 1,
+      "elements": [
+        {
+          "primitive": "circle",
+          "name": "prototype-0",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 20,
+          "cy": 4,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        },
+        {
+          "primitive": "circle",
+          "name": "prototype-1",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 50,
+          "cy": 4,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        },
+        {
+          "primitive": "circle",
+          "name": "prototype-2",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 90,
+          "cy": 4,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        }
+      ]
+    }
+  ],
+  "roundTripFrames": [
+    {
+      "time": 0,
+      "elements": [
+        {
+          "primitive": "circle",
+          "name": "prototype-0",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 20,
+          "cy": 0,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        },
+        {
+          "primitive": "circle",
+          "name": "prototype-1",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 50,
+          "cy": 0,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        },
+        {
+          "primitive": "circle",
+          "name": "prototype-2",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 90,
+          "cy": 0,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        }
+      ]
+    },
+    {
+      "time": 0.5,
+      "elements": [
+        {
+          "primitive": "circle",
+          "name": "prototype-0",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 20,
+          "cy": 2,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        },
+        {
+          "primitive": "circle",
+          "name": "prototype-1",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 50,
+          "cy": 2,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        },
+        {
+          "primitive": "circle",
+          "name": "prototype-2",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 90,
+          "cy": 2,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        }
+      ]
+    },
+    {
+      "time": 1,
+      "elements": [
+        {
+          "primitive": "circle",
+          "name": "prototype-0",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 20,
+          "cy": 4,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        },
+        {
+          "primitive": "circle",
+          "name": "prototype-1",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 50,
+          "cy": 4,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        },
+        {
+          "primitive": "circle",
+          "name": "prototype-2",
+          "source": {
+            "line": 12,
+            "column": 3
+          },
+          "cx": 90,
+          "cy": 4,
+          "r": 2,
+          "stroke": "#263238",
+          "lineWidth": 1
+        }
+      ]
+    }
+  ],
+  "sceneModelRoundTrip": {
+    "serializedSceneModelBytes": 13139,
+    "perInstanceBindingsPreserved": true,
+    "frameMembershipAndValuesPreserved": true,
+    "productionFrameEvaluatorUsesPrototypeBindings": false
+  },
+  "rendererProjection": {
+    "orderedSvgCircles": 3,
+    "htmlBytes": 55854
+  },
+  "limitation": "The production scene serializer round-trips the prototype binding descriptors as model data; the production frame evaluator does not consume them. Per-instance evaluation remains prototype-only."
+}

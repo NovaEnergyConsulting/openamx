@@ -57,3 +57,111 @@ source locations must be recorded before Sprint 109 execution is accepted.
   same frame values and compare the semantic ordered elements.
 - Attach a diagnostic ID only after its identity, message, phase, and source
   anchor have been verified or explicitly allocated.
+
+## Proposed Complete Source Envelopes
+
+These are complete source envelopes for downstream parser/runtime fixtures.
+They encode only confirmed V0.18 syntax and are **proposals**, not source
+accepted by the current parser. Source positions below are calculated from
+the literal fixture text and remain unverified until S110 parser fixtures.
+
+### GEN-BIND-01 / GEN-FRAME-01 / GEN-ROUNDTRIP-01
+
+````text
+---
+title: Generated diagram binding fixture
+---
+# Generated diagram binding fixture
+
+```amx
+diagram generated {
+  title: "Generated bindings"
+  description: "Three loop values and an animated property"
+  width: 120
+  height: 40
+  time t from 0 to 1 duration 1
+  for item in [2, 5, 9] {
+    circle sample {
+      cx: item * 10
+      cy: t * 4
+      r: 2
+      stroke: "#263238"
+      lineWidth: 1
+    }
+  }
+}
+```
+````
+
+Expected contract output: three ordered circles with `cx` values `[20, 50,
+90]` at all times. `cy` is `[0, 0, 0]`, `[2, 2, 2]`, and `[4, 4, 4]` at `t =
+0`, `0.5`, and `1`, respectively. Compare before/after scene-model
+serialization semantically; do not make a source-level name/reference
+assertion for generated instances. The source `sample` is the primitive
+declaration label, not a way to address an emitted instance.
+
+### GEN-MIX-01
+
+````text
+---
+title: Generated diagram nesting fixture
+---
+# Generated diagram nesting fixture
+
+```amx
+diagram nested {
+  title: "Mixed nesting"
+  description: "Conditional inside loop and loop inside conditional"
+  width: 100
+  height: 50
+  time t from 0 to 1 duration 1
+  for item in [1, 2] {
+    if item == 1 {
+      circle loopBranch {
+        cx: item * 10
+        cy: t
+        r: 2
+        stroke: "#263238"
+        lineWidth: 1
+      }
+    }
+  }
+  if true {
+    for other in [3, 4] {
+      circle conditionalLoop {
+        cx: other * 10
+        cy: t
+        r: 2
+        stroke: "#263238"
+        lineWidth: 1
+      }
+    }
+  }
+}
+```
+````
+
+Expected output order is the `item == 1` circle followed by the two
+`conditionalLoop` circles, for three total. The fixture has no nested `for`.
+Empty iterable/branch and `t`-in-control negative envelopes remain separate
+cases to be completed with exact diagnostic spans after the source grammar
+and allocator decisions are dispositioned.
+
+## Builder Evidence Disposition
+
+The qualification inventory contains **27 distinct `GEN-*` cases** and the
+diagnostic matrix contains **12 distinct diagnostic/technical-probe IDs**.
+All diagnostic IDs reconcile to a qualification case or explicit technical
+probe; all case families are represented in the requirement matrix. No ID is
+duplicated or silently reassigned.
+
+| Case family | Sprint 109 evidence status | Boundary |
+| --- | --- | --- |
+| GEN-BIND-01, GEN-TIME-01, GEN-FRAME-01, GEN-ROUNDTRIP-01 | Prototype PASS, limited | Prototype descriptors round-trip through the production serializer; prototype evaluator consumes them, production evaluator does not. |
+| GEN-ORDER-01, GEN-MIX-01 | Synthetic traversal/browser projection PASS | Ordered flattened outputs and permitted synthetic tree traversal were measured; production diagram syntax does not exist in this commit. |
+| GEN-CAP-EXACT-01, GEN-CAP-MIX-01 | Synthetic benchmark PASS | Candidate 64 was measured for both accounting options, with 512 authored declarations retained separately. |
+| GEN-CAP-OVER-01 | NOT RUN | No product cap/overflow diagnostic exists in the source revision; workload at 65 completed, but product rejection was not asserted. |
+| GEN-AUTHORED-01 | Source verified; test NOT RUN | `AMXD013` remains the separate 512-authored-elements-per-report rule. |
+| GEN-HTML-01, GEN-STATIC-01, GEN-MULTI-01 | Synthetic renderer/export PASS | Browser, HTML, PDF, and DOCX paths completed; the 16-diagram and 512-authored composition is synthetic and not a production generated-control report. |
+| GEN-PARSE-01/02/03, GEN-NEST-01/02, GEN-TYPE-01/02, GEN-CONTROL-T-01/02, GEN-SCOPE-01 | NOT RUN | No production diagram control syntax or associated feature diagnostics exist at the reviewed commit. |
+| GEN-NOGEN-01 | Benchmark baseline PASS; regression NOT RUN | Existing example rendered through the measured paths; no product test suite was run. |

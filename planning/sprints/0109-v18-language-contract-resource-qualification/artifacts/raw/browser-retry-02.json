@@ -1,0 +1,136 @@
+{
+  "status": "PASS",
+  "environment": {
+    "platform": "win32",
+    "architecture": "x64",
+    "osRelease": "10.0.26300",
+    "cpuModel": "Intel(R) Core(TM) Ultra 9 285H",
+    "logicalCpuCount": 16,
+    "totalMemoryBytes": 68276973568,
+    "nodeVersion": "v26.3.0",
+    "bunVersion": "1.4.4"
+  },
+  "browserVersion": "156.0.8078.4",
+  "workloads": [
+    {
+      "count": 512,
+      "status": "PASS",
+      "pageInitializationMs": 80.48339999999985,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        19.471900000000005,
+        21.945699999999988,
+        15.879899999999907,
+        17.721500000000106,
+        16.566300000000183
+      ],
+      "frameMedianMs": 17.721500000000106,
+      "frameP95Ms": 21.945699999999988,
+      "orderedMembershipStable": true,
+      "domElements": 540,
+      "htmlCharacters": 121489,
+      "htmlUtf8Bytes": 121494,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 1024,
+      "status": "PASS",
+      "pageInitializationMs": 204.89109999999982,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        23.314100000000053,
+        20.52639999999974,
+        26.559999999999945,
+        33.802200000000084,
+        33.764000000000124
+      ],
+      "frameMedianMs": 26.559999999999945,
+      "frameP95Ms": 33.802200000000084,
+      "orderedMembershipStable": true,
+      "domElements": 1052,
+      "htmlCharacters": 183817,
+      "htmlUtf8Bytes": 183822,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 2048,
+      "status": "PASS",
+      "pageInitializationMs": 181.51540000000023,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        29.129500000000007,
+        23.793500000000222,
+        26.70999999999958,
+        26.447299999999814,
+        35.929099999999835
+      ],
+      "frameMedianMs": 26.70999999999958,
+      "frameP95Ms": 35.929099999999835,
+      "orderedMembershipStable": true,
+      "domElements": 2076,
+      "htmlCharacters": 311257,
+      "htmlUtf8Bytes": 311262,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 4096,
+      "status": "PASS",
+      "pageInitializationMs": 343.36050000000023,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        75.50390000000061,
+        55.45809999999983,
+        43.10540000000037,
+        45.10919999999987,
+        46.85639999999967
+      ],
+      "frameMedianMs": 46.85639999999967,
+      "frameP95Ms": 75.50390000000061,
+      "orderedMembershipStable": true,
+      "domElements": 4124,
+      "htmlCharacters": 566413,
+      "htmlUtf8Bytes": 566418,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 8192,
+      "status": "PASS",
+      "pageInitializationMs": 600.3639000000003,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        87.93159999999989,
+        91.4353000000001,
+        75.89019999999982,
+        73.33309999999983,
+        69.72130000000016
+      ],
+      "frameMedianMs": 75.89019999999982,
+      "frameP95Ms": 91.4353000000001,
+      "orderedMembershipStable": true,
+      "domElements": 8220,
+      "htmlCharacters": 1076781,
+      "htmlUtf8Bytes": 1076786,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    },
+    {
+      "count": 16384,
+      "status": "PASS",
+      "pageInitializationMs": 1166.8780000000006,
+      "warmupScrub": "0.125",
+      "frameTimesMs": [
+        165.0077999999994,
+        159.35670000000027,
+        158.46990000000005,
+        174.34729999999945,
+        201.74339999999938
+      ],
+      "frameMedianMs": 165.0077999999994,
+      "frameP95Ms": 201.74339999999938,
+      "orderedMembershipStable": true,
+      "domElements": 16412,
+      "htmlCharacters": 2095421,
+      "htmlUtf8Bytes": 2095426,
+      "modelScope": "flattened AST equivalent; not a generated-control production model"
+    }
+  ]
+}
