@@ -188,6 +188,9 @@ version unless separately approved.
 
 ### Sprint 109: Language Contract and Resource Qualification
 
+Architect-prepared Sprint 109 documentation package:
+[`requirements.md`](sprints/0109-v18-language-contract-resource-qualification/requirements.md).
+
 - Turn the approved product decisions into an executable language contract
   for control syntax, evaluation timing, iteration/branch ordering, `t`
   visibility, permitted nesting, loop-variable scope, and diagnostics.
