@@ -2,19 +2,20 @@
 
 ## Status
 
-authorization and approval of the exact review/prototype/benchmark plan.
 Sprint 109 Builder execution was separately approved in conversation on
 2026-10-30 for the read-only review at the approved commit, the exact probe
 path, commands, output roots, and resource guards recorded below. This is
-evidence only; the product owner has not accepted the contract or resource
-gate.
+execution evidence only; it is not implementation or release authorization.
 
-**Builder recommendation:** BLOCKED / OPEN for Sprint 109 acceptance and
-Sprint 110 entry. Recommend 64 control-block-originating emitted primitives
-per evaluated diagram, pending explicit D109-01/D109-02 disposition. D109-04
-diagnostic allocation remains open; D109-05 is only partially demonstrated;
-D109-06 is one-host evidence with peak memory not measured.
-**Separate product-owner disposition:** PENDING.
+**Builder recommendation:** ACCEPTED/CLOSED WITH RECORDED RESIDUALS, based on
+the product-owner disposition recorded below. D109-01 and D109-02 are resolved
+as control-block-only accounting and a cap of 64. D109-03, D109-05, and D109-06
+remain owned residuals. D109-04 is accepted as a residual owned by the Lead
+Developer allocator; new stable identities remain a blocking prerequisite for
+the corresponding Sprint 110/111 diagnostic implementation.
+**Separate product-owner disposition:** ACCEPTED/CLOSED WITH RECORDED
+RESIDUALS on 2026-10-30, recorded by the Lead Developer/product owner in this
+handoff.
 
 ## Authorization and Baseline
 
@@ -70,14 +71,15 @@ D109-06 is one-host evidence with peak memory not measured.
 	qualification IDs, 12 diagnostic/technical IDs, no duplicates, and no
 	unrepresented diagnostic ID. Every case family maps to a requirement row or
 	is explicitly evidence-only. Product-feature tests remain NOT RUN.
-- D109-01 through D109-06 outcomes and decision owners: D109-01 recommend
-	control-block-only accounting; D109-02 recommend 64 per diagram; D109-03
-	candidate is below 1 MiB and broad output policy is unchanged; D109-04
-	requires explicit diagnostic allocator/product-owner disposition; D109-05
-	prototype passes for serialized representation and ordered consumer but
-	production evaluator integration is not proved; D109-06 evidence covers
-	one high-performance Windows host, with peak memory and low-end/cross-host
-	qualification unavailable. Product-owner disposition is pending for all.
+- D109-01 through D109-06 outcomes and decision owners: D109-01 RESOLVED as
+	control-block-only accounting; D109-02 RESOLVED as cap 64; D109-03 ACCEPTED
+	residual, owned by Lead Developer, discrepancy unchanged; D109-04 ACCEPTED
+	residual, Lead Developer allocator, shared `t` diagnostic anchored at `t`,
+	parse-time nested-loop rejection, overflow identity still to allocate;
+	D109-05 ACCEPTED residual, Sprint 112 runtime owner to integrate/verify
+	production evaluator bindings; D109-06 ACCEPTED residual, Lead Developer
+	owns the one-host/no-peak-memory evidence limitation. Product-owner
+	disposition is ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-10-30.
 
 ## Prototype Evidence
 
@@ -122,10 +124,12 @@ Attach raw logs and machine-readable measurements under the approved
 | B6 Static output | 64 text values; static paths PASS | Frame median 0.055-0.058 ms | 187,495 JSON / 5,683 gzip bytes | 61,766 HTML bytes | PDF 16,167 bytes / 13.59 ms; DOCX 14,539 bytes / 63.41 ms | `benchmark-retry-05.json` |
 | B7 Report composition | 16 diagrams; 512 authored + 64 generated/diagram: 1,536 frame elements | Frame medians 1.53-1.76 ms | 7,714,079 JSON / 131,896 gzip bytes | 247,256 HTML bytes; 1,864 DOM nodes | PDF 122,505 bytes / 72.58 ms; DOCX 11,766 bytes / 239.46 ms | `benchmark-retry-05.json`, `browser-retry-09.json` |
 
-- Proposed counting rule: count primitives originating in diagram control
+- Accepted counting rule (D109-01): count primitives originating in diagram control
 	blocks only. Counting every emitted primitive would cap static no-control
 	diagrams and undermine the confirmed compatibility requirement.
-- Proposed numeric cap: 64 per evaluated diagram, pending owner decision.
+- Accepted numeric cap (D109-02): 64 control-block-originating primitives
+	per evaluated diagram. The first 64 are accepted; the first emitted
+	control-block primitive beyond 64 is rejected by the future implementation.
 - Exact cap/cap+1 results: B4-GEN measured 512 direct + 64 generated (576
 	total) and 512 direct + 65 generated (577 total); both synthetic workloads
 	completed. B7 measured 512 authored declarations across 16 diagrams plus
@@ -207,15 +211,16 @@ bun run planning/sprints/0109-v18-language-contract-resource-qualification/artif
 	approved package/artifact root; no prior outputs were overwritten. Per-file
 	`git diff --check` passed for qualification, diagnostic, and matrix edits;
 	final package-wide check is recorded after the remaining evidence edits.
-- Builder recommendation and named residual owners: BLOCKED/OPEN for sprint
-	acceptance. Product owner must disposition D109-01/-02 and the candidate 64
-	cap; diagnostic allocator/product owner must allocate new identities for
-	prohibited control `t` and overflow; language/runtime owner must decide
-	whether the limited prototype is sufficient or require a production-path
-	prototype; performance owner must disposition one-host/no-peak-memory
-	evidence sufficiency.
-- Separate product-owner disposition/date: PENDING; no acceptance is inferred.
-- Explicit downstream Sprint 110 gate state: BLOCKED until Sprint 109 is
-	separately ACCEPTED/CLOSED, cap accounting/value are resolved, and required
-	diagnostic/contract decisions are dispositioned.
+- Builder recommendation and named residual owners: ACCEPTED/CLOSED WITH
+	RECORDED RESIDUALS. Lead Developer owns the HTML discrepancy and diagnostic
+	allocation; Sprint 112 runtime owner owns production evaluator integration;
+	Lead Developer owns the one-host/no-peak-memory qualification limitation.
+- Separate product-owner disposition/date: ACCEPTED/CLOSED WITH RECORDED
+	RESIDUALS, 2026-10-30.
+- Explicit downstream Sprint 110 gate state: Sprint 109 is CLOSED. Sprint 110
+	remains blocked for affected feature diagnostic implementation until the
+	Lead Developer confirms the parse-error message/location for prohibited
+	nesting and allocates the shared prohibited-`t` identity plus the
+	cap-overflow identity/message/anchor. The accepted 64 cap and control-only
+	accounting are resolved.
 - Release/publication/version/platform certification authority: NOT GRANTED.

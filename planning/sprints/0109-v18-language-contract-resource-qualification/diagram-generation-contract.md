@@ -62,16 +62,16 @@ need explicit review and disposition; they are not yet normative.
    evaluation context to evaluate properties at any requested frame. It
    does not reevaluate branch selection or iterable membership per frame.
 
-## Open Product and Technical Decisions
+## Decision Register
 
 | ID | Question | Required evidence or proposed resolution | Blocks |
 | --- | --- | --- | --- |
-| D109-01 | Does the generated cap count every emitted primitive in the evaluated diagram, or only primitives originating in control blocks? | Compare both accounting models against authored-limit composition, likely author expectations, and workload results. Keep the authored 512-per-report rule separate in either case. | Cap selection; Sprints 110-114 |
-| D109-02 | What numeric per-diagram cap is safe and useful? | Recommend an exact integer from recorded construction, frame, serialization, HTML, and static-output results with stated headroom and limitations. | Sprints 110-114 |
-| D109-03 | Does the documented 1 MiB HTML bound constrain the cap, given the current 100 MiB renderer bound? | Verify both sources and measure compressed/uncompressed model and full HTML size. Decide whether this is only an existing documentation/runtime discrepancy or a cap constraint. Do not alter the broad HTML policy here. | Cap rationale |
-| D109-04 | What diagnostic identity/message and source anchor identify invalid controls and cap overflow? | Audit current diagnostic registrations and location conventions; propose exact messages/anchors and request explicit stable-code allocation where needed. | Sprints 110-114 |
-| D109-05 | Can distinct loop bindings survive frame evaluation and serialization while preserving the ordered renderer interface? | Complete the round-trip prototype and report representation options, complexity, and any incompatibility. Mark NO-GO if a material contract change is required. | Sprints 110-112 |
-| D109-06 | What test-host/resource evidence is sufficient to call a cap qualified? | Record the agreed benchmark host, repetitions, timing/memory collection, safety margin, and explicit unavailable checks. | Cap disposition |
+| D109-01 | Does the generated cap count every emitted primitive in the evaluated diagram, or only primitives originating in control blocks? | Product owner selected control-block-originating emissions only; authored 512-per-report rule remains separate. | RESOLVED 2026-10-30 |
+| D109-02 | What numeric per-diagram cap is safe and useful? | Product owner selected 64 control-block-originating emitted primitives per evaluated diagram, based on the recorded evidence. | RESOLVED 2026-10-30 |
+| D109-03 | Does the documented 1 MiB HTML bound constrain the cap, given the current 100 MiB renderer bound? | Product owner accepted that the measured candidate is below 1 MiB and does not constrain the cap. The discrepancy remains unchanged as an owned documentation/runtime residual. | ACCEPTED RESIDUAL; Lead Developer; no broad HTML policy change |
+| D109-04 | What diagnostic identity/message and source anchor identify invalid controls and cap overflow? | Product owner accepted the parse-time nesting policy and semantically exact existing type/identifier diagnostics. A shared new diagnostic for `t` in controls is required, anchored at the `t` identifier; Lead Developer is the allocator. Overflow identity/message/anchor also requires Lead Developer allocation; never reuse `AMXD013`. | ACCEPTED RESIDUAL; blocks S110 feature diagnostic implementation until allocation |
+| D109-05 | Can distinct loop bindings survive frame evaluation and serialization while preserving the ordered renderer interface? | Product owner accepted the prototype as feasibility evidence only. Production `evaluateDiagramFrame` integration remains a Sprint 112 runtime residual. | ACCEPTED RESIDUAL; Sprint 112 runtime owner |
+| D109-06 | What test-host/resource evidence is sufficient to call a cap qualified? | Product owner accepted the one-host synthetic benchmark as sufficient for Sprint 109 disposition, with peak-memory and cross-platform qualification explicitly not claimed. | ACCEPTED RESIDUAL; Lead Developer; no platform certification |
 
 ## Existing Behavior to Preserve
 
@@ -87,7 +87,8 @@ need explicit review and disposition; they are not yet normative.
   count.
 - **FACT:** Interactive HTML currently has a 100 MiB byte limit; the V0.13
   specification documents a 1 MiB interactive-preview constraint. This
-  discrepancy remains unresolved until D109-03 is dispositioned.
+  discrepancy is an accepted D109-03 residual. The product owner decided it
+  does not constrain the measured candidate; neither limit changes here.
 
 ## Builder Source Review and Recommendation
 
@@ -119,21 +120,21 @@ are **FACT** source observations, not new product requirements:
   whole-page DOM-node target. Only the HTML/DOM portions were directly
   sampled by this sprint's probe; no heap or low-end-host claim is made.
 
-**PROPOSAL / BUILDER RECOMMENDATION:** Count only primitives emitted from
+**DECIDED 2026-10-30 / PRODUCT OWNER:** Count only primitives emitted from
 diagram control blocks toward the new cap. Counting all frame elements would
 apply a generated cap to existing static diagrams and conflict with preserving
 diagrams that contain no controls. Keep the 512 authored-element/report
 accounting under `AMXD013` unchanged and separate.
 
-**PROPOSAL / BUILDER RECOMMENDATION:** Set the generated-output cap to 64 per
+**DECIDED 2026-10-30 / PRODUCT OWNER:** Set the generated-output cap to 64 per
 evaluated diagram. This is a conservative power-of-two boundary supported by
 the measured 16-diagram composition: 512 authored declarations plus 64
 generated elements per diagram produced 1,536 frame elements, 1,864 whole-page
 DOM nodes, and 247,256 UTF-8 HTML bytes. At 65 generated elements per diagram
 the same composition reached 1,880 nodes and 248,244 bytes; at 128 per diagram
 the circle and text compositions reached 2,376 DOM nodes, above the documented
-2,000-node target. The 64 value is a Builder recommendation only and requires
-separate product-owner disposition.
+2,000-node target. The 65 value also completed in measured workloads; 64 is
+the accepted limit with additional headroom, not a claim that 65 fails.
 
 **FACT / D109-03:** The selected candidate's measured composed HTML is below
 1 MiB, so neither the documented 1 MiB statement nor the current 100 MiB
@@ -151,11 +152,17 @@ prototype's own evaluator consumed the restored descriptors; production
 compatibility for the measured prototype, not a production per-instance
 binding implementation.
 
-**OPEN:** D109-04 still needs stable diagnostic allocation for prohibited
-control uses, nested-loop rejection, and cap overflow. Do not reuse `AMXD013`
-for generated output. D109-06 remains limited to one high-performance Windows
-host, with peak memory not measured. See `resource-qualification.md` and
-`builder-evidence.md` for exact runs and raw artifact paths.
+**ACCEPTED RESIDUALS:** D109-04 is accepted with the Lead Developer as
+allocator. Both prohibited uses of `t` share a new diagnostic anchored at the
+`t` identifier; nested `for` rejects at parse time on the inner `for`; cap
+overflow receives a new diagnostic anchored at the source responsible for the
+first excess output. Exact new codes/messages remain unallocated and block the
+corresponding S110/S111 diagnostic implementation. Do not reuse `AMXD013`.
+D109-05 remains production evaluator work owned by Sprint 112. D109-06 is
+limited to one high-performance Windows host, with peak memory not measured;
+the Lead Developer owns this accepted evidence residual. See
+`resource-qualification.md` and `builder-evidence.md` for exact runs and raw
+artifact paths.
 
 ## Acceptance Rule
 
@@ -165,3 +172,15 @@ D109-01 through D109-06, or explicitly accepts named residuals that do not
 block a specific downstream sprint. A Builder recommendation alone is not
 approval. No implementation sprint may infer that an OPEN proposal is
 approved.
+
+## Product-Owner Disposition
+
+On 2026-10-30, the Lead Developer/product owner recorded
+`ACCEPTED/CLOSED WITH RECORDED RESIDUALS` for Sprint 109. D109-01 and D109-02
+are resolved as stated above. D109-03, D109-05, and D109-06 are accepted
+residuals with the listed owners. D109-04 is accepted as a residual owned by
+the Lead Developer allocator; its unallocated stable identities remain a
+blocking prerequisite for Sprint 110's feature diagnostic implementation.
+This disposition accepts the Sprint 109 contract/resource gate with those
+boundaries; it does not claim production generated controls, cross-platform
+qualification, or release certification.

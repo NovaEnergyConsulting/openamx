@@ -93,10 +93,12 @@ proposed rule's accounting can be compared without changing the existing
 
 ## Cap Selection Record
 
-The Builder must propose an exact integer and provide:
+The Builder recorded the evidence below; the Lead Developer/product owner
+accepted D109-01 and D109-02 on 2026-10-30:
 
-- Chosen D109-01 counting rule and exact boundary semantics: cap is accepted;
-  first emitted element beyond cap is rejected.
+- Chosen D109-01 counting rule and exact boundary semantics: only
+  control-block-originating primitives count; 64 are accepted and the first
+  control-block-originating primitive beyond 64 is rejected.
 - Results at cap and cap+1 for expansion, frame evaluation, round-trip,
   interactive HTML, and static output as applicable.
 - Limiting workload, observed maximum safe workload, and the explicit
@@ -105,14 +107,15 @@ The Builder must propose an exact integer and provide:
   and composed multi-diagram models. Do not present separate limits as a
   combined arithmetic threshold unless a product decision approves it.
 - The HTML discrepancy analysis, including whether the 1 MiB documented
-  constraint would alter the recommendation. D109-03 must be dispositioned.
+  constraint would alter the recommendation. D109-03 is accepted as a named
+  residual; no broad HTML policy changes.
 - Environment limitations, unavailable hosts/exports, any failure/retry, and
   residual owners. A single passing host is not cross-platform certification.
 
-The numeric value remains OPEN until explicit product-owner disposition. If
-the measurements cannot support a safe/useful cap or per-instance context
-round-trip, recommend BLOCKED/OPEN and identify the smallest next decision or
-experiment.
+The cap was open pending product-owner disposition. On 2026-10-30, the Lead
+Developer/product owner selected 64 control-block-originating emitted
+primitives per evaluated diagram. The production per-instance evaluator path
+remains an accepted downstream residual; see the Builder evidence below.
 
 ## Builder Execution Evidence
 
@@ -159,8 +162,9 @@ documented DOM target. The numeric value is a conservative power-of-two
 selection below the first tested 128-per-diagram composition that exceeded
 the 2,000-node target. It is not a claim that 65 fails: the measured 65 cap+1
 composition also completed below that target. The Builder recommends 64 for
-headroom and a predictable boundary; D109-01 and D109-02 remain pending
-product-owner disposition.
+headroom and a predictable boundary. On 2026-10-30, the Lead Developer/product
+owner selected control-block-only accounting and the numeric cap of 64
+(D109-01/D109-02 RESOLVED).
 
 ### HTML Discrepancy
 
@@ -174,7 +178,9 @@ single-diagram workloads crossed 1 MiB at 8,192 circles (1,076,786 bytes) and
 frame-work and DOM targets. No broad HTML policy was changed. Builder
 recommendation: the 1 MiB discrepancy does not constrain the candidate 64
 cap, but remains an unresolved documentation/runtime discrepancy for other
-workloads pending separate product disposition.
+workloads. The Lead Developer/product owner accepted this discrepancy as a
+named documentation/runtime residual on 2026-10-30 (D109-03 ACCEPTED WITH
+RECORDED RESIDUAL; owner: Lead Developer). No broad HTML output policy changed.
 
 ### Prototype and Residuals
 
@@ -190,4 +196,11 @@ diagram-local controls. Consequently parser/checker diagnostic tests,
 production expansion, production overflow rejection at cap+1, editor checks,
 and the full `GEN-CAP-OVER-01` behavior remain `NOT RUN`. No cross-platform,
 low-memory-host, peak-memory, or certification claim is made. The numeric cap
-and accounting rule are Builder recommendations, not accepted behavior.
+and accounting rule were accepted by the Lead Developer/product owner on
+2026-10-30 for Sprint 109 only. D109-05 remains an accepted Sprint 112 runtime
+residual because the production frame evaluator does not consume per-instance
+binding descriptors. D109-06 remains an accepted Lead Developer residual:
+this one-host evidence does not measure peak memory or qualify other hosts.
+The Lead Developer is also the D109-04 diagnostic allocator. Those identities
+must be allocated before the corresponding Sprint 110/111 feature diagnostic
+implementation; `AMXD013` remains reserved for authored report accounting.
