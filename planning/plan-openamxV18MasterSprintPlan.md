@@ -212,6 +212,9 @@ Architect-prepared Sprint 109 documentation package:
 
 ### Sprint 110: Diagram AST, Parser, and Typechecker (depends on Sprint 109)
 
+Architect-prepared Sprint 110 documentation package:
+[`requirements.md`](sprints/0110-v18-diagram-ast-parser-typechecker/requirements.md).
+
 - Add ordered recursive diagram-content nodes for primitives, `for` blocks,
   and conditional branches, preserving locations for controls and generated
   content.
