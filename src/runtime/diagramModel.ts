@@ -1,7 +1,7 @@
-import { DiagramDeclarationNode, DiagramElementNode, DiagramPropertyNode, SourceLocation } from '../ast/types';
+import { DiagramContentNode, DiagramDeclarationNode, DiagramElementNode, DiagramPropertyNode, SourceLocation } from '../ast/types';
 import { AmxError, staticError } from '../diagnostics/errors';
 import { fieldRegistry, setDeclaringRegistry } from '../typechecker/declarationRegistry';
-import { evaluateExpression } from './evaluateExpression';
+import { evaluateExpression, evaluateLoopIterable, toBoolean, withLoopBinding } from './evaluateExpression';
 import { Environment } from './environment';
 
 interface FrameElementLocation {
@@ -67,6 +67,29 @@ export interface DiagramSceneModel {
 }
 
 const capturedContexts = new WeakMap<DiagramSceneModel, Environment>();
+
+interface DiagramLoopBinding {
+  readonly name: string;
+  readonly value: unknown;
+}
+
+interface ExpandedDiagramElement {
+  readonly identity: number;
+  readonly element: DiagramElementNode;
+  readonly bindings: readonly DiagramLoopBinding[];
+}
+
+const expandedElementsByModel = new WeakMap<DiagramSceneModel, readonly ExpandedDiagramElement[]>();
+
+function hasDiagramControls(content: readonly DiagramContentNode[]): boolean {
+  return content.some(node => node.type !== 'diagramElement');
+}
+
+function assertDiagramSerializationSupported(model: DiagramSceneModel): void {
+  if (hasDiagramControls(model.declaration.content)) {
+    throw new Error('Control-bearing diagrams cannot be serialized until per-instance bindings are preserved.');
+  }
+}
 
 type SerializedValue =
   | readonly ['undefined']
@@ -166,6 +189,7 @@ function mapValue<T>(value: unknown, field: string): Map<string, T> {
 }
 
 export function serializeDiagramSceneModel(model: DiagramSceneModel): string {
+  assertDiagramSerializationSupported(model);
   const env = capturedContexts.get(model);
   if (!env) throw new Error('Diagram model has no captured AMX evaluation context');
   const context = {
@@ -213,6 +237,7 @@ export function deserializeDiagramSceneModel(serialized: string): DiagramSceneMo
     throw new Error('Invalid serialized diagram model or evaluation context.');
   }
   const model = freezeData(modelValue as DiagramSceneModel);
+  assertDiagramSerializationSupported(model);
   const context = contextValue as {
     values: Record<string, unknown>;
     immutableValues: string[];
@@ -343,6 +368,91 @@ function cloneEnvironment(source: Environment): Environment {
   return copy;
 }
 
+const generatedElementLimit = 64;
+
+function directDiagramElements(content: readonly DiagramContentNode[]): readonly ExpandedDiagramElement[] {
+  if (hasDiagramControls(content)) {
+    throw new Error('Control-bearing diagram models are missing their expanded per-instance bindings.');
+  }
+  return Object.freeze(content.map((node, identity) => {
+    if (node.type !== 'diagramElement') throw new Error('Unexpected diagram control in static content.');
+    return Object.freeze({ identity, element: node, bindings: Object.freeze([]) });
+  }));
+}
+
+function expandDiagramContent(
+  content: readonly DiagramContentNode[],
+  env: Environment,
+  file?: string
+): readonly ExpandedDiagramElement[] {
+  const instances: ExpandedDiagramElement[] = [];
+  const bindings: DiagramLoopBinding[] = [];
+  let generatedCount = 0;
+
+  const visit = (nodes: readonly DiagramContentNode[], controlOriginating: boolean): void => {
+    for (const node of nodes) {
+      if (node.type === 'diagramElement') {
+        if (controlOriginating) {
+          if (generatedCount >= generatedElementLimit) {
+            staticError(
+              'AMXD6004',
+              'Number of elements in this diagram exceed the maximum (64)',
+              node.source ?? node.nameSource,
+              file
+            );
+          }
+          generatedCount++;
+        }
+        instances.push(Object.freeze({
+          identity: instances.length,
+          element: node,
+          bindings: Object.freeze(bindings.map(binding => Object.freeze({
+            name: binding.name,
+            value: cloneData(binding.value)
+          })))
+        }));
+        continue;
+      }
+
+      if (node.type === 'diagramForBlock') {
+        const values = evaluateLoopIterable(node.iterable, env, file);
+        withLoopBinding(node.variable, values, env, () => {
+          bindings.push({ name: node.variable, value: env.get(node.variable) });
+          try {
+            visit(node.content, true);
+          } finally {
+            bindings.pop();
+          }
+        });
+        continue;
+      }
+
+      const branch = toBoolean(evaluateExpression(node.test, env, file))
+        ? node.consequent
+        : node.alternate;
+      if (branch) visit(branch, true);
+    }
+  };
+
+  visit(content, false);
+  return Object.freeze(instances);
+}
+
+function withInstanceBindings<T>(
+  bindings: readonly DiagramLoopBinding[],
+  env: Environment,
+  run: () => T,
+  index = 0
+): T {
+  if (index >= bindings.length) return run();
+  let result!: T;
+  const binding = bindings[index]!;
+  withLoopBinding(binding.name, [binding.value], env, () => {
+    result = withInstanceBindings(bindings, env, run, index + 1);
+  });
+  return result;
+}
+
 function property(element: DiagramElementNode, name: string): DiagramPropertyNode {
   const found = element.properties.find(item => item.name === name);
   if (!found) throw new Error(`Type checker accepted missing diagram property '${name}'`);
@@ -375,21 +485,17 @@ function evaluateFrame(
   declaration: DiagramDeclarationNode,
   timeline: DiagramSceneModel['timeline'],
   time: number,
+  instances: readonly ExpandedDiagramElement[],
   sourceEnvironment: Environment,
   file?: string
 ): DiagramFrame {
   if (typeof time !== 'number' || !Number.isFinite(time) || time < timeline.from || time > timeline.to) {
     staticError('AMXD004', 'Invalid time bounds', declaration.times[0]?.source ?? declaration.source, file);
   }
-  if (declaration.content.some(node => node.type !== 'diagramElement')) {
-    throw new Error('Diagram controls are parsed and typechecked but cannot be evaluated in this sprint.');
-  }
   const env = cloneEnvironment(sourceEnvironment);
   env.set(timeline.variable, time);
 
-  const elements = declaration.content.map((node): DiagramFrameElement => {
-    if (node.type !== 'diagramElement') throw new Error('Diagram controls cannot be evaluated before runtime expansion.');
-    const element = node;
+  const evaluateElement = (element: DiagramElementNode): DiagramFrameElement => {
     const readNumber = (name: string) => requiredNumber(element, name, env, file, timeline, time);
     const readStyle = (name: string) => {
       const value = property(element, name).expression;
@@ -463,7 +569,12 @@ function evaluateFrame(
       }
       throw error;
     }
-  });
+  };
+  const elements = instances.map((instance): DiagramFrameElement => withInstanceBindings(
+    instance.bindings,
+    env,
+    () => evaluateElement(instance.element)
+  ));
   return Object.freeze({ time, elements: Object.freeze(elements) });
 }
 
@@ -512,7 +623,8 @@ export function createDiagramModel(
   if (from >= to) staticError('AMXD004', 'Invalid time bounds', time.source ?? declaration.source, file);
   const duration = evaluateDocumentNumber(time.duration, env, file, 'AMXD005', 'Invalid playback duration value', time.durationSource ?? time.source);
   const timeline = Object.freeze({ variable: time.name, from, to, duration });
-  const initialFrame = evaluateFrame(declaration, timeline, from, env, file);
+  const instances = expandDiagramContent(declaration.content, env, file);
+  const initialFrame = evaluateFrame(declaration, timeline, from, instances, env, file);
   const model: DiagramSceneModel = Object.freeze({
     name: declaration.name,
     title: titleExpression.value,
@@ -527,6 +639,7 @@ export function createDiagramModel(
     statementIndex
   });
   capturedContexts.set(model, env);
+  expandedElementsByModel.set(model, instances);
   return model;
 }
 
@@ -537,5 +650,6 @@ export function evaluateDiagramFrame(
 ): DiagramFrame {
   const env = capturedContexts.get(model);
   if (!env) throw new Error('Diagram model has no captured AMX evaluation context');
-  return evaluateFrame(model.declaration, model.timeline, time, env, file);
+  const instances = expandedElementsByModel.get(model) ?? directDiagramElements(model.declaration.content);
+  return evaluateFrame(model.declaration, model.timeline, time, instances, env, file);
 }

@@ -770,7 +770,7 @@ function toNumber(v: unknown, nodeForError?: V02ExpressionNode): number {
   throw new Error(`Cannot convert value to number${locInfo}`);
 }
 
-function toBoolean(v: unknown): boolean {
+export function toBoolean(v: unknown): boolean {
   if (typeof v === 'boolean') return v;
   if (typeof v === 'number') return v !== 0;
   if (typeof v === 'string') return v.length > 0;
@@ -1170,13 +1170,13 @@ function evalForExpression(node: ForExpressionNode, env: Environment, file?: str
   return results;
 }
 
-function evaluateLoopIterable(node: V02ExpressionNode, env: Environment, file?: string): unknown[] {
+export function evaluateLoopIterable(node: V02ExpressionNode, env: Environment, file?: string): unknown[] {
   const value = evaluateExpression(node, env, file);
   if (!Array.isArray(value)) throwInvalidLoopIterable(node.source, file);
   return value.slice();
 }
 
-function withLoopBinding(
+export function withLoopBinding(
   name: string,
   values: unknown[],
   env: Environment,

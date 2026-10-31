@@ -1,3 +1,49 @@
+# ARCHITECT BRIEFING — Sprint 111 Builder Submission
+
+## Where things stand
+Sprint 111 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS. Diagram-local loops and conditionals expand once when a model is created, and frame evaluation retains each generated primitive's iterator value. S112 remains a separate authorization gate.
+
+## Executive summary
+**Business outcome**: Complete in-process V0.18 diagram expansion with stable depth-first ordering, per-instance frame bindings, and the separately allocated 64-emission cap while preserving authored accounting.
+
+**Current focus**: Prepare the separately gated S112 serialization/browser work.
+
+**What is proven**: All 17 S111 runtime-matrix cases map to focused tests or the resource evidence. The final focused selection passed 131 tests, 0 failures, and 687 expectations; root no-emit typecheck and `git diff --check` passed. No-control diagram behavior remains covered.
+
+**What is not proven/live**: Evaluation is not claimed to be bounded; D111-02 is an accepted unbounded-work residual and the one-host memory samples are not peak measurements. Control-bearing browser playback, serialized per-instance bindings, export parity, cross-platform qualification, release, and certification are not claimed.
+
+## Readiness signals
+
+| Signal | Status | Evidence |
+|---|---|---|
+| S109/S110 accepted baselines | passed | Both separately accepted before S111 execution |
+| S111 in-process expansion, bindings, cap, and static compatibility | passed | 131 passed, 0 failed across diagram, evaluator, and diagram HTML suites |
+| S111 resource boundedness | attention | D111-02 accepted as an unbounded-work residual; no boundedness claim |
+| S111 product-owner disposition | passed | User ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-10-31 |
+| S112 serialization/browser work | attention | Requires separate scope and execution authorization |
+
+## Recommended next Architect action
+**Do**: Prepare a separate S112 plan for per-instance serialization and browser playback.
+**Owner**: Lead Developer / product owner.
+**Decision**: Sprint 111 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS. S112 remains unauthorized.
+
+## Evidence
+- `bun test tests/diagram.test.ts tests/evaluator.test.ts tests/diagramHtml.test.ts` — 131 passed, 0 failed, 687 expectations.
+- `bunx tsc --noEmit` and `git diff --check` — passed.
+- The product owner separately ACCEPTED/CLOSED Sprint 111 WITH RECORDED RESIDUALS on 2026-10-31.
+- The high-iteration probe results and their limitations are recorded in `planning/sprints/0111-v18-evaluation-time-expansion-frame-bindings/builder-evidence.md` and its `artifacts/raw/iteration-work.json` output.
+- No generated browser runtime or existing test output was changed.
+
+## Plan corrections
+- S110 counts every authored primitive toward the unchanged 512-per-report limit. The valid S111 mixed cap case is 511 direct declarations plus one loop-authored primitive emitted 64 times, yielding 575 frame elements; the acceptance and matrix were amended accordingly.
+- The resource probe exercises the existing general-purpose loop evaluator, not production diagram expansion. Product disposition accepts potentially unbounded traversal as a residual; S111 does not claim bounded evaluation.
+
+## Validation / test status
+**Tests:** 131 passing, 0 failing, 687 expectations.
+The focused diagram/evaluator/diagram HTML suites, root no-emit typecheck, and `git diff --check` passed. S112 browser playback and export checks were not run.
+
+---
+
 # ARCHITECT BRIEFING — Sprint 110 Builder Submission
 
 ## Where things stand

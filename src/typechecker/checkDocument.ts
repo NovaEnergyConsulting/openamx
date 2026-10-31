@@ -1369,6 +1369,10 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
             continue;
           }
           if (node.type === 'diagramForBlock') {
+            if (node.variable === time.name) {
+              fail('AMXD6001', `Variable [${time.name}] is already used to control the diagrams timeline. Use a different variable name.`,
+                node.variableSource ?? node.source);
+            }
             if (expressionReferencesIdentifier(node.iterable, time.name)) {
               fail('AMXD6001', `Variable [${time.name}] is already used to control the diagrams timeline. Use a different variable name.`,
                 identifierSource(node.iterable, time.name) ?? node.iterableSource ?? node.source);

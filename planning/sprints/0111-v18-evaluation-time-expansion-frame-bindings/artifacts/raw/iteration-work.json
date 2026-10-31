@@ -1,0 +1,285 @@
+{
+  "scope": "Existing general-purpose loop evaluation only; production diagram expansion is not implemented.",
+  "limitation": "Memory values are before/after samples, not peak allocation or a boundedness claim.",
+  "command": "bun run planning/sprints/0111-v18-evaluation-time-expansion-frame-bindings/artifacts/iteration-work-probe.ts",
+  "host": {
+    "hostname": "nova",
+    "platform": "win32",
+    "release": "10.0.26300",
+    "architecture": "x64",
+    "logicalCpuCount": 16,
+    "totalMemoryBytes": 68276973568,
+    "bunVersion": "1.4.4",
+    "nodeVersion": "v26.3.0"
+  },
+  "iterationCounts": [
+    10000,
+    100000,
+    1000000
+  ],
+  "repetitions": 5,
+  "workloads": [
+    "empty-body",
+    "false-branch"
+  ],
+  "results": [
+    {
+      "iterations": 10000,
+      "workload": "empty-body",
+      "medianMs": 0.4241000000000028,
+      "maximumMs": 0.47639999999999816,
+      "samples": [
+        {
+          "elapsedMs": 0.47639999999999816,
+          "heapUsedBeforeBytes": 2062336,
+          "heapUsedAfterBytes": 2062336,
+          "rssBeforeBytes": 42942464,
+          "rssAfterBytes": 44503040
+        },
+        {
+          "elapsedMs": 0.4241000000000028,
+          "heapUsedBeforeBytes": 2062336,
+          "heapUsedAfterBytes": 2095104,
+          "rssBeforeBytes": 44507136,
+          "rssAfterBytes": 45387776
+        },
+        {
+          "elapsedMs": 0.3311999999999955,
+          "heapUsedBeforeBytes": 2095104,
+          "heapUsedAfterBytes": 2095104,
+          "rssBeforeBytes": 45391872,
+          "rssAfterBytes": 46243840
+        },
+        {
+          "elapsedMs": 0.40279999999999916,
+          "heapUsedBeforeBytes": 2095104,
+          "heapUsedAfterBytes": 2127872,
+          "rssBeforeBytes": 46243840,
+          "rssAfterBytes": 47050752
+        },
+        {
+          "elapsedMs": 0.46929999999999694,
+          "heapUsedBeforeBytes": 2127872,
+          "heapUsedAfterBytes": 2144256,
+          "rssBeforeBytes": 47050752,
+          "rssAfterBytes": 47386624
+        }
+      ]
+    },
+    {
+      "iterations": 10000,
+      "workload": "false-branch",
+      "medianMs": 0.5723999999999947,
+      "maximumMs": 3.4140000000000015,
+      "samples": [
+        {
+          "elapsedMs": 0.6285000000000025,
+          "heapUsedBeforeBytes": 3160064,
+          "heapUsedAfterBytes": 4143104,
+          "rssBeforeBytes": 49733632,
+          "rssAfterBytes": 51240960
+        },
+        {
+          "elapsedMs": 0.5204999999999984,
+          "heapUsedBeforeBytes": 4143104,
+          "heapUsedAfterBytes": 5175296,
+          "rssBeforeBytes": 51240960,
+          "rssAfterBytes": 52609024
+        },
+        {
+          "elapsedMs": 0.5622000000000043,
+          "heapUsedBeforeBytes": 5175296,
+          "heapUsedAfterBytes": 6191104,
+          "rssBeforeBytes": 52609024,
+          "rssAfterBytes": 54587392
+        },
+        {
+          "elapsedMs": 0.5723999999999947,
+          "heapUsedBeforeBytes": 6191104,
+          "heapUsedAfterBytes": 7190528,
+          "rssBeforeBytes": 54591488,
+          "rssAfterBytes": 57118720
+        },
+        {
+          "elapsedMs": 3.4140000000000015,
+          "heapUsedBeforeBytes": 7190528,
+          "heapUsedAfterBytes": 1627394,
+          "rssBeforeBytes": 57118720,
+          "rssAfterBytes": 59551744
+        }
+      ]
+    },
+    {
+      "iterations": 100000,
+      "workload": "empty-body",
+      "medianMs": 1.9505000000000052,
+      "maximumMs": 3.54849999999999,
+      "samples": [
+        {
+          "elapsedMs": 1.9424999999999955,
+          "heapUsedBeforeBytes": 1627394,
+          "heapUsedAfterBytes": 1627394,
+          "rssBeforeBytes": 66203648,
+          "rssAfterBytes": 69283840
+        },
+        {
+          "elapsedMs": 1.9505000000000052,
+          "heapUsedBeforeBytes": 1627394,
+          "heapUsedAfterBytes": 1627394,
+          "rssBeforeBytes": 69283840,
+          "rssAfterBytes": 72556544
+        },
+        {
+          "elapsedMs": 2.3070999999999913,
+          "heapUsedBeforeBytes": 1627394,
+          "heapUsedAfterBytes": 1627394,
+          "rssBeforeBytes": 72556544,
+          "rssAfterBytes": 74723328
+        },
+        {
+          "elapsedMs": 3.54849999999999,
+          "heapUsedBeforeBytes": 1627394,
+          "heapUsedAfterBytes": 1632091,
+          "rssBeforeBytes": 74723328,
+          "rssAfterBytes": 75354112
+        },
+        {
+          "elapsedMs": 1.7301000000000073,
+          "heapUsedBeforeBytes": 1632091,
+          "heapUsedAfterBytes": 1632091,
+          "rssBeforeBytes": 75354112,
+          "rssAfterBytes": 75767808
+        }
+      ]
+    },
+    {
+      "iterations": 100000,
+      "workload": "false-branch",
+      "medianMs": 2.701100000000011,
+      "maximumMs": 3.4680999999999926,
+      "samples": [
+        {
+          "elapsedMs": 2.8474000000000075,
+          "heapUsedBeforeBytes": 1632091,
+          "heapUsedAfterBytes": 1632091,
+          "rssBeforeBytes": 75845632,
+          "rssAfterBytes": 77524992
+        },
+        {
+          "elapsedMs": 3.4680999999999926,
+          "heapUsedBeforeBytes": 1632091,
+          "heapUsedAfterBytes": 3730890,
+          "rssBeforeBytes": 77524992,
+          "rssAfterBytes": 79163392
+        },
+        {
+          "elapsedMs": 2.701100000000011,
+          "heapUsedBeforeBytes": 3730890,
+          "heapUsedAfterBytes": 3730890,
+          "rssBeforeBytes": 79163392,
+          "rssAfterBytes": 79491072
+        },
+        {
+          "elapsedMs": 2.0618999999999943,
+          "heapUsedBeforeBytes": 3730890,
+          "heapUsedAfterBytes": 3730890,
+          "rssBeforeBytes": 79491072,
+          "rssAfterBytes": 80502784
+        },
+        {
+          "elapsedMs": 2.3049000000000035,
+          "heapUsedBeforeBytes": 3730890,
+          "heapUsedAfterBytes": 3730890,
+          "rssBeforeBytes": 80502784,
+          "rssAfterBytes": 83218432
+        }
+      ]
+    },
+    {
+      "iterations": 1000000,
+      "workload": "empty-body",
+      "medianMs": 15.47120000000001,
+      "maximumMs": 22.612899999999982,
+      "samples": [
+        {
+          "elapsedMs": 22.612899999999982,
+          "heapUsedBeforeBytes": 6088171,
+          "heapUsedAfterBytes": 8036695,
+          "rssBeforeBytes": 105152512,
+          "rssAfterBytes": 107982848
+        },
+        {
+          "elapsedMs": 18.0702,
+          "heapUsedBeforeBytes": 8036695,
+          "heapUsedAfterBytes": 8553863,
+          "rssBeforeBytes": 107982848,
+          "rssAfterBytes": 126914560
+        },
+        {
+          "elapsedMs": 15.214199999999977,
+          "heapUsedBeforeBytes": 8553863,
+          "heapUsedAfterBytes": 8761799,
+          "rssBeforeBytes": 126914560,
+          "rssAfterBytes": 139145216
+        },
+        {
+          "elapsedMs": 15.47120000000001,
+          "heapUsedBeforeBytes": 8761799,
+          "heapUsedAfterBytes": 12884119,
+          "rssBeforeBytes": 139145216,
+          "rssAfterBytes": 149049344
+        },
+        {
+          "elapsedMs": 13.571300000000008,
+          "heapUsedBeforeBytes": 12884119,
+          "heapUsedAfterBytes": 2071181,
+          "rssBeforeBytes": 149049344,
+          "rssAfterBytes": 148803584
+        }
+      ]
+    },
+    {
+      "iterations": 1000000,
+      "workload": "false-branch",
+      "medianMs": 19.638499999999965,
+      "maximumMs": 24.142400000000038,
+      "samples": [
+        {
+          "elapsedMs": 18.912499999999994,
+          "heapUsedBeforeBytes": 4023802,
+          "heapUsedAfterBytes": 5971274,
+          "rssBeforeBytes": 149811200,
+          "rssAfterBytes": 150040576
+        },
+        {
+          "elapsedMs": 18.6884,
+          "heapUsedBeforeBytes": 5971274,
+          "heapUsedAfterBytes": 7338810,
+          "rssBeforeBytes": 150040576,
+          "rssAfterBytes": 147369984
+        },
+        {
+          "elapsedMs": 24.142400000000038,
+          "heapUsedBeforeBytes": 7338810,
+          "heapUsedAfterBytes": 10155946,
+          "rssBeforeBytes": 147369984,
+          "rssAfterBytes": 159879168
+        },
+        {
+          "elapsedMs": 20.56880000000001,
+          "heapUsedBeforeBytes": 10155946,
+          "heapUsedAfterBytes": 2105711,
+          "rssBeforeBytes": 159879168,
+          "rssAfterBytes": 152064000
+        },
+        {
+          "elapsedMs": 19.638499999999965,
+          "heapUsedBeforeBytes": 2105711,
+          "heapUsedAfterBytes": 2313695,
+          "rssBeforeBytes": 152064000,
+          "rssAfterBytes": 158420992
+        }
+      ]
+    }
+  ]
+}

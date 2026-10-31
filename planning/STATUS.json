@@ -1,5 +1,5 @@
 {
   "phase": "sprint-closed",
-  "sprint": "110",
-  "note": "Sprint 110 was ACCEPTED/CLOSED by the user on 2026-10-31 after the approved focused verification passed. Builder evidence is in planning/sprints/0110-v18-diagram-ast-parser-typechecker/builder-evidence.md. Sprint 111 still requires its overflow diagnostic allocation and separate authorization; runtime expansion, release, publication, package/version changes, and platform certification remain gated or unauthorized."
+  "sprint": "111",
+  "note": "Sprint 111 was ACCEPTED/CLOSED WITH RECORDED RESIDUALS by the product owner on 2026-10-31. D111-02 remains an accepted unbounded-work residual; no bounded-evaluation claim is made. S112 serialization/browser support, generated artifacts, release, publication, package/version changes, and platform certification remain gated or unauthorized."
 }

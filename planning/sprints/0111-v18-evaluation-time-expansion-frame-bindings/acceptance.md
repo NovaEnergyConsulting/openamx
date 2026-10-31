@@ -45,8 +45,11 @@ required. S111 does not authorize or prove S112 serialization/render parity.
   diagnostic and approved source anchor.
 - Direct top-level primitives do not consume the 64 cap. The cap resets per
   diagram and does not become report-wide.
-- Existing authored 512-per-report counting and `AMXD013` remain unchanged,
-  including the 512 authored plus 64 generated composition.
+- Existing authored 512-per-report counting and `AMXD013` remain unchanged.
+  The valid mixed boundary is 511 direct authored primitives plus one
+  loop-authored primitive emitted 64 times: 512 authored declarations and
+  575 frame elements. A 512-direct plus 64-generated composition would
+  require 513 authored declarations and remains invalid under `AMXD013`.
 - Existing diagrams without controls retain prior initial and frame output.
 - Source and property diagnostics keep authored source locations.
 - High-iteration zero/low-output evidence is recorded. Any unbounded work

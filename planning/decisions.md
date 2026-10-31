@@ -1,5 +1,31 @@
 # Planning Decisions
 
+## V0.18 Sprint 111 Runtime Expansion Decisions (2026-10-31)
+
+- The Lead Developer allocated `AMXD6004` for generated-cap overflow with
+  exact message `Number of elements in this diagram exceed the maximum (64)`.
+  It is emitted during diagram model creation before the 65th primitive is
+  appended or evaluated, anchored at that authored primitive declaration.
+- D111-01: reject a loop iterator that matches the diagram timeline variable
+  at the iterator identifier, using the existing `AMXD6001` message.
+- D111-02: accept potentially unbounded iteration as a named residual. Do not
+  add a new work limit or claim bounded evaluation; the one-host probe is
+  evidence only.
+- D111-03: reject control-bearing models in `serializeDiagramSceneModel`
+  until S112 preserves per-instance bindings. In-process frame evaluation is
+  allowed; static diagrams remain unchanged.
+- R111-CAP-MIX-01: preserve S110's authored accounting and correct the S111
+  mixed-boundary expectation to 575 frame elements: 511 direct authored
+  primitives plus one loop-authored primitive emitted 64 times. A 576-frame
+  composition with 512 direct declarations would require 513 authored
+  declarations and must continue to fail `AMXD013`.
+- S111 execution was separately authorized on 2026-10-31 against the
+  approved file/command/evidence plan. S112 serialization/browser support and
+  generated artifacts remain out of scope.
+- The Lead Developer/product owner separately ACCEPTED/CLOSED Sprint 111
+  WITH RECORDED RESIDUALS on 2026-10-31. D111-02 remains an explicit
+  unbounded-work residual; this disposition does not authorize S112.
+
 ## V0.18 Sprint 110 Diagnostic and AST Disposition (2026-10-31)
 
 - The Lead Developer allocated `AMXD6001` for the diagram timeline variable

@@ -1,5 +1,28 @@
 # Planning State
 
+## V0.18 Sprint 111 Builder Closeout (2026-10-31)
+
+- Sprint 111 execution and the exact implementation/test/evidence plan were
+  separately approved by the user on 2026-10-31. The baseline was clean on
+  `feat/create-v0.18` at `2852c05be8ea0476c889500b66dc5d01cdd74218`.
+- Entry decisions are recorded in `planning/decisions.md`: overflow is
+  `AMXD6004` at the 65th primitive declaration during model creation;
+  D111-01 rejects iterator/time-name collisions with `AMXD6001`; D111-02 is
+  accepted as an unbounded-work residual with no boundedness claim; D111-03
+  keeps control-bearing serialization fail-closed until S112.
+- The approved runtime expansion, frame-binding, cap, collision-check, and
+  serialization gate work is complete. Focused verification passed 131 tests
+  with 0 failures and 687 expectations; root no-emit typecheck and
+  `git diff --check` passed.
+- Builder recommendation: ACCEPT for the approved S111 scope, with D111-02
+  retained as an explicit unbounded-work residual. The one-host probe does
+  not establish bounded evaluation or peak-memory behavior.
+- The Lead Developer/product owner separately ACCEPTED/CLOSED Sprint 111
+  WITH RECORDED RESIDUALS on 2026-10-31. D111-02 remains an explicit
+  unbounded-work residual; no bounded-evaluation claim is made. S112 browser
+  playback/export parity, generated artifacts, release, publication, version
+  changes, and certification remain unauthorized.
+
 ## V0.18 Sprint 110 Builder Submission (2026-10-31)
 
 - Sprint 110 implementation was separately authorized at
@@ -12,10 +35,10 @@
   passed 141 tests with 0 failures; root and extension no-emit typechecks and
   `git diff --check` passed.
 - Builder recommendation: ACCEPT for S110 scope. The user separately
-  ACCEPTED/CLOSED Sprint 110 on 2026-10-31. Sprint 111 is not authorized and
-  still requires its overflow diagnostic allocation. Runtime expansion,
-  rendering, editor feature integration, release, publication, version
-  changes, and certification are not claimed or authorized.
+  ACCEPTED/CLOSED Sprint 110 on 2026-10-31. At S110 closeout, Sprint 111 was
+  not authorized and its overflow diagnostic was unallocated. S111 has since
+  been separately authorized; its disposition and evidence are recorded
+  above. S112 and release-related work remain separate gates.
 
 ## V0.16 Sprint 099 Builder Closeout (2026-10-24)
 

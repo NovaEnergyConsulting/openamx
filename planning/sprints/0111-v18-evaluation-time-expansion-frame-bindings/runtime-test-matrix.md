@@ -18,7 +18,7 @@ specific internal boundary requires a constructed node.
 | R111-STABLE-01 | `GEN-STABLE-01` | Two model creations with different inputs may differ; each model's frames remain internally stable | One cap counter per evaluated diagram | Diagram runtime |
 | R111-CAP-EXACT-01 | `GEN-CAP-EXACT-01` | Exactly 64 control-originating emissions succeed | Direct elements are excluded from count | Diagram runtime |
 | R111-CAP-OVER-01 | `GEN-CAP-OVER-01` | 65th control-originating emission fails before it is appended/evaluated | Allocated new diagnostic, exact message and source anchor; never `AMXD013` | Diagram runtime |
-| R111-CAP-MIX-01 | `GEN-CAP-MIX-01` | 512 authored declarations plus exactly 64 generated emissions produce 576 frame elements; 512 authored declarations still pass checker | Authored 513th remains `AMXD013`; generated count remains 64 | Checker/runtime integration |
+| R111-CAP-MIX-01 | `GEN-CAP-MIX-01` | 511 direct authored primitives plus one loop-authored primitive emitted 64 times produce 575 frame elements; all 512 authored declarations pass checker | Authored 513th remains `AMXD013`; generated count remains 64 | Checker/runtime integration |
 | R111-CAP-DIAGRAM-01 | `GEN-MULTI-01` | Two evaluated diagrams may each independently emit 64; no shared report counter | No report-wide generated limit | Diagram runtime |
 | R111-AUTHORED-01 | `GEN-AUTHORED-01` | Static authored-only 512/513 boundary remains unchanged | Existing 512/report `AMXD013` | Diagram tests |
 | R111-NOGEN-01 | `GEN-NOGEN-01` | Existing no-control diagrams produce the same initial and requested frames | No changed geometry, order, or errors | Diagram tests |

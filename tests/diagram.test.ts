@@ -460,20 +460,87 @@ describe('diagram language and shared scene model', () => {
     expect(() => checkDocument(parseDocumentText(source))).not.toThrow();
   });
 
-  it('fails closed instead of evaluating controls through the legacy flat frame path', () => {
+  it('expands diagram controls once in depth-first order and retains per-instance frame bindings', () => {
+    const circle = (name: string, cx: string, indent: string) => [
+      `${indent}circle ${name} {`,
+      `${indent}  cx: ${cx}`,
+      `${indent}  cy: t`,
+      `${indent}  r: 2`,
+      `${indent}  stroke: "#263238"`,
+      `${indent}  lineWidth: 1`,
+      `${indent}}`
+    ];
     const source = [
       '```amx',
+      'let item: Number = 9',
       'diagram generated {',
       '  title: "Generated"',
-      '  description: "Staging boundary"',
+      '  description: "Expansion and frame bindings"',
       '  width: 100',
       '  height: 50',
       '  time t from 0 to 1 duration 1',
+      ...circle('before', '0', '  '),
+      '  if true {',
+      ...circle('branch', '5', '    '),
+      '  }',
       '  for item in [1, 2] {',
-      '    circle generatedPoint {',
-      '      cx: item',
+      '    if item != 2 {',
+      ...circle('repeated', 'item * 10', '      '),
+      '    }',
+      '  }',
+      '  if false {',
+      ...circle('hidden', '0', '    '),
+      '  }',
+      '  if true {',
+      '    for nested in [4, 5] {',
+      ...circle('conditionalLoop', 'nested * 10', '      '),
+      '    }',
+      '  }',
+      ...circle('after', 'item', '  '),
+      '}',
+      '```'
+    ].join('\n');
+    const env = evaluateDocumentEnvironment(parseDocumentText(source), 'generated.amx');
+    const model = env.diagramEmissions[0]!.model;
+    const expected = [
+      ['before', 0], ['branch', 5], ['repeated', 10], ['conditionalLoop', 40],
+      ['conditionalLoop', 50], ['after', 9]
+    ];
+
+    expect(env.get('item')).toBe(9);
+    expect(model.initialFrame.elements.map(element => element.name)).toEqual(expected.map(([name]) => name));
+    expect(() => serializeDiagramSceneModel(model)).toThrow(
+      'Control-bearing diagrams cannot be serialized until per-instance bindings are preserved.'
+    );
+
+    const quarterFrame = evaluateDiagramFrame(model, 0.25);
+    expect(quarterFrame.elements.map(element => element.primitive === 'circle'
+      ? [element.name, element.cx, element.cy]
+      : [element.name, null, null])).toEqual([
+      ['before', 0, 0.25], ['branch', 5, 0.25], ['repeated', 10, 0.25],
+      ['conditionalLoop', 40, 0.25], ['conditionalLoop', 50, 0.25], ['after', 9, 0.25]
+    ]);
+    expect(evaluateDiagramFrame(model, 0.75).elements.map(element => element.name)).toEqual(expected.map(([name]) => name));
+    expect(evaluateDiagramFrame(model, 0.25).elements).toEqual(quarterFrame.elements);
+    expect(evaluateDiagramFrame(model, 1).elements.map(element => element.primitive === 'circle' ? element.cy : null))
+      .toEqual([1, 1, 1, 1, 1, 1]);
+  });
+
+  it('reevaluates membership only when a diagram model is recreated', () => {
+    const source = (values: string) => [
+      '```amx',
+      `let positions: Number[] = [${values}]`,
+      'diagram changingMembership {',
+      '  title: "Changing membership"',
+      '  description: "Model-local expansion"',
+      '  width: 10',
+      '  height: 10',
+      '  time t from 0 to 1 duration 1',
+      '  for position in positions {',
+      '    circle generated {',
+      '      cx: position',
       '      cy: t',
-      '      r: 2',
+      '      r: 1',
       '      stroke: "#263238"',
       '      lineWidth: 1',
       '    }',
@@ -481,9 +548,170 @@ describe('diagram language and shared scene model', () => {
       '}',
       '```'
     ].join('\n');
-    expect(() => captureModel(source)).toThrow(
-      'Diagram controls are parsed and typechecked but cannot be evaluated in this sprint.'
-    );
+    const first = captureModel(source('1, 2'));
+    const second = captureModel(source('7'));
+    const assertStableFrames = (model: DiagramSceneModel, values: number[]) => {
+      for (const time of [0.5, 1, 0.25]) {
+        const frame = evaluateDiagramFrame(model, time);
+        expect(frame.elements.map(element => element.primitive === 'circle'
+          ? [element.name, element.cx, element.cy]
+          : null)).toEqual(values.map(value => ['generated', value, time]));
+      }
+    };
+
+    expect(first.initialFrame.elements.map(element => element.primitive === 'circle' ? element.cx : null)).toEqual([1, 2]);
+    expect(second.initialFrame.elements.map(element => element.primitive === 'circle' ? element.cx : null)).toEqual([7]);
+    assertStableFrames(first, [1, 2]);
+    assertStableFrames(second, [7]);
+  });
+
+  it('preserves source locations for generated primitive diagnostics', () => {
+    const source = [
+      '```amx',
+      'diagram invalidGenerated {',
+      '  title: "Invalid generated element"',
+      '  description: "Property location"',
+      '  width: 10',
+      '  height: 10',
+      '  time t from 0 to 1 duration 1',
+      '  for item in [1, 2] {',
+      '    circle generated {',
+      '      cx: item',
+      '      cy: t',
+      '      r: item - 1',
+      '      stroke: "#263238"',
+      '      lineWidth: 1',
+      '    }',
+      '  }',
+      '}',
+      '```'
+    ].join('\n');
+    const lines = source.split(/\r?\n/);
+    const propertyLine = lines.findIndex(line => line.includes('r: item - 1'));
+    const error = captureFailure(() => captureModel(source, 'invalid-generated.amx'));
+
+    expect(error).toMatchObject({
+      code: 'AMXD008',
+      message: 'Invalid primitive geometry',
+      file: 'invalid-generated.amx',
+      line: propertyLine + 1,
+      column: lines[propertyLine]!.indexOf('item') + 1
+    });
+  });
+
+  it('emits nothing for empty iterables and unselected branches', () => {
+    const source = [
+      '```amx',
+      'let emptyValues: Number[] = []',
+      'diagram emptyControls {',
+      '  title: "Empty controls"',
+      '  description: "Empty results"',
+      '  width: 10',
+      '  height: 10',
+      '  time t from 0 to 1 duration 1',
+      '  for unused in emptyValues {',
+      '  }',
+      '  if false {',
+      '    circle hidden {',
+      '      cx: 1',
+      '      cy: t',
+      '      r: 1',
+      '      stroke: "#263238"',
+      '      lineWidth: 1',
+      '    }',
+      '  }',
+      '  circle direct {',
+      '    cx: 2',
+      '    cy: t',
+      '    r: 1',
+      '    stroke: "#263238"',
+      '    lineWidth: 1',
+      '  }',
+      '}',
+      '```'
+    ].join('\n');
+    const model = captureModel(source);
+    expect(model.initialFrame.elements.map(element => element.name)).toEqual(['direct']);
+    expect(evaluateDiagramFrame(model, 0.5).elements[0]).toMatchObject({ cx: 2, cy: 0.5 });
+  });
+
+  it('enforces the 64 control-emission cap independently of direct elements and diagrams', () => {
+    const capDiagram = (name: string, generatedCount: number, directCount: number) => [
+      `diagram ${name} {`,
+      `  title: "${name}"`,
+      '  description: "Generated cap"',
+      '  width: 10',
+      '  height: 10',
+      '  time t from 0 to 1 duration 1',
+      ...Array.from({ length: directCount }, (_, index) => [
+        `  circle ${name}Direct${index} {`,
+        '    cx: 0',
+        '    cy: 0',
+        '    r: 1',
+        '    stroke: "#263238"',
+        '    lineWidth: 1',
+        '  }'
+      ]).flat(),
+      `  for iteration${name} in [1 to ${generatedCount}] {`,
+      `    circle ${name}Generated {`,
+      `      cx: iteration${name}`,
+      '      cy: t',
+      '      r: 1',
+      '      stroke: "#263238"',
+      '      lineWidth: 1',
+      '    }',
+      '  }',
+      '}'
+    ].join('\n');
+    const document = (diagrams: string[]) => parseDocumentText(`\`\`\`amx\n${diagrams.join('\n')}\n\`\`\``);
+
+    const exact = captureModel(`\`\`\`amx\n${capDiagram('exact', 64, 2)}\n\`\`\``);
+    expect(exact.initialFrame.elements).toHaveLength(66);
+
+    const overflowSource = `\`\`\`amx\n${capDiagram('overflow', 65, 1)}\n\`\`\``;
+    const overflowLines = overflowSource.split(/\r?\n/);
+    const anchorIndex = overflowLines.findIndex(line => line.includes('circle overflowGenerated {'));
+    const overflow = captureFailure(() => captureModel(overflowSource, 'overflow.amx'));
+    expect(overflow).toMatchObject({
+      code: 'AMXD6004',
+      message: 'Number of elements in this diagram exceed the maximum (64)',
+      file: 'overflow.amx',
+      line: anchorIndex + 1,
+      column: overflowLines[anchorIndex]!.indexOf('circle') + 1
+    });
+
+    const mixed = captureModel(`\`\`\`amx\n${capDiagram('mixed', 64, 511)}\n\`\`\``, 'mixed.amx');
+    expect(mixed.initialFrame.elements).toHaveLength(575);
+
+    const separate = evaluateDocumentEnvironment(document([
+      capDiagram('first', 64, 0),
+      capDiagram('second', 64, 0)
+    ]), 'separate.amx');
+    expect(separate.diagramEmissions).toHaveLength(2);
+    expect(separate.diagramEmissions.map(emission => emission.model.initialFrame.elements.length)).toEqual([64, 64]);
+  });
+
+  it('rejects a diagram iterator that collides with its timeline variable', () => {
+    const source = [
+      '```amx',
+      'diagram collision {',
+      '  title: "Collision"',
+      '  description: "Timeline binding"',
+      '  width: 10',
+      '  height: 10',
+      '  time t from 0 to 1 duration 1',
+      '  for t in [1] {',
+      '  }',
+      '}',
+      '```'
+    ].join('\n');
+    const error = captureFailure(() => checkDocument(parseDocumentText(source)));
+    expect(error).toMatchObject({
+      code: 'AMXD6001',
+      message: 'Variable [t] is already used to control the diagrams timeline. Use a different variable name.',
+      line: 8,
+      column: 7
+    });
   });
 
   it('reuses loop and conditional type diagnostics inside diagram controls', () => {
