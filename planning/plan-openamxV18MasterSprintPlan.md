@@ -265,6 +265,9 @@ Architect-prepared Sprint 112 documentation package:
 
 ### Sprint 113: Editor Support, Specification, and Example (depends on Sprints 110-112)
 
+Architect-prepared Sprint 113 documentation package:
+[`requirements.md`](sprints/0113-v18-editor-specification-example/requirements.md).
+
 - Update VS Code TextMate grammar behavior only where existing patterns do
   not tokenize diagram-local loops, conditionals, and primitive declarations
   correctly; add host/tokenization tests.
