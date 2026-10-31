@@ -249,6 +249,9 @@ Architect-prepared Sprint 111 documentation package:
 
 ### Sprint 112: Scene Serialization and Render Compatibility (depends on Sprint 111)
 
+Architect-prepared Sprint 112 documentation package:
+[`requirements.md`](sprints/0112-v18-scene-serialization-render-compatibility/requirements.md).
+
 - Update scene-model serialization/deserialization to preserve generated
   primitive membership, order, and per-instance environments.
 - Ensure the browser runtime evaluates serialized models consistently with
