@@ -1,7 +1,9 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import {
+  DiagramContentNode,
   DiagramDeclarationNode,
+  DiagramElementNode,
   FunctionDeclarationNode,
   ImportDeclarationNode,
   OpenAmxDocument,
@@ -100,6 +102,17 @@ function reportDiagramDeclarations(doc: OpenAmxDocument): DiagramDeclarationNode
   return declarations;
 }
 
+function* authoredDiagramElements(content: readonly DiagramContentNode[]): Generator<DiagramElementNode> {
+  for (const node of content) {
+    if (node.type === 'diagramElement') yield node;
+    else if (node.type === 'diagramForBlock') yield* authoredDiagramElements(node.content);
+    else {
+      yield* authoredDiagramElements(node.consequent);
+      if (node.alternate) yield* authoredDiagramElements(node.alternate);
+    }
+  }
+}
+
 function validateReportDiagramCaps(records: ModuleRecord[]): void {
   let diagramCount = 0;
   let elementCount = 0;
@@ -114,7 +127,7 @@ function validateReportDiagramCaps(records: ModuleRecord[]): void {
           record.canonicalPath
         );
       }
-      for (const element of declaration.elements) {
+      for (const element of authoredDiagramElements(declaration.content)) {
         elementCount++;
         if (elementCount > 512) {
           staticError(

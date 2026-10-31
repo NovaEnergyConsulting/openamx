@@ -1020,3 +1020,151 @@ describe("Sprint 075 braced if fixtures", () => {
     }
   });
 });
+
+describe("V0.18 diagram content parsing", () => {
+  const diagramFrom = (source: string, start = { line: 1, column: 1 }) => {
+    const statement = parseStatements(source, start)[0];
+    if (!statement || statement.type !== "diagramDeclaration") throw new Error("Expected diagram declaration");
+    return statement;
+  };
+
+  it("preserves recursive mixed content, source order, and control locations", () => {
+    const source = [
+      "diagram nested {",
+      "  title: \"Nested\"",
+      "  description: \"Nested controls\"",
+      "  width: 100",
+      "  height: 50",
+      "  time t from 0 to 1 duration 1",
+      "  for item in [1, 2] {",
+      "    if item == 1 {",
+      "      circle loopBranch {",
+      "        cx: item * 10",
+      "        cy: t",
+      "        r: 2",
+      "        stroke: \"#263238\"",
+      "        lineWidth: 1",
+      "      }",
+      "    }",
+      "  }",
+      "  if true {",
+      "    for other in [3, 4] {",
+      "      circle conditionalLoop {",
+      "        cx: other * 10",
+      "        cy: t",
+      "        r: 2",
+      "        stroke: \"#263238\"",
+      "        lineWidth: 1",
+      "      }",
+      "    }",
+      "  } else {",
+      "    circle fallback {",
+      "      cx: 0",
+      "      cy: 0",
+      "      r: 1",
+      "      stroke: \"#263238\"",
+      "      lineWidth: 1",
+      "    }",
+      "  }",
+      "  circle direct {",
+      "    cx: 1",
+      "    cy: 1",
+      "    r: 1",
+      "    stroke: \"#263238\"",
+      "    lineWidth: 1",
+      "  }",
+      "}"
+    ].join("\n");
+    const diagram = diagramFrom(source, { line: 20, column: 1 });
+    expect(diagram.content.map(node => node.type)).toEqual([
+      "diagramForBlock", "diagramIfBlock", "diagramElement"
+    ]);
+    const loop = diagram.content[0];
+    if (loop.type !== "diagramForBlock") throw new Error("Expected diagram for block");
+    expect(loop.variableSource).toEqual({ line: 26, column: 7 });
+    expect(loop.iterableSource).toEqual({ line: 26, column: 15 });
+    expect(loop.openSource).toEqual({ line: 26, column: 22 });
+    expect(loop.closeSource).toEqual({ line: 36, column: 3 });
+    expect(loop.content[0]?.type).toBe("diagramIfBlock");
+    const loopConditional = loop.content[0];
+    if (loopConditional.type !== "diagramIfBlock") throw new Error("Expected diagram if block in loop");
+    expect(loopConditional.testSource).toEqual({ line: 27, column: 8 });
+    const loopPrimitive = loopConditional.consequent[0];
+    if (loopPrimitive.type !== "diagramElement") throw new Error("Expected loop primitive");
+    expect(loopPrimitive.nameSource).toEqual({ line: 28, column: 14 });
+    expect(loopPrimitive.properties[0]?.nameSource).toEqual({ line: 29, column: 9 });
+    const conditional = diagram.content[1];
+    if (conditional.type !== "diagramIfBlock") throw new Error("Expected diagram if block");
+    expect(conditional.consequent[0]?.type).toBe("diagramForBlock");
+    expect(conditional.consequentOpenSource).toEqual({ line: 37, column: 11 });
+    const sourceLines = source.split("\n");
+    const elseLineIndex = sourceLines.findIndex(line => line.includes("} else {"));
+    const elseLine = sourceLines[elseLineIndex];
+    const alternateCloseIndex = sourceLines.findIndex((line, index) => index > elseLineIndex && line === "  }");
+    expect(conditional.consequentCloseSource).toEqual({ line: 20 + elseLineIndex, column: elseLine.indexOf("}") + 1 });
+    expect(conditional.elseSource).toEqual({ line: 20 + elseLineIndex, column: elseLine.indexOf("else") + 1 });
+    expect(conditional.alternateOpenSource).toEqual({ line: 20 + elseLineIndex, column: elseLine.indexOf("{") + 1 });
+    expect(conditional.alternateCloseSource).toEqual({ line: 20 + alternateCloseIndex, column: 3 });
+    expect(conditional.alternate?.[0]?.type).toBe("diagramElement");
+    expect(diagram.content.filter(node => node.type === "diagramElement").map(node => node.name)).toEqual(["direct"]);
+  });
+
+  it("rejects direct and conditional-mediated nested loops at the inner for token", () => {
+    const sources = [
+      [
+        "diagram nested {",
+        "  for outer in [1] {",
+        "    for inner in [2] {",
+        "      circle point {",
+        "      }",
+        "    }",
+        "  }",
+        "}"
+      ].join("\n"),
+      [
+        "diagram nested {",
+        "  for outer in [1] {",
+        "    if true {",
+        "      for inner in [2] {",
+        "        circle point {",
+        "        }",
+        "      }",
+        "    }",
+        "  }",
+        "}"
+      ].join("\n")
+    ];
+    for (const source of sources) {
+      const lineOffset = 40;
+      const expectedLine = lineOffset + source.split("\n").findIndex(line => line.includes("for inner"));
+      const expectedColumn = source.split("\n").find(line => line.includes("for inner"))!.indexOf("for") + 1;
+      try {
+        diagramFrom(source, { line: lineOffset, column: 1 });
+        throw new Error("Expected nested-loop syntax diagnostic");
+      } catch (error: any) {
+        expect(error).toMatchObject({
+          code: "AMX3006",
+          message: "No nested loops are allowed inside a diagram",
+          line: expectedLine,
+          column: expectedColumn
+        });
+      }
+    }
+  });
+
+  it("uses the approved syntax diagnostic for malformed controls and unsupported content", () => {
+    const sources = [
+      "diagram broken {\n  for item [1] {\n  }\n}",
+      "diagram broken {\n  for item in [1] {",
+      "diagram broken {\n  if true {\n  } else value\n}",
+      "diagram broken {\n  if true {",
+      "diagram broken {\n  let value = 1\n}"
+    ];
+    for (const source of sources) {
+      expect(() => diagramFrom(source)).toThrow(expect.objectContaining({
+        code: "AMX3006",
+        message: "Malformed for or if declaration"
+      }));
+    }
+  });
+});

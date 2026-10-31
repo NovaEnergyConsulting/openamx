@@ -285,23 +285,26 @@ describe('diagram language and shared scene model', () => {
   it('aggregates imported-module diagrams in dependency/source order and applies report caps across modules', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'openamx-diagram-modules-'));
     const moduleDocument = (body: string) => `\`\`\`amx\n${body}\n\`\`\`\n`;
-    const simpleDiagram = (name: string, elements = 0, prefix = name, x = '1') => [
-      `diagram ${name} {`,
-      '  title: "Module diagram"',
-      '  description: "Imported module diagram"',
-      '  width: 10',
-      '  height: 10',
-      '  time t from 0 to 1 duration 1',
-      ...Array.from({ length: elements }, (_, index) => [
+    const simpleDiagram = (name: string, elements = 0, prefix = name, x = '1', nested = false) => {
+      const authoredElements = Array.from({ length: elements }, (_, index) => [
         `  text ${prefix}Element${index} {`,
         `    x: ${x}`,
         '    y: 1',
         '    value: "x"',
         '    fill: "#263238"',
         '  }'
-      ]).flat(),
-      '}'
-    ].join('\n');
+      ]).flat();
+      return [
+        `diagram ${name} {`,
+        '  title: "Module diagram"',
+        '  description: "Imported module diagram"',
+        '  width: 10',
+        '  height: 10',
+        '  time t from 0 to 1 duration 1',
+        ...(nested ? ['  if true {', ...authoredElements.map(line => `  ${line}`), '  }'] : authoredElements),
+        '}'
+      ].join('\n');
+    };
     try {
       const firstPath = join(directory, 'first.amx');
       const secondPath = join(directory, 'second.amx');
@@ -355,11 +358,11 @@ describe('diagram language and shared scene model', () => {
       const elementEntryPath = join(directory, 'elements-entry.amx');
       await writeFile(elementFirstPath, moduleDocument([
         'export let firstElements: Number = 1',
-        simpleDiagram('firstElementsDiagram', 256, 'first')
+        simpleDiagram('firstElementsDiagram', 256, 'first', '1', true)
       ].join('\n')));
       await writeFile(elementSecondPath, moduleDocument([
         'export let secondElements: Number = 2',
-        simpleDiagram('secondElementsDiagram', 257, 'second')
+        simpleDiagram('secondElementsDiagram', 257, 'second', '1', true)
       ].join('\n')));
       await writeFile(elementEntryPath, moduleDocument([
         'import { firstElements } from "./elements-first.amx"',
@@ -408,6 +411,213 @@ describe('diagram language and shared scene model', () => {
     const elementOverflow = captureFailure(() => checkDocument(document(fiveHundredThirteen)));
     expect(elementOverflow.code).toBe('AMXD013');
     expect(elementOverflow.message).toBe('A single report can have up to 512 elements maximum.');
+  });
+
+  it('checks nested diagram controls and restores shadowed iterator bindings', () => {
+    const source = [
+      '```amx',
+      'let item: Number = 9',
+      'diagram generated {',
+      '  title: "Generated"',
+      '  description: "Static checking only"',
+      '  width: 100',
+      '  height: 50',
+      '  time t from 0 to 1 duration 1',
+      '  for item in [1, 2] {',
+      '    if item > 1 {',
+      '      circle loopBranch {',
+      '        cx: item * 10',
+      '        cy: t',
+      '        r: 2',
+      '        stroke: "#263238"',
+      '        lineWidth: 1',
+      '      }',
+      '    }',
+      '  }',
+      '  for ranged in [1 to 3] {',
+      '  }',
+      '  if true {',
+      '    for other in [3, 4] {',
+      '      circle conditionalBranch {',
+      '        cx: other * 10',
+      '        cy: t',
+      '        r: 2',
+      '        stroke: "#263238"',
+      '        lineWidth: 1',
+      '      }',
+      '    }',
+      '  }',
+      '  circle direct {',
+      '    cx: item',
+      '    cy: t',
+      '    r: 2',
+      '    stroke: "#263238"',
+      '    lineWidth: 1',
+      '  }',
+      '}',
+      '```'
+    ].join('\n');
+    expect(() => checkDocument(parseDocumentText(source))).not.toThrow();
+  });
+
+  it('fails closed instead of evaluating controls through the legacy flat frame path', () => {
+    const source = [
+      '```amx',
+      'diagram generated {',
+      '  title: "Generated"',
+      '  description: "Staging boundary"',
+      '  width: 100',
+      '  height: 50',
+      '  time t from 0 to 1 duration 1',
+      '  for item in [1, 2] {',
+      '    circle generatedPoint {',
+      '      cx: item',
+      '      cy: t',
+      '      r: 2',
+      '      stroke: "#263238"',
+      '      lineWidth: 1',
+      '    }',
+      '  }',
+      '}',
+      '```'
+    ].join('\n');
+    expect(() => captureModel(source)).toThrow(
+      'Diagram controls are parsed and typechecked but cannot be evaluated in this sprint.'
+    );
+  });
+
+  it('reuses loop and conditional type diagnostics inside diagram controls', () => {
+    const document = (control: string, preamble: string[] = []) => parseDocumentText([
+      '```amx',
+      ...preamble,
+      'diagram invalid {',
+      '  title: "Invalid"',
+      '  description: "Invalid controls"',
+      '  width: 10',
+      '  height: 10',
+      '  time t from 0 to 1 duration 1',
+      ...control.split('\n').map(line => `  ${line}`),
+      '}',
+      '```'
+    ].join('\n'));
+    const iterableError = captureFailure(() => checkDocument(document('for item in 1 {\n}')));
+    expect(iterableError).toMatchObject({ code: 'AMX3003', message: 'For loop needs a list or range' });
+    const conditionError = captureFailure(() => checkDocument(document('if 1 {\n}')));
+    expect(conditionError).toMatchObject({ code: 'AMX3002', message: 'Expected Boolean, got Number' });
+    const measurementError = captureFailure(() => checkDocument(document(
+      'for item in 1 meter {\n}',
+      ['dimension Length', 'unit meter: Length']
+    )));
+    expect(measurementError).toMatchObject({ code: 'AMX3007', message: 'For loop needs a list or range' });
+  });
+
+  it('does not leak a new diagram iterator beyond its control block', () => {
+    const source = [
+      '```amx',
+      'diagram generated {',
+      '  title: "Generated"',
+      '  description: "Iterator scope"',
+      '  width: 10',
+      '  height: 10',
+      '  time t from 0 to 1 duration 1',
+      '  for item in [1] {',
+      '  }',
+      '}',
+      'let outside: Number = item',
+      '```'
+    ].join('\n');
+    const error = captureFailure(() => checkDocument(parseDocumentText(source)));
+    expect(error).toMatchObject({ code: 'AMX3001', message: "Unknown identifier 'item'" });
+  });
+
+  it('applies existing primitive requirements inside conditional content', () => {
+    const source = [
+      '```amx',
+      'diagram generated {',
+      '  title: "Generated"',
+      '  description: "Nested primitive validation"',
+      '  width: 10',
+      '  height: 10',
+      '  time t from 0 to 1 duration 1',
+      '  if true {',
+      '    circle incomplete {',
+      '      cx: 1',
+      '      cy: 1',
+      '      r: 1',
+      '      lineWidth: 1',
+      '    }',
+      '  }',
+      '}',
+      '```'
+    ].join('\n');
+    const error = captureFailure(() => checkDocument(parseDocumentText(source)));
+    expect(error).toMatchObject({ code: 'AMXD001', message: 'Missing required field: stroke', line: 9, column: 5 });
+  });
+
+  it('rejects diagram time in controls at the identifier with AMXD6001', () => {
+    const controls = [
+      { timeName: 't', control: 'for item in [t] {\n  }', identifier: 't]' },
+      { timeName: 't', control: 'if "🚀" == "🚀" and t > 0 {\n  }', identifier: 't >' },
+      { timeName: 'ti', control: 'if ti > 0 {\n  }', identifier: 'ti >' }
+    ];
+    for (const newline of ['\n', '\r\n']) {
+      for (const { timeName, control, identifier } of controls) {
+        const source = [
+          '---',
+          'title: Control diagnostics',
+          '---',
+          '# Control diagnostics',
+          '',
+          '```amx',
+          'diagram invalid {',
+          '  title: "Invalid"',
+          '  description: "Invalid controls"',
+          '  width: 10',
+          '  height: 10',
+          `  time ${timeName} from 0 to 1 duration 1`,
+          ...control.split('\n').map(line => `  ${line}`),
+          '}',
+          '```'
+        ].join('\n').replace(/\n/g, newline);
+        const sourceLines = source.split(/\r?\n/);
+        const controlLine = sourceLines.find(line => line.includes(identifier))!;
+        const expectedColumn = controlLine.lastIndexOf(identifier.split(' ')[0]) + 1;
+        const error = captureFailure(() => checkDocument(parseDocumentText(source)));
+        expect(error).toMatchObject({
+          code: 'AMXD6001',
+          message: `Variable [${timeName}] is already used to control the diagrams timeline. Use a different variable name.`,
+          line: sourceLines.indexOf(controlLine) + 1,
+          column: expectedColumn
+        });
+      }
+    }
+  });
+
+  it('counts nested authored primitives once toward the existing 512-element limit', () => {
+    const diagram = (count: number) => [
+      'diagram nestedCount {',
+      '  title: "Limit"',
+      '  description: "Nested authored elements"',
+      '  width: 10',
+      '  height: 10',
+      '  time t from 0 to 1 duration 1',
+      '  if true {',
+      ...Array.from({ length: count }, (_, index) => [
+        `    text nested${index} {`,
+        '      x: 0',
+        '      y: 0',
+        '      value: "x"',
+        '      fill: "#263238"',
+        '    }'
+      ]).flat(),
+      '  }',
+      '}'
+    ].join('\n');
+    const document = (count: number) => parseDocumentText(['```amx', diagram(count), '```'].join('\n'));
+    expect(() => checkDocument(document(512))).not.toThrow();
+    const overflow = captureFailure(() => checkDocument(document(513)));
+    expect(overflow.code).toBe('AMXD013');
+    expect(overflow.message).toBe('A single report can have up to 512 elements maximum.');
   });
 
   it('reports the separately allocated height and static-style diagnostics', () => {

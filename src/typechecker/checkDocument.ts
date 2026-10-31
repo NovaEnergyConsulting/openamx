@@ -1,4 +1,4 @@
-import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, DiagramDeclarationNode, DiagramElementNode, DiagramPropertyNode, DimensionDeclarationNode, EnumDeclarationNode, ExportNamesDeclarationNode, FunctionDeclarationNode, InputDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TableDeclarationNode, TypeDeclarationNode, TypeReferenceNode, UnitDeclarationNode, V02ExpressionNode, VisualizationOptionNode } from '../ast/types';
+import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, DiagramContentNode, DiagramDeclarationNode, DiagramElementNode, DiagramPropertyNode, DimensionDeclarationNode, EnumDeclarationNode, ExportNamesDeclarationNode, FunctionDeclarationNode, InputDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TableDeclarationNode, TypeDeclarationNode, TypeReferenceNode, UnitDeclarationNode, V02ExpressionNode, VisualizationOptionNode } from '../ast/types';
 import { moduleError, staticError } from '../diagnostics/errors';
 import type { DimensionMetadata, DimensionUnitRegistry, UnitMetadata } from './dimensionTypes';
 import { fieldRegistry, setDeclaringRegistry } from './declarationRegistry';
@@ -172,6 +172,57 @@ function expressionReferencesIdentifier(expression: V02ExpressionNode, name: str
   }
 }
 
+function identifierSource(expression: V02ExpressionNode, name: string): SourceLocation | undefined {
+  if (expression.type === 'identifier') return expression.name === name ? expression.source : undefined;
+  switch (expression.type) {
+    case 'binaryExpression': return identifierSource(expression.left, name) ?? identifierSource(expression.right, name);
+    case 'typeTestExpression': case 'measurementAttachment': case 'measurementConversion':
+      return identifierSource(expression.value, name);
+    case 'unaryExpression': return identifierSource(expression.argument, name);
+    case 'conditionalExpression': return identifierSource(expression.test, name)
+      ?? identifierSource(expression.consequent, name) ?? identifierSource(expression.alternate, name);
+    case 'bracedIfExpression': return identifierSource(expression.test, name)
+      ?? bodyIdentifierSource(expression.consequent, name) ?? bodyIdentifierSource(expression.alternate, name);
+    case 'stringInterpolation':
+      return expression.parts.find((part): part is V02ExpressionNode => typeof part !== 'string')
+        ? expression.parts.reduce<SourceLocation | undefined>((source, part) => source ?? (typeof part === 'string' ? undefined : identifierSource(part, name)), undefined)
+        : undefined;
+    case 'matchExpression': return identifierSource(expression.expression, name)
+      ?? expression.cases.reduce<SourceLocation | undefined>((source, item) => source ?? identifierSource(item.expression, name), undefined)
+      ?? identifierSource(expression.defaultExpression, name);
+    case 'rangeExpression': return identifierSource(expression.start, name) ?? identifierSource(expression.end, name);
+    case 'functionCall': return expression.arguments.reduce<SourceLocation | undefined>((source, argument) => source ?? identifierSource(argument, name), undefined);
+    case 'listLiteral': return expression.elements.reduce<SourceLocation | undefined>((source, item) => source ?? identifierSource(item, name), undefined);
+    case 'forExpression': return identifierSource(expression.iterable, name) ?? bodyIdentifierSource(expression.body, name);
+    case 'recordConstructor': return expression.fields.reduce<SourceLocation | undefined>((source, field) => source ?? identifierSource(field.expression, name), undefined);
+    case 'fieldAccess': return identifierSource(expression.receiver, name);
+    case 'listAccess': return identifierSource(expression.receiver, name) ?? identifierSource(expression.index, name);
+    default: return undefined;
+  }
+}
+
+function bodyIdentifierSource(statements: StatementNode[], name: string): SourceLocation | undefined {
+  for (const statement of statements) {
+    let source: SourceLocation | undefined;
+    switch (statement.type) {
+      case 'variableDeclaration': source = identifierSource(statement.expression, name); break;
+      case 'assignmentStatement': case 'compoundAssignmentStatement': source = identifierSource(statement.expression, name); break;
+      case 'returnStatement': source = identifierSource(statement.expression, name); break;
+      case 'forStatement': source = identifierSource(statement.iterable, name) ?? bodyIdentifierSource(statement.body, name); break;
+      case 'bracedIfStatement': source = identifierSource(statement.test, name)
+        ?? bodyIdentifierSource(statement.consequent, name)
+        ?? (statement.alternate ? bodyIdentifierSource(statement.alternate, name) : undefined); break;
+      case 'addStatement': source = identifierSource(statement.value, name)
+        ?? (statement.index ? identifierSource(statement.index, name) : undefined); break;
+      case 'removeStatement': source = identifierSource(statement.count, name)
+        ?? (statement.index ? identifierSource(statement.index, name) : undefined); break;
+      default: source = undefined;
+    }
+    if (source) return source;
+  }
+  return undefined;
+}
+
 function bodyReferencesIdentifier(statements: StatementNode[], name: string): boolean {
   return statements.some(statement => {
     switch (statement.type) {
@@ -272,7 +323,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
   let diagramElementCount = 0;
   let loopDepth = 0;
   let allowListMutation = true;
-  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010' | 'AMX3011' | 'AMX3012' | 'AMX3013' | 'AMX3014' | 'AMX3015' | 'AMX3016' | 'AMX3017' | 'AMX3018' | 'AMX3019' | 'AMX3020' | 'AMX3021' | 'AMXF4001' | 'AMXD001' | 'AMXD002' | 'AMXD003' | 'AMXD004' | 'AMXD005' | 'AMXD006' | 'AMXD007' | 'AMXD008' | 'AMXD009' | 'AMXD010' | 'AMXD011' | 'AMXD012' | 'AMXD013' | 'AMXD014' | 'AMXD015', message: string, source?: SourceLocation, declarationSource?: SourceLocation): never => staticError(code, message, source, file, declarationSource);
+  const fail = (code: 'AMX3001' | 'AMX3002' | 'AMX3003' | 'AMX3004' | 'AMX3005' | 'AMX3007' | 'AMX3008' | 'AMX3009' | 'AMX3010' | 'AMX3011' | 'AMX3012' | 'AMX3013' | 'AMX3014' | 'AMX3015' | 'AMX3016' | 'AMX3017' | 'AMX3018' | 'AMX3019' | 'AMX3020' | 'AMX3021' | 'AMXF4001' | 'AMXD001' | 'AMXD002' | 'AMXD003' | 'AMXD004' | 'AMXD005' | 'AMXD006' | 'AMXD007' | 'AMXD008' | 'AMXD009' | 'AMXD010' | 'AMXD011' | 'AMXD012' | 'AMXD013' | 'AMXD014' | 'AMXD015' | 'AMXD6001', message: string, source?: SourceLocation, declarationSource?: SourceLocation): never => staticError(code, message, source, file, declarationSource);
   const failDeclaration = (message: string, source?: SourceLocation, declarationSource?: SourceLocation): never =>
     staticError('AMX3008', message, source, file, declarationSource);
 
@@ -1311,7 +1362,42 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     localBindings.set(time.name, named('Number'));
     bindings = localBindings;
     try {
-      for (const element of diagram.elements) {
+      function checkDiagramContent(content: DiagramContentNode[]): void {
+        for (const node of content) {
+          if (node.type === 'diagramElement') {
+            checkDiagramElement(node);
+            continue;
+          }
+          if (node.type === 'diagramForBlock') {
+            if (expressionReferencesIdentifier(node.iterable, time.name)) {
+              fail('AMXD6001', `Variable [${time.name}] is already used to control the diagrams timeline. Use a different variable name.`,
+                identifierSource(node.iterable, time.name) ?? node.iterableSource ?? node.source);
+            }
+            const iterable = infer(node.iterable);
+            if (iterable.kind !== 'list') {
+              fail(iterable.kind === 'measurement' ? 'AMX3007' : 'AMX3003', 'For loop needs a list or range', node.iterableSource ?? node.source);
+            }
+            const outerBindings = bindings;
+            bindings = new Map(outerBindings);
+            bindings.set(node.variable, (iterable as { kind: 'list'; element: CheckedType }).element);
+            try {
+              checkDiagramContent(node.content);
+            } finally {
+              bindings = outerBindings;
+            }
+            continue;
+          }
+          if (expressionReferencesIdentifier(node.test, time.name)) {
+            fail('AMXD6001', `Variable [${time.name}] is already used to control the diagrams timeline. Use a different variable name.`,
+              identifierSource(node.test, time.name) ?? node.testSource ?? node.source);
+          }
+          requireType(infer(node.test), named('Boolean'), node.testSource ?? node.source);
+          checkDiagramContent(node.consequent);
+          if (node.alternate) checkDiagramContent(node.alternate);
+        }
+      }
+
+      function checkDiagramElement(element: DiagramElementNode): void {
         diagramElementCount++;
         if (diagramElementCount > 512) {
           fail('AMXD013', 'A single report can have up to 512 elements maximum.', element.source);
@@ -1362,6 +1448,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
           }
         }
       }
+      checkDiagramContent(diagram.content);
     } finally {
       bindings = outerBindings;
     }

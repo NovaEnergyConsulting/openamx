@@ -245,7 +245,8 @@ export function editorSymbolFacts(
 						diagramScope.set(time.name, localTime);
 					}
 					const elementNames = new Set<string>();
-					for (const element of statement.elements) {
+					for (const element of statement.content) {
+						if (element.type !== "diagramElement") continue;
 						const range = sourceTokenRange(moduleText, element.nameSource, element.name);
 						if (range && diagramParent && !elementNames.has(element.name)) {
 							elementNames.add(element.name);

@@ -141,7 +141,8 @@ export function registerNavigationProviders(): vscode.Disposable[] {
               const timeRange = tokenRange(document, time.nameSource, time.name);
               if (timeRange) symbol.children.push(new vscode.DocumentSymbol(time.name, 'diagram-local time', vscode.SymbolKind.Variable, timeRange, timeRange));
             }
-            for (const element of statement.elements) {
+            for (const element of statement.content) {
+              if (element.type !== 'diagramElement') continue;
               const elementRange = tokenRange(document, element.nameSource, element.name);
               if (elementRange) symbol.children.push(new vscode.DocumentSymbol(element.name, element.primitive, vscode.SymbolKind.Object, elementRange, elementRange));
             }

@@ -157,7 +157,8 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 				expression(time.to);
 				expression(time.duration);
 			}
-			for (const element of node.elements) {
+			for (const element of node.content) {
+				if (element.type !== "diagramElement") continue;
 				add(element.source, element.primitive, "keyword");
 				add(element.nameSource, element.name, "declaration");
 				for (const property of element.properties) {

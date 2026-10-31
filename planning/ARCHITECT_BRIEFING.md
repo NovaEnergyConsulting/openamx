@@ -1,3 +1,48 @@
+# ARCHITECT BRIEFING — Sprint 110 Builder Submission
+
+## Where things stand
+Diagram declarations now retain ordered recursive content through parsing, static checking, and formatting. The existing runtime rejects control-bearing diagrams before rendering them; generated element expansion remains future work. The Builder recommends ACCEPT for Sprint 110, with a separate product-owner disposition pending.
+
+## Executive summary
+**Business outcome**: Author and statically validate diagram-local loops and braced conditionals without allowing the existing flat runtime to silently omit or misrender their contents.
+
+**Current focus**: Review the Sprint 110 Builder evidence and record a separate product-owner disposition. Sprint 111 remains gated.
+
+**What is proven**: The recursive AST, parser, typechecker, authored limits, formatter, static compatibility, and fail-closed staging boundary pass the focused acceptance selection (141 tests, 0 failures). Root and VS Code extension no-emit typechecks pass.
+
+**What is not proven/live**: Runtime expansion, the accepted 64-element generated cap, per-instance frame bindings, serialization, browser playback, PDF/DOCX output, VS Code host execution, and release are not claimed.
+
+## Readiness signals
+
+| Signal | Status | Evidence |
+|---|---|---|
+| Sprint 109 contract and 64-cap decision | passed | Accepted separately with recorded residuals; S110 does not enforce the cap |
+| S110 parser, checker, formatter, source locations, and limits | passed | Focused selection: 141 passed, 0 failed |
+| AST/runtime staging and static compatibility | passed | Fail-closed boundary test; existing static diagram tests pass |
+| Product-owner disposition and Sprint 111 prerequisites | attention | S110 disposition pending; S111 overflow diagnostic not allocated |
+
+## Recommended next Architect action
+**Do**: Review the Builder evidence and record a separate S110 ACCEPTED/CLOSED disposition.
+**Owner**: Lead Developer / product owner.
+**Decision**: Builder recommends ACCEPT for S110. Sprint 111 remains gated on the separate disposition and overflow diagnostic allocation.
+
+## Evidence
+- VS Code test runner selection: `tests/parser.test.ts`, `tests/diagram.test.ts`, `tests/formatter.test.ts`, `tests/modules.test.ts`, and `tests/editor.test.ts` — 141 passed, 0 failed.
+- `bunx tsc --noEmit` — passed.
+- `bunx tsc --noEmit -p vscode-extension/tsconfig.test.json` — passed without writing extension outputs.
+- `git diff --check` — passed.
+- Full decisions, retries, exact changed paths, traceability, and unrun checks are in `planning/sprints/0110-v18-diagram-ast-parser-typechecker/builder-evidence.md`.
+
+## Plan corrections
+- The AST audit found three additional flat consumers in shared highlighting, shared symbols, and VS Code navigation. The user approved a narrow compatibility-only amendment; nested-control editor support remains out of scope.
+- The extension host test suite was not run because its script overwrites existing ignored outputs under `vscode-extension/dist/`, `out/`, and `.vscode-test/`; those artifacts were preserved.
+
+## Validation / test status
+**Tests:** 141 passing, 0 failing.
+Root and extension no-emit TypeScript checks and `git diff --check` passed. The extension host suite and all runtime/render/export checks remain NOT RUN.
+
+---
+
 # ARCHITECT BRIEFING — Sprint 098 Builder Closeout
 
 ## Where things stand

@@ -251,13 +251,43 @@ export interface DiagramElementNode {
   source?: SourceLocation;
 }
 
+export interface DiagramForBlockNode {
+  type: 'diagramForBlock';
+  variable: string;
+  variableSource?: SourceLocation;
+  iterable: V02ExpressionNode;
+  iterableText: string;
+  iterableSource?: SourceLocation;
+  content: DiagramContentNode[];
+  openSource?: SourceLocation;
+  closeSource?: SourceLocation;
+  source?: SourceLocation;
+}
+
+export interface DiagramIfBlockNode {
+  type: 'diagramIfBlock';
+  test: V02ExpressionNode;
+  testText: string;
+  testSource?: SourceLocation;
+  consequent: DiagramContentNode[];
+  alternate?: DiagramContentNode[];
+  consequentOpenSource?: SourceLocation;
+  consequentCloseSource?: SourceLocation;
+  elseSource?: SourceLocation;
+  alternateOpenSource?: SourceLocation;
+  alternateCloseSource?: SourceLocation;
+  source?: SourceLocation;
+}
+
+export type DiagramContentNode = DiagramElementNode | DiagramForBlockNode | DiagramIfBlockNode;
+
 export interface DiagramDeclarationNode {
   type: 'diagramDeclaration';
   name: string;
   nameSource?: SourceLocation;
   properties: DiagramPropertyNode[];
   times: DiagramTimeNode[];
-  elements: DiagramElementNode[];
+  content: DiagramContentNode[];
   source?: SourceLocation;
 }
 

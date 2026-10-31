@@ -181,7 +181,8 @@ function diagramAt(
 	for (const diagram of statementsOf(parsed).filter((statement): statement is DiagramDeclarationNode => statement.type === "diagramDeclaration")) {
 		const bounds = blockBounds(text, diagram.source);
 		if (!bounds || cursorOffset <= bounds.open || cursorOffset > bounds.close) continue;
-		const element = diagram.elements.find(candidate => {
+		const element = diagram.content.find((candidate): candidate is DiagramElementNode => {
+			if (candidate.type !== "diagramElement") return false;
 			const elementBounds = blockBounds(text, candidate.source);
 			return !!elementBounds && cursorOffset > elementBounds.open && cursorOffset <= elementBounds.close;
 		});

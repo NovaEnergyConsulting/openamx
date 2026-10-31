@@ -381,10 +381,15 @@ function evaluateFrame(
   if (typeof time !== 'number' || !Number.isFinite(time) || time < timeline.from || time > timeline.to) {
     staticError('AMXD004', 'Invalid time bounds', declaration.times[0]?.source ?? declaration.source, file);
   }
+  if (declaration.content.some(node => node.type !== 'diagramElement')) {
+    throw new Error('Diagram controls are parsed and typechecked but cannot be evaluated in this sprint.');
+  }
   const env = cloneEnvironment(sourceEnvironment);
   env.set(timeline.variable, time);
 
-  const elements = declaration.elements.map((element): DiagramFrameElement => {
+  const elements = declaration.content.map((node): DiagramFrameElement => {
+    if (node.type !== 'diagramElement') throw new Error('Diagram controls cannot be evaluated before runtime expansion.');
+    const element = node;
     const readNumber = (name: string) => requiredNumber(element, name, env, file, timeline, time);
     const readStyle = (name: string) => {
       const value = property(element, name).expression;

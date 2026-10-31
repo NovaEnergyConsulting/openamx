@@ -407,4 +407,100 @@ describe('formatAmx', () => {
     expect(evaluate(formatted)).toEqual(evaluate(source));
     expect(() => parseStatements(formatted)).not.toThrow();
   });
+
+  it('formats recursive diagram controls canonically and preserves the content tree', () => {
+    const source = [
+      'diagram generated {',
+      '  title: "Generated"',
+      '  description: "Formatter fixture"',
+      '  width: 100',
+      '  height: 50',
+      '  time t from 0 to 1 duration 1',
+      '  for item in [2, 1] {',
+      '    if item > 1 {',
+      '      circle first {',
+      '        cx: item * 10',
+      '        cy: t',
+      '        r: 2',
+      '        stroke: "#263238"',
+      '        lineWidth: 1',
+      '      }',
+      '    } else {',
+      '      circle second {',
+      '        cx: item * 20',
+      '        cy: t',
+      '        r: 2',
+      '        stroke: "#263238"',
+      '        lineWidth: 1',
+      '      }',
+      '    }',
+      '  }',
+      '  if true {',
+      '    for other in [3] {',
+      '      text third {',
+      '        x: other',
+      '        y: 1',
+      '        value: "third"',
+      '        fill: "#263238"',
+      '      }',
+      '    }',
+      '  }',
+      '}'
+    ].join('\n');
+    const expected = [
+      'diagram generated {',
+      '  title: "Generated"',
+      '  description: "Formatter fixture"',
+      '  width: 100',
+      '  height: 50',
+      '  time t from 0 to 1 duration 1',
+      '  for item in [2, 1] {',
+      '    if item > 1 {',
+      '      circle first {',
+      '        cx: item * 10',
+      '        cy: t',
+      '        r: 2',
+      '        stroke: "#263238"',
+      '        lineWidth: 1',
+      '      }',
+      '    } else {',
+      '      circle second {',
+      '        cx: item * 20',
+      '        cy: t',
+      '        r: 2',
+      '        stroke: "#263238"',
+      '        lineWidth: 1',
+      '      }',
+      '    }',
+      '  }',
+      '  if true {',
+      '    for other in [3] {',
+      '      text third {',
+      '        x: other',
+      '        y: 1',
+      '        value: "third"',
+      '        fill: "#263238"',
+      '      }',
+      '    }',
+      '  }',
+      '}',
+      ''
+    ].join('\n');
+    const withoutLocations = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(withoutLocations);
+      if (!value || typeof value !== 'object') return value;
+      return Object.fromEntries(Object.entries(value)
+        .filter(([key]) => !key.toLowerCase().includes('source'))
+        .map(([key, item]) => [key, withoutLocations(item)]));
+    };
+    const diagramContent = (text: string) => {
+      const statement = parseStatements(text)[0];
+      if (!statement || statement.type !== 'diagramDeclaration') throw new Error('Expected diagram declaration');
+      return statement.content;
+    };
+    const formatted = formatAmx(source);
+    expect(formatted).toBe(expected);
+    expect(formatAmx(formatted)).toBe(formatted);
+    expect(withoutLocations(diagramContent(formatted))).toEqual(withoutLocations(diagramContent(source)));
+  });
 });

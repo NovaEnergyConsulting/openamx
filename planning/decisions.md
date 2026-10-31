@@ -1,5 +1,42 @@
 # Planning Decisions
 
+## V0.18 Sprint 110 Diagnostic and AST Disposition (2026-10-31)
+
+- The Lead Developer allocated `AMXD6001` for the diagram timeline variable
+  in loop iterables and conditional controls. Its message is
+  `Variable [<time-name>] is already used to control the diagrams timeline.
+  Use a different variable name.`; the primary source is the identifier.
+- Nested diagram loops retain the existing `AMX3006` family with message
+  `No nested loops are allowed inside a diagram`, anchored at the inner
+  `for`. Malformed controls and unsupported diagram body content use
+  `AMX3006: Malformed for or if declaration`, anchored at the first offending
+  token. The initially suggested `AMXD6002` and `AMXD6003` identities were
+  explicitly declined.
+- D110-01 uses canonical ordered recursive `DiagramDeclarationNode.content`
+  with no duplicate flat AST representation. Current runtime evaluation
+  fails closed on control-bearing content until S111 implements expansion.
+- The S110-only AST consumer amendment adds compatibility adaptations to
+  shared highlighting, shared symbols, and VS Code navigation; nested-control
+  editor behavior remains in S113 scope. Existing extension output roots were
+  preserved; only the no-emit extension typecheck was authorized and run.
+- The 64 control-block-originating cap is not enforced in S110. The distinct
+  overflow diagnostic remains a prerequisite for S111; `AMXD013` remains the
+  authored 512-per-report diagnostic.
+- Builder recommendation is ACCEPT pending a separate product-owner
+  disposition. No Sprint 111, release, publication, version change, or
+  certification authority follows.
+
+## V0.18 Sprint 110 Execution Submission (2026-10-31)
+
+- The user authorized execution at `c0fbb9f3d0f8d25de12037c6b5fa9dcd77b5f1e1`
+  and approved the exact S110 files, focused tests, no-emit checks, and
+  evidence/lifecycle paths. A separate amendment approved the three direct
+  editor/navigation consumers and extension no-emit typecheck.
+- Focused parser/checker/formatter/module/editor selection passed 141/0;
+  root and extension no-emit TypeScript checks and `git diff --check` passed.
+- The separate product-owner ACCEPTED/CLOSED disposition is pending. Sprint
+  111 and all release/publication/version/certification work remain gated.
+
 ## V0.17 Sprint 105 Scope Amendment and Disposition (2026-10-25)
 
 - The user dispositioned Sprint 105 as a file-scoped V0.17 implementation:

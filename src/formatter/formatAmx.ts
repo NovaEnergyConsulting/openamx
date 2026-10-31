@@ -1,7 +1,7 @@
 import { parseDocumentText } from '../parser/parseDocument';
 import { parseStatements } from '../parser/parseStatements';
 import { findStringLiteralEnd } from '../parser/stringScanner';
-import { DiagramDeclarationNode, DiagramElementNode, DiagramPropertyNode, StatementNode } from '../ast/types';
+import { DiagramContentNode, DiagramDeclarationNode, DiagramElementNode, DiagramPropertyNode, StatementNode } from '../ast/types';
 
 export function formatAmxDocument(source: string): string {
   const document = parseDocumentText(source);
@@ -122,11 +122,35 @@ function formatDiagram(diagram: DiagramDeclarationNode, level: number): string[]
   for (const time of diagram.times) {
     output.push(`${'  '.repeat(level + 1)}time ${time.name} from ${time.fromText} to ${time.toText} duration ${time.durationText}`);
   }
-  for (const element of diagram.elements) {
-    output.push(`${'  '.repeat(level + 1)}${element.primitive} ${element.name} {`);
-    output.push(...orderedProperties(element.properties, elementPropertyOrder(element))
-      .flatMap(property => formatProperty(property, level + 2)));
-    output.push(`${'  '.repeat(level + 1)}}`);
+  for (const node of diagram.content) output.push(...formatDiagramContent(node, level + 1));
+  output.push(`${indentation}}`);
+  return output;
+}
+
+function formatDiagramContent(node: DiagramContentNode, level: number): string[] {
+  const indentation = '  '.repeat(level);
+  if (node.type === 'diagramElement') {
+    return [
+      `${indentation}${node.primitive} ${node.name} {`,
+      ...orderedProperties(node.properties, elementPropertyOrder(node))
+        .flatMap(property => formatProperty(property, level + 1)),
+      `${indentation}}`
+    ];
+  }
+  if (node.type === 'diagramForBlock') {
+    return [
+      `${indentation}for ${node.variable} in ${node.iterableText} {`,
+      ...node.content.flatMap(child => formatDiagramContent(child, level + 1)),
+      `${indentation}}`
+    ];
+  }
+  const output = [
+    `${indentation}if ${node.testText} {`,
+    ...node.consequent.flatMap(child => formatDiagramContent(child, level + 1))
+  ];
+  if (node.alternate) {
+    output.push(`${indentation}} else {`);
+    output.push(...node.alternate.flatMap(child => formatDiagramContent(child, level + 1)));
   }
   output.push(`${indentation}}`);
   return output;

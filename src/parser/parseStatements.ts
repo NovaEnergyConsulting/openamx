@@ -1,7 +1,7 @@
-import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, DiagramDeclarationNode, DiagramElementNode, DiagramPropertyNode, DiagramTimeNode, EnumDeclarationNode, FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, InputDeclarationNode, SourceLocation, StatementNode, TableDeclarationNode, TypeReferenceNode, VariableDeclarationNode, VisualizationOptionNode } from '../ast/types';
+import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, DiagramContentNode, DiagramDeclarationNode, DiagramElementNode, DiagramForBlockNode, DiagramIfBlockNode, DiagramPropertyNode, DiagramTimeNode, EnumDeclarationNode, FunctionDeclarationNode, FunctionParameterNode, ImportDeclarationNode, ImportedNameNode, InputDeclarationNode, SourceLocation, StatementNode, TableDeclarationNode, TypeReferenceNode, VariableDeclarationNode, VisualizationOptionNode } from '../ast/types';
 import { parseExpression } from './parseExpression';
 import { parseForStatement } from './parseFor';
-import { parseBracedIfStatement } from './parseIf';
+import { parseBracedIfStatement, readIfBlocks } from './parseIf';
 import { AmxError, staticError, syntaxError } from '../diagnostics/errors';
 import { findStringLiteralEnd, withoutStringLiterals } from './stringScanner';
 
@@ -623,7 +623,7 @@ function parseDiagramDeclaration(
     nameSource: { line: source.line, column: headerLine.indexOf(name) + 1 },
     properties: [],
     times: [],
-    elements: [],
+    content: [],
     source
   };
 
@@ -677,43 +677,173 @@ function parseDiagramDeclaration(
       continue;
     }
 
-    const elementHeader = line.match(/^\s*([A-Za-z][A-Za-z0-9_]*)\s+([A-Za-z][A-Za-z0-9_]*)\s*\{\s*$/);
-    if (elementHeader) {
-      const primitive = elementHeader[1];
-      const elementName = elementHeader[2];
-      const element: DiagramElementNode = {
-        type: 'diagramElement',
-        primitive,
-        name: elementName,
-        nameSource: { line: lineSource.line, column: line.indexOf(elementName) + 1 },
-        properties: [],
-        source: { line: lineSource.line, column: lineSource.column }
-      };
-      index++;
-      let elementClosed = false;
-      while (index < lines.length) {
-        const propertyLine = lines[index];
-        if (/^\s*}\s*$/.test(propertyLine)) {
-          elementClosed = true;
-          index++;
-          break;
-        }
-        if (!propertyLine.trim()) { index++; continue; }
-        const property = parseDiagramProperty(lines, index, source.line + index - startIndex);
-        element.properties.push(property.node);
-        index += property.lineCount;
-      }
-      if (!elementClosed) syntaxError('Unclosed diagram element', element.source);
-      statement.elements.push(element);
+    if (/^\s*(?:for|if)\b/.test(line) || /^\s*[A-Za-z][A-Za-z0-9_]*\s+[A-Za-z][A-Za-z0-9_]*\s*\{\s*$/.test(line)) {
+      const parsed = parseDiagramContentNodeAt(lines, index, lineSource, false);
+      statement.content.push(parsed.node);
+      index = parsed.endIndex + 1;
       continue;
     }
 
+    if (!/^\s*[A-Za-z][A-Za-z0-9_]*\s*:/.test(line)) {
+      syntaxError('Malformed for or if declaration', {
+        line: lineSource.line,
+        column: line.indexOf(line.trimStart()) + 1
+      });
+    }
     const property = parseDiagramProperty(lines, index, source.line + index - startIndex);
     statement.properties.push(property.node);
     index += property.lineCount;
   }
 
   syntaxError('Unclosed diagram declaration', source);
+}
+
+function parseDiagramContentNodeAt(
+  lines: string[],
+  index: number,
+  source: SourceLocation,
+  insideFor: boolean
+): { node: DiagramContentNode; endIndex: number } {
+  const line = lines[index];
+  if (/^\s*for\b/.test(line)) {
+    if (insideFor) syntaxError('No nested loops are allowed inside a diagram', source);
+    const header = line.match(/^\s*for\s+([A-Za-z][A-Za-z0-9_]*)\s+in\s+(.+?)\s*\{\s*$/);
+    if (!header) syntaxError('Malformed for or if declaration', source);
+    let endIndex: number;
+    try {
+      endIndex = findLoopEnd(lines, index, source);
+    } catch (error) {
+      const diagnostic = error instanceof AmxError ? error : undefined;
+      syntaxError('Malformed for or if declaration', {
+        line: diagnostic?.line ?? source.line,
+        column: diagnostic?.column ?? source.column
+      });
+    }
+    const iterableText = header[2].trim();
+    const iterableSource = { line: source.line, column: line.indexOf(iterableText) + 1 };
+    const iterable = parseDiagramControlExpression(iterableText, iterableSource);
+    const bodyText = lines.slice(index + 1, endIndex).join('\n');
+    const variableSource = { line: source.line, column: line.indexOf(header[1]) + 1 };
+    const node: DiagramForBlockNode = {
+      type: 'diagramForBlock',
+      variable: header[1],
+      variableSource,
+      iterable,
+      iterableText,
+      iterableSource,
+      content: parseDiagramContentSequence(bodyText, { line: source.line + 1, column: 1 }, true),
+      openSource: { line: source.line, column: line.lastIndexOf('{') + 1 },
+      closeSource: { line: source.line + endIndex - index, column: lines[endIndex].lastIndexOf('}') + 1 },
+      source
+    };
+    return { node, endIndex };
+  }
+
+  if (/^\s*if\b/.test(line)) {
+    const indentation = line.length - line.trimStart().length;
+    const controlText = lines.slice(index).join('\n').slice(indentation);
+    const controlSource = { line: source.line, column: source.column };
+    let blocks;
+    try {
+      blocks = readIfBlocks(controlText, controlSource);
+    } catch (error) {
+      const diagnostic = error instanceof AmxError ? error : undefined;
+      syntaxError('Malformed for or if declaration', {
+        line: diagnostic?.line ?? source.line,
+        column: diagnostic?.column ?? source.column
+      });
+    }
+    const consumedLines = controlText.slice(0, blocks.endOffset).split('\n').length;
+    const endIndex = index + consumedLines - 1;
+    const testSource = locationAtOffset(controlText, controlText.indexOf(blocks.condition), controlSource);
+    const test = parseDiagramControlExpression(blocks.condition, testSource);
+    const node: DiagramIfBlockNode = {
+      type: 'diagramIfBlock',
+      test,
+      testText: blocks.condition,
+      testSource,
+      consequent: parseDiagramContentSequence(blocks.consequent, blocks.consequentSource, insideFor),
+      ...(blocks.alternate === undefined ? {} : {
+        alternate: parseDiagramContentSequence(blocks.alternate, blocks.alternateSource!, insideFor)
+      }),
+      consequentOpenSource: blocks.consequentOpenSource,
+      consequentCloseSource: blocks.consequentClosingSource,
+      ...(blocks.alternate === undefined ? {} : {
+        elseSource: blocks.elseSource,
+        alternateOpenSource: blocks.alternateOpenSource,
+        alternateCloseSource: blocks.alternateClosingSource
+      }),
+      source
+    };
+    return { node, endIndex };
+  }
+
+  const elementHeader = line.match(/^\s*([A-Za-z][A-Za-z0-9_]*)\s+([A-Za-z][A-Za-z0-9_]*)\s*\{\s*$/);
+  if (!elementHeader) syntaxError('Malformed for or if declaration', source);
+  const element: DiagramElementNode = {
+    type: 'diagramElement',
+    primitive: elementHeader[1],
+    name: elementHeader[2],
+    nameSource: { line: source.line, column: line.indexOf(elementHeader[2]) + 1 },
+    properties: [],
+    source
+  };
+  let endIndex = index + 1;
+  let elementClosed = false;
+  while (endIndex < lines.length) {
+    const propertyLine = lines[endIndex];
+    if (/^\s*}\s*$/.test(propertyLine)) {
+      elementClosed = true;
+      break;
+    }
+    if (!propertyLine.trim()) { endIndex++; continue; }
+    if (/^\s*(?:for|if)\b/.test(propertyLine)
+      || /^\s*[A-Za-z][A-Za-z0-9_]*\s+[A-Za-z][A-Za-z0-9_]*\s*\{\s*$/.test(propertyLine)) {
+      syntaxError('Malformed for or if declaration', {
+        line: source.line + endIndex - index,
+        column: propertyLine.indexOf(propertyLine.trimStart()) + 1
+      });
+    }
+    const property = parseDiagramProperty(lines, endIndex, source.line + endIndex - index);
+    element.properties.push(property.node);
+    endIndex += property.lineCount;
+  }
+  if (!elementClosed) syntaxError('Unclosed diagram element', element.source);
+  return { node: element, endIndex };
+}
+
+function parseDiagramContentSequence(
+  text: string,
+  source: SourceLocation,
+  insideFor: boolean
+): DiagramContentNode[] {
+  const lines = text.split(/\r?\n/);
+  const content: DiagramContentNode[] = [];
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    if (!line.trim()) continue;
+    const indentation = line.length - line.trimStart().length;
+    const lineSource = {
+      line: source.line + index,
+      column: (index === 0 ? source.column : 1) + indentation
+    };
+    const parsed = parseDiagramContentNodeAt(lines, index, lineSource, insideFor);
+    content.push(parsed.node);
+    index = parsed.endIndex;
+  }
+  return content;
+}
+
+function parseDiagramControlExpression(text: string, source: SourceLocation): ReturnType<typeof parseExpression> {
+  try {
+    return parseExpression(text, source);
+  } catch (error) {
+    const diagnostic = error instanceof AmxError ? error : undefined;
+    syntaxError('Malformed for or if declaration', {
+      line: diagnostic?.line ?? source.line,
+      column: diagnostic?.column ?? source.column
+    });
+  }
 }
 
 function parseDiagramProperty(

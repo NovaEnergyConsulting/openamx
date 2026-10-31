@@ -3,14 +3,17 @@ import { syntaxError } from '../diagnostics/errors';
 import { parseExpression } from './parseExpression';
 import { parseStatements } from './parseStatements';
 
-interface IfBlocks {
+export interface IfBlocks {
   condition: string;
   consequent: string;
   alternate?: string;
   consequentSource: SourceLocation;
   alternateSource?: SourceLocation;
+  consequentOpenSource: SourceLocation;
   consequentClosingSource: SourceLocation;
+  alternateOpenSource?: SourceLocation;
   alternateClosingSource?: SourceLocation;
+  elseSource?: SourceLocation;
   endOffset: number;
 }
 
@@ -84,7 +87,7 @@ function containsTopLevelWord(text: string, start: number, end: number, word: st
   return false;
 }
 
-function readIfBlocks(text: string, source?: SourceLocation): IfBlocks {
+export function readIfBlocks(text: string, source?: SourceLocation): IfBlocks {
   const firstOpen = findFirstBlockOpen(text, 2);
   if (firstOpen === undefined) syntaxError("Expected '{' after braced 'if' condition", source);
   const firstClose = matchingBrace(text, firstOpen);
@@ -93,6 +96,7 @@ function readIfBlocks(text: string, source?: SourceLocation): IfBlocks {
   if (!condition) syntaxError("Expected condition after 'if'", source);
   const consequentBody = text.slice(firstOpen + 1, firstClose);
   const consequentSource = offsetLocation(text, firstOpen + 1, source);
+  const consequentOpenSource = offsetLocation(text, firstOpen, source);
   const consequentClosingSource = offsetLocation(text, firstClose, source);
   let cursor = skipWhitespace(text, firstClose + 1);
   if (!text.startsWith('else', cursor) || /[A-Za-z0-9_]/.test(text[cursor + 4] ?? '')) {
@@ -100,10 +104,12 @@ function readIfBlocks(text: string, source?: SourceLocation): IfBlocks {
       condition,
       consequent: consequentBody,
       consequentSource,
+      consequentOpenSource,
       consequentClosingSource,
       endOffset: firstClose + 1
     };
   }
+  const elseStart = cursor;
   cursor = skipWhitespace(text, cursor + 4);
   if (text[cursor] !== '{') syntaxError("Expected '{' after 'else'", offsetLocation(text, cursor, source));
   const alternateClose = matchingBrace(text, cursor);
@@ -114,8 +120,11 @@ function readIfBlocks(text: string, source?: SourceLocation): IfBlocks {
     alternate: text.slice(cursor + 1, alternateClose),
     consequentSource,
     alternateSource: offsetLocation(text, cursor + 1, source),
+    consequentOpenSource,
     consequentClosingSource,
+    alternateOpenSource: offsetLocation(text, cursor, source),
     alternateClosingSource: offsetLocation(text, alternateClose, source),
+    elseSource: offsetLocation(text, elseStart, source),
     endOffset: alternateClose + 1
   };
 }
