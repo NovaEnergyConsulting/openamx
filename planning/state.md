@@ -11,9 +11,9 @@
   runtime staging boundary are implemented. The focused five-file selection
   passed 141 tests with 0 failures; root and extension no-emit typechecks and
   `git diff --check` passed.
-- Builder recommendation: ACCEPT for S110 scope. Separate product-owner
-  ACCEPTED/CLOSED disposition remains pending; Sprint 111 is not authorized
-  and still requires its overflow diagnostic allocation. Runtime expansion,
+- Builder recommendation: ACCEPT for S110 scope. The user separately
+  ACCEPTED/CLOSED Sprint 110 on 2026-10-31. Sprint 111 is not authorized and
+  still requires its overflow diagnostic allocation. Runtime expansion,
   rendering, editor feature integration, release, publication, version
   changes, and certification are not claimed or authorized.
 

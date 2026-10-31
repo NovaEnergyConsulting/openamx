@@ -6,7 +6,8 @@ Sprint 110 implementation and scoped verification are complete under the
 separately approved file plan and consumer-path amendment.
 
 **Builder recommendation:** ACCEPT.
-**Separate product-owner disposition:** PENDING.
+**Separate product-owner disposition:** ACCEPTED/CLOSED by the user on
+2026-10-31.
 
 ## Entry Decisions and Authorization
 
@@ -132,6 +133,7 @@ separately approved file plan and consumer-path amendment.
 	NOT AUTHORIZED.
 - Builder recommendation: ACCEPT for S110 scope because all approved
 	acceptance gates passed; listed downstream work remains unproven.
-- Separate product-owner disposition/date: PENDING.
-- Sprint 111 remains gated on separate S110 ACCEPTED/CLOSED disposition and
-	allocation of its distinct overflow diagnostic.
+- Separate product-owner disposition/date: ACCEPTED/CLOSED by the user on
+	2026-10-31.
+- Sprint 110 is closed. Sprint 111 remains gated on allocation of its distinct
+	overflow diagnostic and separate Sprint 111 authorization.

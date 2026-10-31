@@ -22,9 +22,10 @@
 - The 64 control-block-originating cap is not enforced in S110. The distinct
   overflow diagnostic remains a prerequisite for S111; `AMXD013` remains the
   authored 512-per-report diagnostic.
-- Builder recommendation is ACCEPT pending a separate product-owner
-  disposition. No Sprint 111, release, publication, version change, or
-  certification authority follows.
+- The user ACCEPTED/CLOSED Sprint 110 on 2026-10-31 after the approved focused
+  verification passed. Sprint 111 remains separately gated on its overflow
+  diagnostic allocation and execution authorization. No release, publication,
+  version change, or certification authority follows.
 
 ## V0.18 Sprint 110 Execution Submission (2026-10-31)
 
@@ -34,8 +35,9 @@
   editor/navigation consumers and extension no-emit typecheck.
 - Focused parser/checker/formatter/module/editor selection passed 141/0;
   root and extension no-emit TypeScript checks and `git diff --check` passed.
-- The separate product-owner ACCEPTED/CLOSED disposition is pending. Sprint
-  111 and all release/publication/version/certification work remain gated.
+- The separate product-owner disposition is ACCEPTED/CLOSED as recorded
+  above. Sprint 111 and all release/publication/version/certification work
+  remain gated.
 
 ## V0.17 Sprint 105 Scope Amendment and Disposition (2026-10-25)
 

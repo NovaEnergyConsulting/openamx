@@ -1,12 +1,12 @@
 # ARCHITECT BRIEFING — Sprint 110 Builder Submission
 
 ## Where things stand
-Diagram declarations now retain ordered recursive content through parsing, static checking, and formatting. The existing runtime rejects control-bearing diagrams before rendering them; generated element expansion remains future work. The Builder recommends ACCEPT for Sprint 110, with a separate product-owner disposition pending.
+Sprint 110 is ACCEPTED/CLOSED by the user on 2026-10-31. Diagram declarations now retain ordered recursive content through parsing, static checking, and formatting. The existing runtime rejects control-bearing diagrams before rendering them; generated element expansion remains future work.
 
 ## Executive summary
 **Business outcome**: Author and statically validate diagram-local loops and braced conditionals without allowing the existing flat runtime to silently omit or misrender their contents.
 
-**Current focus**: Review the Sprint 110 Builder evidence and record a separate product-owner disposition. Sprint 111 remains gated.
+**Current focus**: Prepare Sprint 111's diagnostic allocation and execution gate. Sprint 110 is closed.
 
 **What is proven**: The recursive AST, parser, typechecker, authored limits, formatter, static compatibility, and fail-closed staging boundary pass the focused acceptance selection (141 tests, 0 failures). Root and VS Code extension no-emit typechecks pass.
 
@@ -17,14 +17,14 @@ Diagram declarations now retain ordered recursive content through parsing, stati
 | Signal | Status | Evidence |
 |---|---|---|
 | Sprint 109 contract and 64-cap decision | passed | Accepted separately with recorded residuals; S110 does not enforce the cap |
-| S110 parser, checker, formatter, source locations, and limits | passed | Focused selection: 141 passed, 0 failed |
+| S110 parser, checker, formatter, source locations, limits, and disposition | passed | 141 passed, 0 failed; user ACCEPTED/CLOSED on 2026-10-31 |
 | AST/runtime staging and static compatibility | passed | Fail-closed boundary test; existing static diagram tests pass |
-| Product-owner disposition and Sprint 111 prerequisites | attention | S110 disposition pending; S111 overflow diagnostic not allocated |
+| Sprint 111 prerequisites | attention | Overflow diagnostic allocation and separate execution authorization remain outstanding |
 
 ## Recommended next Architect action
-**Do**: Review the Builder evidence and record a separate S110 ACCEPTED/CLOSED disposition.
+**Do**: Prepare Sprint 111 after its overflow diagnostic is allocated and its execution plan is separately authorized.
 **Owner**: Lead Developer / product owner.
-**Decision**: Builder recommends ACCEPT for S110. Sprint 111 remains gated on the separate disposition and overflow diagnostic allocation.
+**Decision**: Sprint 110 is ACCEPTED/CLOSED. No Sprint 111 execution authority follows.
 
 ## Evidence
 - VS Code test runner selection: `tests/parser.test.ts`, `tests/diagram.test.ts`, `tests/formatter.test.ts`, `tests/modules.test.ts`, and `tests/editor.test.ts` — 141 passed, 0 failed.
