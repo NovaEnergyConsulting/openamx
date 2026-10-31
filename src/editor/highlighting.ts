@@ -1,4 +1,4 @@
-import type { OpenAmxDocument, StatementNode, TypeReferenceNode, V02ExpressionNode } from "../ast/types";
+import type { DiagramContentNode, OpenAmxDocument, StatementNode, TypeReferenceNode, V02ExpressionNode } from "../ast/types";
 import { declarationNameRange, sourceOffset, sourceTokenRange, type EditorRange } from "./sourceRanges";
 import { findStringLiteralEnd } from "../parser/stringScanner";
 import type { SourceLocation } from "../ast/types";
@@ -108,6 +108,38 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 		if (node.type === "namedType" && node.name) add(node.source, node.name, "type");
 		if (node.element) typeReference(node.element);
 	};
+	const diagramContent = (content: DiagramContentNode[]): void => {
+		for (const item of content) {
+			if (item.type === "diagramElement") {
+				add(item.source, item.primitive, "keyword");
+				add(item.nameSource, item.name, "declaration");
+				for (const property of item.properties) {
+					add(property.nameSource, property.name, "field");
+					expression(property.expression);
+				}
+			} else if (item.type === "diagramForBlock") {
+				add(item.source, "for", "keyword");
+				add(item.variableSource, item.variable, "declaration");
+				const variableOffset = sourceOffset(text, item.variableSource);
+				if (variableOffset !== undefined) {
+					const afterVariable = variableOffset + item.variable.length;
+					const inToken = text.slice(afterVariable).match(/^\s+in\b/)?.[0];
+					if (inToken) {
+						const from = afterVariable + inToken.length - 2;
+						facts.push({ from, to: from + 2, kind: "keyword" });
+					}
+				}
+				expression(item.iterable);
+				diagramContent(item.content);
+			} else {
+				add(item.source, "if", "keyword");
+				expression(item.test);
+				diagramContent(item.consequent);
+				if (item.elseSource) add(item.elseSource, "else", "keyword");
+				if (item.alternate) diagramContent(item.alternate);
+			}
+		}
+	};
 	const loopVariable = (node: Extract<StatementNode, { type: "forStatement" }>): void => {
 		const start = sourceOffset(text, node.source);
 		if (start === undefined) return;
@@ -157,15 +189,7 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 				expression(time.to);
 				expression(time.duration);
 			}
-			for (const element of node.content) {
-				if (element.type !== "diagramElement") continue;
-				add(element.source, element.primitive, "keyword");
-				add(element.nameSource, element.name, "declaration");
-				for (const property of element.properties) {
-					add(property.nameSource, property.name, "field");
-					expression(property.expression);
-				}
-			}
+			diagramContent(node.content);
 		}
 		if (node.type === "typeDeclaration") {
 			const firstParent = node.parents?.[0];

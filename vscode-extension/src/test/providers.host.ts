@@ -564,7 +564,7 @@ suite('OpenAMX providers', () => {
       assert.ok(!outsideLabels.has(fn), fn);
     }
   });
-  test('tokenizes V0.9-V0.16 syntax with the actual TextMate grammar and preserves Markdown boundaries', async () => {
+  test('tokenizes V0.9-V0.18 syntax with the actual TextMate grammar and preserves Markdown boundaries', async () => {
     const extension = vscode.extensions.getExtension('EngineersTools.openamx-vscode');
     assert.ok(extension);
     const wasm = await fs.readFile(require.resolve('vscode-oniguruma/release/onig.wasm'));
@@ -593,6 +593,7 @@ suite('OpenAMX providers', () => {
     const lines = tokenize([
       'Narrative dimension and unit remain prose.',
       'Narrative is PI and sin remain prose.',
+      'Narrative for sample in [1] { circle tracePoint { } }',
       '```amx',
       'fn review(value: Sample, samples: Number[]): Sample {',
       '  let selected: Sample = value',
@@ -645,6 +646,37 @@ suite('OpenAMX providers', () => {
       '    lineWidth: 2',
       '    arrow: "end"',
       '  }',
+      '  for sample in [0, 1] {',
+      '    if sample > 0 {',
+      '      circle tracePoint {',
+      '        cx: sample + t',
+      '        cy: sample * 2',
+      '        r: 2',
+      '        stroke: "#263238"',
+      '        fill: "#F3B64B"',
+      '        lineWidth: 1',
+      '      }',
+      '    } else {',
+      '      rectangle fallbackPoint {',
+      '        x: sample',
+      '        y: 1',
+      '        width: 2',
+      '        height: 2',
+      '        stroke: "#263238"',
+      '        lineWidth: 1',
+      '      }',
+      '    }',
+      '  }',
+      '  if true {',
+      '    for row in [1] {',
+      '      text nestedLabel {',
+      '        x: row',
+      '        y: 1',
+      '        value: "row"',
+      '        fill: "#263238"',
+      '      }',
+      '    }',
+      '  }',
       '}',
       'diagram unfinished',
       'time localTime',
@@ -656,6 +688,10 @@ suite('OpenAMX providers', () => {
       '```js',
       'fn inert(value: Number): Number = value',
       'let inert = 1 meter',
+      'for sample in [1] {',
+      '  circle tracePoint {',
+      '  }',
+      '}',
       '```',
       'Narrative {{2 meter}} and unit.'
     ].join('\n'));
@@ -711,6 +747,16 @@ suite('OpenAMX providers', () => {
     hasScope('  time t from 0 to 2 duration 4', 't from', 'variable.other.diagram-time.amx');
     hasScope('  line rod {', 'line', 'keyword.declaration.diagram-element.amx');
     hasScope('  line rod {', 'rod', 'entity.name.diagram-element.amx');
+    hasScope('  for sample in [0, 1] {', 'for', 'keyword.control.amx');
+    hasScope('  for sample in [0, 1] {', 'in', 'keyword.control.amx');
+    hasScope('    if sample > 0 {', 'if', 'keyword.control.amx');
+    hasScope('    } else {', 'else', 'keyword.control.amx');
+    hasScope('      circle tracePoint {', 'circle', 'keyword.declaration.diagram-element.amx');
+    hasScope('      circle tracePoint {', 'tracePoint', 'entity.name.diagram-element.amx');
+    hasScope('      rectangle fallbackPoint {', 'rectangle', 'keyword.declaration.diagram-element.amx');
+    hasScope('      rectangle fallbackPoint {', 'fallbackPoint', 'entity.name.diagram-element.amx');
+    hasScope('      text nestedLabel {', 'text', 'keyword.declaration.diagram-element.amx');
+    hasScope('      text nestedLabel {', 'nestedLabel', 'entity.name.diagram-element.amx');
     hasScope('    x1: 1', 'x1', 'keyword.other.option.amx');
     hasScope('    arrow: "end"', '"end"', 'string.quoted.double.amx');
     hasScope('diagram unfinished', 'diagram', 'keyword.declaration.diagram.amx');
@@ -726,6 +772,9 @@ suite('OpenAMX providers', () => {
     lacksScope('Narrative dimension and unit remain prose.', 'dimension', 'keyword.control.amx');
     lacksScope('Narrative is PI and sin remain prose.', 'PI', 'constant.language.amx');
     lacksScope('Narrative is PI and sin remain prose.', 'sin', 'support.function.builtin.amx');
+    lacksScope('Narrative for sample in [1] { circle tracePoint { } }', 'for', 'keyword.control.amx');
+    lacksScope('for sample in [1] {', 'for', 'keyword.control.amx');
+    lacksScope('  circle tracePoint {', 'circle', 'keyword.declaration.diagram-element.amx');
     lacksScope('let inert = 1 meter', 'let', 'keyword.control.amx');
     lacksScope('fn inert(value: Number): Number = value', 'fn', 'keyword.declaration.function.amx');
     hasScope('Narrative {{2 meter}} and unit.', '2', 'constant.numeric.amx');
@@ -776,6 +825,56 @@ suite('OpenAMX providers', () => {
       lacksScope(inertLineText, 'let', 'keyword.control.amx', unterminated);
     }
     hasScope('let remainsExecutable = 6', 'let', 'keyword.control.amx', unterminated);
+  });
+
+  test('accepts and formats nested V0.18 diagram controls in the Extension Development Host', async () => {
+    const content = [
+      '```amx',
+      'diagram generatedTrace {',
+      '  title: "Generated trace"',
+      '  description: "Nested generated points."',
+      '  width: 100',
+      '  height: 80',
+      '  time t from 0 to 1 duration 2',
+      '  for sample in [0, 1] {',
+      '    if sample > 0 {',
+      '      circle tracePoint {',
+      '        cx: sample + t',
+      '        cy: sample * 2',
+      '        r: 2',
+      '        stroke: "#263238"',
+      '        lineWidth: 1',
+      '      }',
+      '    } else {',
+      '      rectangle fallbackPoint {',
+      '        x: sample',
+      '        y: 1',
+      '        width: 2',
+      '        height: 2',
+      '        stroke: "#263238"',
+      '        lineWidth: 1',
+      '      }',
+      '    }',
+      '  }',
+      '}',
+      '```'
+    ].join('\n');
+    const document = await vscode.workspace.openTextDocument({ language: 'amx', content });
+    await vscode.window.showTextDocument(document);
+    assert.equal((await waitForDiagnostics(document.uri, true)).length, 0);
+
+    const formatting = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+      'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 2, insertSpaces: true }
+    );
+    if (formatting?.length) {
+      const workspaceEdit = new vscode.WorkspaceEdit();
+      formatting.forEach(edit => workspaceEdit.replace(document.uri, edit.range, edit.newText));
+      assert.ok(await vscode.workspace.applyEdit(workspaceEdit));
+    }
+    assert.equal((await vscode.commands.executeCommand<vscode.TextEdit[]>(
+      'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 2, insertSpaces: true }
+    ))?.length ?? 0, 0);
+    assert.equal((await waitForDiagnostics(document.uri, true)).length, 0);
   });
 
   test('provides V0.12 completion, outline, navigation, formatting, and diagnostic ranges', async () => {

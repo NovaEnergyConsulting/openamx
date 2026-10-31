@@ -68,6 +68,7 @@ function sourceForPath(path: string): string {
 	const created = createdFiles.get(path);
 	if (created) return created.text;
 	if (fixtureScenario === "stale" && path.endsWith("/report.amx")) return staleSource;
+	if (hasActiveDocument && path === activePath) return currentText;
 	if (path === secondPath) return secondSource;
 	if (path === cssPath) return cssSource;
 	if (path === csvPath) return csvSource;

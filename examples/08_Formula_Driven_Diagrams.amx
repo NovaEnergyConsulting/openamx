@@ -6,8 +6,9 @@ title: Formula-driven diagrams
 
 ## Objective
 
-Read a formula-driven diagram whose geometry responds directly to its selected
-time value, and identify the controls available in Preview.
+Read a formula-driven diagram whose geometry responds to time, then inspect a
+loop- and conditional-generated group whose membership stays fixed during
+playback.
 
 ## Prerequisites
 
@@ -19,7 +20,8 @@ data mappings or modules are required to run this example.
 In OpenAMX Desktop, open this document from `examples/`. Select **Run** to
 check its values, then **Preview** to inspect the mechanism and its playback
 controls. The diagram starts at the lower time bound; use play, pause, reset,
-scrub, and the optional loop control to inspect frames.
+scrub, and the optional loop control to inspect the crank-slider and generated
+trace points.
 
 ## Inputs and support files
 
@@ -108,15 +110,38 @@ diagram crankSlider {
     value: "t = ${round(t, 2)} s"
     fill: "#263238"
   }
+  for sample in [0, 1, 2, 3] {
+    if sample > 0 {
+      circle tracePoint {
+        cx: pivotX + crankX(t, crankRadius) + sample * 4
+        cy: 100 + crankY(t, crankRadius)
+        r: 2
+        stroke: "#263238"
+        fill: "#F3B64B"
+        lineWidth: 1
+      }
+    }
+  }
 }
 ```
+
+## A generated trace group
+
+The loop visits four values and the conditional omits `sample == 0`, emitting
+three circles in source order. `tracePoint` is the one authored declaration
+repeated by the loop, not a unique source name for each emitted circle. The
+loop iterable and condition do not use `t`; the supported `cx` and `cy`
+properties do. The three generated points keep the same membership and order
+across frames while their positions follow the crank pin.
 
 ## Expected outcome
 
 The declared crank radius is `34` and the connecting-rod length is `105`.
 Diagram-local `t` runs from `0` to `2` over a four-second playback duration.
-Each frame evaluates the equations at its selected time; this is not a
-stateful solver or an accumulated simulation.
+The loop and conditional emit exactly three trace circles when the diagram
+model is created. Their membership and order remain fixed during playback;
+their geometry, like the crank-slider geometry, is evaluated at each selected
+time. This is not a stateful solver or an accumulated simulation.
 
 Standalone HTML and desktop Preview provide the interactive controls. PDF and
 DOCX exports contain a static frame at the lower time bound; neither includes

@@ -21,7 +21,9 @@ not certified risk models or industry standards.
   results as JSON or CSV.
 - **Build visual explanations.** Create tables, charts, and formula-driven 2D
   diagrams alongside the narrative.
-- **Use the latest language additions.** V0.16 adds statement-bodied
+- **Use the latest language additions.** V0.18 adds diagram-local loops and
+  conditionals that generate primitives once per model while allowing
+  properties to animate with diagram time. V0.16 adds statement-bodied
   functions while preserving expression-bodied functions. V0.14 adds runtime
   type predicates, mathematical functions, text helpers, and bounded numeric
   formatting with `en-US`, `de-DE`, and `fr-FR` locales. Earlier additions
@@ -143,7 +145,7 @@ unified HTML/PDF/DOCX export workflow.
   [function bodies](examples/15_Function_Bodies.amx) are standalone references.
 - V0.12 features: [records and enums](examples/04_Typed_Records_Enums_and_Modules.amx)
   and [expressions and decisions](examples/02_Expressions_and_Decisions.amx).
-- V0.13 diagrams: [formula-driven diagrams](examples/08_Formula_Driven_Diagrams.amx)
+- V0.13/V0.18 diagrams: [formula-driven diagrams](examples/08_Formula_Driven_Diagrams.amx)
   and the [battery-resistor reference](examples/14_Battery_Resistor_Circuit.amx).
 - V0.14 examples: [runtime type checks](examples/09_Runtime_Type_Checks.amx),
   [math and Measurements](examples/10_Mathematics_and_Measurement_Operations.amx),
@@ -154,8 +156,10 @@ Read the [V0.9 language specification](docs/language-spec-v0.9.md) and
 [V0.12 language specification](docs/language-spec-v0.12.md),
 [V0.13 diagram specification](docs/language-spec-v0.13.md), and
 [V0.14 language specification](docs/language-spec-v0.14.md) and
-[V0.16 language specification](docs/language-spec-v0.16.md) for the current
-language contract. Browse the [examples](examples/) and [documentation](docs/). The
+[V0.16 language specification](docs/language-spec-v0.16.md), and the additive
+[V0.18 diagram generation specification](docs/language-spec-v0.18.md) for the
+current language contract. Browse the [examples](examples/) and
+[documentation](docs/). The
 [desktop guide](desktop-app/README.md) and
 [VS Code guide](vscode-extension/README.md) cover their respective tools.
 

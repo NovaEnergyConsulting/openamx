@@ -2,10 +2,17 @@ import { describe, expect, it } from "bun:test";
 import { cp, mkdir, mkdtemp, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import * as path from "path";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import JSZip from "jszip";
+import sharp from "sharp";
 import { parseDocument, parseDocumentText } from "../src/parser/parseDocument";
-import { evaluateDocument } from "../src/runtime/evaluateDocument";
+import { evaluateDocument, evaluateDocumentEnvironment } from "../src/runtime/evaluateDocument";
+import { evaluateDiagramFrame } from "../src/runtime/diagramModel";
 import { analyzeEditorModules } from "../src/editor/moduleAnalysis";
 import { renderHtml } from "../src/renderer/renderHtml";
+import { preparePdfReport, serializePdfReport } from "../src/renderer/reportPdf";
+import { prepareDocxReport, serializeDocxReport } from "../src/renderer/reportDocx";
+import { prepareReport } from "../src/renderer/reportPreparation";
 import { formatAmxDocument } from "../src/formatter/formatAmx";
 import { checkDocument } from "../src/typechecker/checkDocument";
 
@@ -135,6 +142,106 @@ describe("V0.13 diagram documentation and examples", () => {
         expect(source).toContain("arrow: \"end\"");
         expect(source).toContain("x1: indicatorX(t)");
       }
+    }
+  });
+});
+
+describe("V0.18 generated diagram example", () => {
+  it("runs Example 08 with three stable, animated generated trace points", async () => {
+    const examplePath = "examples/08_Formula_Driven_Diagrams.amx";
+    const source = await Bun.file(examplePath).text();
+    const document = parseDocumentText(source);
+    const environment = evaluateDocumentEnvironment(document, examplePath);
+    const values = evaluateDocument(document, examplePath);
+    const model = environment.diagramEmissions[0]?.model;
+    if (!model) throw new Error("Expected Example 08 to emit its crank-slider diagram.");
+    const lower = evaluateDiagramFrame(model, model.timeline.from).elements
+      .filter(element => element.primitive === "circle" && element.name === "tracePoint");
+    const middle = evaluateDiagramFrame(model, 0.5).elements
+      .filter(element => element.primitive === "circle" && element.name === "tracePoint");
+    const upper = evaluateDiagramFrame(model, model.timeline.to).elements
+      .filter(element => element.primitive === "circle" && element.name === "tracePoint");
+    const controlLines = source.split(/\r?\n/).filter(line => /^\s*(?:for|if)\b/.test(line));
+    const html = renderHtml(document, examplePath);
+    const cliRun = await runCli("run", examplePath);
+    const readme = await Bun.file("README.md").text();
+    const specification = await Bun.file("docs/language-spec-v0.18.md").text();
+
+    expect(cliRun.exitCode).toBe(0);
+    expect(cliRun.stderr).toBe("");
+    expect(values).toMatchObject({ crankRadius: 34, rodLength: 105, pivotX: 70 });
+    expect(lower).toHaveLength(3);
+    expect(middle).toHaveLength(3);
+    expect(upper).toHaveLength(3);
+    expect(lower.map(element => element.name)).toEqual(["tracePoint", "tracePoint", "tracePoint"]);
+    expect(middle.map(element => element.name)).toEqual(lower.map(element => element.name));
+    expect(upper.map(element => element.name)).toEqual(lower.map(element => element.name));
+    expect(middle.map(element => element.cy)).not.toEqual(lower.map(element => element.cy));
+    expect(controlLines.every(line => !/\bt\b/.test(line))).toBe(true);
+    expect(source).toContain("cx: pivotX + crankX(t, crankRadius) + sample * 4");
+    expect(source).toContain("cy: 100 + crankY(t, crankRadius)");
+    expect(formatAmxDocument(formatAmxDocument(source))).toBe(formatAmxDocument(source));
+    expect(readme).toContain("[V0.18 diagram generation specification](docs/language-spec-v0.18.md)");
+    expect(specification).toContain("D111-02");
+    expect(html).toContain('data-openamx-diagram="openamx-diagram-0"');
+    expect(html).toContain('data-diagram-model data-encoding="gzip-base64"');
+  });
+
+  it("exports the generated trace at the lower bound in PDF SVG and DOCX PNG", async () => {
+    const examplePath = "examples/08_Formula_Driven_Diagrams.amx";
+    const document = parseDocumentText(await Bun.file(examplePath).text());
+    const environment = evaluateDocumentEnvironment(document, examplePath);
+    const report = await prepareReport(document, environment, { file: examplePath, includeStylesheet: false });
+    const pdfReport = preparePdfReport(report);
+    const records: Record<string, unknown>[] = [];
+    const visit = (value: unknown) => {
+      if (Array.isArray(value)) value.forEach(visit);
+      else if (value !== null && typeof value === "object") {
+        const record = value as Record<string, unknown>;
+        records.push(record);
+        Object.values(record).forEach(visit);
+      }
+    };
+    visit(pdfReport.definition.content);
+    const diagramSvg = records.find(record => typeof record.svg === "string"
+      && record.svg.includes('id="diagram-title"'))?.svg;
+    if (typeof diagramSvg !== "string") throw new Error("Expected the PDF adapter to embed the diagram SVG.");
+
+    const generatedCircles = [40, 44, 48].map(cx => {
+      const circle = `<circle cx="${cx}"`;
+      return diagramSvg.indexOf(circle);
+    });
+    expect(generatedCircles.every(position => position >= 0)).toBe(true);
+    expect(generatedCircles[0]).toBeLessThan(generatedCircles[1]!);
+    expect(generatedCircles[1]).toBeLessThan(generatedCircles[2]!);
+    expect(diagramSvg).toContain('<title id="diagram-title">Crank-slider mechanism</title>');
+    expect(diagramSvg).toContain('cx="40" cy="100" r="2"');
+    expect(diagramSvg).toContain('cx="44" cy="100" r="2"');
+    expect(diagramSvg).toContain('cx="48" cy="100" r="2"');
+
+    const pdfBytes = await serializePdfReport(pdfReport);
+    const pdf = await getDocument({ data: pdfBytes, useSystemFonts: true, disableFontFace: true }).promise;
+    const pdfText = (await pdf.getPage(1)).getTextContent();
+    const pdfTextValue = (await pdfText).items.map(item => "str" in item ? item.str : "").join(" ");
+    expect(pdfTextValue).toContain("Crank-slider mechanism");
+
+    const docxBytes = await serializeDocxReport(await prepareDocxReport(report));
+    const archive = await JSZip.loadAsync(docxBytes);
+    const imageName = Object.keys(archive.files).find(name => name.startsWith("word/media/") && name.endsWith(".png"));
+    if (!imageName) throw new Error("Expected the DOCX adapter to embed its diagram PNG.");
+    const documentXml = await archive.file("word/document.xml")?.async("string") ?? "";
+    expect(documentXml).toContain("Crank-slider mechanism");
+    const png = await archive.file(imageName)!.async("uint8array");
+    const { data, info } = await sharp(Buffer.from(png)).raw().toBuffer({ resolveWithObject: true });
+    const pixelAt = (x: number, y: number) => {
+      const offset = (y * info.width + x) * info.channels;
+      return [data[offset]!, data[offset + 1]!, data[offset + 2]!];
+    };
+    for (const x of [150, 165, 180]) {
+      const [red, green, blue] = pixelAt(x, 375);
+      expect(red).toBeGreaterThan(220);
+      expect(green).toBeGreaterThan(150);
+      expect(blue).toBeGreaterThan(50);
     }
   });
 });

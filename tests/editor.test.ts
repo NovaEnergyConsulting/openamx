@@ -740,6 +740,91 @@ test("V0.13 shared editor facts recognize diagram syntax without leaking inert t
 			expect(isSafeRenameIdentifier("diagram")).toBe(false);
 		});
 
+		test("V0.18 shared editor facts recursively cover diagram controls and nested primitives", () => {
+			const text = [
+				"Narrative for sample in [1] { circle inert { } }",
+				"```js",
+				"diagram inert {",
+				"```",
+				"```amx",
+				"let rowOffset: Number = 2",
+				"diagram generatedTrace {",
+					'title: "Generated trace"',
+					'description: "Nested generated points."',
+					"width: 100",
+					"height: 80",
+					"time t from 0 to 1 duration 2",
+					"  for sample in [0, 1] {",
+					"    if sample > 0 {",
+					"      circle tracePoint {",
+					"        cx: sample + t",
+					"        cy: sample * 2",
+					"        r: 2",
+					'        stroke: "#263238"',
+					'        fill: "#F3B64B"',
+					"        lineWidth: 1",
+					"      }",
+					"    } else {",
+					"      rectangle skippedPoint {",
+					"        x: sample",
+					"        y: 1",
+					"        width: 2",
+					"        height: 2",
+					'        stroke: "#263238"',
+					"        lineWidth: 1",
+					"      }",
+					"    }",
+				"  }",
+				"  if rowOffset > 0 {",
+				"    for row in [1] {",
+					"      text nestedLabel {",
+					"        x: row + rowOffset",
+					"        y: 1",
+					'        value: "row ${row + t}"',
+					'        fill: "#263238"',
+					"      }",
+					"    }",
+				"  }",
+				"}",
+				"```",
+				"",
+			].join("\n");
+			const analysis = analyzeEditorModules(text, "/project/v18-diagram-editor.amx");
+			const highlights = editorHighlightFacts(text, analysis.document);
+			const factAt = (line: string, token: string, kind: string, last = false) => {
+				const lineStart = text.indexOf(line);
+				const from = lineStart + (last ? line.lastIndexOf(token) : line.indexOf(token));
+				return highlights.find(fact => fact.from === from && fact.to === from + token.length && fact.kind === kind);
+			};
+
+			for (const [line, token, kind, last] of [
+				["  for sample in [0, 1] {", "for", "keyword"],
+				["  for sample in [0, 1] {", "sample", "declaration"],
+				["  for sample in [0, 1] {", "in", "keyword"],
+				["    if sample > 0 {", "if", "keyword"],
+				["    if sample > 0 {", "sample", "reference"],
+				["      circle tracePoint {", "circle", "keyword"],
+				["      circle tracePoint {", "tracePoint", "declaration"],
+				["        cx: sample + t", "cx", "field"],
+				["        cx: sample + t", "sample", "reference"],
+				["        cx: sample + t", "t", "reference"],
+				["    } else {", "else", "keyword"],
+				["      rectangle skippedPoint {", "rectangle", "keyword"],
+				["      rectangle skippedPoint {", "skippedPoint", "declaration"],
+				["  if rowOffset > 0 {", "if", "keyword"],
+				["    for row in [1] {", "for", "keyword"],
+				["    for row in [1] {", "in", "keyword"],
+				["      text nestedLabel {", "text", "keyword"],
+				["      text nestedLabel {", "nestedLabel", "declaration"],
+				["        x: row + rowOffset", "rowOffset", "reference"],
+				["        value: \"row ${row + t}\"", "row", "reference", true],
+				["        value: \"row ${row + t}\"", "t", "reference"],
+			] as const) expect(factAt(line, token, kind, last)).toBeDefined();
+			expect(highlights.filter(fact => fact.kind === "declaration" && text.slice(fact.from, fact.to) === "tracePoint")).toHaveLength(1);
+			expect(highlights.some(fact => text.slice(fact.from, fact.to) === "inert")).toBe(false);
+			expect(highlights.some(fact => text.slice(fact.from, fact.to) === "inert" && fact.kind === "declaration")).toBe(false);
+		});
+
 		test("V0.13 diagram completion is contextual and keeps diagram time local", () => {
 			const text = [
 				"```amx",
