@@ -66,6 +66,16 @@ diagram movingPart {
     fill: "#FF0000"
     lineWidth: 1
   }
+  for item in [1, 2] {
+    circle generatedMarker {
+      cx: 10 + item * 20 + 20 * t
+      cy: 25
+      r: 3
+      stroke: "#00AA00"
+      fill: "#00AA00"
+      lineWidth: 1
+    }
+  }
   text selectedFrame {
     x: 5
     y: 10
@@ -93,7 +103,11 @@ diagram movingPart {
     expect(text.indexOf('Static <diagram>')).toBeLessThan(text.indexOf('Offline & safe'));
     expect(text.indexOf('Offline & safe')).toBeLessThan(text.indexOf('After figure'));
     expect(svg).toContain('cx="20"');
-    expect(svg).not.toContain('cx="50"');
+    expect(svg).toContain('cx="30"');
+    expect(svg).toContain('cx="50"');
+    expect(svg.indexOf('cx="30"')).toBeLessThan(svg.indexOf('cx="50"'));
+    expect(svg).not.toContain('cx="70"');
+    expect(svg).not.toContain('cx="90"');
     expect(svg).toContain('Frame 0');
     expect(svg).not.toContain('Frame 1');
     expect(svg).toContain('<title id="diagram-title">Static &lt;diagram&gt;</title>');

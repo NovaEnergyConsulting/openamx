@@ -3,13 +3,12 @@
 ## Approach
 
 1. Recheck S109-S111 dispositions and the current worktree. S111 is accepted
-   with residuals; verify its exact implementation baseline, `AMXD6004`
-   overflow contract, cap 64 accounting, and serialization fail-closed
-   behavior. Obtain separate S112 execution authorization and exact file,
-   command, generated-output, and artifact approval.
-2. Resolve D112-01 through D112-04. Specify the envelope version policy,
-   serialized instance representation, supported binding values, and static
-   HTML acceptance scope before modifying serialization code.
+  with residuals; preserve its `AMXD6004` overflow contract, cap 64
+  accounting, and fail-closed behavior until production round-trip parity is
+  verified. The exact S112 file, command, generated-output, and artifact plan
+  was separately approved on 2026-10-31.
+2. Implement the approved D112-01 through D112-04 decisions below without
+  changing unrelated resource or report policy.
 3. Keep the existing model/captured-context envelope semantics. Add a
    validated ordered expanded-instance payload. It must preserve the source
    primitive and location, instance identity/order, and iterator binding
@@ -47,9 +46,27 @@
     generated outputs, run the focused gates, and submit Builder evidence for
     a separate disposition.
 
-## Candidate Source and Test Surfaces
+## Approved Decisions
 
-Production candidates, subject to separate approval:
+- **D112-01:** Write envelope version 2 for all models. Continue reading
+  version 1 no-control models; reject version 1 control-bearing payloads and
+  unknown versions. Version 2 requires `instances` and a matching
+  `instanceCount`.
+- **D112-02:** Serialize every expanded instance in order with sequential
+  model-local identity, a validated recursive content/branch path, and
+  ordered loop bindings. Resolve primitive nodes and provenance from the
+  serialized declaration AST. Restore the list without evaluating controls.
+- **D112-03:** Support scalar, list/array, record, enum primitive, and
+  measurement data values where their existing AMX semantics survive the
+  tagged round trip. Reject maps/sets and unsupported or cyclic instance
+  binding values deterministically.
+- **D112-04:** Standalone HTML is the interactive output, initialized at
+  `timeline.from`; PDF SVG and DOCX PNG are the static lower-bound outputs.
+  There is no separate static HTML renderer in this scope.
+
+## Approved Source and Test Surfaces
+
+Production paths:
 
 - `src/runtime/diagramModel.ts` - serialization envelope, descriptor
   validation, restoration of per-model expanded instances, compatibility.
@@ -70,9 +87,12 @@ Focused test candidates:
   playback and, when supported, desktop-preview harness evidence.
 - `tests/reportPdf.test.ts` and `tests/reportDocx.test.ts` - static lower-bound
   output order/geometry/metadata.
+- `planning/sprints/0112-v18-scene-serialization-render-compatibility/artifacts/production-composition-probe.ts`
+  - production-generated 16-diagram workload and export measurements.
 
-No listed file is authorized by this preparation. Approve an exact list,
-especially generated outputs and UI artifacts, before execution.
+Generated outputs and test artifacts are restricted to the approved generator
+and the Sprint 112 `artifacts/` roots. The existing S0080 artifact directory
+and `desktop-app/test-results/` are preserved.
 
 ## Verification
 
@@ -82,17 +102,20 @@ Candidate commands from repository root:
 bun test tests/diagram.test.ts tests/diagramHtml.test.ts tests/reportPdf.test.ts tests/reportDocx.test.ts
 bun run scripts/build-diagram-runtime.ts
 bunx tsc --noEmit
+bun run planning/sprints/0112-v18-scene-serialization-render-compatibility/artifacts/production-composition-probe.ts
 ```
 
 Candidate browser command from `desktop-app/`:
 
 ```powershell
-bun run test:ui -- tests/ui/diagram-playback.pw.ts
+bun run test:ui -- tests/ui/diagram-playback.pw.ts --output=../planning/sprints/0112-v18-scene-serialization-render-compatibility/artifacts/playwright-output/<attempt>
 ```
 
-The exact command set is approved only when recorded in the separate S112
-execution plan. The browser Playwright harness is not native package/WebView
-evidence. If native direct acceptance is unavailable, state that explicitly.
+Capture command logs under `artifacts/raw/`; retain generated HTML/PDF/DOCX
+under `artifacts/outputs/`, screenshots under `artifacts/ui/`, and Playwright
+runner output under `artifacts/playwright-output/`. The browser Playwright
+harness is not native package/WebView evidence. Missing native or
+cross-platform checks remain explicitly BLOCKED/UNAVAILABLE.
 
 ## Stop Conditions
 

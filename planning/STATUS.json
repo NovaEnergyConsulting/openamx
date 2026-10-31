@@ -1,5 +1,5 @@
 {
-  "phase": "sprint-closed",
-  "sprint": "111",
-  "note": "Sprint 111 was ACCEPTED/CLOSED WITH RECORDED RESIDUALS by the product owner on 2026-10-31. D111-02 remains an accepted unbounded-work residual; no bounded-evaluation claim is made. S112 serialization/browser support, generated artifacts, release, publication, package/version changes, and platform certification remain gated or unauthorized."
+  "phase": "awaiting-approval",
+  "sprint": "112",
+  "note": "Sprint 112 Builder execution completed against the approved scope on 2026-10-31. D112-01 through D112-04 are resolved; the root focused selection passed 46/0, root typecheck passed, and generated standalone browser plus PDF/DOCX evidence is recorded. The Vite preview bridge remains an intermittent harness residual; native and cross-platform evidence are unavailable. Separate product-owner disposition is pending. Sprint 113, release, publication, version changes, and certification remain gated."
 }

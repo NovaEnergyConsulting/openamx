@@ -1,3 +1,51 @@
+# ARCHITECT BRIEFING — Sprint 112 Builder Submission
+
+## Where things stand
+Sprint 112's versioned scene-model serialization, standalone browser parity, and lower-bound PDF/DOCX output evidence are complete under the separately approved plan. The expanded instance list is restored without reevaluating controls; the product-owner disposition is pending.
+
+## Executive summary
+**Business outcome**: Control-bearing diagrams now round-trip ordered instances, provenance, identities, and supported loop bindings through the v2 scene-model envelope while keeping legacy v1 static models readable.
+
+**Current focus**: Review the S112 Builder evidence and provide a separate product-owner disposition. Sprint 113 and release work remain gated.
+
+**What is proven**: The root focused selection passed 46 tests, 0 failures, and 564 expectations; root no-emit typecheck passed. The generated browser bundle was rebuilt through its approved script. Standalone Chromium matched all 1,520 production-composition elements at lower/interior/upper times with no network requests or page errors. PDF SVG and DOCX PNG lower-bound assertions passed.
+
+**What is not proven/live**: The Vite preview bridge was intermittent in the harness; the final full-file run was 4 passed, 1 failed, 1 skipped. Native WebView2 evidence was skipped because no test CDP endpoint was supplied. Cross-platform qualification, bounded time/memory, release, publication, and certification are not claimed.
+
+## Readiness signals
+
+| Signal | Status | Evidence |
+|---|---|---|
+| S109-S111 accepted baselines and invariants | passed | S109 cap/resource decisions, S110 AST/checker, and S111 runtime decisions rechecked |
+| S112 serialization and root regression selection | passed | 46 passed, 0 failed; typecheck passed; legacy and malformed payload cases covered |
+| Standalone browser and static export parity | passed | 1,520 browser elements matched at three times; PDF/DOCX lower-bound regressions passed |
+| Vite/native/cross-platform and product disposition | attention | Vite bridge intermittent; native skipped; cross-platform unavailable; disposition pending |
+
+## Recommended next Architect action
+**Do**: Review S112 Builder evidence and disposition the Vite-host residual separately.
+**Owner**: Lead Developer / product owner.
+**Decision**: Builder recommends ACCEPT WITH RECORDED RESIDUALS; product-owner disposition is PENDING.
+
+## Evidence
+- `bun test tests/diagram.test.ts tests/diagramHtml.test.ts tests/reportPdf.test.ts tests/reportDocx.test.ts` — 46 passed, 0 failed, 564 expectations.
+- `bunx tsc --noEmit` — passed.
+- `bun run scripts/build-diagram-runtime.ts` — passed; generated runtime was not hand-edited.
+- Production composition probe — 16 diagrams, 512 authored declarations, 64 generated emissions per diagram; 1,520 frame elements. HTML 282,331 bytes; PDF 223,824 bytes / 371.69 ms median; DOCX 16,016 bytes / 296.54 ms median.
+- Standalone browser generated-composition test — passed, including frame parity and malformed-envelope recovery. Full Playwright file: 4 passed, 1 failed, 1 skipped on final attempt; see S112 raw logs.
+- Exact host metrics, hashes, retries, outputs, and case-ID reconciliation are in `planning/sprints/0112-v18-scene-serialization-render-compatibility/builder-evidence.md` and its `artifacts/` directory.
+
+## Plan corrections
+- The valid production workload is 1,520 frame elements, not the S109 synthetic 1,536: the 512 authored declarations include one loop-body primitive per diagram (31 direct plus one generated declaration each). The S109 values remain comparison points, not pass thresholds.
+- The desktop Playwright config's `./node_modules/.bin/vite` web-server command did not launch under PowerShell. The same Vite harness was started with Bun. Its mocked preview bridge remained intermittent; standalone browser evidence is separate.
+- A focused browser retry reused the v2 screenshot/measurement names; the final files reflect the latest run. Raw run logs and distinct Playwright runner directories remain preserved.
+
+## Validation / test status
+**Tests:** 46 passing, 0 failing, 564 expectations in the root focused selection; full Playwright file 4 passing, 1 failing, 1 skipped; generated-composition browser case passed separately.
+
+Root typecheck passed. `git diff --check` was not run because it was not in the approved command list. Separate product-owner disposition remains pending; S113, release, publication, version change, and platform certification are not authorized.
+
+---
+
 # ARCHITECT BRIEFING — Sprint 111 Builder Submission
 
 ## Where things stand

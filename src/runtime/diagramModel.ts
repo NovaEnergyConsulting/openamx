@@ -85,9 +85,9 @@ function hasDiagramControls(content: readonly DiagramContentNode[]): boolean {
   return content.some(node => node.type !== 'diagramElement');
 }
 
-function assertDiagramSerializationSupported(model: DiagramSceneModel): void {
+function assertLegacyDiagramSerializationSupported(model: DiagramSceneModel): void {
   if (hasDiagramControls(model.declaration.content)) {
-    throw new Error('Control-bearing diagrams cannot be serialized until per-instance bindings are preserved.');
+    throw new Error('Version 1 control-bearing diagram models are missing expanded instances.');
   }
 }
 
@@ -103,9 +103,21 @@ type SerializedValue =
   | readonly ['set', readonly SerializedValue[]];
 
 interface SerializedDiagramSceneModel {
-  readonly version: 1;
+  readonly version: 1 | 2;
   readonly model: SerializedValue;
   readonly context: SerializedValue;
+  readonly instances?: readonly SerializedDiagramInstance[];
+  readonly instanceCount?: number;
+}
+
+type DiagramElementPathSegment =
+  | Readonly<{ type: 'content'; index: number }>
+  | Readonly<{ type: 'branch'; branch: 'consequent' | 'alternate' }>;
+
+interface SerializedDiagramInstance {
+  readonly identity: number;
+  readonly sourcePath: readonly DiagramElementPathSegment[];
+  readonly bindings: readonly Readonly<{ name: string; value: SerializedValue }>[];
 }
 
 function serializeValue(value: unknown, ancestors = new Set<object>()): SerializedValue {
@@ -188,10 +200,173 @@ function mapValue<T>(value: unknown, field: string): Map<string, T> {
   return value as Map<string, T>;
 }
 
+function serializeBindingValue(value: unknown, ancestors = new Set<object>()): SerializedValue {
+  if (value === undefined || value === null || typeof value === 'boolean'
+    || typeof value === 'number' || typeof value === 'string') return serializeValue(value);
+  if (!value || typeof value !== 'object') throw new Error('Unsupported diagram instance binding value.');
+  if (ancestors.has(value)) throw new Error('Diagram instance binding contains a cyclic value.');
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) return ['array', value.map(item => serializeBindingValue(item, ancestors))];
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null || Object.getOwnPropertySymbols(value).length > 0) {
+      throw new Error('Unsupported diagram instance binding value.');
+    }
+    return ['object', Object.entries(value).map(([key, item]) => [key, serializeBindingValue(item, ancestors)] as const)];
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+function assertDiagramBindingValue(value: unknown, ancestors = new Set<object>()): void {
+  if (value === undefined || value === null || typeof value === 'boolean'
+    || typeof value === 'number' || typeof value === 'string') return;
+  if (!value || typeof value !== 'object') throw new Error('Unsupported serialized diagram instance binding value.');
+  if (ancestors.has(value)) throw new Error('Serialized diagram instance binding contains a cyclic value.');
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      value.forEach(item => assertDiagramBindingValue(item, ancestors));
+      return;
+    }
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new Error('Unsupported serialized diagram instance binding value.');
+    }
+    Object.values(value).forEach(item => assertDiagramBindingValue(item, ancestors));
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+function collectDiagramElementPaths(
+  content: readonly DiagramContentNode[],
+  paths = new Map<DiagramElementNode, readonly DiagramElementPathSegment[]>(),
+  prefix: readonly DiagramElementPathSegment[] = []
+): Map<DiagramElementNode, readonly DiagramElementPathSegment[]> {
+  content.forEach((node, index) => {
+    const path = [...prefix, { type: 'content', index } as const];
+    if (node.type === 'diagramElement') {
+      if (paths.has(node)) throw new Error('A diagram primitive appears at multiple AST paths.');
+      paths.set(node, path);
+    } else if (node.type === 'diagramForBlock') {
+      collectDiagramElementPaths(node.content, paths, path);
+    } else {
+      collectDiagramElementPaths(node.consequent, paths, [...path, { type: 'branch', branch: 'consequent' }]);
+      if (node.alternate) {
+        collectDiagramElementPaths(node.alternate, paths, [...path, { type: 'branch', branch: 'alternate' }]);
+      }
+    }
+  });
+  return paths;
+}
+
+function resolveDiagramElementPath(
+  content: readonly DiagramContentNode[],
+  sourcePath: unknown
+): Readonly<{ element: DiagramElementNode; bindingNames: readonly string[]; controlOriginating: boolean }> {
+  if (!Array.isArray(sourcePath)) throw new Error('Invalid serialized diagram instance source path.');
+  let currentContent = content;
+  let pathIndex = 0;
+  let controlOriginating = false;
+  const bindingNames: string[] = [];
+
+  while (pathIndex < sourcePath.length) {
+    const segment = sourcePath[pathIndex++];
+    if (!segment || typeof segment !== 'object' || Array.isArray(segment)
+      || segment.type !== 'content' || !Number.isSafeInteger(segment.index) || segment.index < 0) {
+      throw new Error('Invalid serialized diagram instance source path.');
+    }
+    const node = currentContent[segment.index];
+    if (!node) throw new Error('Serialized diagram instance source path does not resolve.');
+    if (node.type === 'diagramElement') {
+      if (pathIndex !== sourcePath.length) throw new Error('Serialized diagram instance source path continues past a primitive.');
+      return { element: node, bindingNames, controlOriginating };
+    }
+
+    controlOriginating = true;
+    if (node.type === 'diagramForBlock') {
+      bindingNames.push(node.variable);
+      currentContent = node.content;
+      continue;
+    }
+
+    const branch = sourcePath[pathIndex++];
+    if (!branch || typeof branch !== 'object' || Array.isArray(branch)
+      || branch.type !== 'branch' || (branch.branch !== 'consequent' && branch.branch !== 'alternate')) {
+      throw new Error('Invalid serialized diagram instance branch path.');
+    }
+    currentContent = branch.branch === 'consequent' ? node.consequent : node.alternate ?? [];
+    if (branch.branch === 'alternate' && !node.alternate) {
+      throw new Error('Serialized diagram instance source path does not resolve.');
+    }
+  }
+
+  throw new Error('Serialized diagram instance source path does not resolve to a primitive.');
+}
+
+function serializeDiagramInstances(
+  model: DiagramSceneModel,
+  instances: readonly ExpandedDiagramElement[]
+): readonly SerializedDiagramInstance[] {
+  const paths = collectDiagramElementPaths(model.declaration.content);
+  return instances.map(instance => {
+    const sourcePath = paths.get(instance.element);
+    if (!sourcePath) throw new Error('Diagram instance source is absent from its declaration.');
+    return {
+      identity: instance.identity,
+      sourcePath,
+      bindings: instance.bindings.map(binding => ({
+        name: binding.name,
+        value: serializeBindingValue(binding.value)
+      }))
+    };
+  });
+}
+
+function deserializeDiagramInstances(
+  content: readonly DiagramContentNode[],
+  value: unknown
+): readonly ExpandedDiagramElement[] {
+  if (!Array.isArray(value)) throw new Error('Invalid serialized diagram instance list.');
+  let controlCount = 0;
+  const instances = value.map((raw, index) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)
+      || !('identity' in raw) || !('bindings' in raw)
+      || !Number.isSafeInteger(raw.identity) || raw.identity !== index || !Array.isArray(raw.bindings)) {
+      throw new Error('Invalid serialized diagram instance descriptor.');
+    }
+    const descriptor = raw as Record<string, unknown>;
+    const rawBindings = descriptor.bindings as unknown[];
+    const resolved = resolveDiagramElementPath(content, descriptor.sourcePath);
+    if (resolved.controlOriginating && ++controlCount > generatedElementLimit) {
+      throw new Error('Serialized diagram instance list exceeds the generated element limit.');
+    }
+    if (rawBindings.length !== resolved.bindingNames.length) {
+      throw new Error('Serialized diagram instance has incomplete loop bindings.');
+    }
+    const bindings = rawBindings.map((binding: unknown, bindingIndex: number) => {
+      if (!binding || typeof binding !== 'object' || Array.isArray(binding)
+        || !('name' in binding) || !('value' in binding)) {
+        throw new Error('Invalid serialized diagram instance loop binding.');
+      }
+      const entry = binding as Record<string, unknown>;
+      if (entry.name !== resolved.bindingNames[bindingIndex] || typeof entry.name !== 'string') {
+        throw new Error('Invalid serialized diagram instance loop binding.');
+      }
+      const bindingValue = deserializeValue(entry.value);
+      assertDiagramBindingValue(bindingValue);
+      return Object.freeze({ name: entry.name, value: bindingValue });
+    });
+    return Object.freeze({ identity: descriptor.identity as number, element: resolved.element, bindings: Object.freeze(bindings) });
+  });
+  return Object.freeze(instances);
+}
+
 export function serializeDiagramSceneModel(model: DiagramSceneModel): string {
-  assertDiagramSerializationSupported(model);
   const env = capturedContexts.get(model);
   if (!env) throw new Error('Diagram model has no captured AMX evaluation context');
+  const instances = expandedElementsByModel.get(model) ?? directDiagramElements(model.declaration.content);
   const context = {
     values: env.toObject(),
     immutableValues: Object.entries(env.toObject()).filter(([, value]) => env.isImmutable(value)).map(([name]) => name),
@@ -216,9 +391,11 @@ export function serializeDiagramSceneModel(model: DiagramSceneModel): string {
     }
   };
   const payload: SerializedDiagramSceneModel = {
-    version: 1,
+    version: 2,
     model: serializeValue(model),
-    context: serializeValue(context)
+    context: serializeValue(context),
+    instances: serializeDiagramInstances(model, instances),
+    instanceCount: instances.length
   };
   return JSON.stringify(payload);
 }
@@ -226,18 +403,31 @@ export function serializeDiagramSceneModel(model: DiagramSceneModel): string {
 export function deserializeDiagramSceneModel(serialized: string): DiagramSceneModel {
   const payload: unknown = JSON.parse(serialized);
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)
-    || !('version' in payload) || payload.version !== 1
+    || !('version' in payload) || (payload.version !== 1 && payload.version !== 2)
     || !('model' in payload) || !('context' in payload)) {
     throw new Error('Invalid serialized diagram model envelope.');
   }
-  const modelValue = deserializeValue(payload.model);
-  const contextValue = deserializeValue(payload.context);
+  const envelope = payload as Record<string, unknown>;
+  const version = envelope.version;
+  if (version === 2) {
+    if (!Array.isArray(envelope.instances)) throw new Error('Invalid serialized diagram instance list.');
+    if (!Number.isSafeInteger(envelope.instanceCount) || envelope.instanceCount !== envelope.instances.length) {
+      throw new Error('Serialized diagram instance count does not match its payload.');
+    }
+  }
+  const modelValue = deserializeValue(envelope.model);
+  const contextValue = deserializeValue(envelope.context);
   if (!modelValue || typeof modelValue !== 'object' || Array.isArray(modelValue)
     || !contextValue || typeof contextValue !== 'object' || Array.isArray(contextValue)) {
     throw new Error('Invalid serialized diagram model or evaluation context.');
   }
   const model = freezeData(modelValue as DiagramSceneModel);
-  assertDiagramSerializationSupported(model);
+  if (!model.declaration || !Array.isArray(model.declaration.content)) {
+    throw new Error('Invalid serialized diagram declaration.');
+  }
+  const instances = version === 1
+    ? (assertLegacyDiagramSerializationSupported(model), directDiagramElements(model.declaration.content))
+    : deserializeDiagramInstances(model.declaration.content, envelope.instances);
   const context = contextValue as {
     values: Record<string, unknown>;
     immutableValues: string[];
@@ -292,6 +482,7 @@ export function deserializeDiagramSceneModel(serialized: string): DiagramSceneMo
     if (item.declaration) setDeclaringRegistry(declaration, item.declaration);
   }
   capturedContexts.set(model, env);
+  expandedElementsByModel.set(model, instances);
   return model;
 }
 

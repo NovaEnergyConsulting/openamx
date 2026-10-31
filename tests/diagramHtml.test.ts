@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { gunzipSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseDocumentText } from '../src/parser/parseDocument';
@@ -132,5 +133,54 @@ diagram entry {
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
+  });
+
+  it('embeds ordered generated instances in the offline v2 playback payload', async () => {
+    const source = `# Generated diagram
+
+  \`\`\`amx
+diagram generated {
+  title: "Generated diagram"
+  description: "Ordered generated playback"
+  width: 100
+  height: 60
+  time t from 0 to 1 duration 1
+  circle direct {
+    cx: 5
+    cy: 30
+    r: 2
+    stroke: "#263238"
+    lineWidth: 1
+  }
+  for item in [1, 2] {
+    circle point {
+      cx: item * 10 + t
+      cy: 30
+      r: 3
+      stroke: "#146C94"
+      lineWidth: 1
+    }
+  }
+}
+\`\`\`\n`;
+    const document = parseDocumentText(source);
+    const environment = evaluateDocumentEnvironment(document, 'generated-html.amx');
+    const prepared = await prepareReport(document, environment, { file: 'generated-html.amx' });
+    const html = renderPreparedHtml(prepared, { mode: 'standalone' }) as string;
+    const encoded = html.match(/data-diagram-model data-encoding="gzip-base64">([^<]+)</)?.[1];
+    if (!encoded) throw new Error('Generated HTML has no serialized diagram model payload.');
+    const payload = JSON.parse(gunzipSync(Buffer.from(encoded, 'base64')).toString('utf8')) as {
+      version: number;
+      instances: Array<{ identity: number; bindings: Array<{ name: string }> }>;
+    };
+
+    expect(payload.version).toBe(2);
+    expect(payload.instances.map(instance => instance.identity)).toEqual([0, 1, 2]);
+    expect(payload.instances.map(instance => instance.bindings.map(binding => binding.name))).toEqual([
+      [], ['item'], ['item']
+    ]);
+    expect(html).toContain('connect-src \'none\'');
+    expect(html).toContain('aria-describedby="openamx-diagram-0-description"');
+    expect(Buffer.byteLength(html, 'utf8')).toBeLessThan(MAX_INTERACTIVE_DIAGRAM_HTML_BYTES);
   });
 });

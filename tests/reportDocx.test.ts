@@ -47,6 +47,16 @@ diagram movingPart {
     fill: "#FF0000"
     lineWidth: 1
   }
+  for item in [1, 2] {
+    circle generatedMarker {
+      cx: 10 + item * 20 + 20 * t
+      cy: 25
+      r: 3
+      stroke: "#00AA00"
+      fill: "#00AA00"
+      lineWidth: 1
+    }
+  }
   text selectedFrame {
     x: 5
     y: 10
@@ -93,9 +103,17 @@ diagram movingPart {
     };
     const lowerBoundPixel = pixelAt(Math.floor(info.width * 0.2), Math.floor(info.height * 0.5));
     const upperBoundPixel = pixelAt(Math.floor(info.width * 0.8), Math.floor(info.height * 0.5));
+    const generatedPixels = [
+      pixelAt(Math.floor(info.width * 0.3), Math.floor(info.height * 0.5)),
+      pixelAt(Math.floor(info.width * 0.5), Math.floor(info.height * 0.5))
+    ];
     expect(upperBoundPixel[0]).toBeLessThan(100);
     expect(lowerBoundPixel[0]).toBeGreaterThan(200);
     expect(lowerBoundPixel[1]).toBeLessThan(80);
+    for (const pixel of generatedPixels) {
+      expect(pixel[0]).toBeLessThan(100);
+      expect(pixel[1]).toBeGreaterThan(100);
+    }
   });
 
   it('preserves semantic order and editable report content', async () => {

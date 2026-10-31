@@ -1,5 +1,31 @@
 # Planning Decisions
 
+## V0.18 Sprint 112 Serialization Decisions (2026-10-31)
+
+- D112-01: all new scene-model writes use envelope version 2. Version 1
+  no-control models remain readable; version 1 control-bearing models and
+  unknown versions fail deterministically. Version 2 requires an instance
+  list and an `instanceCount` matching its length.
+- D112-02: version 2 stores an ordered instance list for direct and
+  control-originating elements. Each entry has a sequential model-local
+  identity, a validated path through recursive content/conditional branches,
+  and ordered loop-name/value bindings. The declaration AST remains the
+  source of primitive nodes and source locations; serialized membership is
+  restored without evaluating controls.
+- D112-03: iterator bindings support AMX scalar values, arrays/lists, plain
+  record objects, enum primitive values, and measurement data objects using
+  the tagged value representation. Maps, sets, non-data objects, and cyclic
+  values are rejected as bindings; map/set context values remain supported by
+  the existing captured-context serializer.
+- D112-04: there is no distinct static HTML diagram renderer. Standalone HTML
+  remains interactive and opens at the lower time bound; PDF inline SVG and
+  DOCX embedded PNG are the static lower-bound outputs. A separate static HTML
+  path is out of scope.
+- These decisions do not change `AMXD6004`, the 64 control-only cap,
+  `AMXD013`, D111-02, HTML size policy, or release/platform authority.
+  Sprint 112 execution was separately approved on 2026-10-31; disposition is
+  pending the Builder evidence review.
+
 ## V0.18 Sprint 111 Runtime Expansion Decisions (2026-10-31)
 
 - The Lead Developer allocated `AMXD6004` for generated-cap overflow with

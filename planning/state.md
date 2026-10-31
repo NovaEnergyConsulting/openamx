@@ -1,5 +1,32 @@
 # Planning State
 
+## V0.18 Sprint 112 Builder Submission (2026-10-31)
+
+- Sprint 112 execution was separately authorized on 2026-10-31 against the
+  exact approved source, test, generated-output, command, and artifact plan.
+  D112-01 through D112-04 are resolved in `planning/decisions.md` and the
+  S112 blueprint.
+- Version 2 scene serialization now preserves ordered expanded instances,
+  source paths, model-local identities, loop bindings, and captured context.
+  Version 1 no-control models remain readable; incomplete/unsupported payloads
+  fail closed. The 64 cap, `AMXD6004`, `AMXD013`, and D111-02 are unchanged.
+- Root focused selection passed 46 tests, 0 failures, and 564 expectations;
+  root no-emit typecheck passed. The browser bundle was generated with the
+  approved script. The production standalone browser case matched all 1,520
+  elements at three times; PDF and DOCX lower-bound regressions passed.
+- The measured valid production composition is 16 diagrams, 512 authored
+  primitive declarations, 64 generated emissions per diagram, and 1,520
+  frame elements. One-host measurements and the S109 synthetic comparison
+  are recorded in S112 artifacts without changing resource policy.
+- The desktop Vite preview bridge was intermittent in the Playwright harness;
+  the final full-file run had 4 passed, 1 failed, and 1 skipped. The generated
+  standalone browser case passed separately. Native package evidence was
+  skipped because no WebView2 CDP endpoint was supplied; cross-platform
+  evidence is unavailable.
+- Builder recommendation: ACCEPT WITH RECORDED RESIDUALS for approved scope.
+  Separate product-owner disposition is PENDING. Sprint 113 and release work
+  remain separately gated.
+
 ## V0.18 Sprint 111 Builder Closeout (2026-10-31)
 
 - Sprint 111 execution and the exact implementation/test/evidence plan were

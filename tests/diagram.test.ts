@@ -36,6 +36,35 @@ function captureModel(source: string, file = 'diagram.amx'): DiagramSceneModel {
   return emission.model;
 }
 
+function serializedObjectField(value: unknown, name: string): unknown {
+  if (!Array.isArray(value) || value[0] !== 'object' || !Array.isArray(value[1])) {
+    throw new Error('Expected a serialized object value.');
+  }
+  const entry = value[1].find((candidate: unknown) => Array.isArray(candidate) && candidate[0] === name);
+  if (!Array.isArray(entry)) throw new Error(`Missing serialized object field '${name}'.`);
+  return entry[1];
+}
+
+function setSerializedObjectField(value: unknown, name: string, replacement: unknown): void {
+  if (!Array.isArray(value) || value[0] !== 'object' || !Array.isArray(value[1])) {
+    throw new Error('Expected a serialized object value.');
+  }
+  const entry = value[1].find((candidate: unknown) => Array.isArray(candidate) && candidate[0] === name);
+  if (!Array.isArray(entry)) throw new Error(`Missing serialized object field '${name}'.`);
+  entry[1] = replacement;
+}
+
+function serializedArrayItems(value: unknown): unknown[] {
+  if (!Array.isArray(value) || value[0] !== 'array' || !Array.isArray(value[1])) {
+    throw new Error('Expected a serialized array value.');
+  }
+  return value[1];
+}
+
+function serializedScalar(value: unknown): unknown {
+  return Array.isArray(value) ? value[1] : undefined;
+}
+
 function captureFailure(run: () => unknown): AmxError {
   try {
     run();
@@ -509,9 +538,10 @@ describe('diagram language and shared scene model', () => {
 
     expect(env.get('item')).toBe(9);
     expect(model.initialFrame.elements.map(element => element.name)).toEqual(expected.map(([name]) => name));
-    expect(() => serializeDiagramSceneModel(model)).toThrow(
-      'Control-bearing diagrams cannot be serialized until per-instance bindings are preserved.'
-    );
+    const serialized = serializeDiagramSceneModel(model);
+    expect(JSON.parse(serialized).version).toBe(2);
+    const restored = deserializeDiagramSceneModel(serialized);
+    expect(JSON.parse(serialized).instances).toHaveLength(expected.length);
 
     const quarterFrame = evaluateDiagramFrame(model, 0.25);
     expect(quarterFrame.elements.map(element => element.primitive === 'circle'
@@ -524,6 +554,146 @@ describe('diagram language and shared scene model', () => {
     expect(evaluateDiagramFrame(model, 0.25).elements).toEqual(quarterFrame.elements);
     expect(evaluateDiagramFrame(model, 1).elements.map(element => element.primitive === 'circle' ? element.cy : null))
       .toEqual([1, 1, 1, 1, 1, 1]);
+    for (const time of [0, 0.25, 1]) {
+      expect(evaluateDiagramFrame(restored, time)).toEqual(evaluateDiagramFrame(model, time));
+    }
+
+    const alteredCondition = JSON.parse(serialized) as { model: unknown };
+    const declaration = serializedObjectField(alteredCondition.model, 'declaration');
+    const content = serializedArrayItems(serializedObjectField(declaration, 'content'));
+    const branch = content.find(node => serializedScalar(serializedObjectField(node, 'type')) === 'diagramIfBlock');
+    if (!branch) throw new Error('Expected the serialized conditional branch.');
+    const condition = serializedObjectField(branch, 'test');
+    setSerializedObjectField(condition, 'value', ['boolean', false]);
+    const restoredWithoutControlEvaluation = deserializeDiagramSceneModel(JSON.stringify(alteredCondition));
+    expect(evaluateDiagramFrame(restoredWithoutControlEvaluation, 0.25).elements)
+      .toEqual(evaluateDiagramFrame(model, 0.25).elements);
+  });
+
+  it('preserves scalar, list, record, enum, and measurement loop bindings', () => {
+    const circle = (name: string, cx: string, indent: string) => [
+      `${indent}circle ${name} {`,
+      `${indent}  cx: ${cx}`,
+      `${indent}  cy: t`,
+      `${indent}  r: 2`,
+      `${indent}  stroke: "#263238"`,
+      `${indent}  lineWidth: 1`,
+      `${indent}}`
+    ];
+    const source = [
+      '```amx',
+      'enum Surface = {',
+      '  ROUGH = "rough",',
+      '  SMOOTH = "smooth"',
+      '}',
+      'type Profile {',
+      '  factor: Number',
+      '  label: String',
+      '}',
+      'dimension Length',
+      'unit meter: Length',
+      'unit centimeter = 0.01 * meter',
+      'let profiles: Profile[] = [Profile { factor = 2, label = "A" }, Profile { factor = 3, label = "B" }]',
+      'let rows: Number[][] = [[1, 2], [3, 4]]',
+      'let distances: Length[] = [1 meter, 250 centimeter]',
+      'diagram typedGenerated {',
+      '  title: "Typed generated bindings"',
+      '  description: "AMX data values survive model round trips"',
+      '  width: 120',
+      '  height: 80',
+      '  time t from 0 to 1 duration 1',
+      '  for profile in profiles {',
+      ...circle('recordBound', 'profile.factor * 10 + t', '    '),
+      '  }',
+      '  for row in rows {',
+      ...circle('listBound', 'row[1] + t', '    '),
+      '  }',
+      '  for surface in [Surface.ROUGH, Surface.SMOOTH] {',
+      ...circle('enumBound', 'if surface == "rough" then 10 + t else 20 + t', '    '),
+      '  }',
+      '  for distance in distances {',
+      ...circle('measurementBound', 'distance / 1 meter + t', '    '),
+      '  }',
+      '}',
+      '```'
+    ].join('\n');
+    const model = captureModel(source);
+    const restored = deserializeDiagramSceneModel(serializeDiagramSceneModel(model));
+    const atStart = evaluateDiagramFrame(restored, 0).elements;
+    expect(atStart.map(element => element.primitive === 'circle' ? [element.name, element.cx] : null)).toEqual([
+      ['recordBound', 20], ['recordBound', 30],
+      ['listBound', 1], ['listBound', 3],
+      ['enumBound', 10], ['enumBound', 20],
+      ['measurementBound', 1], ['measurementBound', 2.5]
+    ]);
+    expect(evaluateDiagramFrame(restored, 0.5).elements).toEqual(evaluateDiagramFrame(model, 0.5).elements);
+  });
+
+  it('reads legacy v1 static models and rejects incomplete or malformed instance payloads', () => {
+    const staticModel = captureModel(fixture('D-CRANK-01'));
+    const legacy = JSON.parse(serializeDiagramSceneModel(staticModel)) as Record<string, unknown>;
+    legacy.version = 1;
+    delete legacy.instances;
+    const legacyModel = deserializeDiagramSceneModel(JSON.stringify(legacy));
+    expect(evaluateDiagramFrame(legacyModel, 1)).toEqual(evaluateDiagramFrame(staticModel, 1));
+
+    const controlModel = captureModel([
+      '```amx',
+      'diagram generated {',
+      '  title: "Generated"',
+      '  description: "Legacy compatibility"',
+      '  width: 100',
+      '  height: 50',
+      '  time t from 0 to 1 duration 1',
+      '  for item in [3] {',
+      '    circle point {',
+      '      cx: item + t',
+      '      cy: 20',
+      '      r: 2',
+      '      stroke: "#263238"',
+      '      lineWidth: 1',
+      '    }',
+      '  }',
+      '}',
+      '```'
+    ].join('\n'));
+    const payload = JSON.parse(serializeDiagramSceneModel(controlModel)) as {
+      version: number;
+      instanceCount: number;
+      instances?: Array<{ sourcePath: unknown; bindings: Array<{ name: string; value: unknown }> }>;
+      [key: string]: unknown;
+    };
+    const legacyGenerated = { ...payload, version: 1 };
+    delete legacyGenerated.instances;
+    expect(() => deserializeDiagramSceneModel(JSON.stringify(legacyGenerated)))
+      .toThrow('Version 1 control-bearing diagram models are missing expanded instances.');
+
+    const unknownVersion = { ...payload, version: 99 };
+    expect(() => deserializeDiagramSceneModel(JSON.stringify(unknownVersion)))
+      .toThrow('Invalid serialized diagram model envelope.');
+    const incomplete = { ...payload };
+    delete incomplete.instances;
+    expect(() => deserializeDiagramSceneModel(JSON.stringify(incomplete)))
+      .toThrow('Invalid serialized diagram instance list.');
+
+    const truncated = { ...payload, instanceCount: payload.instanceCount + 1 };
+    expect(() => deserializeDiagramSceneModel(JSON.stringify(truncated)))
+      .toThrow('Serialized diagram instance count does not match its payload.');
+
+    const invalidLocator = JSON.parse(JSON.stringify(payload)) as typeof payload;
+    invalidLocator.instances![0]!.sourcePath = [{ type: 'content', index: 99 }];
+    expect(() => deserializeDiagramSceneModel(JSON.stringify(invalidLocator)))
+      .toThrow('Serialized diagram instance source path does not resolve.');
+
+    const incompleteBindings = JSON.parse(JSON.stringify(payload)) as typeof payload;
+    incompleteBindings.instances![0]!.bindings = [];
+    expect(() => deserializeDiagramSceneModel(JSON.stringify(incompleteBindings)))
+      .toThrow('Serialized diagram instance has incomplete loop bindings.');
+
+    const unsupportedBinding = JSON.parse(JSON.stringify(payload)) as typeof payload;
+    unsupportedBinding.instances![0]!.bindings[0]!.value = ['map', []];
+    expect(() => deserializeDiagramSceneModel(JSON.stringify(unsupportedBinding)))
+      .toThrow('Unsupported serialized diagram instance binding value.');
   });
 
   it('reevaluates membership only when a diagram model is recreated', () => {
@@ -578,7 +748,7 @@ describe('diagram language and shared scene model', () => {
       '    circle generated {',
       '      cx: item',
       '      cy: t',
-      '      r: item - 1',
+      '      r: item - t',
       '      stroke: "#263238"',
       '      lineWidth: 1',
       '    }',
@@ -587,8 +757,12 @@ describe('diagram language and shared scene model', () => {
       '```'
     ].join('\n');
     const lines = source.split(/\r?\n/);
-    const propertyLine = lines.findIndex(line => line.includes('r: item - 1'));
-    const error = captureFailure(() => captureModel(source, 'invalid-generated.amx'));
+    const propertyLine = lines.findIndex(line => line.includes('r: item - t'));
+    const model = captureModel(source, 'invalid-generated.amx');
+    const restored = deserializeDiagramSceneModel(serializeDiagramSceneModel(model));
+    expect(evaluateDiagramFrame(restored, 0.5).elements).toEqual(evaluateDiagramFrame(model, 0.5).elements);
+    const error = captureFailure(() => evaluateDiagramFrame(model, 1));
+    const restoredError = captureFailure(() => evaluateDiagramFrame(restored, 1));
 
     expect(error).toMatchObject({
       code: 'AMXD008',
@@ -596,6 +770,13 @@ describe('diagram language and shared scene model', () => {
       file: 'invalid-generated.amx',
       line: propertyLine + 1,
       column: lines[propertyLine]!.indexOf('item') + 1
+    });
+    expect(restoredError).toMatchObject({
+      code: error.code,
+      message: error.message,
+      file: error.file,
+      line: error.line,
+      column: error.column
     });
   });
 

@@ -3,10 +3,13 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { gzipSync } from "node:zlib";
 import { chromium, expect, test, type Page } from "@playwright/test";
 
 const repositoryRoot = resolve(import.meta.dirname, "../../..");
-const artifactsDirectory = resolve(repositoryRoot, "planning/sprints/0080-v13-interactive-html-desktop-preview/artifacts");
+const artifactsDirectory = resolve(repositoryRoot, "planning/sprints/0112-v18-scene-serialization-render-compatibility/artifacts/ui");
+const rawArtifactsDirectory = resolve(repositoryRoot, "planning/sprints/0112-v18-scene-serialization-render-compatibility/artifacts/raw");
+const legacyArtifactsDirectory = resolve(repositoryRoot, "planning/sprints/0080-v13-interactive-html-desktop-preview/artifacts");
 mkdirSync(artifactsDirectory, { recursive: true });
 const grammarPath = resolve(repositoryRoot, "planning/sprints/0078-v13-diagram-contract-feasibility-gate/grammar-examples.md");
 const contract = readFileSync(grammarPath, "utf8").replace(/\r\n/g, "\n");
@@ -45,6 +48,29 @@ function withHealthyDiagram(document: string): string {
 }`;
 	return document.replace(/\n```\s*$/, `\n${healthy}\n\`\`\`\n`);
 }
+
+type ExpectedCircle = {
+	name: string;
+	primitive: "circle";
+	cx: number;
+	cy: number;
+	r: number;
+	stroke: string;
+	fill: string;
+	lineWidth: number;
+};
+
+type CompositionEvidence = {
+	host: { bunVersion: string; nodeVersion: string; platform: string; architecture: string };
+	workload: { diagrams: number; authoredPrimitiveDeclarations: number; controlOriginatingEmissionsPerDiagram: number; totalFrameElements: number; requestedTimes: number[] };
+	serialization: { serializedModelBytes: number; gzipPayloadBytes: number; htmlBytes: number };
+	staticExports: {
+		pdf: { bytes: number; medianDurationMs: number };
+		docx: { bytes: number; medianDurationMs: number };
+	};
+	s109Comparison: { htmlBytes: number; wholePageDomNodes: number; pdfBytes: number; docxBytes: number };
+	expectedFrames: ExpectedCircle[][][];
+};
 
 function createRenderedFixtures(directory: string): void {
 	const crank = amxBody(fixture("D-CRANK-01"));
@@ -171,7 +197,7 @@ test("standalone local-file playback is paused, accessible, independent, respons
 		const battery = diagrams.nth(1);
 		const crankTime = crank.locator("[data-diagram-time]");
 		const crankPlay = crank.getByRole("button", { name: "Play Crank-slider mechanism" });
-		await expect(crankTime).toHaveText("0");
+		await expect(crankTime).toHaveText("0.000");
 		await expect(crankPlay).toHaveText("Play");
 		await expect(crank.getByRole("checkbox", { name: "Loop Crank-slider mechanism" })).not.toBeChecked();
 		await expect(crank.locator('[data-diagram-element="crankPin"]')).toHaveAttribute("cx", "36");
@@ -191,7 +217,7 @@ test("standalone local-file playback is paused, accessible, independent, respons
 			slider.value = "1";
 			slider.dispatchEvent(new Event("input", { bubbles: true }));
 		});
-		await expect(crankTime).toHaveText("1");
+		await expect(crankTime).toHaveText("1.000");
 		await expect(crank.locator('[data-diagram-element="crankPin"]')).toHaveAttribute("cx", "104");
 		await crankPlay.focus();
 		await page.keyboard.press("Enter");
@@ -199,7 +225,7 @@ test("standalone local-file playback is paused, accessible, independent, respons
 		await page.keyboard.press("Space");
 		await expect(crankPlay).toHaveText("Play");
 		await crank.getByRole("button", { name: "Reset Crank-slider mechanism" }).click();
-		await expect(crankTime).toHaveText("0");
+		await expect(crankTime).toHaveText("0.000");
 		await crankScrubber.evaluate(element => {
 			const slider = element as HTMLInputElement;
 			slider.value = "0.1234567";
@@ -215,7 +241,7 @@ test("standalone local-file playback is paused, accessible, independent, respons
 			slider.value = "2";
 			slider.dispatchEvent(new Event("input", { bubbles: true }));
 		});
-		await expect(battery.locator("[data-diagram-time]")).toHaveText("2");
+		await expect(battery.locator("[data-diagram-time]")).toHaveText("2.000");
 		await expect(crankTime).toHaveText("0.123");
 		await expect(battery.locator('[data-diagram-element="currentIndicator"]')).toHaveAttribute("x1", "108");
 
@@ -240,12 +266,12 @@ test("standalone local-file playback is paused, accessible, independent, respons
 		await quick.getByRole("checkbox", { name: "Loop Quick diagram" }).check();
 		await quick.getByRole("button", { name: "Play Quick diagram" }).click();
 		await page.waitForTimeout(550);
-		expect(await quick.evaluate(root => (window as Window & { __diagramTimes?: string[] }).__diagramTimes?.includes("0"))).toBe(true);
+		expect(await quick.evaluate(root => (window as Window & { __diagramTimes?: string[] }).__diagramTimes?.includes("0.000"))).toBe(true);
 		await expect(quick.getByRole("button", { name: "Pause Quick diagram" })).toHaveText("Pause");
 		await quick.getByRole("button", { name: "Reset Quick diagram" }).click();
 		await quick.getByRole("checkbox", { name: "Loop Quick diagram" }).uncheck();
 		await quick.getByRole("button", { name: "Play Quick diagram" }).click();
-		await expect(quick.locator("[data-diagram-time]")).toHaveText("1", { timeout: 1500 });
+		await expect(quick.locator("[data-diagram-time]")).toHaveText("1.000", { timeout: 1500 });
 		await expect(quick.getByRole("button", { name: "Play Quick diagram" })).toHaveText("Play");
 		await expect(quick.locator('[data-diagram-element="point"]')).toHaveAttribute("cx", "90");
 	} finally {
@@ -276,7 +302,7 @@ test("AMXD009, AMXD010 and AMXD011 clear only the failed diagram and recover wit
 				slider.value = time;
 				slider.dispatchEvent(new Event("input", { bubbles: true }));
 			}, item.time);
-			await expect(failed.locator("[data-diagram-time]")).toHaveText(item.time);
+			await expect(failed.locator("[data-diagram-time]")).toHaveText(Number(item.time).toFixed(3));
 			const alert = failed.getByRole("alert");
 			await expect(alert).toContainText(item.diagnostic);
 			await expect(alert).toContainText(item.source);
@@ -301,6 +327,110 @@ test("AMXD009, AMXD010 and AMXD011 clear only the failed diagram and recover wit
 	} finally {
 		rmSync(directory, { recursive: true, force: true });
 	}
+});
+
+test("generated composition matches in-process frames in standalone browser playback", async ({ page }) => {
+	const htmlPath = resolve(repositoryRoot, "planning/sprints/0112-v18-scene-serialization-render-compatibility/artifacts/outputs/64-cap-composition-v2.html");
+	const evidencePath = resolve(repositoryRoot, "planning/sprints/0112-v18-scene-serialization-render-compatibility/artifacts/raw/production-composition-v2.json");
+	const browserEvidencePath = join(rawArtifactsDirectory, "production-browser-measurements-v2.json");
+	const evidence = JSON.parse(readFileSync(evidencePath, "utf8")) as CompositionEvidence;
+	const browserErrors: string[] = [];
+	page.on("pageerror", error => browserErrors.push(error.message));
+	page.on("console", message => { if (message.type() === "error") browserErrors.push(message.text()); });
+	const attempted = await localRequests(page, async () => {
+		await page.goto(pathToFileURL(htmlPath).href);
+		await expect(page.locator("[data-openamx-diagram]")).toHaveCount(evidence.workload.diagrams);
+	});
+	expect(attempted).toEqual([]);
+	expect(browserErrors).toEqual([]);
+	const diagrams = page.locator("[data-openamx-diagram]");
+	expect(await diagrams.locator("figcaption strong").allTextContents()).toEqual(
+		Array.from({ length: evidence.workload.diagrams }, (_value, index) => `Generated composition ${String(index + 1).padStart(2, "0")}`)
+	);
+	await expect(diagrams.nth(0).getByRole("img", { name: "Generated composition 01" })).toBeVisible();
+	expect(await page.locator('[data-diagram-element="generatedPoint1"]').count()).toBe(64);
+	expect(await page.locator("[data-diagram-element]").count()).toBe(evidence.workload.totalFrameElements);
+	const wholePageNodes = await page.locator("*").count();
+	const scrubbers = page.locator("[data-diagram-scrubber]");
+
+	for (let timeIndex = 0; timeIndex < evidence.workload.requestedTimes.length; timeIndex++) {
+		const time = evidence.workload.requestedTimes[timeIndex]!;
+		for (let diagramIndex = 0; diagramIndex < evidence.workload.diagrams; diagramIndex++) {
+			const diagram = diagrams.nth(diagramIndex);
+			if (timeIndex > 0) {
+				await scrubbers.nth(diagramIndex).evaluate((element, value) => {
+					const slider = element as HTMLInputElement;
+					slider.value = String(value);
+					slider.dispatchEvent(new Event("input", { bubbles: true }));
+				}, time);
+			}
+			const actual = await diagram.locator("[data-diagram-element]").evaluateAll(nodes => nodes.map(node => ({
+				name: node.getAttribute("data-diagram-element") ?? "",
+				primitive: node.localName,
+				cx: Number(node.getAttribute("cx")),
+				cy: Number(node.getAttribute("cy")),
+				r: Number(node.getAttribute("r")),
+				stroke: node.getAttribute("stroke") ?? "",
+				fill: node.getAttribute("fill") ?? "none",
+				lineWidth: Number(node.getAttribute("stroke-width"))
+			})));
+			expect(actual).toEqual(evidence.expectedFrames[diagramIndex]![timeIndex]);
+		}
+	}
+
+	const frameSamplesMs = await page.evaluate(() => {
+		const inputs = Array.from(document.querySelectorAll<HTMLInputElement>("[data-diagram-scrubber]"));
+		const samples: number[] = [];
+		for (let sample = 0; sample < 60; sample++) {
+			const start = performance.now();
+			for (const input of inputs) {
+				input.value = sample % 2 ? "0" : "1";
+				input.dispatchEvent(new Event("input", { bubbles: true }));
+			}
+			samples.push(performance.now() - start);
+		}
+		return samples;
+	});
+	const sortedSamples = [...frameSamplesMs].sort((left, right) => left - right);
+	const p95FrameWorkMs = sortedSamples[Math.ceil(sortedSamples.length * 0.95) - 1]!;
+	const browserEvidence = {
+		browser: await page.evaluate(() => ({ userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency })),
+		htmlBytes: Buffer.byteLength(readFileSync(htmlPath, "utf8"), "utf8"),
+		diagrams: await diagrams.count(),
+		frameElements: await page.locator("[data-diagram-element]").count(),
+		wholePageNodes,
+		requestedTimes: evidence.workload.requestedTimes,
+		frameSamplesMs,
+		p95FrameWorkMs,
+		attemptedNetworkRequests: attempted,
+		browserErrors,
+		comparison: evidence.s109Comparison,
+		staticExports: evidence.staticExports
+	};
+	writeFileSync(browserEvidencePath, `${JSON.stringify(browserEvidence, null, 2)}\n`, "utf8");
+	await page.screenshot({ path: join(artifactsDirectory, "64-cap-composition-v2.png"), fullPage: true });
+	console.log(JSON.stringify(browserEvidence));
+
+	const corruptHtmlPath = resolve(repositoryRoot, "planning/sprints/0112-v18-scene-serialization-render-compatibility/artifacts/outputs/64-cap-composition-corrupt-v2.html");
+	const unsupportedEnvelope = gzipSync(Buffer.from(JSON.stringify({ version: 99 }), "utf8")).toString("base64");
+	const corruptHtml = readFileSync(htmlPath, "utf8").replace(
+		/(<script type="application\/json" data-diagram-model data-encoding="gzip-base64">)[^<]+/,
+		`$1${unsupportedEnvelope}`
+	);
+	if (corruptHtml === readFileSync(htmlPath, "utf8")) throw new Error("Unable to corrupt the first embedded diagram envelope.");
+	writeFileSync(corruptHtmlPath, corruptHtml, "utf8");
+	const corruptRequests = await localRequests(page, async () => {
+		await page.goto(pathToFileURL(corruptHtmlPath).href);
+		await expect(page.locator("[data-openamx-diagram]")).toHaveCount(evidence.workload.diagrams);
+		const failedDiagram = page.locator("[data-openamx-diagram]").first();
+		const alert = failedDiagram.getByRole("alert");
+		await expect(alert).toContainText("DIAGRAM_RUNTIME: Invalid serialized diagram model envelope.");
+		await expect(alert).not.toContainText("AMXD");
+		await expect(failedDiagram.locator("[data-diagram-canvas]")).toBeEmpty();
+		await expect(page.locator("[data-openamx-diagram]").nth(1).locator('[data-diagram-element="generatedPoint2"]')).toHaveCount(64);
+	});
+	expect(corruptRequests).toEqual([]);
+	expect(browserErrors).toEqual([]);
 });
 
 test("repeated loop emissions retain all models and stay within measured preview resource limits", async ({ page }) => {
@@ -445,7 +575,7 @@ ${repeatedElements}
 		writeFileSync(join(projectState, "project.json"), '{"version":1,"inputs":{}}\n');
 		writeFileSync(
 			reportPath,
-			readFileSync(join(artifactsDirectory, "native-preview-fixture.amx"), "utf8")
+			readFileSync(join(legacyArtifactsDirectory, "native-preview-fixture.amx"), "utf8")
 		);
 		writeFileSync(resourcePath, resourceSource);
 		const browser = await chromium.connectOverCDP(cdpUrl);
