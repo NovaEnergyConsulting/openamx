@@ -231,6 +231,9 @@ Architect-prepared Sprint 110 documentation package:
 
 ### Sprint 111: Evaluation-Time Expansion and Frame Bindings (depends on Sprint 110)
 
+Architect-prepared Sprint 111 documentation package:
+[`requirements.md`](sprints/0111-v18-evaluation-time-expansion-frame-bindings/requirements.md).
+
 - Evaluate loop iterables and branch conditions once when creating each
   diagram model, using the existing AMX evaluation semantics.
 - Emit primitive instances in source order and retain the correct loop-variable
