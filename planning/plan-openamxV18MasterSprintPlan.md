@@ -282,6 +282,9 @@ Architect-prepared Sprint 113 documentation package:
 
 ### Sprint 114: Integrated Acceptance and V0.18 Closeout (depends on Sprints 109-113)
 
+Architect-prepared Sprint 114 documentation package:
+[`requirements.md`](sprints/0114-v18-integrated-acceptance-closeout/requirements.md).
+
 - Verify the complete language path from parsing and checking through
   evaluation, serialized interactive playback, and static document output.
 - Run focused root tests/build, VS Code extension tests, desktop typecheck,
