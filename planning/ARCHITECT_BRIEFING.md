@@ -1,14 +1,14 @@
 # ARCHITECT BRIEFING — Sprint 114 Builder Submission
 
 ## Where things stand
-S114 integrated verification is complete at the approved baseline. The Builder recommends ACCEPT WITH RECORDED RESIDUALS; the separate product-owner closeout disposition remains pending. S112/S113 dispositions are reconciled, with historical raw outcomes preserved.
+S114 integrated verification is complete at the approved baseline. The Builder recommends ACCEPT WITH RECORDED RESIDUALS; the separate product-owner closeout disposition remains pending. A separate 2026-11-01 root-test follow-up fixed the missing Help entry, refreshed stale `dist`, and hardened two test waits; the latest full root suite passed 629/0. Original S114 raw outcomes remain preserved.
 
 ## Executive summary
 **Business outcome**: Integrated parser, checker, formatter, expansion, frame binding, v2 serialization, standalone browser, static export, editor, and Example 08 evidence was collected without product changes.
 
 **What passed**: Root build and no-emit typecheck; focused feature cases for recursive diagrams, diagnostics, 64/65 cap and authored 512/513 accounting, serialization, Example 08, and PDF/DOCX; standalone Example 08 browser playback; V0.18 nested VS Code tokenization and desktop CodeMirror presentation in the Vite harness.
 
-**What remains raw**: Root focused suite 345 passed/1 failed (2,134 assertions); VS Code host 21 passed/7 failed; desktop Vite UI 7 passed/1 failed/1 skipped; Hutch typecheck produced no result. Native WebView2 is unavailable/skipped and cross-platform checks were not run.
+**What remains raw for S114**: Root focused suite 345 passed/1 failed (2,134 assertions); VS Code host 21 passed/7 failed; desktop Vite UI 7 passed/1 failed/1 skipped; Hutch typecheck produced no result. Native WebView2 is unavailable/skipped and cross-platform checks were not run. The later full-root follow-up is a separate 629 passed/0 failed run.
 
 ## Readiness signals
 

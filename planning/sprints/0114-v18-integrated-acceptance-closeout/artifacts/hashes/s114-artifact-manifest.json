@@ -37,6 +37,37 @@
                                   "NOT RUN":  1,
                                   "BLOCKED/UNAVAILABLE":  2
                               },
+    "PostS114RootTestFollowup":  {
+                                     "Date":  "2026-11-01",
+                                     "HEAD":  "e29422f49de23e82f446bba1b0f64ec799b8fce5",
+                                     "HelpFixCommit":  "e29422f",
+                                     "PrimaryRuntimeSHA256":  "FA04519186830C23455626795B25BF76D5B0304F5312A564A0F90AE84B318844",
+                                     "FreshDistCLI_SHA256":  "D5044573C7C49D2D32A178304BE762AA34B47FB13A1E562CC33DFE41BE66C552",
+                                     "FullRootTests":  629,
+                                     "Failed":  0,
+                                     "Assertions":  4574,
+                                     "TestFiles":  46,
+                                     "Focused":  {
+                                                     "NumberedGuide":  "2 passed / 0 failed / 443 assertions",
+                                                     "Examples":  "19 passed / 0 failed / 295 assertions",
+                                                     "DesktopDataEditor":  "8 passed / 0 failed / 47 assertions",
+                                                     "ReportPreparation":  "11 passed / 0 failed / 86 assertions"
+                                                 },
+                                     "Fixes":  [
+                                                   "Added the missing V0.14 Help-index closeout boundary note (already in HEAD e29422f).",
+                                                   "Rebuilt generated runtime and transitive dist modules with bun run build.",
+                                                   "Raised three mapped-data job polling bounds from 100 to 1000 attempts.",
+                                                   "Raised the single expensive report-preparation image-security test timeout from 5 to 15 seconds; workload and assertions unchanged."
+                                               ],
+                                     "Logs":  [
+                                                  "artifacts/logs/root-full-primary-after-fix-20261101.log",
+                                                  "artifacts/logs/root-build-after-dist-failure-20261101.log",
+                                                  "artifacts/logs/root-full-after-both-fixes-20261101.log",
+                                                  "artifacts/logs/root-full-final-after-fixes-20261101.log",
+                                                  "artifacts/logs/root-full-after-polling-fix-20261101.log",
+                                                  "artifacts/logs/root-full-final-after-timeout-fix-20261101.log"
+                                              ]
+                                 },
     "Artifacts":  [
                       {
                           "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/desktop-install.log",
@@ -99,6 +130,11 @@
                           "SHA256":  "F2811A34D051FE79F022F5BB90A4D81BD25F87AFFDB4BEFEC332D54062B09CB1"
                       },
                       {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-build-after-dist-failure-20261101.log",
+                          "Bytes":  900,
+                          "SHA256":  "8742F7B3D3B7D99B197AC34F0FE58084AB05FB6352A4C1405F0C0ED2F617DD6C"
+                      },
+                      {
                           "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-build-retry-02.log",
                           "Bytes":  900,
                           "SHA256":  "451B442B311E87A2D67666D03CAC89B1CE1E85870198D29961C0E37F7D909FA2"
@@ -107,6 +143,31 @@
                           "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-focused.log",
                           "Bytes":  87374,
                           "SHA256":  "8D6C8428F5C9C3FCC943A47EDF9F12577BFCEAA2389B2F9EECDF9FD410BF66CF"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-full-after-both-fixes-20261101.log",
+                          "Bytes":  176950,
+                          "SHA256":  "A7E35B9C6505A3D5F1D1120B7895B019656099A93482E0D045ADB2FA1403490E"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-full-after-polling-fix-20261101.log",
+                          "Bytes":  175662,
+                          "SHA256":  "B5C2C6BAB5BB25E049A6F04FC2A0FB1A3FCA03952A73335CB2964608083440B3"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-full-final-after-fixes-20261101.log",
+                          "Bytes":  175072,
+                          "SHA256":  "9EC06FE782A9F96F81C3EC37A930719837878DD234C9A4D0636FED1F1A11DFFB"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-full-final-after-timeout-fix-20261101.log",
+                          "Bytes":  175046,
+                          "SHA256":  "CD6EF2EA8DDB9EE048C72B833049D8547693204C3165E92D9398EF4114F37600"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-full-primary-after-fix-20261101.log",
+                          "Bytes":  176548,
+                          "SHA256":  "351582ED08F0BBFE562586EEDEA9B90790555A08443A635108A0268C08F6C3E8"
                       },
                       {
                           "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-install.log",

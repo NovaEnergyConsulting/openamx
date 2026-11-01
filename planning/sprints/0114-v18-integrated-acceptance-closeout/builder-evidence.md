@@ -146,3 +146,29 @@ unresolved; this recommendation does not convert them to PASS.
 - V0.18 integrated closeout status: Builder submission complete; awaiting the
   separate product-owner closeout disposition. No release authority follows.
 - Release/publication/package-version/installer/certification: NOT AUTHORIZED.
+
+## Post-S114 Root Test Follow-up (2026-11-01)
+
+- The user requested diagnosis and correction of root `bun test` failures
+  separately from the original S114 verification scope. The historical S114
+  matrix statuses are unchanged; in particular, `INT114-ROOT-ALL` remains
+  `NOT RUN` for S114.
+- The first reproduced failure was the V0.14 desktop Help-index test missing
+  the required integrated-acceptance/release/publication boundary. The Help
+  sentence is present in HEAD `e29422f`.
+- The second reproduced failure came from the numbered-guide integration
+  test launching stale `dist` modules. `bun run build` refreshed the primary
+  generated runtime and transitive CLI modules; the numbered-guide test then
+  passed 2/2. The generated runtime's normalized Git diff is empty.
+- Full-suite load exposed two bounded-wait issues: three mapped-data job polls
+  used only 100 attempts at 5 ms, and an image-security test exceeded Bun's
+  default 5-second timeout while generating a 2000x2000 noisy PNG. Polling is
+  now bounded at 1000 attempts, and that one image test has a 15-second
+  timeout; its workload/assertions are unchanged.
+- Focused post-fix checks passed: examples 19/19, numbered guide 2/2, mapped
+  data editor 8/8, and report preparation 11/11. Final primary-root
+  `bun test` passed 629 tests, 0 failures, and 4,574 expectations across 46
+  files. Raw first/failing/retry/final logs are under `artifacts/logs/`.
+- Root tests left two `.keep` output directories in the primary root; they
+  were preserved and not cleaned. The previously observed S114 test output
+  directories were likewise not removed.

@@ -1,5 +1,21 @@
 # Planning State
 
+## Post-S114 Root Test Follow-up (2026-11-01)
+
+- The user requested diagnosis of root `bun test` failures after S114 Builder
+  submission. The Help-index note is now in HEAD `e29422f`; `bun run build`
+  refreshed stale primary `dist` modules; two test-only waits were made
+  robust under full-suite load (mapped-data polling 100 to 1000 attempts and
+  the expensive report-preparation image case timeout 5s to 15s).
+- Focused follow-up checks passed: examples 19/19, numbered guide 2/2, mapped
+  data editor 8/8, and report preparation 11/11. Final root `bun test`
+  passed 629 tests, 0 failures, and 4,574 expectations across 46 files.
+- Preserve the initial failure logs and follow-up retries in the S114
+  `artifacts/logs/` directory. The S114 matrix records the original approved
+  scope: its root-focused 345/1 result is unchanged and its broader root row
+  remains NOT RUN for S114. This follow-up does not change the separate
+  product-owner closeout disposition, which remains pending.
+
 ## V0.18 Sprint 114 Entry Reconciliation (2026-10-31)
 
 - The product owner confirmed S112 ACCEPTED WITH RECORDED RESIDUALS and S113

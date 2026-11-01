@@ -108,7 +108,7 @@ describe("Sprint 041 mapped data document boundary", () => {
 			expect(started.ok).toBe(true);
 			if (!started.ok) throw new Error(started.error.message);
 			let job = started.job;
-			for (let attempt = 0; job.status === "running" && attempt < 100; attempt++) {
+			for (let attempt = 0; job.status === "running" && attempt < 1000; attempt++) {
 				await new Promise(resolve => setTimeout(resolve, 5));
 				const polled = await service.request.getJob({ jobId: job.identity.jobId });
 				if (!polled.ok) throw new Error(polled.error.message);
@@ -188,7 +188,7 @@ describe("Sprint 041 mapped data document boundary", () => {
 			const started = await service.request.startJob({ operation: "validate-data", identity: workbench.state.requestIdentity });
 			if (!started.ok) throw new Error(started.error.message);
 			let job = started.job;
-			for (let attempt = 0; job.status === "running" && attempt < 100; attempt++) {
+			for (let attempt = 0; job.status === "running" && attempt < 1000; attempt++) {
 				await new Promise(resolve => setTimeout(resolve, 5));
 				const polled = await service.request.getJob({ jobId: job.identity.jobId });
 				if (!polled.ok) throw new Error(polled.error.message);
@@ -305,7 +305,7 @@ export let outputs: Length[] = [1 kilometer]
 			expect(started.ok).toBe(true);
 			if (!started.ok) throw new Error(started.error.message);
 			let job = started.job;
-			for (let attempt = 0; job.status === "running" && attempt < 100; attempt++) {
+			for (let attempt = 0; job.status === "running" && attempt < 1000; attempt++) {
 				await new Promise(resolve => setTimeout(resolve, 5));
 				const polled = await service.request.getJob({ jobId: job.identity.jobId });
 				if (!polled.ok) throw new Error(polled.error.message);

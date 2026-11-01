@@ -374,7 +374,7 @@ Raw HTML line two
       new Environment(),
       { file: sourceFile, projectRoot: root }
     )).rejects.toMatchObject({ code: 'AMX6002' });
-  });
+  }, 15_000);
 
   it('enforces the selected local-link target allowlist and safe source-relative resolution', async () => {
     const root = await fixtureRoot();
