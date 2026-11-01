@@ -1,5 +1,40 @@
 # Planning Decisions
 
+## V0.18 Sprint 114 Builder Submission (2026-10-31)
+
+- S114 verification was authorized against baseline
+  `a4839348d112b11ca20858a9554cbb2b5b03b1b6` in the isolated detached
+  worktree. The broader root suite was excluded by the approved plan.
+- Builder recommendation: ACCEPT WITH RECORDED RESIDUALS for integrated
+  V0.18 feature behavior. The root focused aggregate remains 345 passed / 1
+  failed (2,134 assertions), with the unchanged V0.14 Help-index expectation
+  failing. The VS Code host remains 21 passed / 7 failed; the Vite UI remains
+  7 passed / 1 failed / 1 skipped. Hutch produced no typecheck result and
+  native/cross-platform evidence remains unavailable/not run.
+- Direct parser/runtime/serialization, Example 08 playback, PDF/DOCX, and
+  build/typecheck checks passed as detailed in the S114 matrix. These do not
+  upgrade aggregate FAIL or BLOCKED/UNAVAILABLE statuses.
+- Separate product-owner S114 closeout disposition is PENDING. This Builder
+  recommendation authorizes no release, publication, version change,
+  installer distribution, or platform certification.
+
+## V0.18 Sprint 112/113 Product-Owner Dispositions (2026-10-31)
+
+- S112 is ACCEPTED WITH RECORDED RESIDUALS, confirmed by the product owner
+  during S114 preparation on 2026-10-31. Preserve its raw final Vite-harness
+  result (4 passed, 1 failed, 1 skipped), the intermittent bridge retry,
+  standalone-browser pass, skipped native WebView2 check, and unrun
+  cross-platform checks. These outcomes are not reclassified as PASS.
+- S113 is ACCEPTED WITH RECORDED RESIDUALS, confirmed by the product owner
+  during S114 preparation on 2026-10-31. Preserve the root focused result
+  (70 passed, 1 failed), VS Code host result (21 passed, 7 failed), Hutch
+  typecheck no-result, Vite-harness UI result (3 passed), unresolved
+  `get_errors` disagreement, and native/cross-platform gaps as recorded.
+- These dispositions close only S112 and S113 within their approved scopes.
+  They authorize neither S114 execution nor release, publication, version
+  changes, or platform certification. D111-02 and the HTML size-policy
+  discrepancy remain unchanged.
+
 ## V0.18 Sprint 112 Serialization Decisions (2026-10-31)
 
 - D112-01: all new scene-model writes use envelope version 2. Version 1
@@ -23,8 +58,9 @@
   path is out of scope.
 - These decisions do not change `AMXD6004`, the 64 control-only cap,
   `AMXD013`, D111-02, HTML size policy, or release/platform authority.
-  Sprint 112 execution was separately approved on 2026-10-31; disposition is
-  pending the Builder evidence review.
+  Sprint 112 execution was separately approved on 2026-10-31; its disposition
+  was pending at submission and was later confirmed ACCEPTED WITH RECORDED
+  RESIDUALS during S114 entry reconciliation.
 
 ## V0.18 Sprint 111 Runtime Expansion Decisions (2026-10-31)
 

@@ -1,0 +1,207 @@
+{
+    "BaselineCommit":  "a4839348d112b11ca20858a9554cbb2b5b03b1b6",
+    "ValidationWorktree":  "C:/Users/gamez/Programming/openamx-s114-validation-a4839348",
+    "RecordedAt":  "2026-10-31",
+    "Host":  {
+                 "OS":  "Windows 10.0.26300 x64",
+                 "PowerShell":  "5.1.26100.9711",
+                 "Bun":  "1.4.4",
+                 "Node":  "24.13.1",
+                 "Git":  "2.56.0.windows.4",
+                 "VSCodeHost":  "1.143.1",
+                 "Chromium":  "156.0.8078.4",
+                 "Hutch":  "0.28.2",
+                 "Cottontail":  "0.7.3",
+                 "LogicalCPUs":  16
+             },
+    "ProtectedRootsBefore":  {
+                                 "desktop-app/test-results":  "1 file / 45 bytes",
+                                 "vscode-extension/dist":  "1 file / 545298 bytes",
+                                 "vscode-extension/out":  "30 files / 444983 bytes",
+                                 "vscode-extension/.vscode-test":  "4657 files / 1462698149 bytes",
+                                 "S114 artifacts root":  "absent"
+                             },
+    "PrimaryRuntimeSHA256Before":  "FA04519186830C23455626795B25BF76D5B0304F5312A564A0F90AE84B318844",
+    "HistoricalArtifactRestore":  {
+                                      "S112BrowserMeasurementsRestoredAndHashMatchedPrimary":  true,
+                                      "S112FrameErrorScreenshotRestoredAndHashMatchedPrimary":  true,
+                                      "FourLongPathS106S107ScreenshotsByteMatchedPrimary":  true
+                                  },
+    "PrimaryRuntimeSHA256After":  "FA04519186830C23455626795B25BF76D5B0304F5312A564A0F90AE84B318844",
+    "ValidationRuntimeSHA256After":  "81DEB9CFA78001B539E2B20782F0F2888FB6E5D5CA0248DB916730A4B757B876",
+    "RuntimeGitDiffAgainstBaseline":  false,
+    "MatrixRows":  30,
+    "MatrixRawStatusCounts":  {
+                                  "PASS":  22,
+                                  "FAIL":  5,
+                                  "NOT RUN":  1,
+                                  "BLOCKED/UNAVAILABLE":  2
+                              },
+    "Artifacts":  [
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/desktop-install.log",
+                          "Bytes":  1736,
+                          "SHA256":  "1DFC37B0E2C64EC86875A2CA3DC892154AC944451494CA4591E768ED58B04772"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/desktop-typecheck.log",
+                          "Bytes":  996,
+                          "SHA256":  "035407038F982CBDAF845CA2286DA27B7FF7738B3B09D33E1936D3FA8F078272"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/desktop-ui.log",
+                          "Bytes":  900,
+                          "SHA256":  "A3D3A622D35066DF4FC6D7D3C2F9380537C01F72F93732950AF4237D7B4B5AC2"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/desktop-ui-vite-final.log",
+                          "Bytes":  14454,
+                          "SHA256":  "70ED6A9260EDDC55FA5015F52FCDF7F36D8E33E5A3CAF43680F18E5515B6B647"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/desktop-ui-vite-retry-02.log",
+                          "Bytes":  900,
+                          "SHA256":  "7AD45677B12AC1EE9DE82A60CACD438EB4C88487028F610BBFA8411B6E2C84CE"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/example-08-browser.log",
+                          "Bytes":  900,
+                          "SHA256":  "2BAF60B924A758C44491C5EBEC2E65549F0EDC868DA06C10CCACDF00C8DFE2C4"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/example-08-docx.log",
+                          "Bytes":  900,
+                          "SHA256":  "AC4C6AD89FD8F1D545687BC7604E9BCF6E6F0B5459D35B7E76334AFED6A8B988"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/example-08-html.log",
+                          "Bytes":  900,
+                          "SHA256":  "DA0300FBE477468C1F032A7922A9E55B48CD99D1582BF4651D17F90B6FE36D18"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/example-08-pdf.log",
+                          "Bytes":  900,
+                          "SHA256":  "40C0A3FF0A23CB844AE454A43A65E0E1196314CD78BF2BA710BAA6723184AAEF"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/example-08-static-output-check.log",
+                          "Bytes":  900,
+                          "SHA256":  "052EE773D763B82A55B651CF833DA673C134EE2D6D3481600888F1F09A111940"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/example-08-static-output-check-retry-02.log",
+                          "Bytes":  900,
+                          "SHA256":  "9FD31E2CDE91CE6479F0230AC5D10967723869D7A2B037B7748EEBD9BCF6AD28"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-build.log",
+                          "Bytes":  788,
+                          "SHA256":  "F2811A34D051FE79F022F5BB90A4D81BD25F87AFFDB4BEFEC332D54062B09CB1"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-build-retry-02.log",
+                          "Bytes":  900,
+                          "SHA256":  "451B442B311E87A2D67666D03CAC89B1CE1E85870198D29961C0E37F7D909FA2"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-focused.log",
+                          "Bytes":  87374,
+                          "SHA256":  "8D6C8428F5C9C3FCC943A47EDF9F12577BFCEAA2389B2F9EECDF9FD410BF66CF"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-install.log",
+                          "Bytes":  708,
+                          "SHA256":  "DB2A66A520D1938C40F3960A76016DE7163D10CC3CFBE6812BADD960A0C757F7"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/root-typecheck.log",
+                          "Bytes":  900,
+                          "SHA256":  "C2A3AD262F90DF59C3C3BA21E4951C0E00A263CB06E549082E35DB4E63E87389"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/vscode-host.log",
+                          "Bytes":  900,
+                          "SHA256":  "2B15F8443B44B34F38493A2EB1E486AF0DBAF595E4FD3FEE7DBF590D8C54478A"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/vscode-host-final.log",
+                          "Bytes":  38034,
+                          "SHA256":  "D5CBBBD3721CDF1B31B443D9F9A9750838A4B689BF41EA5097A6E20F9FC99821"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/vscode-host-retry-02.log",
+                          "Bytes":  1274,
+                          "SHA256":  "CBA64C6934F9E110855F4112F10735977623946393B50A3281E97A6B2DA6C37A"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/vscode-install.log",
+                          "Bytes":  670,
+                          "SHA256":  "E9716E3A5AB5BB014FD14F55BCEDBE0575BB0E610C007E29ABBF68A3D3B5AB55"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/outputs/example-08.docx",
+                          "Bytes":  20039,
+                          "SHA256":  "3B8F72DCFC9083C22069111415ACD399D0E5B339F9A1CFED737A28DEC38C6580"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/outputs/example-08.html",
+                          "Bytes":  70528,
+                          "SHA256":  "437CDA695B4040BD26C6FED0CC7A279A27BFF0DE4D05DA1285D2ECE64B01F775"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/outputs/example-08.pdf",
+                          "Bytes":  35847,
+                          "SHA256":  "F115928053BEF6BA60AED07B13526968D2D886ECA57D5A1CE475BEEBDE2D5B4B"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/outputs/s114-playwright-production-browser-measurements.json",
+                          "Bytes":  2795,
+                          "SHA256":  "906C6EAF191EA29E9F378F57C920B2490C5C10716148BF8B682392FB4C7D2616"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/outputs/s114-playwright-production-browser-measurements-retry-03.json",
+                          "Bytes":  2749,
+                          "SHA256":  "BA6105DF9D9D6C812FA01B0BBE2DE09F3FD99C04E10FF72DFCB21CCA5829D885"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/playwright/s114-example-08-interior.png",
+                          "Bytes":  192061,
+                          "SHA256":  "A3674C2BC977FD6D5F1399F9508D030E038AFFEA0E8152C7625AC69FD35CD898"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/playwright/s114-final/.last-run.json",
+                          "Bytes":  45,
+                          "SHA256":  "E22DF5D0991EB28C09093B1E678B3FA8CD1FAB48185D38E67CF79FB6E63AD5EA"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/playwright/s114-retry-02/.last-run.json",
+                          "Bytes":  96,
+                          "SHA256":  "59A8110AEF8524A6828555E1E8AD36129B7FBF2ADC9EACB0CE03C5BC0285AA4A"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/playwright/s114-retry-02/diagram-playback.pw.ts-des-663b7-ctive-token-bound-lifecycle/error-context.md",
+                          "Bytes":  13778,
+                          "SHA256":  "26E7A6A4384190C7DF3A72A03A68C1EF717AE14D6F61409B0A7E3E653116DA08"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/playwright/s114-retry-03/.last-run.json",
+                          "Bytes":  96,
+                          "SHA256":  "59A8110AEF8524A6828555E1E8AD36129B7FBF2ADC9EACB0CE03C5BC0285AA4A"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/playwright/s114-retry-03/diagram-playback.pw.ts-des-663b7-ctive-token-bound-lifecycle/error-context.md",
+                          "Bytes":  13778,
+                          "SHA256":  "26E7A6A4384190C7DF3A72A03A68C1EF717AE14D6F61409B0A7E3E653116DA08"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/playwright/s114-vite-frame-error.png",
+                          "Bytes":  51149,
+                          "SHA256":  "00179AADE58E30ECB5F8DF7C81AAD58A2CD352F2CF09F0A22C0B3BA140F47B74"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/playwright/s114-vite-frame-error-retry-03.png",
+                          "Bytes":  50997,
+                          "SHA256":  "7AE48F262BF04806AED54E412E6FC661686982ABEBDA7D4AEAE14E04E1D1E475"
+                      }
+                  ]
+}

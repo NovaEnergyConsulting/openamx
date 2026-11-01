@@ -1,5 +1,51 @@
 # Planning State
 
+## V0.18 Sprint 114 Entry Reconciliation (2026-10-31)
+
+- The product owner confirmed S112 ACCEPTED WITH RECORDED RESIDUALS and S113
+  ACCEPTED WITH RECORDED RESIDUALS on 2026-10-31. This resolves the lifecycle
+  discrepancy recorded during S114 preparation; it does not revise either
+  sprint's historical Builder evidence or raw test outcomes.
+- Canonical lifecycle records reconciled under explicit user authorization:
+  `planning/decisions.md`, `planning/state.md`, `planning/STATUS.json`, and
+  `planning/ARCHITECT_BRIEFING.md`. S114 entry evidence is recorded in its
+  matrix and Builder evidence.
+- S112 raw residuals remain: final Vite Playwright attempt 4 passed, 1 failed,
+  1 skipped; native WebView2 was skipped and cross-platform checks were not
+  run. The separate standalone browser case passed. S113 raw residuals remain:
+  root focused suite 70 passed/1 failed, VS Code host 21 passed/7 failed,
+  Hutch typecheck produced no result, and desktop Vite-harness UI passed 3/3;
+  the Help-index failure, analyzer disagreement, native-unavailable, and
+  cross-platform-not-run statuses are not upgraded.
+- S114 execution was separately authorized on 2026-10-31 at baseline
+  `a4839348d112b11ca20858a9554cbb2b5b03b1b6` in the detached validation
+  worktree `C:\Users\gamez\Programming\openamx-s114-validation-a4839348`.
+  The broader root suite was excluded; all S114 output remained under the
+  approved S114 artifact roots.
+
+## V0.18 Sprint 114 Builder Submission (2026-10-31)
+
+- The approved 11-file root focused selection recorded 345 passed, 1 failed,
+  and 2,134 assertions. The failure is the unchanged V0.14 desktop Help-index
+  expectation. Root build and no-emit typecheck passed.
+- The actual VS Code 1.143.1 Extension Development Host recorded 21 passed,
+  7 failed; the nested V0.18 tokenization case passed. Windows path/import and
+  EBUSY cleanup failures remain raw.
+- Desktop Vite UI recorded 7 passed, 1 failed, 1 skipped. The preview-bridge
+  diagnostic failure remains; native WebView2 was skipped. Hutch typecheck
+  produced no `vue-tsc` result and the wrapper exited 255.
+- Example 08 CLI HTML/PDF/DOCX output and direct browser/static checks passed.
+  The actual generated HTML retained three ordered points across lower,
+  interior, upper, and repeated frames with no browser errors or network
+  requests. Production-composition browser playback matched 1,520 elements.
+- Builder recommendation: ACCEPT WITH RECORDED RESIDUALS for the approved
+  integrated feature scope. Separate product-owner S114 closeout disposition
+  is PENDING. Raw failures, unavailable checks, and excluded broader tests
+  remain separately recorded in the complete S114 matrix and artifacts.
+- No product/test/spec/example/runtime/editor files changed. No release,
+  publication, package/version change, installer, or certification work was
+  performed or authorized.
+
 ## V0.18 Sprint 112 Builder Submission (2026-10-31)
 
 - Sprint 112 execution was separately authorized on 2026-10-31 against the
@@ -24,8 +70,9 @@
   skipped because no WebView2 CDP endpoint was supplied; cross-platform
   evidence is unavailable.
 - Builder recommendation: ACCEPT WITH RECORDED RESIDUALS for approved scope.
-  Separate product-owner disposition is PENDING. Sprint 113 and release work
-  remain separately gated.
+  The separate product-owner disposition was PENDING at submission time and
+  was later confirmed as ACCEPTED WITH RECORDED RESIDUALS on 2026-10-31.
+  Sprint 113 and release work remained separately gated at submission.
 
 ## V0.18 Sprint 111 Builder Closeout (2026-10-31)
 
