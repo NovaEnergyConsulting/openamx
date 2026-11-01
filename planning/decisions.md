@@ -1,5 +1,20 @@
 # Planning Decisions
 
+## V0.18 Sprint 114 and Version Closeout (2026-11-01)
+
+- The product owner ACCEPTED/CLOSED Sprint 114 and V0.18 as complete on
+  2026-11-01, WITH RECORDED RESIDUALS. This closes the integrated acceptance
+  sprint only; the raw S114 root-focused, VS Code, desktop Vite, Hutch,
+  native, and cross-platform outcomes remain as recorded in its matrix.
+- The post-S114 primary root suite passed 629 tests with 0 failures and 4,574
+  expectations after the Help-index correction, fresh `dist` build, and
+  bounded test-wait adjustments. This later run does not rewrite S114's
+  original 345/1 root-focused result or the S114 `ROOT-ALL: NOT RUN` scope.
+- The three package manifests are synchronized at 0.18.0. GitHub release-page
+  copy is prepared as a draft; no GitHub release was created or published.
+  Installer distribution and platform certification remain separately
+  unauthorized.
+
 ## V0.18 Sprint 114 Builder Submission (2026-10-31)
 
 - S114 verification was authorized against baseline
@@ -14,9 +29,10 @@
 - Direct parser/runtime/serialization, Example 08 playback, PDF/DOCX, and
   build/typecheck checks passed as detailed in the S114 matrix. These do not
   upgrade aggregate FAIL or BLOCKED/UNAVAILABLE statuses.
-- Separate product-owner S114 closeout disposition is PENDING. This Builder
-  recommendation authorizes no release, publication, version change,
-  installer distribution, or platform certification.
+- Separate product-owner S114 closeout disposition was PENDING at Builder
+  submission and was later recorded ACCEPTED/CLOSED WITH RECORDED RESIDUALS
+  on 2026-11-01. The Builder recommendation itself authorizes no release,
+  publication, installer distribution, or platform certification.
 
 ## V0.18 Sprint 112/113 Product-Owner Dispositions (2026-10-31)
 

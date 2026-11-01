@@ -68,6 +68,13 @@
                                                   "artifacts/logs/root-full-final-after-timeout-fix-20261101.log"
                                               ]
                                  },
+    "ProductOwnerCloseoutDisposition":  "ACCEPTED/CLOSED WITH RECORDED RESIDUALS; user, 2026-11-01",
+    "ReleaseDraft":  "artifacts/outputs/github-release-0.18.0.md; prepared only; not created/published",
+    "PackageVersions":  {
+                            "Root":  "0.18.0",
+                            "Desktop":  "0.18.0",
+                            "VSCode":  "0.18.0"
+                        },
     "Artifacts":  [
                       {
                           "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/logs/desktop-install.log",
@@ -213,6 +220,11 @@
                           "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/outputs/example-08.pdf",
                           "Bytes":  35847,
                           "SHA256":  "F115928053BEF6BA60AED07B13526968D2D886ECA57D5A1CE475BEEBDE2D5B4B"
+                      },
+                      {
+                          "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/outputs/github-release-0.18.0.md",
+                          "Bytes":  1537,
+                          "SHA256":  "3C92A1CC2F2088D3B38D3A56AD0CFA2872476D496C6DB7AD856FE8B8869C4AA9"
                       },
                       {
                           "Path":  "planning/sprints/0114-v18-integrated-acceptance-closeout/artifacts/outputs/s114-playwright-production-browser-measurements.json",

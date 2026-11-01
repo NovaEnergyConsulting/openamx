@@ -1,7 +1,7 @@
 # ARCHITECT BRIEFING — Sprint 114 Builder Submission
 
 ## Where things stand
-S114 integrated verification is complete at the approved baseline. The Builder recommends ACCEPT WITH RECORDED RESIDUALS; the separate product-owner closeout disposition remains pending. A separate 2026-11-01 root-test follow-up fixed the missing Help entry, refreshed stale `dist`, and hardened two test waits; the latest full root suite passed 629/0. Original S114 raw outcomes remain preserved.
+S114 and V0.18 are ACCEPTED/CLOSED WITH RECORDED RESIDUALS by the product owner on 2026-11-01. The later root-test follow-up passed 629/0; S114's original raw outcomes remain preserved. A GitHub release description is drafted, but no release was created or published.
 
 ## Executive summary
 **Business outcome**: Integrated parser, checker, formatter, expansion, frame binding, v2 serialization, standalone browser, static export, editor, and Example 08 evidence was collected without product changes.
@@ -19,10 +19,10 @@ S114 integrated verification is complete at the approved baseline. The Builder r
 | Example 08 and static outputs | passed | New S114 HTML/PDF/DOCX outputs inspected directly; fixed membership and animated properties verified |
 | Root/VS Code/Vite aggregates | attention | Root 345/1, VS Code 21/7, Vite UI 7/1/1; see named residuals |
 | Hutch/native/cross-platform | blocked/unavailable | Hutch no-result; native skipped/unavailable; cross-platform not run |
-| S114 product-owner disposition | pending | Builder recommendation submitted; separate closeout decision required |
+| S114 product-owner disposition | accepted/closed with residuals | User disposition recorded 2026-11-01; raw failures and unavailable checks remain visible |
 
 ## Recommended next action
-Review the completed S114 matrix and evidence, then record a separate product-owner closeout disposition. Do not infer native/cross-platform evidence or treat accepted residuals as passing tests.
+Use the prepared GitHub release description for a separately authorized release workflow when desired. Do not infer native/cross-platform evidence or treat accepted residuals as passing tests.
 
 ## Evidence
 - Exact commands, raw logs, retries, generated reports, screenshots, hashes, host versions, and row-by-row statuses are in `planning/sprints/0114-v18-integrated-acceptance-closeout/integrated-evidence-matrix.md` and its `artifacts/` tree.
@@ -30,7 +30,7 @@ Review the completed S114 matrix and evidence, then record a separate product-ow
 - Production composition: 16 diagrams, 512 authored declarations, 64 control-originating emissions per diagram, 1,520 frame elements. S114 HTML measured 286,776 bytes/1,852 DOM nodes; one-host frame p95 samples were 4.1 and 4.9 ms. These are measurements, not thresholds.
 
 ## Scope boundary
-S114 verification did not change product source, tests, specs/examples, generated runtime, or editor behavior. Raw failures, BLOCKED/UNAVAILABLE checks, and NOT RUN checks remain distinct. Release, publication, package/version changes, installer distribution, and platform certification remain separately unauthorized.
+S114 verification did not change product source, specs/examples, generated runtime, or editor behavior. The separately authorized root-test follow-up changed the Help content in HEAD and two async test timeouts. Raw S114 failures, BLOCKED/UNAVAILABLE checks, and NOT RUN checks remain distinct. The release description is a draft only; no release, publication, installer distribution, or platform certification occurred.
 
 ---
 

@@ -11,7 +11,8 @@ test, spec, example, renderer, editor, or runtime file was changed.
 integrated V0.18 feature scope. The failing root/VS Code/Vite aggregates,
 Hutch no-result, and unavailable native/cross-platform checks remain raw and
 unresolved; this recommendation does not convert them to PASS.
-**Separate product-owner disposition:** PENDING.
+**Separate product-owner disposition:** ACCEPTED/CLOSED WITH RECORDED
+RESIDUALS by the user on 2026-11-01. S114 raw statuses remain unchanged.
 
 ## Entry and Disposition Reconciliation
 
@@ -142,9 +143,10 @@ unresolved; this recommendation does not convert them to PASS.
   standalone browser and static exports. Raw root/VS Code/Vite failures,
   Hutch no-result, and native/cross-platform gaps remain explicit and are not
   converted to PASS.
-- Separate product-owner disposition/date: PENDING.
-- V0.18 integrated closeout status: Builder submission complete; awaiting the
-  separate product-owner closeout disposition. No release authority follows.
+- Separate product-owner disposition/date: ACCEPTED/CLOSED WITH RECORDED
+  RESIDUALS, user, 2026-11-01.
+- V0.18 integrated closeout status: S114 ACCEPTED/CLOSED WITH RECORDED
+  RESIDUALS; V0.18 integrated acceptance complete. No release authority follows.
 - Release/publication/package-version/installer/certification: NOT AUTHORIZED.
 
 ## Post-S114 Root Test Follow-up (2026-11-01)

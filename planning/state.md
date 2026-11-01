@@ -1,5 +1,17 @@
 # Planning State
 
+## V0.18 Sprint 114 Product-Owner Closeout (2026-11-01)
+
+- The product owner ACCEPTED/CLOSED Sprint 114 and V0.18 as complete, WITH
+  RECORDED RESIDUALS. S114 raw results remain distinct: original root-focused
+  345/1, VS Code 21/7, Vite UI 7/1/1, Hutch no-result, native unavailable, and
+  cross-platform not run. The later full primary root suite passed 629/0 with
+  4,574 expectations; it does not rewrite the original S114 matrix.
+- All three package manifests are 0.18.0. GitHub release-page copy is
+  prepared in the S114 artifact outputs; no release was created or published.
+  Installer distribution and platform certification remain separately
+  unauthorized.
+
 ## Post-S114 Root Test Follow-up (2026-11-01)
 
 - The user requested diagnosis of root `bun test` failures after S114 Builder
@@ -13,8 +25,9 @@
 - Preserve the initial failure logs and follow-up retries in the S114
   `artifacts/logs/` directory. The S114 matrix records the original approved
   scope: its root-focused 345/1 result is unchanged and its broader root row
-  remains NOT RUN for S114. This follow-up does not change the separate
-  product-owner closeout disposition, which remains pending.
+  remains NOT RUN for S114. At the time of this follow-up the separate
+  product-owner disposition was pending; it was subsequently recorded
+  ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-11-01.
 
 ## V0.18 Sprint 114 Entry Reconciliation (2026-10-31)
 
