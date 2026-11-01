@@ -71,7 +71,8 @@
         "Math functions use radians and accept Numbers or dimensionless Measurements; their results are unitless Numbers. Existing Measurement-aware standard-library operations preserve their approved unit behavior.",
         "len and string slices count Unicode code points. trim uses the approved Unicode 15.1 White_Space set.",
         "format supports a bounded numeric pattern subset and the en-US, de-DE, and fr-FR locales; Measurement output keeps its displayed value and unit.",
-        "See docs/language-spec-v0.14.md and the V0.14 examples for exact syntax, diagnostics, and limits."
+        "See docs/language-spec-v0.14.md and the V0.14 examples for exact syntax, diagnostics, and limits.",
+        "Integrated acceptance, release, and publication remain separate."
       ]
     },
     {
