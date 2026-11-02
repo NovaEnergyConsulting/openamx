@@ -162,7 +162,7 @@ export function resolveDesktopInputs(root: string, text: string, rawOverrides: s
 	}
 	const paths = new Map<string, { source: "project" | "local" | "per-run"; path: string }>();
 	const privatePaths: string[] = [];
-	for (const name of new Set([...declarations.map(input => input.name), ...Object.keys(project.inputs), ...Object.keys(local.inputs), ...Object.keys(perRun)])) {
+	for (const name of new Set([...declarations.map(input => input.name), ...Object.keys(perRun)])) {
 		const selected = Object.hasOwn(perRun, name) ? { source: "per-run" as const, value: perRun[name] }
 			: Object.hasOwn(local.inputs, name) ? { source: "local" as const, value: local.inputs[name] }
 				: Object.hasOwn(project.inputs, name) ? { source: "project" as const, value: project.inputs[name] }
