@@ -81,6 +81,342 @@ Declare a name before referring to it; imports must precede uses. Do not assume
 JavaScript, Python, or another language's syntax or coercion rules. Statements
 are newline-separated, not semicolon-separated.
 
+## Syntax quick reference
+
+Use the forms below as the language's syntax, not as pseudocode. AMX has no
+implicit numeric/string/Boolean coercion. In a checked document, a type error
+is rejected before evaluation. Each executable block shares the entry module's
+source order and environment; a declaration in one `amx` fence can be used by
+a later fence, but not before its declaration. Imports come first, then entry
+module inputs, then other declarations and statements.
+
+### Declarations, types, and expressions
+
+```amx
+let count: Number = 3
+let label: String = "Pump"
+let enabled: Boolean = true
+let reviewedAt: DateTime = "2026-09-29T12:00:00Z"
+let maybeCount: Number? = null
+let values: Number[] = [1, 2, 3]
+let levels: Number[] = [1 to 3]
+
+let total = values[1] + values[2] * 2
+let firstLabel = "Item ${values[1]}"
+let hasThree = total >= 3 and enabled
+```
+
+The built-in types are `Number`, `String`, `Boolean`, and `DateTime`. A
+`DateTime` is an RFC 3339 string with seconds and a timezone, accepted as a
+DateTime only in a context that expects that type. Types can be user-declared
+record or enum names, or imported names. Type suffixes apply left to right:
+`Asset?[]` is a list of nullable assets; `Asset[]?` is a nullable list of
+non-null assets. Empty lists need an expected list type, for example
+`let none: Number[] = []`.
+
+Expressions include literals, names, lists, ranges `[start to end]`, calls,
+record constructors, field access (`record.field`), list reads (`list[index]`),
+parentheses, unary `-` and `not`, arithmetic `+ - * / % ^`, comparisons
+`== != < <= > >=`, Boolean `and`/`or`, `if`, `match`, and function calls.
+`^` is right-associative. Arithmetic binds more tightly than comparisons;
+comparisons bind more tightly than `and`, which binds more tightly than `or`.
+Use parentheses whenever mixed operators could be unclear. Lists and ranges
+are 1-based when indexed: `values[1]` is the first element. There is no
+zero-based indexing, slicing, index assignment, or record-field assignment.
+
+Use `=` to initialize a `let` or assign an existing binding, and `+=` for an
+existing numeric binding. Repeating `let` for an existing local updates it;
+its type remains fixed. Inputs and imported values are immutable. Newlines
+separate statements; semicolons are not valid separators.
+
+### Decisions, matching, and loops
+
+There are three distinct conditional forms. The compact expression returns
+one of two expressions:
+
+```amx
+let band: String = if score >= 10 then "high" else "low"
+```
+
+A braced conditional used as an expression requires `else`, and every branch
+must explicitly `return` its value. These returns supply the conditional's
+value; they do not return from an enclosing function:
+
+```amx
+let band: String = if score >= 10 {
+  return "high"
+} else {
+  return "low"
+}
+```
+
+A standalone braced `if` is a statement and may omit `else`:
+
+```amx
+if score >= 10 {
+  status = "high"
+} else {
+  status = "low"
+}
+```
+
+`match` is an expression over a non-null `Number`, `String`, or `Boolean`.
+Cases are literal values and exactly one `default` arm is required:
+
+```amx
+let labelForStatus: String = match statusCode {
+  case 1 => "Open"
+  case 2 => "Closed"
+  default => "Unknown"
+}
+```
+
+The two `for` forms are also distinct. A statement loop performs work and has
+no `return`; an expression loop collects exactly one returned value per
+iteration into a list:
+
+```amx
+let total: Number = 0
+for value in values {
+  total += value
+}
+
+let doubled: Number[] = for value in values {
+  return value * 2
+}
+```
+
+An expression-loop `return` contributes that iteration's value; it is not an
+early exit. Loop iterables are lists or ranges. Ordinary AMX loops cannot be
+nested; `break` and `continue` are unsupported. A `for` inside a function is
+statement-form only and may not be nested.
+
+### Lists and mutation
+
+List reads use positive, 1-based integer indexes. Mutations are statements on
+a named local list, not expressions and not bracket assignments:
+
+```amx
+let names: String[] = ["Ada", "Bo"]
+add "Cy" to names
+add "Zed" to names at 2
+remove 1 from names
+remove 2 from names at 1
+```
+
+`add value to list` appends; `add value to list at index` inserts before that
+1-based index (`length + 1` appends). `remove count from list` removes one
+final item; `remove count from list at index` removes `count` consecutive
+items beginning at the index. Indexes and counts must be positive integers.
+Use `len(list)` for its element count; there is no `.length` property.
+
+### Records, enums, strings, and modules
+
+Record field declarations use `:`; record constructor values use `=` and
+comma-separated fields. A trailing comma is allowed. The optional marker
+`?` controls omission, while a nullable type suffix separately allows `null`:
+
+```amx
+type Review {
+  id: String
+  note?: String? = null
+  score: Number = 0
+}
+
+let review: Review = Review {
+  id = "R-1",
+  score = 4,
+}
+```
+
+Defaults must be literal values (including literal lists or records); they
+cannot refer to bindings or function calls. Record types are nominal. In
+inheritance, list every parent after `extends` and mark each replacing field
+with `override`. Enums are declared as `enum Status = { OPEN, CLOSED }`;
+implicit numeric members start at `1`. If one member has an explicit value,
+all must have unique literal values of the same primitive type.
+
+Double-quoted strings interpolate `${expression}`; single-quoted strings do
+not. Supported escapes are `\\`, `\"`, `\'`, `\n`, `\r`, `\t`, and `\${`.
+Narrative interpolation uses the separate `{{ expression }}` form outside the
+AMX fence.
+
+An entry module starts with imports, then inputs, then other items. Imports
+are explicit and relative; modules expose only explicit exports. The export
+forms are `export type Name { ... }`, `export fn name(...): Type = ...`, and
+`export let name: Type = expression`. Imported modules cannot declare inputs
+or report views. Example module and importer:
+
+`modules/geometry.amx`:
+
+```amx
+export type Point {
+  x: Number
+  y: Number
+}
+```
+
+Entry document:
+
+```amx
+import { Point } from "./modules/geometry.amx"
+let origin: Point = Point { x = 0, y = 0 }
+```
+
+The comment line above is a Markdown label, not AMX syntax: do not copy it
+into the fenced module. Imports must use `/`, start with `./` or `../`, end in
+`.amx`, and remain within the host's project/entry root. There is no package
+resolver, URL import, implicit global, or import alias.
+
+### Function forms and built-ins
+
+An expression-bodied function has one expression. A statement-bodied function
+uses the allowed local statement forms and must return a compatible value on
+every reachable path:
+
+```amx
+fn triple(value: Number): Number = value * 3
+
+fn firstOrDefault(values: Number[]): Number {
+  for value in values {
+    return value
+  }
+  return 0
+}
+```
+
+Functions are pure: they cannot capture document bindings, call themselves,
+call a later function, declare inputs/views, or perform document-level
+effects. Statement bodies may use initialized `let`, assignment/`+=`,
+standalone `if`, statement-form `for`, `return`, and named-list `add`/`remove`.
+They may not contain nested loops, expression-form loops, `break`, or
+`continue`. A function's `return` exits that function; this differs from
+`return` in a braced `if` expression or an expression-form loop.
+
+Common standard-library signatures are `sum`, `mean`, `min`, and `max` on
+lists; `abs`, `round(value, digits?)`, `sqrt`, and `pow(base, exponent)`;
+`len`, `trim`, `left(text, count?)`, `right(text, count?)`; and
+`format(value, pattern, locale?)`. For math, constants `PI` and `E` and
+`sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `asinh`,
+`acosh`, `atanh`, `ln`, `log`, `exp` are available. Trigonometry uses radians;
+`ln` is natural log and `log` is base 10. `is` tests a runtime value against
+a visible type but does not narrow its static type. These are functions, not
+methods: use `len(values)`, not `values.len()`.
+
+`format` accepts only numeric patterns of the form `0` or `#,##0`, optionally
+followed by `.` and one to six zeroes, optionally prefixed by `$`, `€`, or
+`£`, and optionally suffixed by `%`. Supported locales are `en-US` (default),
+`de-DE`, and `fr-FR`; it is not a general date formatter.
+
+### Measurements and units
+
+Declare dimensions and units before use. `:` declares a base unit's dimension;
+`=` defines a scaled or compound unit. Attach a unit by juxtaposition to a
+number, numeric identifier, or parenthesized numeric expression; convert with
+`in`:
+
+```amx
+dimension Length
+dimension Time
+dimension Speed = Length / Time
+unit meter: Length
+unit kilometer = 1000 * meter
+unit second: Time
+unit meter_per_second = meter / second
+
+let distance: Length = 1250 meter
+let travelTime: Time = 2 second
+let speed: Speed = distance / travelTime
+let distanceInKm: Length = distance in kilometer
+let adjusted: Length = (3 + 2) meter
+```
+
+Measurements are not plain Numbers. Add/compare only compatible dimensions;
+`in` changes the displayed unit, not the physical value. Do not invent units
+or silently assign units to external bare numbers. For compound expressions,
+declare a named unit or use explicit Measurement arithmetic.
+
+### Tables, charts, and named outputs
+
+Tables and charts are private report declarations; `show` emits a declared
+view. A table source must be a list of records, and each column names one
+direct scalar field:
+
+```amx
+type Observation {
+  assetId: String
+  elapsed: Number
+  output: Number
+  station: String
+}
+
+let rows: Observation[] = [
+  Observation { assetId = "A-1", elapsed = 0, output = 4, station = "North" },
+  Observation { assetId = "A-2", elapsed = 1, output = 7, station = "South" },
+]
+
+table register = table(rows) {
+  title: "Register"
+  column assetId as "Asset ID"
+  column output as "Output"
+}
+
+chart scores = bar(rows) {
+  title: "Output by asset"
+  description: "Observed output for each asset"
+  category: assetId
+  series output as "Output"
+}
+
+chart trend = line(rows) {
+  title: "Output over time"
+  description: "Observed output in input order"
+  x: elapsed
+  series output as "Output"
+}
+
+chart correlation = scatter(rows) {
+  title: "Output by elapsed time"
+  description: "Points grouped by station"
+  x: elapsed
+  y: output
+  group: station
+}
+
+show register
+show scores
+show trend
+show correlation
+```
+
+For `bar`/`column` charts with record rows, specify `category: field` and one
+or more `series field as "Label"`. For `line` charts with record rows,
+specify `x: field` and one or more series. `scatter` requires record rows with
+`x: field` and `y: field`, and may have `group: stringField`; it has no
+`series` option. For a `Number[]` source, bar/column/line use exactly one
+`series "Label"`; optional `labels: stringList` must have the same length.
+Every chart requires a quoted `title` and `description`; do not add options
+that do not apply to its source shape or chart kind.
+
+Named data outputs are separate from report views. Export a top-level value
+explicitly and map its name to a destination when running:
+
+```amx
+type Summary {
+  total: Number
+}
+
+let total: Number = 4
+export let summary: Summary = Summary { total = total }
+```
+
+```sh
+openamx run analysis.amx --output summary=out/summary.json
+```
+
+CSV output is limited to lists of flat records with scalar fields; use JSON
+for nested records/lists.
+
 ### Values, records, and collections
 
 - Common types are `Number`, `String`, `Boolean`, and `DateTime`. Use `T[]`
@@ -226,20 +562,67 @@ nested inside another diagram loop. At most 64 generated primitives are
 emitted per diagram; the separate authored limits are 16 diagrams and 512
 primitive declarations per report.
 
+Use the required property names below. Geometry and text `value` are
+expressions; styles are static. `lineWidth` is a positive finite literal, not
+an expression. Colors are `#RRGGBB` literals or `none` where allowed.
+
+| Primitive | Required properties | Optional properties |
+| --- | --- | --- |
+| `line name` | `x1`, `y1`, `x2`, `y2`, `stroke`, `lineWidth` | `arrow: "none"`, `"start"`, `"end"`, or `"both"` |
+| `rectangle name` | `x`, `y`, `width`, `height`, `stroke`, `lineWidth` | `fill` |
+| `circle name` | `cx`, `cy`, `r`, `stroke`, `lineWidth` | `fill` |
+| `text name` | `x`, `y`, `value`, `fill` | None |
+
 ```amx
 diagram marker {
   title: "Moving marker"
-  description: "A point moves across the canvas."
+  description: "Four primitive types and generated trace points."
   width: 160
   height: 80
   time t from 0 to 1 duration 2
+  line axis {
+    x1: 10
+    y1: 12
+    x2: 150
+    y2: 12
+    stroke: "#263238"
+    lineWidth: 1
+    arrow: "end"
+  }
+  rectangle body {
+    x: 10
+    y: 30
+    width: 28
+    height: 18
+    stroke: "#263238"
+    fill: "#DCE8F0"
+    lineWidth: 1
+  }
   circle point {
     cx: 10 + 120 * t
-    cy: 40
+    cy: 54
     r: 5
     stroke: "#263238"
     fill: "#F3B64B"
     lineWidth: 1
+  }
+  text timeLabel {
+    x: 10
+    y: 68
+    value: "t = ${round(t, 2)}"
+    fill: "#263238"
+  }
+  for sample in [0, 1, 2] {
+    if sample > 0 {
+      circle tracePoint {
+        cx: 10 + 20 * sample + 80 * t
+        cy: 54
+        r: 2
+        stroke: "#263238"
+        fill: "#D07A32"
+        lineWidth: 1
+      }
+    }
   }
 }
 ```
