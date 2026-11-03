@@ -9,6 +9,6 @@ export default {
 		run: ["bun", "run", "run"],
 	},
 	electrobun: {
-		version: "2.0.1",
+		version: "2.0.5",
 	},
 };
