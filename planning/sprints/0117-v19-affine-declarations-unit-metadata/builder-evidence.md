@@ -12,9 +12,9 @@ unit composition.
 metadata, declaration-resolution, registry, import/re-export/editor, and
 focused-diagnostic scope. No S117 residual is recorded.
 
-**Separate product-owner disposition:** PENDING. This recommendation closes no
-product gate until the owner records ACCEPTED/CLOSED or BLOCKED/OPEN. No S118
-runtime/SI authority follows this execution or recommendation.
+**Separate product-owner disposition:** ACCEPTED/CLOSED by the user on
+2026-11-21. Sprint 117 is closed. No S118 runtime/SI authority follows this
+execution, recommendation, or disposition.
 
 ## Entry and Baseline
 
@@ -169,8 +169,7 @@ typecheck, patch integrity, source ranges, registry values, module/editor
 parity, SI/linear regressions, and changed-path audit pass. No residual requires
 owner acceptance and no production boundary was crossed.
 
-**Separate product-owner disposition:** PENDING. The distinct owner action must
-record ACCEPTED/CLOSED or BLOCKED/OPEN for Sprint 117. This recommendation does
-not authorize Sprint 118 runtime/SI work, and it does not authorize release,
-package/version change, publication, deployment, installer, distribution, or
-certification.
+**Separate product-owner disposition:** ACCEPTED/CLOSED by the user on
+2026-11-21. Sprint 117 is closed. This disposition does not authorize Sprint
+118 runtime/SI work, release, package/version change, publication, deployment,
+installer, distribution, or certification.
