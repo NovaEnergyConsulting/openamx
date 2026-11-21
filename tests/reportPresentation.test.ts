@@ -279,6 +279,7 @@ let values: Length[] = [1 kilometer, 500 meter]
 chart amounts = line(values) {
   title: "Distance trend"
   description: "In display order"
+  showTable true
   series "Distance"
 }
 show register

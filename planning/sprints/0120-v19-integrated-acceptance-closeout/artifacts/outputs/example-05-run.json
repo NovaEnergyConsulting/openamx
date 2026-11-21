@@ -1,0 +1,387 @@
+{
+  "distance": {
+    "__amxMeasurement": true,
+    "value": 1250,
+    "unit": {
+      "scale": 1,
+      "offset": 0,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"Length\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"meter\"]",
+          "name": "meter",
+          "exponent": 1
+        }
+      ],
+      "text": "meter"
+    }
+  },
+  "distanceInKilometers": {
+    "__amxMeasurement": true,
+    "value": 1.25,
+    "unit": {
+      "scale": 1000,
+      "offset": 0,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"Length\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"kilometer\"]",
+          "name": "kilometer",
+          "exponent": 1
+        }
+      ],
+      "text": "kilometer"
+    }
+  },
+  "distanceInCentimeters": {
+    "__amxMeasurement": true,
+    "value": 200,
+    "unit": {
+      "scale": 0.01,
+      "offset": 0,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"Length\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"centimeter\"]",
+          "name": "centimeter",
+          "exponent": 1
+        }
+      ],
+      "text": "centimeter"
+    }
+  },
+  "averageSpeed": {
+    "__amxMeasurement": true,
+    "value": 36,
+    "unit": {
+      "scale": 0.2777777777777778,
+      "offset": 0,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"Length\"]": 1,
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"Time\"]": -1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"kilometer_per_hour\"]",
+          "name": "kilometer_per_hour",
+          "exponent": 1
+        }
+      ],
+      "text": "kilometer_per_hour"
+    }
+  },
+  "speedInMetersPerSecond": {
+    "__amxMeasurement": true,
+    "value": 10,
+    "unit": {
+      "scale": 1,
+      "offset": 0,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"Length\"]": 1,
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"Time\"]": -1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"meter_per_second\"]",
+          "name": "meter_per_second",
+          "exponent": 1
+        }
+      ],
+      "text": "meter_per_second"
+    }
+  },
+  "distances": [
+    {
+      "__amxMeasurement": true,
+      "value": 1,
+      "unit": {
+        "scale": 1,
+        "offset": 0,
+        "vector": {
+          "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"Length\"]": 1
+        },
+        "factors": [
+          {
+            "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"meter\"]",
+            "name": "meter",
+            "exponent": 1
+          }
+        ],
+        "text": "meter"
+      }
+    },
+    {
+      "__amxMeasurement": true,
+      "value": 100,
+      "unit": {
+        "scale": 0.01,
+        "offset": 0,
+        "vector": {
+          "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"Length\"]": 1
+        },
+        "factors": [
+          {
+            "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"centimeter\"]",
+            "name": "centimeter",
+            "exponent": 1
+          }
+        ],
+        "text": "centimeter"
+      }
+    }
+  ],
+  "totalDistance": {
+    "__amxMeasurement": true,
+    "value": 2,
+    "unit": {
+      "scale": 1,
+      "offset": 0,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"Length\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"meter\"]",
+          "name": "meter",
+          "exponent": 1
+        }
+      ],
+      "text": "meter"
+    }
+  },
+  "freezingCelsius": {
+    "__amxMeasurement": true,
+    "value": 0,
+    "unit": {
+      "scale": 1,
+      "offset": 273.15,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"ThermodynamicTemperature\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"celsius\"]",
+          "name": "celsius",
+          "exponent": 1
+        }
+      ],
+      "text": "celsius"
+    }
+  },
+  "freezingFahrenheit": {
+    "__amxMeasurement": true,
+    "value": 31.999999999999986,
+    "unit": {
+      "scale": 0.5555555555555556,
+      "offset": 255.3722222222222,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"ThermodynamicTemperature\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"fahrenheit\"]",
+          "name": "fahrenheit",
+          "exponent": 1
+        }
+      ],
+      "text": "fahrenheit"
+    }
+  },
+  "freezingKelvin": {
+    "__amxMeasurement": true,
+    "value": 273.15,
+    "unit": {
+      "scale": 1,
+      "offset": 0,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"ThermodynamicTemperature\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"kelvin\"]",
+          "name": "kelvin",
+          "exponent": 1
+        }
+      ],
+      "text": "kelvin"
+    }
+  },
+  "sameTemperature": true,
+  "temperatureSpan": {
+    "__amxMeasurement": true,
+    "value": 10,
+    "unit": {
+      "scale": 1,
+      "offset": 273.15,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"ThermodynamicTemperature\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"celsius\"]",
+          "name": "celsius",
+          "exponent": 1
+        }
+      ],
+      "text": "celsius"
+    }
+  },
+  "temperatureTotal": {
+    "__amxMeasurement": true,
+    "value": 303.15,
+    "unit": {
+      "scale": 1,
+      "offset": 273.15,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"ThermodynamicTemperature\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"celsius\"]",
+          "name": "celsius",
+          "exponent": 1
+        }
+      ],
+      "text": "celsius"
+    }
+  },
+  "temperatureMean": {
+    "__amxMeasurement": true,
+    "value": 15,
+    "unit": {
+      "scale": 1,
+      "offset": 273.15,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"ThermodynamicTemperature\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"celsius\"]",
+          "name": "celsius",
+          "exponent": 1
+        }
+      ],
+      "text": "celsius"
+    }
+  },
+  "minimumTemperature": {
+    "__amxMeasurement": true,
+    "value": 32,
+    "unit": {
+      "scale": 0.5555555555555556,
+      "offset": 255.3722222222222,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"ThermodynamicTemperature\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"fahrenheit\"]",
+          "name": "fahrenheit",
+          "exponent": 1
+        }
+      ],
+      "text": "fahrenheit"
+    }
+  },
+  "maximumTemperature": {
+    "__amxMeasurement": true,
+    "value": 10,
+    "unit": {
+      "scale": 1,
+      "offset": 273.15,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"ThermodynamicTemperature\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"celsius\"]",
+          "name": "celsius",
+          "exponent": 1
+        }
+      ],
+      "text": "celsius"
+    }
+  },
+  "absoluteTemperature": {
+    "__amxMeasurement": true,
+    "value": 5,
+    "unit": {
+      "scale": 1,
+      "offset": 273.15,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"ThermodynamicTemperature\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"celsius\"]",
+          "name": "celsius",
+          "exponent": 1
+        }
+      ],
+      "text": "celsius"
+    }
+  },
+  "roundedTemperature": {
+    "__amxMeasurement": true,
+    "value": 12.35,
+    "unit": {
+      "scale": 1,
+      "offset": 273.15,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"ThermodynamicTemperature\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"celsius\"]",
+          "name": "celsius",
+          "exponent": 1
+        }
+      ],
+      "text": "celsius"
+    }
+  },
+  "piScaledTemperature": {
+    "__amxMeasurement": true,
+    "value": 3.141592653589793,
+    "unit": {
+      "scale": 1,
+      "offset": 0,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"ThermodynamicTemperature\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"kelvin\"]",
+          "name": "kelvin",
+          "exponent": 1
+        }
+      ],
+      "text": "kelvin"
+    }
+  },
+  "eShiftedTemperature": {
+    "__amxMeasurement": true,
+    "value": 3.718281828459045,
+    "unit": {
+      "scale": 1,
+      "offset": 0,
+      "vector": {
+        "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"ThermodynamicTemperature\"]": 1
+      },
+      "factors": [
+        {
+          "identity": "[\"C:\\\\Users\\\\gamez\\\\Programming\\\\openamx-s120-v19-resume\\\\examples\\\\05_Measurements_and_Units.amx\",\"kelvin\"]",
+          "name": "kelvin",
+          "exponent": 1
+        }
+      ],
+      "text": "kelvin"
+    }
+  }
+}

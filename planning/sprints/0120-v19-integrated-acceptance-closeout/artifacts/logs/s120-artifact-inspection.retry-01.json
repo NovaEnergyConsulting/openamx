@@ -1,0 +1,111 @@
+{
+  "status": "PASS",
+  "hashes": {
+    "html": {
+      "bytes": 1150846,
+      "sha256": "54148b68f15d1e7a23ce75efdc1744163047ef407c5c90d886ae138a65d395fa"
+    },
+    "pdf": {
+      "bytes": 38868,
+      "sha256": "c21e4e16d86cb63dcc6db859189d56a6c888ed4a5b8007df8b57c2763aa38f67"
+    },
+    "docx": {
+      "bytes": 29647,
+      "sha256": "18764515df51b89a3363d25edfe57dac5c3ae11dc9bf034733c60a58fe037406"
+    },
+    "example05": {
+      "bytes": 12332,
+      "sha256": "2a13e5396ca6f6f78be5f6ad89128bdc1a874231eeffe4ed4567c307002a750c"
+    },
+    "summary": {
+      "bytes": 95,
+      "sha256": "172fb7d7119b2308643520270ba81e55fda86ddad33264620cd5d3a3e0adade8"
+    },
+    "rows": {
+      "bytes": 81,
+      "sha256": "e32b2bc163f94a265b6f62873172b515cc2d98e95fa7a23c40e31af9a6b01c55"
+    }
+  },
+  "affine": {
+    "freezing": [
+      0,
+      31.999999999999986,
+      273.15
+    ],
+    "subtraction": 10,
+    "sum": 303.15,
+    "mean": 15
+  },
+  "named": {
+    "totalScore": 38,
+    "scores": [
+      16,
+      18,
+      4
+    ]
+  },
+  "html": [
+    {
+      "title": "Score by screening",
+      "showTable": false,
+      "htmlTable": false,
+      "payloadTable": false,
+      "tableId": null,
+      "tableCaptionReference": false
+    },
+    {
+      "title": "Score by screening - false",
+      "showTable": false,
+      "htmlTable": false,
+      "payloadTable": false,
+      "tableId": null,
+      "tableCaptionReference": false
+    },
+    {
+      "title": "Score by screening - true",
+      "showTable": true,
+      "htmlTable": true,
+      "payloadTable": true,
+      "tableId": "openamx-chart-1-21-data",
+      "tableCaptionReference": true
+    },
+    {
+      "title": "Score by screening - expression",
+      "showTable": true,
+      "htmlTable": true,
+      "payloadTable": true,
+      "tableId": "openamx-chart-1-22-data",
+      "tableCaptionReference": true
+    }
+  ],
+  "pdf": {
+    "pages": 5,
+    "falseTableText": false,
+    "trueTableHeading": true,
+    "ordinaryRegister": true
+  },
+  "docx": {
+    "wordTables": 3,
+    "charts": 4,
+    "omittedCaption": false,
+    "falseCaption": false,
+    "trueCaption": true,
+    "expressionCaption": true,
+    "omittedAlt": {
+      "found": true,
+      "tableReference": false
+    },
+    "falseAlt": {
+      "found": true,
+      "tableReference": false
+    },
+    "trueAlt": {
+      "found": true,
+      "tableReference": true
+    },
+    "expressionAlt": {
+      "found": true,
+      "tableReference": true
+    }
+  }
+}

@@ -1,0 +1,421 @@
+﻿{
+    "generatedAt":  "2026-11-21",
+    "baselineCommit":  "f05991a81571cabc96bd2d0b6f9634ac860ab4ec",
+    "artifacts":  [
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/inspectors/inspect-s120-examples.ts",
+                          "bytes":  7570,
+                          "sha256":  "05a503a82bf4035d99824fb29d1c41c24aa9098f97ce1ede31165dd79957bb6c"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/01-isolated-bun-e.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/01-isolated-bun-e.stderr.log",
+                          "bytes":  0,
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/01-isolated-bun-e.stdout.log",
+                          "bytes":  97,
+                          "sha256":  "f5cdf20a32d89db96c63d41fbaba18425fb1f209ff406d44c1e7652f18237761"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/02-isolated-single-test.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/02-isolated-single-test.stderr.log",
+                          "bytes":  1713,
+                          "sha256":  "722f3ff000a9584e496f1b759cabc37600dfe92446133c7cea875d54acd52c7c"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/02-isolated-single-test.stdout.log",
+                          "bytes":  28,
+                          "sha256":  "bbe6a94c29cc8d3ff5a1792a5abae1f1122aed0642111b52036ab7e0b2b2ca47"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/03-live-single-test.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/03-live-single-test.stderr.log",
+                          "bytes":  1713,
+                          "sha256":  "3579cb709b7bf215481cc73e8db69ae1af54e9d145235c9b58a378a93318fb1d"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/03-live-single-test.stdout.log",
+                          "bytes":  28,
+                          "sha256":  "bbe6a94c29cc8d3ff5a1792a5abae1f1122aed0642111b52036ab7e0b2b2ca47"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/04-isolated-focused-start-process.meta.log",
+                          "bytes":  16,
+                          "sha256":  "0e0cef1ed5e9be1b17c784012947b3cdbcb8d25f449c073d5a8988fa50af1212"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/04-isolated-focused-start-process.stderr.log",
+                          "bytes":  1193162,
+                          "sha256":  "22ea789b1a8783f156478bb8cbbc6c72341e116a8987ab80482e702e80c607e0"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/04-isolated-focused-start-process.stdout.log",
+                          "bytes":  28,
+                          "sha256":  "bbe6a94c29cc8d3ff5a1792a5abae1f1122aed0642111b52036ab7e0b2b2ca47"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/05-isolated-report-presentation.meta.log",
+                          "bytes":  16,
+                          "sha256":  "0e0cef1ed5e9be1b17c784012947b3cdbcb8d25f449c073d5a8988fa50af1212"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/05-isolated-report-presentation.stderr.log",
+                          "bytes":  1158109,
+                          "sha256":  "d100fdf80281d337cc5d004519c9c4822c8554cda239660d088dcf110ee8b28a"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/05-isolated-report-presentation.stdout.log",
+                          "bytes":  28,
+                          "sha256":  "bbe6a94c29cc8d3ff5a1792a5abae1f1122aed0642111b52036ab7e0b2b2ca47"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/06-report-presentation-after-fix.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/06-report-presentation-after-fix.stderr.log",
+                          "bytes":  952,
+                          "sha256":  "6c07b2f42f39bd62da44773f1bb57a93b9e334e22a934985274d8a1f4557294f"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/06-report-presentation-after-fix.stdout.log",
+                          "bytes":  28,
+                          "sha256":  "bbe6a94c29cc8d3ff5a1792a5abae1f1122aed0642111b52036ab7e0b2b2ca47"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/diagnostic/s120-bun-launch-diagnostic-summary.md",
+                          "bytes":  3618,
+                          "sha256":  "b358838d7969f845c81cef31583b6d4f04a4c8eea5492242349bd2cf31a48042"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-artifact-inspection.json",
+                          "bytes":  0,
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-artifact-inspection.meta.log",
+                          "bytes":  16,
+                          "sha256":  "0e0cef1ed5e9be1b17c784012947b3cdbcb8d25f449c073d5a8988fa50af1212"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-artifact-inspection.retry-01.json",
+                          "bytes":  2475,
+                          "sha256":  "b4d8e634157e14c2a998a5a8988867ff0e58b457f8c71ff008f800fa3c165f44"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-artifact-inspection.retry-01.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-artifact-inspection.retry-01.stderr.log",
+                          "bytes":  0,
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-artifact-inspection.stderr.log",
+                          "bytes":  713,
+                          "sha256":  "b1ae1252159e94cf56b1a59a78266964e612635d944c999f58b9cc847623379e"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-build.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-build.posthash.log",
+                          "bytes":  158,
+                          "sha256":  "ddb4532b8f1801bd15500b8c5982e448eeb20e3123bd35bbb1f9f3bc97cc0848"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-build.prehash.log",
+                          "bytes":  159,
+                          "sha256":  "8b9f3b4ae4dd78b55e5164220cf90f3d99df9bbe34b6e7046c7dc557789ffa43"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-build.stderr.log",
+                          "bytes":  50,
+                          "sha256":  "a4ac4c4e4cc9ad5902b66f5d261c4db73e1a315c4e39677d4f0c8943fd104fcd"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-build.stdout.log",
+                          "bytes":  0,
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-desktop-typecheck.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-desktop-typecheck.stderr.log",
+                          "bytes":  47,
+                          "sha256":  "5d2c73add7e6cae73f95d5cd7cb168bf5298d0ca055c95ef6d52a9f8066ea5c3"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-desktop-typecheck.stdout.log",
+                          "bytes":  106,
+                          "sha256":  "94328cfe5f9097e0c3feb555f8d0f1271117c1ed69401d23bde8ee9a1e5e0e07"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-desktop-ui.meta.log",
+                          "bytes":  16,
+                          "sha256":  "0e0cef1ed5e9be1b17c784012947b3cdbcb8d25f449c073d5a8988fa50af1212"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-desktop-ui.retry-01.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-desktop-ui.retry-01.stderr.log",
+                          "bytes":  0,
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-desktop-ui.retry-01.stdout.log",
+                          "bytes":  186,
+                          "sha256":  "64beabe0f9bb75ec1c76ed235b2eeccd929170abc4142856bab658cae35ed871"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-desktop-ui.stderr.log",
+                          "bytes":  389,
+                          "sha256":  "a431f92d4d8db9b29a10fc7fd8c4d88869641ff1c1269605726d3e7fc44daf26"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-desktop-ui.stdout.log",
+                          "bytes":  74,
+                          "sha256":  "39972a72dff0d728110d581ae471d57c5448aec843a34524fadab46d24a94310"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex05.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex05.stderr.log",
+                          "bytes":  0,
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex07-docx.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex07-docx.stderr.log",
+                          "bytes":  0,
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex07-docx.stdout.log",
+                          "bytes":  143,
+                          "sha256":  "22dbe3fa8e539926c5d5999473f22eb8e6d7dca914c43ae5c375f718d20891ef"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex07-html.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex07-html.stderr.log",
+                          "bytes":  0,
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex07-html.stdout.log",
+                          "bytes":  138,
+                          "sha256":  "c053e9491d1972598b1bb6fd99f1df2544d11bee23253eee23759a2b0e53682c"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex07-pdf.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex07-pdf.stderr.log",
+                          "bytes":  0,
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex07-pdf.stdout.log",
+                          "bytes":  141,
+                          "sha256":  "eb2461ab3d3e74eefba3d0f0bff9ae88ba1469d8fd8af6e5fc12908818d17dc7"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex07-run.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex07-run.stderr.log",
+                          "bytes":  0,
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-ex07-run.stdout.log",
+                          "bytes":  1422,
+                          "sha256":  "7935182d18ba4defa374ee4c09827c435ef5d59a971bafd2b6c2072547e00996"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-execution-summary.md",
+                          "bytes":  5845,
+                          "sha256":  "504c9d2cf1bc35011f732f66c088ded2b7af3ff9b3c75674cc002a9e4afe5699"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-isolated-correction-check.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-isolated-correction-check.stderr.log",
+                          "bytes":  952,
+                          "sha256":  "08a0913b37313af6902b11e0d2c3bd3371b411b8908c9183ab9f5a7cb29b336f"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-isolated-correction-check.stdout.log",
+                          "bytes":  28,
+                          "sha256":  "bbe6a94c29cc8d3ff5a1792a5abae1f1122aed0642111b52036ab7e0b2b2ca47"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-root-all.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-root-all.stderr.log",
+                          "bytes":  90768,
+                          "sha256":  "2d4f93afb320a2cbed668794e58afabbd1e6566d028ce3866b3b04b370c0af69"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-root-all.stdout.log",
+                          "bytes":  95,
+                          "sha256":  "06194dd9385b10c99f55e989847136fc4325272f68aa64282b88a1f9eb645a0e"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-root-focused.after-correction.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-root-focused.after-correction.stderr.log",
+                          "bytes":  35811,
+                          "sha256":  "a3db844f2ba9305d6053dadeace56ee0153815caf8e0d8d17a2ee79fdd80a046"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-root-focused.after-correction.stdout.log",
+                          "bytes":  28,
+                          "sha256":  "bbe6a94c29cc8d3ff5a1792a5abae1f1122aed0642111b52036ab7e0b2b2ca47"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-root-focused.log",
+                          "bytes":  60,
+                          "sha256":  "490beefad0e64aa8540d8f118e8480b80d97b8f9ac8d98888dd47b03ba6e1390"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-root-focused.retry-01.log",
+                          "bytes":  60,
+                          "sha256":  "490beefad0e64aa8540d8f118e8480b80d97b8f9ac8d98888dd47b03ba6e1390"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-root-supplemental.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-root-supplemental.stderr.log",
+                          "bytes":  7148,
+                          "sha256":  "1715331b0f6254a7dbc777998b38a43ffb1cb7709f8ed4e4c121839ec7af3498"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-root-supplemental.stdout.log",
+                          "bytes":  28,
+                          "sha256":  "bbe6a94c29cc8d3ff5a1792a5abae1f1122aed0642111b52036ab7e0b2b2ca47"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-typecheck.meta.log",
+                          "bytes":  16,
+                          "sha256":  "617bf2bc4417e336acb9dcd730bb4ef907ad37ca11dc47a37e95cebbb1ed20da"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-typecheck.stderr.log",
+                          "bytes":  0,
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-typecheck.stdout.log",
+                          "bytes":  0,
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-vscode-host.meta.log",
+                          "bytes":  16,
+                          "sha256":  "0e0cef1ed5e9be1b17c784012947b3cdbcb8d25f449c073d5a8988fa50af1212"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-vscode-host.stderr.log",
+                          "bytes":  5589,
+                          "sha256":  "b01520217606a9ae63960effc7b9e255a794d4c6121568c2671fb80dffecbbbb"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/logs/s120-vscode-host.stdout.log",
+                          "bytes":  24765,
+                          "sha256":  "2c688ad98b239fa0c558f41e9d646ecc548d041570c609ef42950ddb99c962b2"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/outputs/example-05-run.json",
+                          "bytes":  12332,
+                          "sha256":  "2a13e5396ca6f6f78be5f6ad89128bdc1a874231eeffe4ed4567c307002a750c"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/outputs/example-07.docx",
+                          "bytes":  29647,
+                          "sha256":  "18764515df51b89a3363d25edfe57dac5c3ae11dc9bf034733c60a58fe037406"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/outputs/example-07.html",
+                          "bytes":  1150846,
+                          "sha256":  "54148b68f15d1e7a23ce75efdc1744163047ef407c5c90d886ae138a65d395fa"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/outputs/example-07.pdf",
+                          "bytes":  38868,
+                          "sha256":  "c21e4e16d86cb63dcc6db859189d56a6c888ed4a5b8007df8b57c2763aa38f67"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/outputs/named/rows.csv",
+                          "bytes":  81,
+                          "sha256":  "e32b2bc163f94a265b6f62873172b515cc2d98e95fa7a23c40e31af9a6b01c55"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/outputs/named/summary.json",
+                          "bytes":  95,
+                          "sha256":  "172fb7d7119b2308643520270ba81e55fda86ddad33264620cd5d3a3e0adade8"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/playwright/s120-v19.retry-01/.last-run.json",
+                          "bytes":  45,
+                          "sha256":  "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"
+                      },
+                      {
+                          "path":  "planning/sprints/0120-v19-integrated-acceptance-closeout/artifacts/playwright/s120-v19/.last-run.json",
+                          "bytes":  45,
+                          "sha256":  "e22df5d0991eb28c09093b1e678b3fa8cd1fab48185d38e67cf79fb6e63ad5ea"
+                      }
+                  ]
+}

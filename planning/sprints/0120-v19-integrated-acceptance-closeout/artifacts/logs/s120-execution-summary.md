@@ -2,6 +2,26 @@
 
 Execution date: 2026-11-21.
 
+## Final Continuation Status
+
+The initial stop and all raw failures below are preserved unchanged. The user
+subsequently authorized diagnostic investigation, one exact test correction,
+and continuation. Diagnostics proved Bun and dependency junctions worked;
+PowerShell stream handling caused the startup-only logs. The controlled run
+exposed one stale test fixture, corrected by adding explicit `showTable true`
+where its assertions require chart-table preservation.
+
+Final raw results: focused 309 pass/0 fail/2,194 assertions; supplemental 52
+pass/0 fail/1,113 assertions; broad 673 pass/0 fail/5,239 assertions; build and
+typecheck PASS; VS Code host 21 pass/8 fail with the V0.19 row passing; desktop
+typecheck PASS and focused Vite UI 1/1 on its authorized retry; Examples 05/07
+and artifact inspection PASS; native/platform BLOCKED/UNAVAILABLE.
+
+Final Builder recommendation: `ACCEPT/CLOSED WITH RECORDED RESIDUALS`.
+The original raw stop record follows. **Final disposition recorded after the
+continuation:** `ACCEPTED/CLOSED WITH RECORDED RESIDUALS` by the user on
+2026-11-21. Sprint 120 is closed for V0.19 integrated acceptance scope only.
+
 ## Authorization and Baseline
 
 - User approved the exact baseline/worktree, command sequence, S120-only output roots, generated-runtime provenance rule, retry/stop policy, evidence edits, and isolated cleanup.
@@ -56,4 +76,11 @@ All supplemental, broad, build, typecheck, VS Code, desktop, Example 05/07, arti
 
 ## Builder Recommendation
 
-`BLOCKED/OPEN`. Sprint 120 requires a narrowly scoped diagnostic plan to determine why Bun test launches exit before reporting cases, then a separately approved fresh acceptance cycle. The S115-S119 reconciled dispositions remain unchanged. Separate product-owner V0.19 closeout disposition remains PENDING.
+The original gate state above was `BLOCKED/OPEN`. It was subsequently resolved
+through separately authorized diagnostics and the exact test-fixture correction.
+Final Builder recommendation: `ACCEPT/CLOSED WITH RECORDED RESIDUALS` for V0.19
+integrated scope. The raw extension aggregate 21 pass/8 fail and native/platform
+unavailability remain explicit residuals. Separate product-owner disposition:
+`ACCEPTED/CLOSED WITH RECORDED RESIDUALS` by the user on 2026-11-21. Sprint 120
+is closed for V0.19 integrated acceptance scope only; no release or platform
+authority follows.

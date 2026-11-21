@@ -2,12 +2,17 @@
 
 ## Execution Status
 
-Sprint 120 dependency reconciliation passed, but the exact focused 10-file gate
-failed at Bun test launch on the approved first run and one authorized retry,
-before any test/assertion output. The approved stop rule was applied: the
-focused raw status is `FAIL`; all downstream gates are `NOT RUN`; Builder
-recommendation is `BLOCKED/OPEN`; separate owner disposition is PENDING. See
-`artifacts/logs/s120-execution-summary.md` for exact baseline and evidence.
+Sprint 120 dependency reconciliation and final integrated verification
+completed. The initial launch/capture failure and controlled 308/1 stale-fixture
+failure are preserved. A separately authorized one-line test correction added
+`showTable true`; final focused 309/309, supplemental 52/52, broad 673/673,
+build/typecheck, desktop type/Vite, and Examples/artifacts pass. Full VS Code
+host remains raw 21 pass/8 fail while V0.19 rows pass; native/platform evidence
+is unavailable. Builder recommendation is `ACCEPT/CLOSED WITH RECORDED
+RESIDUALS`; separate owner disposition is `ACCEPTED/CLOSED WITH RECORDED
+RESIDUALS` by the user on 2026-11-21. Sprint 120 is closed for V0.19 integrated
+acceptance scope only. See `builder-evidence.md`, `integrated-evidence-matrix.md`,
+and `artifacts/` for exact evidence; raw failures remain unchanged.
 
 ## Evidence and Disposition Separation
 

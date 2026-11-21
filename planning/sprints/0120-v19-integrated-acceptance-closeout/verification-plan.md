@@ -2,18 +2,20 @@
 
 ## Status
 
-Sprint 120 execution was separately authorized and began on 2026-11-21 at clean
-`feat/create-V0.19` commit `f05991a81571cabc96bd2d0b6f9634ac860ab4ec` in an
-isolated detached worktree at
-`C:\Users\gamez\Programming\openamx-s120-v19-verify`. The exact focused
-10-file gate failed twice at Bun test launch, before any test or assertion
-result: once on initial execution and once on the single authorized
-capture/transient retry. Per the stop rule, all downstream commands are
-`NOT RUN`. Exact details and hashes are in
-`artifacts/logs/s120-execution-summary.md` and the two preserved focused logs.
+Sprint 120 was separately authorized and completed on 2026-11-21. The initial
+PowerShell/Bun capture failure was diagnosed, a controlled focused run exposed
+one stale report fixture, and the user authorized the exact test-only correction
+that adds `showTable true`. Final focused 309/309, supplemental 52/52, broad
+673/673, root build/typecheck, desktop typecheck/Vite UI, and Example 05/07
+artifact gates pass. Full VS Code host remains raw 21 pass/8 fail while the
+V0.19 format/diagnostic row passes. Native desktop/platform remains unavailable.
 
-Builder recommendation: `BLOCKED/OPEN`. Separate product-owner disposition:
-PENDING. No release, package, product, correction, or platform action occurred.
+Builder recommendation: `ACCEPT/CLOSED WITH RECORDED RESIDUALS`. Separate
+product-owner disposition: `ACCEPTED/CLOSED WITH RECORDED RESIDUALS` by the user
+on 2026-11-21. Sprint 120 is closed for V0.19 integrated acceptance scope only.
+Exact logs and hashes are under `artifacts/`. No release, package, publication,
+deployment, installer, distribution, certification, or native-platform action
+occurred.
 
 ## Baseline and Preservation
 
