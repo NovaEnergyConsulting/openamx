@@ -139,7 +139,7 @@ diagram movingPart {
     temporaryDirectories.push(directory);
     const input = join(directory, 'report.amx');
     const rowValues = Array.from({ length: 55 }, (_value, index) => `Row { name = "Pump ${index + 1}", score = ${index + 1} }`).join(', ');
-    await Bun.write(input, `# Emissions\n\n\`\`\`amx\ntype Row {\n  name: String\n  score: Number\n}\nlet rows: Row[] = [${rowValues}]\nlet scores: Number[] = [4, 7]\ntable register = table(rows) {\n  title: "Risk Register"\n  column name as "Asset"\n  column score as "Score"\n}\nchart exposure = bar(scores) {\n  title: "Exposure"\n  description: "Static scores"\n  series "Score"\n}\nshow register\nshow exposure\n\`\`\``);
+    await Bun.write(input, `# Emissions\n\n\`\`\`amx\ntype Row {\n  name: String\n  score: Number\n}\nlet rows: Row[] = [${rowValues}]\nlet scores: Number[] = [4, 7]\ntable register = table(rows) {\n  title: "Risk Register"\n  column name as "Asset"\n  column score as "Score"\n}\nchart exposure = bar(scores) {\n  title: "Exposure"\n  description: "Static scores"\n  showTable true\n  series "Score"\n}\nshow register\nshow exposure\n\`\`\``);
     const loaded = await loadEntryModule(input);
     const bytes = await serializePdfReport(preparePdfReport(await prepareReport(loaded.doc, loaded.env, { file: input })));
     const pages = await textByPage(bytes);
@@ -317,7 +317,7 @@ ${markdownRows}
     expect(urls.every(url => !url.includes(directory) && !url.startsWith('file:') && !url.includes('.tmp'))).toBe(true);
   });
 
-  it('renders every shared chart kind as static SVG and retains complete searchable rows', async () => {
+  it('renders every shared chart kind as static SVG and omits omitted chart tables', async () => {
     const loaded = await loadEntryModule('tests/fixtures/examples/kitchen-sink.amx');
     const report = await prepareReport(loaded.doc, loaded.env, { file: 'tests/fixtures/examples/kitchen-sink.amx' });
     const chartCount = report.items.filter(item => item.type === 'view' && item.emission.kind === 'chart').length;
@@ -333,6 +333,10 @@ ${markdownRows}
     expect(chartCount).toBe(10);
     expect(chartBlocks).toHaveLength(chartCount);
     expect(chartBlocks.every(item => item.unbreakable === true)).toBe(true);
+    for (const chartBlock of chartBlocks) {
+      const index = content.indexOf(chartBlock);
+      expect(isRecord(content[index + 1]) && isRecord(content[index + 1].table)).toBe(false);
+    }
     expect(graphics).toHaveLength(chartCount);
     expect(graphics.every(item => (item.svg as string).startsWith('<svg'))).toBe(true);
     expect(text).toContain('Record bar chart');

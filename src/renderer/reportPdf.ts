@@ -397,6 +397,7 @@ function addChart(
     ],
     unbreakable: true
   });
+  if (!model.showTable) return;
   content.push({
     table: {
       headerRows: 1,

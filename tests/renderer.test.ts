@@ -321,12 +321,13 @@ show register
     expect(html.indexOf("Register &amp; risks")).toBeLessThan(html.indexOf("Between"));
   });
 
-  it("renders offline chart accessibility, data alternatives, and print markup", () => {
+  it("renders true chart accessibility, data alternatives, and print markup", () => {
     const doc = parseDocumentText(`\`\`\`amx
 let values: Number[] = [1, 2, 3]
 chart amounts = line(values) {
   title: "Amounts <safe>"
   description: "Values & trends"
+  showTable true
   series "Amount"
 }
 show amounts
@@ -341,6 +342,77 @@ show amounts
     expect(html).toContain('class="openamx-chart-plot"');
     expect(html).not.toContain("<safe>");
     expect(normalizeNonce(renderHtml(doc, "chart.amx"))).toBe(normalizeNonce(html));
+  });
+
+  it("omits false chart tables, table payload, and table accessibility references", () => {
+    const doc = parseDocumentText(`\`\`\`amx
+let values: Number[] = [1, 2, 3]
+let visible: Boolean = true
+chart omitted = column(values) {
+  title: "Omitted"
+  description: "Default hidden table"
+  series "Value"
+}
+chart explicitFalse = line(values) {
+  title: "Explicit false"
+  description: "Hidden table"
+  showTable false
+  series "Value"
+}
+chart explicitTrue = column(values) {
+  title: "Explicit true"
+  description: "Visible table"
+  showTable true
+  series "Value"
+}
+chart dynamic = line(values) {
+  title: "Dynamic"
+  description: "Expression visibility"
+  showTable visible and values[1] == 1
+  series "Value"
+}
+show omitted
+show explicitFalse
+show explicitTrue
+show dynamic
+\`\`\``);
+    const html = renderHtml(doc, "chart-visibility.amx");
+    const figures = [...html.matchAll(/<figure class="openamx-view openamx-chart"[\s\S]*?<\/figure>/g)].map(match => match[0]);
+    const payloads = figures.map(figure => JSON.parse(figure.match(/data-chart-model>([\s\S]*?)<\/script>/)?.[1] ?? 'null'));
+
+    expect(figures).toHaveLength(4);
+    expect(figures.map(figure => figure.includes('openamx-chart-data'))).toEqual([false, false, true, true]);
+    expect(figures.slice(0, 2).every(figure => !figure.includes('-table-caption'))).toBe(true);
+    expect(payloads.map(payload => payload.showTable)).toEqual([false, false, true, true]);
+    for (const payload of payloads.slice(0, 2)) {
+      expect(payload.table).toBeUndefined();
+      expect(payload.accessibility.tableId).toBeUndefined();
+      expect(payload.accessibility.summary).not.toContain('Complete chart data');
+      expect(Object.values(payload.rowLabels)).toEqual(['1', '2', '3']);
+    }
+    expect(payloads[2].table.rows).toHaveLength(3);
+    expect(payloads[3].table.rows).toHaveLength(3);
+  });
+
+  it("keeps a false empty chart plot and removes its table payload", () => {
+    const doc = parseDocumentText(`\`\`\`amx
+let values: Number?[] = [null]
+chart empty = line(values) {
+  title: "Empty chart"
+  description: "No plottable values"
+  series "Value"
+}
+show empty
+\`\`\``);
+    const html = renderHtml(doc, "empty-chart.amx");
+    const figure = html.match(/<figure class="openamx-view openamx-chart"[\s\S]*?<\/figure>/)?.[0];
+    const payload = JSON.parse(figure?.match(/data-chart-model>([\s\S]*?)<\/script>/)?.[1] ?? "null");
+
+    expect(figure).toContain("No data");
+    expect(figure).not.toContain("openamx-chart-data");
+    expect(payload.emptyState).toEqual({ label: "No data" });
+    expect(payload.table).toBeUndefined();
+    expect(payload.rowLabels).toBeDefined();
   });
 
   it("renders measurement table cells in their own units and normalizes chart values to the first unit", () => {
@@ -363,6 +435,7 @@ let distances: Length[] = [1 kilometer, 500 meter]
 chart amounts = line(distances) {
   title: "Distances"
   description: "Normalized values"
+  showTable true
   series "Distance"
 }
 show register
@@ -398,6 +471,7 @@ let points: Point[] = [
 chart columns = bar(points) {
   title: "Series"
   description: "Independent unit choices"
+  showTable true
   category: category
   series first as "First"
   series second as "Second"
@@ -405,6 +479,7 @@ chart columns = bar(points) {
 chart scatterPoints = scatter(points) {
   title: "Axes"
   description: "Independent axis units"
+  showTable true
   x: x
   y: y
   group: group

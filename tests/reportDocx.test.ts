@@ -168,6 +168,7 @@ let categories: CategoryRow[] = [
 chart horizontal = bar(categories) {
   title: "Horizontal"
   description: "Two ordered series"
+  showTable true
   category: label
   series first as "First"
   series second as "Second"
@@ -175,6 +176,7 @@ chart horizontal = bar(categories) {
 chart vertical = column(categories) {
   title: "Vertical"
   description: "Two ordered series"
+  showTable true
   category: label
   series first as "First"
   series second as "Second"
@@ -191,6 +193,7 @@ let timeline: TimelineRow[] = [
 chart dates = line(timeline) {
   title: "Date line"
   description: "UTC dates and a null gap"
+  showTable true
   x: at
   series value as "Value"
 }
@@ -208,6 +211,7 @@ let numeric: NumericRow[] = [
 chart numericLine = line(numeric) {
   title: "Numeric line"
   description: "Continuous numeric x values"
+  showTable true
   x: x
   series value as "Value"
   series absent as "Absent"
@@ -225,6 +229,7 @@ let points: ScatterRow[] = [
 chart scatter = scatter(points) {
   title: "Grouped scatter"
   description: "First-seen groups"
+  showTable true
   x: x
   y: y
   group: group
@@ -291,6 +296,142 @@ show scatter
     expect(worksheetXml).toContain('<v>11</v>');
   });
 
+  it('omits false tables across native chart kinds and partial numeric-line output', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'openamx-docx-false-native-'));
+    temporaryDirectories.push(directory);
+    const input = join(directory, 'report.amx');
+    await writeFile(input, `\`\`\`amx
+let values: Number[] = [1, 2]
+chart hiddenBar = bar(values) {
+  title: "False bar"
+  description: "Native bar"
+  showTable false
+  series "Value"
+}
+chart hiddenColumn = column(values) {
+  title: "False column"
+  description: "Native column"
+  showTable false
+  series "Value"
+}
+chart hiddenLine = line(values) {
+  title: "False line"
+  description: "Native line"
+  showTable false
+  series "Value"
+}
+type Point {
+  x: Number
+  y: Number
+}
+let points: Point[] = [Point { x = 1, y = 2 }]
+chart hiddenScatter = scatter(points) {
+  title: "False scatter"
+  description: "Native scatter"
+  showTable false
+  x: x
+  y: y
+}
+type PartialRow {
+  x: Number
+  value: Number?
+  absent: Number?
+}
+let partialRows: PartialRow[] = [PartialRow { x = 1, value = 2, absent = null }]
+chart hiddenPartial = line(partialRows) {
+  title: "False partial"
+  description: "Partial native line"
+  showTable false
+  x: x
+  series value as "Value"
+  series absent as "Absent"
+}
+show hiddenBar
+show hiddenColumn
+show hiddenLine
+show hiddenScatter
+show hiddenPartial
+\`\`\``);
+    const loaded = await loadEntryModule(input);
+    const prepared = await prepareReport(loaded.doc, loaded.env, { file: input });
+    const archive = await JSZip.loadAsync(await serializeDocxReport(await prepareDocxReport(prepared)));
+    const names = Object.keys(archive.files);
+    const documentXml = await archive.file('word/document.xml')?.async('string') ?? '';
+
+    expect(names.filter(name => /^word\/charts\/chart\d+\.xml$/.test(name))).toHaveLength(5);
+    expect(names.filter(name => name.startsWith('word/embeddings/') && name.endsWith('.xlsx'))).toHaveLength(5);
+    expect(documentXml).not.toContain('<w:tbl>');
+    expect(documentXml).toContain('Series &quot;Absent&quot; has no plottable coordinates and is omitted from the chart.');
+    expect(documentXml).toContain('omitted from the chart: Absent');
+    expect(documentXml).not.toContain('complete data table');
+    expect(documentXml).not.toContain('name="openamx-chart-');
+  });
+
+  it('omits false tables and table claims from zero-point and unsupported fallbacks', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'openamx-docx-false-fallback-'));
+    temporaryDirectories.push(directory);
+    const input = join(directory, 'report.amx');
+    await writeFile(input, `\`\`\`amx
+dimension Length
+unit meter: Length
+dimension Mass
+unit gram: Mass
+dimension Time
+unit second: Time
+type Row {
+  distance: Length
+  mass: Mass
+  duration: Time
+  x: Number?
+  y: Number?
+  group: String
+}
+let rows: Row[] = [
+  Row { distance = 1 meter, mass = 2 gram, duration = 3 second, x = null, y = 4, group = "No points" },
+  Row { distance = 1 meter, mass = 2 gram, duration = 3 second, x = 1, y = 2, group = "Plotted" }
+]
+let empty: Number[] = []
+chart noPoints = bar(empty) {
+  title: "False empty"
+  description: "No values"
+  showTable false
+  series "Value"
+}
+chart noScatterPoints = scatter(rows) {
+  title: "False scatter fallback"
+  description: "One empty group"
+  showTable false
+  x: x
+  y: y
+  group: group
+}
+chart unsupported = column(rows) {
+  title: "False unsupported"
+  description: "Three value axes"
+  showTable false
+  category: group
+  series distance as "Distance"
+  series mass as "Mass"
+  series duration as "Duration"
+}
+show noPoints
+show noScatterPoints
+show unsupported
+\`\`\``);
+    const loaded = await loadEntryModule(input);
+    const prepared = await prepareReport(loaded.doc, loaded.env, { file: input });
+    const archive = await JSZip.loadAsync(await serializeDocxReport(await prepareDocxReport(prepared)));
+    const names = Object.keys(archive.files);
+    const documentXml = await archive.file('word/document.xml')?.async('string') ?? '';
+
+    expect(names.some(name => /^word\/charts\/chart\d+\.xml$/.test(name))).toBe(false);
+    expect(documentXml).not.toContain('<w:tbl>');
+    expect(documentXml).toContain('Chart not shown: no plottable data.');
+    expect(documentXml).toContain('Chart not shown: Word cannot represent a scatter group with no plottable points.');
+    expect(documentXml).toContain('Chart not shown: Word cannot represent all measurement axes without changing their meaning.');
+    expect(documentXml).not.toContain('complete table');
+  });
+
   it('uses truthful notice-and-table alternatives for zero-point and unsupported chart cases', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'openamx-docx-chart-deferrals-'));
     temporaryDirectories.push(directory);
@@ -305,12 +446,14 @@ let allNull: ValueRow[] = [ValueRow { label = 1, value = null }]
 chart emptyChart = bar(empty) {
   title: "Empty chart"
   description: "No rows"
+  showTable true
   category: label
   series value as "Value"
 }
 chart nullChart = line(allNull) {
   title: "All-null chart"
   description: "All values are null"
+  showTable true
   x: label
   series value as "Value"
 }
@@ -322,6 +465,7 @@ let unlocated: UnlocatedRow[] = [UnlocatedRow { x = null, value = 3 }]
 chart unlocatedChart = line(unlocated) {
   title: "Unlocated points"
   description: "No row has a numeric x coordinate"
+  showTable true
   x: x
   series value as "Value"
 }
@@ -337,6 +481,7 @@ let points: PointRow[] = [
 chart mixedGroups = scatter(points) {
   title: "Mixed groups"
   description: "One group has no plottable points"
+  showTable true
   x: x
   y: y
   group: group
@@ -381,6 +526,7 @@ let rows: NumericRow[] = [
 chart trend = line(rows) {
   title: "Nullable X"
   description: "One series has no plottable coordinates"
+  showTable true
   x: x
   series onlyAtNull as "OnlyAtNull"
   series value as "Value"
@@ -428,6 +574,7 @@ let values: Measurement[] = [
 chart twoAxes = column(values) {
   title: "Two axes"
   description: "Independent units"
+  showTable true
   category: id
   series distance as "Distance"
   series mass as "Mass"
@@ -435,6 +582,7 @@ chart twoAxes = column(values) {
 chart threeAxes = column(values) {
   title: "Three axes"
   description: "Unsupported independent units"
+  showTable true
   category: id
   series distance as "Distance"
   series mass as "Mass"

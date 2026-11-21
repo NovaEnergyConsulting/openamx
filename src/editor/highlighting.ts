@@ -76,7 +76,11 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 				break;
 			}
 			case "listAccess": expression(node.receiver); expression(node.index); break;
-			case "binaryExpression": expression(node.left); expression(node.right); break;
+			case "binaryExpression":
+				expression(node.left);
+				add(node.operatorSource, node.operator, "keyword");
+				expression(node.right);
+				break;
 			case "typeTestExpression":
 				expression(node.value);
 				add(node.operatorSource, "is", "keyword");
@@ -218,7 +222,17 @@ export function editorHighlightFacts(text: string, document: OpenAmxDocument): E
 			if (node.body.kind === "expression") expression(node.body.expression);
 			else node.body.statements.forEach(statement);
 		}
-		else if (node.type === "tableDeclaration" || node.type === "chartDeclaration") add(node.bindingSource, node.binding, "reference");
+		else if (node.type === "tableDeclaration" || node.type === "chartDeclaration") {
+			add(node.bindingSource, node.binding, "reference");
+			if (node.type === "chartDeclaration") {
+				for (const option of node.options) {
+					if (option.type === "chartShowTableOption") {
+						add(option.source, "showTable", "keyword");
+						expression(option.expression);
+					}
+				}
+			}
+		}
 		else if (node.type === "showStatement") add(node.nameSource, node.name, "reference");
 		else if (node.type === "assignmentStatement" || node.type === "compoundAssignmentStatement") {
 			add(node.source, node.name, "reference");

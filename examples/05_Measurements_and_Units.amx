@@ -6,8 +6,8 @@ title: Measurements and units
 
 ## Objective
 
-Attach declared units to numeric values, convert compatible Measurements, and
-read results together with their displayed units.
+Attach declared units to numeric values, convert compatible Measurements,
+work with affine temperature units, and retain the selected display unit.
 
 ## Prerequisites
 
@@ -24,14 +24,16 @@ their displayed values and units.
 
 ## Quantities and conversion
 
-Dimensions describe kinds of quantities; units give values a scale and
-display name. Converting changes the displayed value and unit, not the
-dimension.
+Dimensions describe kinds of quantities. Multiplication-only units use a
+scale; affine units add a finite offset to the canonical physical value. A
+conversion changes the displayed value and unit without changing that physical
+value.
 
 ```amx
 dimension Length
 dimension Time
 dimension Speed = Length / Time
+dimension ThermodynamicTemperature
 
 unit meter: Length
 unit kilometer = 1000 * meter
@@ -40,33 +42,86 @@ unit second: Time
 unit hour = 3600 * second
 unit meter_per_second = meter / second
 unit kilometer_per_hour = kilometer / hour
+unit kelvin: ThermodynamicTemperature
+unit celsius = kelvin + 273.15
+unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)
+unit degC = celsius
+unit degF = fahrenheit
+unit pi_kelvin = PI * kelvin
+unit e_shifted_kelvin = kelvin + E
 
 let distance: Length = 1250 meter
 let distanceInKilometers: Length = distance in kilometer
 let distanceInCentimeters: Length = 2 meter in centimeter
 let averageSpeed: Speed = 36 kilometer_per_hour
 let speedInMetersPerSecond: Speed = averageSpeed in meter_per_second
-
 let distances: Length[] = [1 meter, 100 centimeter]
 let totalDistance: Length = sum(distances)
+
+let freezingCelsius: ThermodynamicTemperature = 0 celsius
+let freezingFahrenheit: ThermodynamicTemperature = freezingCelsius in fahrenheit
+let freezingKelvin: ThermodynamicTemperature = freezingCelsius in kelvin
+let sameTemperature: Boolean = freezingCelsius == freezingFahrenheit
+let temperatureSpan: ThermodynamicTemperature = 20 celsius - 10 celsius
+let temperatureTotal: ThermodynamicTemperature = sum([10 celsius, 20 celsius])
+let temperatureMean: ThermodynamicTemperature = mean([10 celsius, 20 celsius])
+let minimumTemperature: ThermodynamicTemperature = min([32 fahrenheit, 10 celsius])
+let maximumTemperature: ThermodynamicTemperature = max([32 fahrenheit, 10 celsius])
+let absoluteTemperature: ThermodynamicTemperature = abs((-5) celsius)
+let roundedTemperature: ThermodynamicTemperature = round(12.345 celsius, 2)
+let piScaledTemperature: ThermodynamicTemperature = 1 pi_kelvin in kelvin
+let eShiftedTemperature: ThermodynamicTemperature = 1 e_shifted_kelvin in kelvin
 ```
 
 The distance is {{ distance }} or {{ distanceInKilometers }} after conversion.
 Two meters is {{ distanceInCentimeters }}. The speed is {{ averageSpeed }},
-which is {{ speedInMetersPerSecond }} in meters per second. The compatible
-distance total is {{ totalDistance }}.
+which is {{ speedInMetersPerSecond }}. The compatible distance total is
+{{ totalDistance }}.
+
+At the conventional invariant, `0 celsius`, `32 fahrenheit`, and
+`273.15 kelvin` describe the same physical temperature. The executed values are
+{{ freezingFahrenheit }} and {{ freezingKelvin }}; their equality is
+{{ sameTemperature }}. Affine subtraction follows the left display unit:
+{{ temperatureSpan }}. Physical aggregation produces {{ temperatureTotal }}
+and {{ temperatureMean }}. Selection retains an original display unit, as in
+{{ minimumTemperature }} and {{ maximumTemperature }}.
+
+## Affine operation boundaries
+
+Unit declarations may resolve scalar arithmetic with `PI` and `E`, but direct
+affine measurement operations that would discard an offset remain rejected.
+These examples are intentionally inert documentation, not executable AMX:
+
+```text
+let invalidAddition = 10 celsius + 20 celsius
+let invalidMultiplication = 10 celsius * 2
+let invalidDivision = 10 celsius / 2
+let invalidPower = 10 celsius ^ 2
+let invalidRoot = sqrt(10 celsius)
+```
+
+For the temperature operations above, `sum` and `mean` use canonical physical
+aggregation. `min` and `max` compare physically and return the selected source
+measurement. `abs`, `round`, and unary minus operate on display values while
+preserving the selected display unit.
+
+The standard `libraries/si.amx` exports the same `celsius`, `fahrenheit`,
+`degC`, and `degF` units; they remain compatible with imported `kelvin` and `K`.
 
 ## Expected outcome
 
 Run and Preview retain value and unit together: `1250 meter`,
 `1.25 kilometer`, `200 centimeter`, `36 kilometer_per_hour`,
-`10 meter_per_second`, and `2 meter`. Unit conversion does not turn a length
-into a different dimension, and summing compatible lengths returns the
-first list element's unit.
+`10 meter_per_second`, and `2 meter`. Temperature results include
+`32 fahrenheit`, `273.15 kelvin`, equality `true`, `10 celsius`,
+`303.15 celsius`, `15 celsius`, `32 fahrenheit`, `10 celsius`, `5 celsius`,
+and `12.35 celsius`. PI scales a finite unit, and `kelvin + E` gives a finite
+shifted unit.
 
 ## Inputs and support files
 
-None. Dimensions and units are declared in this document.
+None. Dimensions and units are declared in this document. Invalid affine
+operations above are in an inert `text` fence and must not execute.
 
 ## Navigation
 

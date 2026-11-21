@@ -167,6 +167,84 @@ test("desktop CodeMirror exposes V0.16 function editor services", async ({ page 
 	await expect.poll(() => diagnostic.evaluate(mark => mark.closest(".cm-line")?.textContent ?? "")).toBe("}");
 });
 
+test("desktop CodeMirror exposes V0.19 chart visibility and affine editor facts", async ({ page }) => {
+	const source = [
+		"😀 V0.19 editor check",
+		"```amx",
+		"let enabled: Boolean = true",
+		"let threshold: Number = 2",
+		"dimension ThermodynamicTemperature",
+		"unit kelvin: ThermodynamicTemperature",
+		"unit celsius = kelvin + 273.15",
+		"unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)",
+		"unit piKelvin = PI * kelvin",
+		"unit eKelvin = kelvin + E",
+		"let values: Number[] = [1, 2]",
+		"chart amounts = column(values) {",
+		'  title: "Amounts"',
+		'  description: "V0.19 visibility"',
+		"  showTable enabled and threshold >= 2",
+		'  series "Value"',
+		"}",
+		"show amounts",
+		"```",
+		""
+	].join("\n");
+	await page.goto("/");
+	await page.getByRole("button", { name: "Open project" }).click();
+	const editor = sourceEditor(page);
+	const initialAnalysisRequests = await harnessAnalysisRequestCount(page);
+	await editor.fill(source);
+	await page.keyboard.press("Control+Space");
+	await expect.poll(() => harnessCurrentText(page)).toBe(source);
+	await expect.poll(() => harnessAnalysisRequestCount(page)).toBeGreaterThan(initialAnalysisRequests);
+	const showTableOffset = source.indexOf("showTable", source.indexOf("```amx"));
+	const plusOffset = source.indexOf("+", source.indexOf("unit celsius"));
+	await expect.poll(() => lastAnalysis(page)).toMatchObject({
+		diagnostics: [],
+		highlights: expect.arrayContaining([
+			expect.objectContaining({ from: showTableOffset, to: showTableOffset + "showTable".length, kind: "keyword" }),
+			expect.objectContaining({ from: plusOffset, to: plusOffset + 1, kind: "keyword" })
+		])
+	});
+	await page.keyboard.press("Escape");
+	await expect.poll(() => page.locator(".amx-token-keyword").allTextContents()).toContain("showTable");
+	for (const token of ["+", "-", "*", "/"]) {
+		await expect.poll(() => page.locator(".amx-token-keyword").allTextContents()).toContain(token);
+	}
+	for (const token of ["PI", "E"]) {
+		await expect.poll(() => page.locator(".amx-token-reference").allTextContents()).toContain(token);
+	}
+	await expect(page.locator(".amx-diagnostic")).toHaveCount(0);
+
+	await page.getByRole("button", { name: "Format", exact: true }).click();
+	const formatted = await page.locator(".cm-content").innerText();
+	await page.getByRole("button", { name: "Format", exact: true }).click();
+	await expect.poll(() => page.locator(".cm-content").innerText()).toBe(formatted);
+
+	const invalid = [
+		"```amx",
+		"let values: Number[] = [1]",
+		"chart amounts = column(values) {",
+		'  title: "Invalid"',
+		'  description: "Non-Boolean visibility"',
+		"  showTable 1",
+		'  series "Value"',
+		"}",
+		"```",
+		""
+	].join("\n");
+	await editor.fill(invalid);
+	await expect.poll(() => lastAnalysis(page)).toMatchObject({
+		diagnostics: [{ code: "AMX3002", line: 6, column: 13 }]
+	});
+	const diagnostic = page.locator(".amx-diagnostic");
+	await expect(diagnostic).toHaveCount(1);
+	await expect(diagnostic).toHaveText("1");
+	await expect.poll(() => diagnostic.evaluate(mark => mark.closest(".cm-line")?.textContent ?? ""))
+		.toBe("  showTable 1");
+});
+
 test("desktop CodeMirror renders parser-proven nested V0.18 diagram facts", async ({ page }) => {
 	const source = [
 		"```amx",

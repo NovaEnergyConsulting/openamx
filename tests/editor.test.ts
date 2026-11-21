@@ -37,6 +37,48 @@ test("shared V0.14 editor facts expose type tests, built-ins, and type-target na
 	expect(highlights.some(fact => fact.from < text.indexOf("\r\n") && fact.to <= text.indexOf("\r\n"))).toBe(false);
 });
 
+test("V0.19 highlighting exposes showTable and affine declaration operators from parser ranges", () => {
+	for (const newline of ["\n", "\r\n"]) {
+		const text = [
+			"😀 Narrative mentions showTable and + but stays inert.",
+			"```text",
+			"showTable + kelvin",
+			"```",
+			"```amx",
+			"let enabled: Boolean = true",
+			"dimension ThermodynamicTemperature",
+			"unit kelvin: ThermodynamicTemperature",
+			"unit celsius = kelvin + 273.15",
+			"unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)",
+			"unit piKelvin = PI * kelvin",
+			"unit eKelvin = kelvin + E",
+			"let values: Number[] = [1, 2]",
+			"chart amounts = column(values) {",
+			'  title: "Amounts"',
+			'  description: "Visibility"',
+			"  showTable enabled and PI > 0",
+			'  series "Value"',
+			"}",
+			"show amounts",
+			"```",
+			""
+		].join(newline);
+		const highlights = editorHighlightFacts(text, parseDocumentText(text));
+		const showTableOffset = text.indexOf("showTable", text.indexOf("```amx"));
+
+		expect(highlights).toContainEqual({ from: showTableOffset, to: showTableOffset + "showTable".length, kind: "keyword" });
+		for (const token of ["+", "/", "*", "-", ">"] ) {
+			const operatorOffset = text.indexOf(token, text.indexOf("unit celsius"));
+			expect(highlights).toContainEqual({ from: operatorOffset, to: operatorOffset + token.length, kind: "keyword" });
+		}
+		for (const constant of ["PI", "E"]) {
+			const referenceOffset = text.lastIndexOf(constant);
+			expect(highlights).toContainEqual({ from: referenceOffset, to: referenceOffset + constant.length, kind: "reference" });
+		}
+		expect(highlights.some(fact => fact.from < text.indexOf("```amx") && text.slice(fact.from, fact.to) === "showTable")).toBe(false);
+	}
+});
+
 test("shared V0.14 completion offers type targets and built-ins in incomplete expressions", () => {
 	const text = [
 		"```amx",

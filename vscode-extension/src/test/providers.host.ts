@@ -86,6 +86,73 @@ suite('OpenAMX providers', () => {
     assert.equal(invalid.getText(diagnostic.range), 'M');
   });
 
+  test('formats V0.19 chart and affine syntax and preserves invalid source diagnostics', async () => {
+    const validContent = [
+      '😀 V0.19',
+      '```amx',
+      'let enabled: Boolean = true',
+      'dimension ThermodynamicTemperature',
+      'unit kelvin: ThermodynamicTemperature',
+      'unit celsius = kelvin + 273.15',
+      'unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)',
+      'let values: Number[] = [1, 2]',
+      'chart amounts = column(values) {',
+      '  title: "Amounts"',
+      '  description: "V0.19 visibility"',
+      '  showTable enabled',
+      '  series "Value"',
+      '}',
+      'show amounts',
+      '```'
+    ].join('\r\n');
+    const valid = await vscode.workspace.openTextDocument({ language: 'amx', content: validContent });
+    await vscode.window.showTextDocument(valid);
+    assert.equal((await waitForDiagnostics(valid.uri, true)).length, 0);
+    const formatted = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+      'vscode.executeFormatDocumentProvider', valid.uri, { tabSize: 2, insertSpaces: true }
+    );
+    if (formatted?.length) {
+      const edit = new vscode.WorkspaceEdit();
+      formatted.forEach(item => edit.replace(valid.uri, item.range, item.newText));
+      assert.ok(await vscode.workspace.applyEdit(edit));
+    }
+    assert.equal((await vscode.commands.executeCommand<vscode.TextEdit[]>(
+      'vscode.executeFormatDocumentProvider', valid.uri, { tabSize: 2, insertSpaces: true }
+    ))?.length ?? 0, 0);
+
+    const invalidVisibilityContent = [
+      '```amx',
+      'let values: Number[] = [1]',
+      'chart amounts = column(values) {',
+      '  title: "Invalid"',
+      '  description: "Non-Boolean visibility"',
+      '  showTable 1',
+      '  series "Value"',
+      '}',
+      '```'
+    ].join('\r\n');
+    const invalidVisibility = await vscode.workspace.openTextDocument({ language: 'amx', content: invalidVisibilityContent });
+    const visibilityDiagnostic = (await waitForDiagnostics(invalidVisibility.uri, true)).find(item => item.code === 'AMX3002');
+    assert.ok(visibilityDiagnostic);
+    const visibilityOffset = invalidVisibilityContent.lastIndexOf('1');
+    assert.deepEqual(visibilityDiagnostic.range.start, invalidVisibility.positionAt(visibilityOffset));
+
+    const invalidAffineContent = [
+      '```amx',
+      'dimension ThermodynamicTemperature',
+      'dimension Length',
+      'unit kelvin: ThermodynamicTemperature',
+      'unit meter: Length',
+      'unit invalid = kelvin + meter',
+      '```'
+    ].join('\n');
+    const invalidAffine = await vscode.workspace.openTextDocument({ language: 'amx', content: invalidAffineContent });
+    const affineDiagnostic = (await waitForDiagnostics(invalidAffine.uri, true)).find(item => item.code === 'AMX3008');
+    assert.ok(affineDiagnostic);
+    const affineOffset = invalidAffineContent.lastIndexOf('+');
+    assert.deepEqual(affineDiagnostic.range.start, invalidAffine.positionAt(affineOffset));
+  });
+
   test('rejects an in-root symlink import without a fabricated definition', async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'openamx-navigation-link-'));
     const entryPath = path.join(directory, 'entry.amx');
@@ -607,6 +674,18 @@ suite('OpenAMX providers', () => {
       'fn triple(value: Number): Number = value*3',
       'dimension Length',
       'unit meter: Length',
+      'dimension ThermodynamicTemperature',
+      'unit kelvin: ThermodynamicTemperature',
+      'unit celsius = kelvin + 273.15',
+      'unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)',
+      'let enabled: Boolean = true',
+      'let threshold: Number = 2',
+      'chart visible = line([1, 2]) {',
+      '  title: "Visible"',
+      '  description: "V0.19 visibility"',
+      '  showTable enabled and threshold >= 2',
+      '  series "Value"',
+      '}',
       'let rows: Number[] = [1, 2, 3]',
       'let second = rows[2]',
       'let candidate = 1',
@@ -686,6 +765,8 @@ suite('OpenAMX providers', () => {
       'let malformedInterpolation = "${second + }"',
       '```',
       '```js',
+      'showTable false',
+      'unit inert = kelvin + 273.15',
       'fn inert(value: Number): Number = value',
       'let inert = 1 meter',
       'for sample in [1] {',
@@ -711,6 +792,15 @@ suite('OpenAMX providers', () => {
 
     hasScope('dimension Length', 'dimension', 'keyword.control.amx');
     hasScope('unit meter: Length', 'unit', 'keyword.control.amx');
+    hasScope('unit celsius = kelvin + 273.15', 'kelvin', 'source.amx');
+    for (const [line, operator] of [
+      ['unit celsius = kelvin + 273.15', '+'],
+      ['unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)', '/'],
+      ['unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)', '*'],
+      ['unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)', '-']
+    ] as const) hasScope(line, operator, 'keyword.operator.amx');
+    hasScope('  showTable enabled and threshold >= 2', 'showTable', 'keyword.other.option.amx');
+    hasScope('  showTable enabled and threshold >= 2', '>=', 'keyword.operator.amx');
     hasScope('let rows: Number[] = [1, 2, 3]', '1', 'constant.numeric.amx');
     hasScope('let second = rows[2]', '2', 'constant.numeric.amx');
     hasScope('let typeTest = candidate is Sample', 'is', 'keyword.operator.amx');
@@ -776,6 +866,8 @@ suite('OpenAMX providers', () => {
     lacksScope('for sample in [1] {', 'for', 'keyword.control.amx');
     lacksScope('  circle tracePoint {', 'circle', 'keyword.declaration.diagram-element.amx');
     lacksScope('let inert = 1 meter', 'let', 'keyword.control.amx');
+    lacksScope('showTable false', 'showTable', 'keyword.other.option.amx');
+    lacksScope('unit inert = kelvin + 273.15', '+', 'keyword.operator.amx');
     lacksScope('fn inert(value: Number): Number = value', 'fn', 'keyword.declaration.function.amx');
     hasScope('Narrative {{2 meter}} and unit.', '2', 'constant.numeric.amx');
     lacksScope('Narrative {{2 meter}} and unit.', 'and', 'meta.interpolation.amx');

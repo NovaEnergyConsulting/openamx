@@ -8,6 +8,7 @@ import sharp from "sharp";
 import { parseDocument, parseDocumentText } from "../src/parser/parseDocument";
 import { evaluateDocument, evaluateDocumentEnvironment } from "../src/runtime/evaluateDocument";
 import { evaluateDiagramFrame } from "../src/runtime/diagramModel";
+import { loadEntryModule } from "../src/runtime/moduleLoader";
 import { analyzeEditorModules } from "../src/editor/moduleAnalysis";
 import { renderHtml } from "../src/renderer/renderHtml";
 import { preparePdfReport, serializePdfReport } from "../src/renderer/reportPdf";
@@ -245,6 +246,126 @@ describe("V0.18 generated diagram example", () => {
     }
   });
 });
+
+describe("V0.19 affine and chart output documentation", () => {
+  it("links the additive specification and documents the exact migration boundary", async () => {
+    const readme = await Bun.file("README.md").text();
+    const specification = await Bun.file("docs/language-spec-v0.19.md").text();
+
+    expect(readme).toContain("[V0.19 rendering and affine-unit specification](docs/language-spec-v0.19.md)");
+    expect(readme).toContain("[Measurements and units](examples/05_Measurements_and_Units.amx)");
+    expect(readme).toContain("[Tables, charts, and named outputs](examples/07_Tables_Charts_and_Named_Outputs.amx)");
+    expect(specification).toContain("[V0.18 diagram specification](language-spec-v0.18.md)");
+    expect(specification).toContain("[V0.16 function specification](language-spec-v0.16.md)");
+    expect(specification).toContain("[V0.14 specification](language-spec-v0.14.md)");
+    expect(specification).toContain("[V0.13 diagram specification](language-spec-v0.13.md)");
+    expect(specification).toContain("Omitting `showTable` resolves to `false` in V0.19");
+    expect(specification).toContain("{ \"value\": 20, \"unit\": \"celsius\" }");
+    expect(specification).toContain("CSS-hidden, screen-reader-only, offscreen, or alternate chart tables");
+    expect(specification).toContain("There is no automatic source migration");
+  });
+
+  it("runs Example 05 affine conversions and keeps rejected operations inert", async () => {
+    const examplePath = "examples/05_Measurements_and_Units.amx";
+    const source = await Bun.file(examplePath).text();
+    const analysis = analyzeEditorModules(source, examplePath);
+    const values = evaluateDocument(analysis.document, examplePath) as Record<string, any>;
+    const executable = [...source.matchAll(/^```amx\r?\n([\s\S]*?)^```\s*$/gm)].map(match => match[1]).join("\n");
+
+    expect(values.distance).toMatchObject({ value: 1250, unit: { text: "meter" } });
+    expect(values.freezingFahrenheit.value).toBeCloseTo(32, 12);
+    expect(values.freezingFahrenheit.unit.text).toBe("fahrenheit");
+    expect(values.freezingKelvin).toMatchObject({ value: 273.15, unit: { text: "kelvin" } });
+    expect(values.sameTemperature).toBe(true);
+    expect(values.temperatureSpan).toMatchObject({ value: 10, unit: { text: "celsius" } });
+    expect(values.temperatureTotal.value).toBeCloseTo(303.15, 10);
+    expect(values.temperatureTotal.unit.text).toBe("celsius");
+    expect(values.temperatureMean).toMatchObject({ value: 15, unit: { text: "celsius" } });
+    expect(values.minimumTemperature.value).toBeCloseTo(32, 12);
+    expect(values.minimumTemperature.unit.text).toBe("fahrenheit");
+    expect(values.maximumTemperature).toMatchObject({ value: 10, unit: { text: "celsius" } });
+    expect(values.absoluteTemperature).toMatchObject({ value: 5, unit: { text: "celsius" } });
+    expect(values.roundedTemperature).toMatchObject({ value: 12.35, unit: { text: "celsius" } });
+    expect(values.piScaledTemperature.value).toBeCloseTo(Math.PI, 12);
+    expect(values.piScaledTemperature.unit.text).toBe("kelvin");
+    expect(values.eShiftedTemperature.value).toBeCloseTo(1 + Math.E, 12);
+    expect(values.eShiftedTemperature.unit.text).toBe("kelvin");
+    expect(formatAmxDocument(formatAmxDocument(source))).toBe(formatAmxDocument(source));
+    expect(executable).not.toContain("10 celsius + 20 celsius");
+    expect(executable).not.toContain("sqrt(10 celsius)");
+    expect(source).toMatch(/```text\r?\nlet invalidAddition = 10 celsius \+ 20 celsius/);
+  });
+
+  it("renders Example 07's four chart states across HTML, PDF, and DOCX", async () => {
+    const examplePath = "examples/07_Tables_Charts_and_Named_Outputs.amx";
+    const loaded = await loadEntryModule(examplePath, {
+      inputMappings: [
+        "asset=examples/data/asset.json",
+        "screenings=examples/data/screenings.csv",
+        "reviewedAt=examples/data/reviewed-at.json"
+      ]
+    });
+    const report = await prepareReport(loaded.doc, loaded.env, { file: examplePath, includeStylesheet: false });
+    const html = renderHtml(loaded.doc, examplePath, loaded.env);
+    const figures = [...html.matchAll(/<figure class="openamx-view openamx-chart"[\s\S]*?<\/figure>/g)].map(match => match[0]);
+    const titledFigures = (title: string) => figures.find(figure => figure.includes(`<strong id="`)
+      && figure.includes(`>${title}</strong>`));
+    const expected = [
+      ["Score by screening", false],
+      ["Score by screening - false", false],
+      ["Score by screening - true", true],
+      ["Score by screening - expression", true]
+    ] as const;
+
+    expect(figures).toHaveLength(4);
+    for (const [title, visible] of expected) {
+      const figure = titledFigures(title);
+      expect(figure).toBeDefined();
+      expect(figure!.includes('class="openamx-chart-data"')).toBe(visible);
+      const payload = JSON.parse(figure!.match(/data-chart-model>([\s\S]*?)<\/script>/)?.[1] ?? "null");
+      expect(payload.showTable).toBe(visible);
+      expect(payload.table !== undefined).toBe(visible);
+      if (!visible) {
+        expect(payload.accessibility.tableId).toBeUndefined();
+        expect(payload.accessibility.summary).not.toContain("Complete chart data");
+      }
+    }
+
+    const pdfPrepared = preparePdfReport(report);
+    const pdfContent = pdfPrepared.definition.content as Array<Record<string, unknown>>;
+    for (const [title, visible] of expected) {
+      const index = pdfContent.findIndex(item => Array.isArray(item.stack)
+        && (item.stack as Array<Record<string, unknown>>).some(child => child.text === title));
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(pdfContent[index + 1] !== undefined && isRecord(pdfContent[index + 1]!.table)).toBe(visible);
+    }
+    const pdf = await getDocument({
+      data: await serializePdfReport(pdfPrepared), useSystemFonts: true, disableFontFace: true
+    }).promise;
+    const pdfPages: string[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const page = await pdf.getPage(pageNumber);
+      pdfPages.push((await page.getTextContent()).items.map(item => "str" in item ? item.str : "").join(" "));
+    }
+    const pdfText = pdfPages.join(" ");
+    expect(pdfText).toContain("Score by screening - true");
+    expect(pdfText).toContain("Score by screening - expression");
+    expect(pdfText).not.toContain("Data for Score by screening - false");
+
+    const archive = await JSZip.loadAsync(await serializeDocxReport(await prepareDocxReport(report)));
+    const documentXml = await archive.file("word/document.xml")?.async("string") ?? "";
+    expect(documentXml.match(/<w:tbl>/g)).toHaveLength(3);
+    expect(documentXml).toContain("Data for Score by screening - true");
+    expect(documentXml).toContain("Data for Score by screening - expression");
+    expect(documentXml).not.toContain("Data for Score by screening - false");
+    expect(documentXml).not.toContain("shown only in the complete table");
+    expect(Object.keys(archive.files).filter(name => /^word\/charts\/chart\d+\.xml$/.test(name))).toHaveLength(4);
+  }, 60000);
+});
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
 
 describe("V0.14 language documentation and examples", () => {
   it("links the additive specification and indexes searchable desktop Help", async () => {

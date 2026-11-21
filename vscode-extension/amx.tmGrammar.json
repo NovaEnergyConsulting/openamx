@@ -508,7 +508,7 @@
                     "name": "support.function.visualization.amx"
                 },
                 {
-                    "match": "\\b(title|description|column|as|category|x|y|group|labels|series)\\b",
+                    "match": "\\b(title|description|column|as|category|x|y|group|labels|series|showTable)\\b",
                     "name": "keyword.other.option.amx"
                 },
                 {

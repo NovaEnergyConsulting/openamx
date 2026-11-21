@@ -444,6 +444,34 @@ describe('formatAmx', () => {
     expect(evaluate(formatted)).toEqual(evaluate(source));
   });
 
+  it('formats V0.19 affine declarations and showTable expressions idempotently', () => {
+    const source = [
+      'dimension ThermodynamicTemperature',
+      'unit kelvin: ThermodynamicTemperature',
+      'unit celsius = kelvin+273.15',
+      'unit fahrenheit = (5/9)*kelvin+(273.15-160/9)',
+      'unit piKelvin = PI*kelvin',
+      'unit eKelvin = kelvin+E',
+      'let values: Number[] = [1]',
+      'let enabled: Boolean = true',
+      'chart amounts = column(values) {',
+      'title: "Amounts"',
+      'showTable enabled',
+      'description: "Visible"',
+      'series "Value"',
+      '}',
+      'show amounts'
+    ].join('\n');
+    const formatted = formatAmx(source);
+
+    expect(formatted).toContain('unit celsius = kelvin+273.15');
+    expect(formatted).toContain('unit fahrenheit = (5/9)*kelvin+(273.15-160/9)');
+    expect(formatted).toContain('unit piKelvin = PI*kelvin');
+    expect(formatted).toContain('unit eKelvin = kelvin+E');
+    expect(formatted).toContain('  title: "Amounts"\n  showTable enabled\n  description: "Visible"');
+    expect(formatAmx(formatted)).toBe(formatted);
+  });
+
   it('formats V0.9 measurements and list mutation meaning-preservingly and idempotently', () => {
     const source = [
       'dimension Length',

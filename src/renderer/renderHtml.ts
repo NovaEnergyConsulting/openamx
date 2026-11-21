@@ -60,13 +60,16 @@ interface BrowserChartModel {
   kind: ChartViewModel['kind'];
   title: string;
   description: string;
+  showTable: boolean;
   dimensions: ChartViewModel['dimensions'];
   option: JsonValue;
   formatterPaths: string[];
-  table: ChartViewModel['table'];
+  table?: ChartViewModel['table'];
+  rowLabels?: Readonly<Record<string, string>>;
   series: ChartViewModel['series'];
   axes: ChartViewModel['axes'];
-  accessibility: ChartViewModel['accessibility'];
+  accessibility: Omit<ChartViewModel['accessibility'], 'tableId'>
+    | ChartViewModel['accessibility'];
   plottedPointCount: number;
   emptyState?: ChartViewModel['emptyState'];
   dateTimePresentation?: ChartViewModel['dateTimePresentation'];
@@ -457,15 +460,18 @@ function renderChart(emission: ChartViewEmission, identity: Pick<ResolvedReportI
   const zoomControls = browserModel.zoomable
     ? `<div class="openamx-chart-controls" role="group" aria-label="Chart zoom controls"><button type="button" data-zoom="out" aria-label="Zoom out">Zoom out</button><button type="button" data-zoom="in" aria-label="Zoom in">Zoom in</button><button type="button" data-zoom="reset">Reset zoom</button></div>`
     : '';
+  const tableRelation = model.showTable ? ` ${id}-table-caption` : '';
   const textRows = model.table.rows.map(row => `<tr>${row.values.map(value => `<td>${renderNarrativeText(formatAmxValue(value))}</td>`).join('')}</tr>`).join('');
+  const table = model.showTable
+    ? `  <table class="openamx-chart-data" id="${id}"><caption id="${id}-table-caption">${escapeHtml(model.table.caption)}</caption><thead><tr>${model.table.headings.map(value => `<th scope="col">${escapeHtml(value)}</th>`).join('')}</tr></thead><tbody>${textRows}</tbody></table>\n`
+    : '';
   const data = safeJson(browserModel);
   return `<figure class="openamx-view openamx-chart" id="${id}-figure" data-openamx-chart aria-labelledby="${titleId}" aria-describedby="${descriptionId} ${summaryId}">
   <figcaption><strong id="${titleId}">${escapeHtml(model.title)}</strong><span id="${descriptionId}">${escapeHtml(model.description)}</span></figcaption>
-  <p id="${summaryId}" class="sr-only">${escapeHtml(model.accessibility.summary)}</p>
+  <p id="${summaryId}" class="sr-only">${escapeHtml(browserModel.accessibility.summary)}</p>
   ${seriesControls}${zoomControls}
-  <div id="${id}-plot" class="openamx-chart-plot" role="img" aria-label="${escapeHtml(model.title)}" aria-describedby="${descriptionId} ${summaryId} ${id}-table-caption"></div>
-  <table class="openamx-chart-data" id="${id}"><caption id="${id}-table-caption">${escapeHtml(model.table.caption)}</caption><thead><tr>${model.table.headings.map(value => `<th scope="col">${escapeHtml(value)}</th>`).join('')}</tr></thead><tbody>${textRows}</tbody></table>
-  <script type="application/json" data-chart-model>${data}</script>
+  <div id="${id}-plot" class="openamx-chart-plot" role="img" aria-label="${escapeHtml(model.title)}" aria-describedby="${descriptionId} ${summaryId}${tableRelation}"></div>
+${table}  <script type="application/json" data-chart-model>${data}</script>
 </figure>`;
 }
 
@@ -478,17 +484,31 @@ function serializeChartModel(model: ChartViewModel): BrowserChartModel {
     const zoom = [{ type: 'inside', xAxisIndex: 0, ...(model.kind === 'scatter' ? { yAxisIndex: 0 } : {}), filterMode: 'none', zoomOnMouseWheel: true, moveOnMouseMove: true, moveOnMouseWheel: true }];
     optionProperty(option, 'dataZoom', zoom);
   }
+  const needsRowLabels = model.kind === 'bar' || model.kind === 'column'
+    || model.kind === 'line' && isCategoryAxis(model.option.xAxis);
   return {
     kind: model.kind,
     title: model.title,
     description: model.description,
+    showTable: model.showTable,
     dimensions: model.dimensions,
     option,
     formatterPaths,
-    table: model.table,
+    ...(model.showTable
+      ? { table: model.table, accessibility: model.accessibility }
+      : {
+        ...(needsRowLabels ? {
+          rowLabels: Object.fromEntries(model.table.rows.map(row => [row.id, String(row.values[0] ?? '')]))
+        } : {}),
+        accessibility: {
+          role: model.accessibility.role,
+          title: model.accessibility.title,
+          description: model.accessibility.description,
+          summary: `${model.table.rows.length} source rows; ${model.plottedPointCount} plotted points.${model.dateTimePresentation ? ' DateTime values are presented in UTC ISO 8601 format; source order is preserved.' : ''}`
+        }
+      }),
     series: model.series,
     axes: model.axes,
-    accessibility: model.accessibility,
     plottedPointCount: model.plottedPointCount,
     ...(model.emptyState ? { emptyState: model.emptyState } : {}),
     ...(model.dateTimePresentation ? { dateTimePresentation: model.dateTimePresentation } : {}),
@@ -566,7 +586,7 @@ const charts=new Map();
 const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const iso=value=>{const date=new Date(typeof value==='number'?value:Date.parse(value));return Number.isNaN(date.getTime())?'':date.toISOString()};
 const locate=(object,path)=>path.slice(2).split('.').reduce((current,key)=>current==null?undefined:current[/^\\d+$/.test(key)?Number(key):key],object);
-const rowLabel=(value,model)=>{const row=model.table.rows.find(item=>item.id===String(value));return row?String(row.values[0]??''):String(value??'')};
+const rowLabel=(value,model)=>{const id=String(value);if(model.rowLabels&&Object.prototype.hasOwnProperty.call(model.rowLabels,id))return model.rowLabels[id];const row=model.table?.rows.find(item=>item.id===id);return row?String(row.values[0]??''):String(value??'')};
 const axisLabel=(value,model)=>model.dateTimePresentation?iso(value):rowLabel(value,model);
 const formatTooltip=(input,model)=>{const entries=(Array.isArray(input)?input:[input]).filter(item=>item&&typeof item==='object');return entries.map(entry=>{const series=model.series.find(item=>item.id===entry.seriesId||item.name===entry.seriesName);const values=Array.isArray(entry.value)?entry.value:[];if(model.kind==='scatter'){const x=values[0]??null,y=values[1]??null;const xUnit=model.axes.find(item=>item.role==='x')?.name,yUnit=model.axes.find(item=>item.role==='y')?.name;return '<div><strong>'+escapeHtml(entry.seriesName||'')+'</strong><br>x: '+escapeHtml(x)+(xUnit?' '+escapeHtml(xUnit):'')+'<br>y: '+escapeHtml(y)+(yUnit?' '+escapeHtml(yUnit):'')+'</div>'}const rawCategory=entry.axisValue??values[0]??entry.name;const category=model.dateTimePresentation?iso(rawCategory):rowLabel(rawCategory,model);const value=model.kind==='line'?values[1]:entry.value;const categoryUnit=model.kind==='line'?model.axes.find(item=>item.role==='x')?.name:undefined;const coordinate=escapeHtml(category)+(categoryUnit?' '+escapeHtml(categoryUnit):'');return '<div><strong>'+escapeHtml(entry.seriesName||'')+'</strong><br>'+coordinate+': '+escapeHtml(value)+(series?.unit?.text?' '+escapeHtml(series.unit.text):'')+'</div>'}).join('')};
 const setZoom=(chart,zoom)=>{const current=chart.getOption().dataZoom?.[0]??{start:0,end:100};chart.setOption({dataZoom:[{...current,...zoom}]})};

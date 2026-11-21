@@ -6,8 +6,9 @@ title: Tables, charts, and named outputs
 
 ## Objective
 
-Present the mapped screening results in a table and chart, then write explicitly
-exported values to named JSON and CSV destinations.
+Present mapped screening results in a table and charts, control each chart's
+data-table visibility, and write explicitly exported values to named JSON and
+CSV destinations.
 
 ## Prerequisites
 
@@ -22,7 +23,7 @@ In a project created with **OpenAMX learning guide**, open
 `libraries/` at their relative paths and map the three logical inputs as in
 lesson 06. If using the repository checkout, open
 `examples/07_Tables_Charts_and_Named_Outputs.amx` under `examples/`. Select
-**Run** to inspect bindings; **Preview** displays the table, chart, and
+**Run** to inspect bindings; **Preview** displays the table, four charts, and
 narrative.
 
 ## Inputs and support files
@@ -66,6 +67,7 @@ let scores: Number[] = for screening in screenings {
   return screeningScore(screening.severity, screening.occurrence)
 }
 let totalScore: Number = sum(scores)
+let retainChartTables: Boolean = true
 export let summary: Summary = Summary {
   assetName = asset.name,
   reviewedAt = reviewedAt,
@@ -88,27 +90,54 @@ table screeningRegister = table(resultRows) {
 
 chart screeningScores = bar(scores) {
   title: "Score by screening"
-  description: "Illustrative severity multiplied by occurrence"
+  description: "Default visibility - chart only"
+  series "Illustrative score"
+}
+chart screeningScoresFalse = bar(scores) {
+  title: "Score by screening - false"
+  description: "Explicit false - chart only"
+  showTable false
+  series "Illustrative score"
+}
+chart screeningScoresTrue = bar(scores) {
+  title: "Score by screening - true"
+  description: "Explicit true: data table retained"
+  showTable true
+  series "Illustrative score"
+}
+chart screeningScoresExpression = bar(scores) {
+  title: "Score by screening - expression"
+  description: "True Boolean expression: data table retained"
+  showTable retainChartTables and totalScore >= 0
   series "Illustrative score"
 }
 
 show screeningRegister
 show screeningScores
+show screeningScoresFalse
+show screeningScoresTrue
+show screeningScoresExpression
 ```
 
 The report is for **{{ summary.assetName }}**. Its illustrative total is
-{{ summary.totalScore }}. A table retains the screening rows; the bar chart
-compares their calculated scores. `summary` and `resultRows` are named data
-outputs, separate from the rendered report views.
+{{ summary.totalScore }}. The ordinary screening table remains visible because
+it is a `table` view, independent of chart options. The first two chart
+declarations omit their data tables; the explicit true and expression-controlled
+charts retain the complete table alternative.
+
+V0.18 displayed chart tables implicitly. V0.19 intentionally defaults omitted
+`showTable` to false. To retain a V0.18 chart table, add `showTable true` or a
+Boolean expression that resolves true. Omission is actual output omission, not
+CSS hiding or a screen-reader-only fallback.
 
 ## Expected outcome
 
-With the valid lesson 06 mappings, `summary` is
+With the valid lesson 06 mappings, `summary` remains
 `{assetName: "North Pump 01", reviewedAt: "2026-09-29T12:00:00Z", totalScore: 38}`.
-`resultRows` contains three rows with scores `16`, `18`, and `4`. Preview
-contains “Screening register” and “Score by screening”. The CLI writes JSON
-and CSV only to the selected output destinations; the invalid inputs from
-lesson 06 fail validation and do not produce successful output files.
+`resultRows` remains three rows with scores `16`, `18`, and `4`. Preview keeps
+the screening register, omits tables for “Score by screening” and its false
+variant, and retains tables for the true and expression variants. The named
+JSON/CSV exports are unchanged by chart visibility.
 
 ## Navigation
 

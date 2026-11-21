@@ -21,17 +21,16 @@ not certified risk models or industry standards.
   results as JSON or CSV.
 - **Build visual explanations.** Create tables, charts, and formula-driven 2D
   diagrams alongside the narrative.
-- **Use the latest language additions.** V0.18 adds diagram-local loops and
-  conditionals that generate primitives once per model while allowing
-  properties to animate with diagram time. V0.16 adds statement-bodied
-  functions while preserving expression-bodied functions. V0.14 adds runtime
-  type predicates, mathematical functions, text helpers, and bounded numeric
-  formatting with `en-US`, `de-DE`, and `fr-FR` locales. Earlier additions
-  include record inheritance, enums, and braced conditionals.
+- **Use the latest language additions.** V0.19 lets charts omit their data table
+  with `showTable false` (the omitted default) and adds affine offset units for
+  Celsius/Fahrenheit-style conversions. V0.18 adds diagram-local loops and
+  conditionals, V0.16 adds statement-bodied functions, and V0.14 adds runtime
+  type predicates, mathematical functions, text helpers, and numeric formatting.
+  Earlier additions include record inheritance, enums, and braced conditionals.
 - **Publish reports in familiar formats.** Render standalone, offline HTML or
-  export PDF and DOCX. Charts are interactive in HTML; PDF charts are static
-  with their data retained in tables. DOCX charts are editable native charts
-  when the chart can be represented.
+  export PDF and DOCX. Charts are interactive in HTML, while `showTable true`
+  or a true Boolean expression retains their data table across HTML, PDF, and
+  DOCX. Omitted or false chart tables are genuinely absent from those outputs.
 - **Choose your authoring environment.** Use the command-line interface (CLI),
   the offline-first desktop workbench, or the VS Code extension.
 
@@ -137,8 +136,12 @@ unified HTML/PDF/DOCX export workflow.
   numbered path from the first computable document to a complete report.
 - [First computable document](examples/01_First_Computable_Document.amx) is
   the guide's small, input-free first lesson.
+- [Measurements and units](examples/05_Measurements_and_Units.amx) covers affine
+  temperature conversions, PI/E declarations, subtraction, and physical aggregates.
 - [Mapped data and validation](examples/06_Mapped_Data_and_Validation.amx)
   introduces explicit JSON/CSV input mappings.
+- [Tables, charts, and named outputs](examples/07_Tables_Charts_and_Named_Outputs.amx)
+  demonstrates omitted, false, true, and expression-controlled chart tables.
 - [Complete asset screening report](examples/12_Complete_Asset_Screening_Report.amx)
   is the guided destination; [route measurements](examples/13_Route_Measurement_Report.amx),
   the [battery-resistor circuit](examples/14_Battery_Resistor_Circuit.amx), and
@@ -155,10 +158,13 @@ Read the [V0.9 language specification](docs/language-spec-v0.9.md) and
 [V0.9 migration guide](docs/migrating-to-v0.9.md), then the additive
 [V0.12 language specification](docs/language-spec-v0.12.md),
 [V0.13 diagram specification](docs/language-spec-v0.13.md), and
-[V0.14 language specification](docs/language-spec-v0.14.md) and
-[V0.16 language specification](docs/language-spec-v0.16.md), and the additive
-[V0.18 diagram generation specification](docs/language-spec-v0.18.md) for the
-current language contract. Browse the [examples](examples/) and
+[V0.14 language specification](docs/language-spec-v0.14.md), the
+[V0.16 language specification](docs/language-spec-v0.16.md), the
+[V0.18 diagram generation specification](docs/language-spec-v0.18.md), and the
+additive [V0.19 rendering and affine-unit specification](docs/language-spec-v0.19.md)
+for the current language contract. V0.19 omits chart data tables by default;
+authors that intentionally retain one use `showTable true` or another Boolean
+expression that resolves true. Browse the [examples](examples/) and
 [documentation](docs/). The
 [desktop guide](desktop-app/README.md) and
 [VS Code guide](vscode-extension/README.md) cover their respective tools.

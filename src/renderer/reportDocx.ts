@@ -515,7 +515,9 @@ function addChart(
       return;
     }
     const description = [
-      ...plotted.omittedSeries.map(name => `Series "${name}" has no plottable coordinates and is listed only in the complete data table.`),
+      ...plotted.omittedSeries.map(name => model.showTable
+        ? `Series "${name}" has no plottable coordinates and is listed only in the complete data table.`
+        : `Series "${name}" has no plottable coordinates and is omitted from the chart.`),
       ...(plotted.hasGaps ? ['Null gaps break the line; continued segments are hidden from the legend.'] : [])
     ];
     const run = new ChartRun({
@@ -534,7 +536,9 @@ function addChart(
     });
     children.push(new Paragraph({ children: [run] }));
     if (plotted.omittedSeries.length > 0) {
-      children.push(new Paragraph(`Series with no plottable coordinates, shown only in the complete table: ${plotted.omittedSeries.join(', ')}.`));
+      children.push(new Paragraph(model.showTable
+        ? `Series with no plottable coordinates, shown only in the complete table: ${plotted.omittedSeries.join(', ')}.`
+        : `Series with no plottable coordinates, omitted from the chart: ${plotted.omittedSeries.join(', ')}.`));
     }
     addChartTable(children, model);
     return;
@@ -622,6 +626,7 @@ function addNoChartAlternative(
 }
 
 function addChartTable(children: Array<Paragraph | Table>, model: ChartViewModel): void {
+  if (!model.showTable) return;
   const header = new TableRow({
     tableHeader: true,
     cantSplit: true,
@@ -645,10 +650,13 @@ function addChartTable(children: Array<Paragraph | Table>, model: ChartViewModel
 }
 
 function chartAltText(model: ChartViewModel, details: readonly string[] = []): { name: string; title: string; description: string } {
+  const summary = model.showTable
+    ? model.accessibility.summary
+    : `${model.table.rows.length} source rows; ${model.plottedPointCount} plotted points.${model.dateTimePresentation ? ' DateTime values are presented in UTC ISO 8601 format; source order is preserved.' : ''}`;
   return {
-    name: model.accessibility.tableId,
+    name: model.showTable ? model.accessibility.tableId : model.accessibility.title,
     title: model.accessibility.title,
-    description: [model.accessibility.description, model.accessibility.summary, ...details].join(' ')
+    description: [model.accessibility.description, summary, ...details].join(' ')
   };
 }
 
