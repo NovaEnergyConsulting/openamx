@@ -28,7 +28,7 @@ import { evaluateStandardLibraryCall, isMathematicalFunction } from './standardL
 import type { CheckedType } from '../typechecker/checkDocument';
 import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
 import { fieldRegistry } from '../typechecker/declarationRegistry';
-import { canonicalUnit, composeUnits, isMeasurement, measurement, powerUnit, sqrtMeasurement, unitFromMetadata, type MeasurementUnit, type MeasurementValue } from './measurement';
+import { canonicalUnit, composeUnits, isAffineUnit, isMeasurement, measurement, measurementDisplayValue, measurementPhysicalValue, powerUnit, sqrtMeasurement, unitFromMetadata, type MeasurementUnit, type MeasurementValue } from './measurement';
 import { createDiagramModel } from './diagramModel';
 
 function validateRuntimeValue(
@@ -80,7 +80,7 @@ function validateRuntimeValue(
         || [...target.vector].some(([identity, exponent]) => vector[identity] !== exponent)) {
         report('Measurement dimension does not match the declared dimension', target, actual, dataPath, fieldSource);
       }
-      if (!Number.isFinite(actual.value) || !Number.isFinite(actual.value * actual.unit.scale)) {
+      if (!Number.isFinite(actual.value) || !Number.isFinite(measurementPhysicalValue(actual))) {
         report('Measurement value must be finite', target, actual, dataPath, fieldSource);
       }
       return;
@@ -281,7 +281,7 @@ export function evaluateExpression(
       if (!unit) return staticError('AMX3008', `Unknown or invisible unit '${node.unit}'`, node.unitSource ?? node.source, file);
       if (typeof value !== 'number') return staticError('AMX3007', 'Unit attachment requires a Number expression', node.source, file);
       const result = measurement(value, unitFromMetadata(unit));
-      if (!Number.isFinite(result.value * result.unit.scale)) {
+      if (!Number.isFinite(measurementPhysicalValue(result))) {
         throwMeasurementDomainError('Measurement physical value must be finite', node.source, file);
       }
       return result;
@@ -294,9 +294,10 @@ export function evaluateExpression(
       if (!isMeasurement(value) || !sameMeasurementVector(value, unit.vector)) {
         return staticError('AMX3007', `Cannot convert value to unit '${node.unit}'`, node.source, file);
       }
-      const converted = value.value * value.unit.scale / unit.scale;
+      const target = unitFromMetadata(unit);
+      const converted = measurementDisplayValue(measurementPhysicalValue(value), target);
       if (!Number.isFinite(converted)) throwMeasurementDomainError('Converted measurement value must be finite', node.source, file);
-      return measurement(converted, unitFromMetadata(unit));
+      return measurement(converted, target);
     }
 
     case 'binaryExpression':
@@ -362,10 +363,15 @@ function evalBinary(
         if (!isMeasurement(left) || !isMeasurement(right) || !sameMeasurementVector(left, new Map(Object.entries(right.unit.vector)))) {
           return staticError('AMX3007', 'Addition and subtraction require compatible measurements', operatorSource, file);
         }
-        const physicalLeft = left.value * left.unit.scale;
-        const physicalRight = right.value * right.unit.scale;
+        if (node.operator === '+' && (isAffineUnit(left.unit) || isAffineUnit(right.unit))) {
+          return staticError('AMX3007', 'Direct addition of affine measurements is not supported', operatorSource, file);
+        }
+        const physicalLeft = measurementPhysicalValue(left);
+        const physicalRight = measurementPhysicalValue(right);
         const physical = node.operator === '+' ? physicalLeft + physicalRight : physicalLeft - physicalRight;
-        const value = physical / left.unit.scale;
+        const value = node.operator === '+'
+          ? measurementDisplayValue(physical, left.unit)
+          : physical / left.unit.scale;
         if (!Number.isFinite(value) || !Number.isFinite(physical)) {
           throwMeasurementDomainError('Measurement arithmetic result must be finite', operatorSource, file);
         }
@@ -378,21 +384,30 @@ function evalBinary(
     case '*':
     case '/': {
       if (isMeasurement(left) || isMeasurement(right)) {
-        const numberUnit: MeasurementUnit = { scale: 1, vector: {}, factors: [], text: '1' };
+        const numberUnit: MeasurementUnit = { scale: 1, offset: 0, vector: {}, factors: [], text: '1' };
         const leftMeasurement = isMeasurement(left) ? left : undefined;
         const rightMeasurement = isMeasurement(right) ? right : undefined;
+        if (leftMeasurement && isAffineUnit(leftMeasurement.unit) || rightMeasurement && isAffineUnit(rightMeasurement.unit)) {
+          return staticError(
+            'AMX3007',
+            node.operator === '*' ? 'Affine measurement multiplication is not supported' : 'Affine measurement division is not supported',
+            operatorSource,
+            file
+          );
+        }
         const leftValue = leftMeasurement ? leftMeasurement.value : toNumber(left, node.left);
         const rightValue = rightMeasurement ? rightMeasurement.value : toNumber(right, node.right);
         const leftUnit = leftMeasurement?.unit ?? numberUnit;
         const rightUnit = rightMeasurement?.unit ?? numberUnit;
-        const rightPhysical = rightValue * rightUnit.scale;
+        const leftPhysical = leftMeasurement ? measurementPhysicalValue(leftMeasurement) : leftValue;
+        const rightPhysical = rightMeasurement ? measurementPhysicalValue(rightMeasurement) : rightValue;
         if (node.operator === '/' && rightPhysical === 0) {
           throwMeasurementDomainError('Measurement division by zero', operatorSource, file);
         }
         const unit = composeUnits(leftUnit, rightUnit, node.operator === '/');
         const physical = node.operator === '/'
-          ? leftValue * leftUnit.scale / rightPhysical
-          : leftValue * leftUnit.scale * rightValue * rightUnit.scale;
+          ? leftPhysical / rightPhysical
+          : leftPhysical * rightPhysical;
         if (unit.vector && Object.keys(unit.vector).length === 0) {
           if (!Number.isFinite(physical)) throwMeasurementDomainError('Measurement arithmetic result must be finite', operatorSource, file);
           return physical;
@@ -414,6 +429,9 @@ function evalBinary(
     }
     case '^': {
       if (isMeasurement(left)) {
+        if (isAffineUnit(left.unit)) {
+          return staticError('AMX3007', 'Affine measurement powers are not supported', operatorSource, file);
+        }
         const exponent = toNumber(right, node.right);
         if (!Number.isSafeInteger(exponent)) {
           return staticError('AMX3007', 'A dimensional power exponent must be an integer literal', node.right.source, file);
@@ -426,8 +444,9 @@ function evalBinary(
         if (!Number.isFinite(value) || !Number.isFinite(unit.scale)) {
           throwMeasurementDomainError('Measurement power result must be finite', operatorSource, file);
         }
-        if (Object.keys(unit.vector).length === 0) return value * unit.scale;
-        return measurement(value, unit);
+        const result = measurement(value, unit);
+        if (Object.keys(unit.vector).length === 0) return measurementPhysicalValue(result);
+        return result;
       }
       const lNum = toNumber(left, node.left);
       const rNum = toNumber(right, node.right);
@@ -438,26 +457,26 @@ function evalBinary(
     case '==':
       if (isMeasurement(left) && isMeasurement(right)) {
         return sameMeasurementVector(left, new Map(Object.entries(right.unit.vector)))
-          && left.value * left.unit.scale === right.value * right.unit.scale;
+          && measurementPhysicalValue(left) === measurementPhysicalValue(right);
       }
       return left === right;
     case '!=':
       if (isMeasurement(left) && isMeasurement(right)) {
         return !sameMeasurementVector(left, new Map(Object.entries(right.unit.vector)))
-          || left.value * left.unit.scale !== right.value * right.unit.scale;
+          || measurementPhysicalValue(left) !== measurementPhysicalValue(right);
       }
       return left !== right;
     case '>':
-      if (isMeasurement(left) && isMeasurement(right)) return left.value * left.unit.scale > right.value * right.unit.scale;
+      if (isMeasurement(left) && isMeasurement(right)) return measurementPhysicalValue(left) > measurementPhysicalValue(right);
       return toNumber(left, node.left) > toNumber(right, node.right);
     case '>=':
-      if (isMeasurement(left) && isMeasurement(right)) return left.value * left.unit.scale >= right.value * right.unit.scale;
+      if (isMeasurement(left) && isMeasurement(right)) return measurementPhysicalValue(left) >= measurementPhysicalValue(right);
       return toNumber(left, node.left) >= toNumber(right, node.right);
     case '<':
-      if (isMeasurement(left) && isMeasurement(right)) return left.value * left.unit.scale < right.value * right.unit.scale;
+      if (isMeasurement(left) && isMeasurement(right)) return measurementPhysicalValue(left) < measurementPhysicalValue(right);
       return toNumber(left, node.left) < toNumber(right, node.right);
     case '<=':
-      if (isMeasurement(left) && isMeasurement(right)) return left.value * left.unit.scale <= right.value * right.unit.scale;
+      if (isMeasurement(left) && isMeasurement(right)) return measurementPhysicalValue(left) <= measurementPhysicalValue(right);
       return toNumber(left, node.left) <= toNumber(right, node.right);
 
     // Logical (short-circuit not required for simple impl; evaluate both then apply)
@@ -674,14 +693,17 @@ function evalFunctionCall(
       if (!measurements.length) return evaluateStandardLibraryCall(node.callee, args, node.source, file);
       return measurements.reduce((best, current) => {
         const better = node.callee === 'min'
-          ? current.value * current.unit.scale < best.value * best.unit.scale
-          : current.value * current.unit.scale > best.value * best.unit.scale;
+          ? measurementPhysicalValue(current) < measurementPhysicalValue(best)
+          : measurementPhysicalValue(current) > measurementPhysicalValue(best);
         return better ? current : best;
       });
     }
-    const physicalSum = measurements.reduce((sum, current) => sum + current.value * current.unit.scale, 0);
-    const value = (node.callee === 'mean' ? physicalSum / measurements.length : physicalSum) / first.unit.scale;
-    if (!Number.isFinite(value)) throwMeasurementDomainError(`${node.callee} result must be finite`, node.source, file);
+    const physicalSum = measurements.reduce((sum, current) => sum + measurementPhysicalValue(current), 0);
+    const physicalResult = node.callee === 'mean' ? physicalSum / measurements.length : physicalSum;
+    const value = measurementDisplayValue(physicalResult, first.unit);
+    if (!Number.isFinite(physicalSum) || !Number.isFinite(physicalResult) || !Number.isFinite(value)) {
+      throwMeasurementDomainError(`${node.callee} result must be finite`, node.source, file);
+    }
     return measurement(value, first.unit);
   }
   if (node.callee === 'sum' && Array.isArray(values) && values.length === 0
@@ -704,7 +726,7 @@ function evalFunctionCall(
       }
       return evaluateStandardLibraryCall(
         node.callee,
-        [value.value * value.unit.scale],
+        [measurementPhysicalValue(value)],
         node.source,
         file
       );
@@ -720,7 +742,10 @@ function evalFunctionCall(
         return measurement(rounded, value.unit);
       }
       case 'sqrt': {
-        const physical = value.value * value.unit.scale;
+        if (isAffineUnit(value.unit)) {
+          return staticError('AMX3007', 'Affine measurement sqrt is not supported', node.source, file);
+        }
+        const physical = measurementPhysicalValue(value);
         if (physical < 0) throwMeasurementDomainError('sqrt of a negative measurement value', node.source, file);
         if (!env.dimensionRegistry) throw new Error('Measurement registry is unavailable during sqrt evaluation');
         try {
@@ -728,7 +753,7 @@ function evalFunctionCall(
           if (!Number.isFinite(result.value) || !Number.isFinite(result.unit.scale)) {
             throwMeasurementDomainError('sqrt result must be finite', node.source, file);
           }
-          if (Object.keys(result.unit.vector).length === 0) return result.value * result.unit.scale;
+          if (Object.keys(result.unit.vector).length === 0) return measurementPhysicalValue(result);
           return result;
         } catch (error) {
           if (error instanceof Error && error.message.startsWith('sqrt requires')) {
@@ -738,14 +763,18 @@ function evalFunctionCall(
         }
       }
       case 'pow': {
+        if (isAffineUnit(value.unit)) {
+          return staticError('AMX3007', 'Affine measurement powers are not supported', node.source, file);
+        }
         const exponent = toNumber(args[1], node.arguments[1]);
         if (!Number.isSafeInteger(exponent)) return staticError('AMX3007', 'A dimensional pow exponent must be an integer literal', node.arguments[1]?.source, file);
         if (value.value === 0 && exponent < 0) throwMeasurementDomainError('Zero measurement cannot be raised to a negative power', node.source, file);
         const unit = powerUnit(value.unit, exponent);
         const result = Math.pow(value.value, exponent);
         if (!Number.isFinite(result) || !Number.isFinite(unit.scale)) throwMeasurementDomainError('pow result must be finite', node.source, file);
-        if (!Object.keys(unit.vector).length) return result * unit.scale;
-        return measurement(result, unit);
+        const powered = measurement(result, unit);
+        if (!Object.keys(unit.vector).length) return measurementPhysicalValue(powered);
+        return powered;
       }
     }
   }
@@ -965,7 +994,7 @@ function normalizeChartValue(
   if (!isMeasurement(value) || !sameMeasurementUnits(value, target)) {
     staticError('AMX3007', `Chart '${name}' contains an incompatible measurement value`, source, file, declaration.source);
   }
-  const converted = value.value * value.unit.scale / target.unit.scale;
+  const converted = measurementDisplayValue(measurementPhysicalValue(value), target.unit);
   if (!Number.isFinite(converted)) {
     staticError('AMX3007', `Chart '${name}' measurement cannot be normalized to its first display unit`, source, file, declaration.source);
   }

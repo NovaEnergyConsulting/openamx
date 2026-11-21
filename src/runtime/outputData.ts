@@ -4,7 +4,7 @@ import { outputError } from '../diagnostics/errors';
 import { Environment } from './environment';
 import type { CheckedType } from '../typechecker/checkDocument';
 import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
-import { isMeasurement } from './measurement';
+import { isMeasurement, measurementPhysicalValue } from './measurement';
 import { fieldRegistry } from '../typechecker/declarationRegistry';
 
 export interface PreparedOutput {
@@ -171,7 +171,9 @@ function jsonValue(value: unknown, type: CheckedType, output: PreparedOutput, re
     return value.map(item => jsonValue(item, type.element, output, recordTypes, registry));
   }
   if (type.kind === 'measurement') {
-    if (!isMeasurement(value) || !Number.isFinite(value.value)) return invalidValue(output, 'expected a finite measurement value');
+    if (!isMeasurement(value) || !Number.isFinite(value.value) || !Number.isFinite(measurementPhysicalValue(value))) {
+      return invalidValue(output, 'expected a finite measurement value');
+    }
     if (!sameVector(value.unit.vector, type.vector)) return invalidValue(output, 'measurement has an incompatible dimension');
     return { value: value.value, unit: value.unit.text };
   }
@@ -213,7 +215,9 @@ function csvCell(value: unknown, type: CheckedType, output: PreparedOutput, regi
     return csvCell(value, type.element, output, registry);
   }
   if (type.kind === 'measurement') {
-    if (!isMeasurement(value) || !Number.isFinite(value.value)) return invalidValue(output, 'expected a finite measurement value');
+    if (!isMeasurement(value) || !Number.isFinite(value.value) || !Number.isFinite(measurementPhysicalValue(value))) {
+      return invalidValue(output, 'expected a finite measurement value');
+    }
     if (!sameVector(value.unit.vector, type.vector) || !value.unit.text) return invalidValue(output, 'measurement has an incompatible dimension or missing unit text');
     text = `${JSON.stringify(value.value)} ${value.unit.text}`;
     const quote = /[",\r\n]/.test(text) || /^\s|\s$/.test(text);

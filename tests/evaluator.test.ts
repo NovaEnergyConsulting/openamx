@@ -1554,3 +1554,62 @@ describe("evaluator - Sprint 097 statement-body functions", () => {
     expect(result[0]).toBe(input[0]);
   });
 });
+
+describe("evaluator - Sprint 118 affine diagnostics", () => {
+  const definitions = [
+    "dimension ThermodynamicTemperature",
+    "unit kelvin: ThermodynamicTemperature",
+    "unit celsius = kelvin + 273.15",
+    "unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)"
+  ].join("\n");
+
+  it("reports AFF operator/call diagnostics at exact source locations", () => {
+    const cases = [
+      { id: "AFF-ADD-01", expression: "10 celsius + 20 celsius", column: 26, message: "Direct addition of affine measurements is not supported" },
+      { id: "AFF-MUL-01", expression: "2 * 10 celsius", column: 17, message: "Affine measurement multiplication is not supported" },
+      { id: "AFF-DIV-01", expression: "10 celsius / 2", column: 26, message: "Affine measurement division is not supported" },
+      { id: "AFF-POW-01 binary", expression: "10 celsius ^ 2", column: 26, message: "Affine measurement powers are not supported" },
+      { id: "AFF-POW-01 call", expression: "pow(10 celsius, 2)", column: 15, message: "Affine measurement powers are not supported" }
+    ];
+    for (const fixture of cases) {
+      try {
+        evaluateDocument(parseDocumentText(`\`\`\`amx\n${definitions}\nlet invalid = ${fixture.expression}\n\`\`\``), `${fixture.id}.amx`);
+        throw new Error(`Expected ${fixture.id} failure`);
+      } catch (error) {
+        expect(error).toBeInstanceOf(AmxError);
+        expect(error).toMatchObject({
+          code: "AMX3007",
+          message: fixture.message,
+          file: `${fixture.id}.amx`,
+          line: 6,
+          column: fixture.column
+        });
+      }
+    }
+  });
+
+  it("preserves AFF-SQRT-01 and S118-CHECKER-FINITE-01 static anchors", () => {
+    const sqrt = parseDocumentText(`\`\`\`amx\n${definitions}\nlet invalid = sqrt(10 celsius)\n\`\`\``);
+    expect(() => checkDocument(sqrt, "AFF-SQRT-01.amx")).toThrow(expect.objectContaining({
+      code: "AMX3007",
+      file: "AFF-SQRT-01.amx",
+      line: 6,
+      column: 15
+    }));
+
+    const huge = `1${"0".repeat(308)}`;
+    const finite = parseDocumentText(`\`\`\`amx
+dimension Temperature
+unit kelvin: Temperature
+unit doubled = 2 * kelvin
+let invalid = ${huge} doubled
+\`\`\``);
+    expect(() => checkDocument(finite, "S118-CHECKER-FINITE-01.amx")).toThrow(expect.objectContaining({
+      code: "AMX3010",
+      message: "Measurement physical value must be finite",
+      file: "S118-CHECKER-FINITE-01.amx",
+      line: 5,
+      column: 15
+    }));
+  });
+});

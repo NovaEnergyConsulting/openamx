@@ -1,5 +1,5 @@
 import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
-import { composeUnits, powerUnit, unitFromMetadata, type MeasurementUnit } from './measurement';
+import { composeUnits, isAffineUnit, powerUnit, unitFromMetadata, type MeasurementUnit } from './measurement';
 
 export class ExternalUnitTextError extends Error {
   constructor(message: string, readonly unknownUnit: boolean) {
@@ -10,6 +10,7 @@ export class ExternalUnitTextError extends Error {
 
 const unitless: MeasurementUnit = Object.freeze({
   scale: 1,
+  offset: 0,
   vector: Object.freeze({}),
   factors: Object.freeze([]),
   text: '1'
@@ -33,9 +34,15 @@ export function parseExternalUnitText(text: string, registry: DimensionUnitRegis
   const parseProduct = (): MeasurementUnit => {
     let unit = parseFactor();
     while (true) {
-      if (consume('*')) unit = validateUnit(composeUnits(unit, parseFactor()));
-      else if (consume('/')) unit = validateUnit(composeUnits(unit, parseFactor(), true));
-      else return unit;
+      if (consume('*')) {
+        const right = parseFactor();
+        rejectAffineComposition(unit, right);
+        unit = validateUnit(composeUnits(unit, right));
+      } else if (consume('/')) {
+        const right = parseFactor();
+        rejectAffineComposition(unit, right);
+        unit = validateUnit(composeUnits(unit, right, true));
+      } else return unit;
     }
   };
 
@@ -58,6 +65,9 @@ export function parseExternalUnitText(text: string, registry: DimensionUnitRegis
     }
 
     if (consume('^')) {
+      if (isAffineUnit(unit)) {
+        throw new ExternalUnitTextError('Affine units may not be used in external unit powers', false);
+      }
       skipWhitespace();
       const exponent = source.slice(offset).match(/^[+-]?\d+/);
       if (!exponent) throw new ExternalUnitTextError('Unit powers must be signed integer literals', false);
@@ -75,8 +85,14 @@ export function parseExternalUnitText(text: string, registry: DimensionUnitRegis
   return Object.freeze({ ...parsed, text: source });
 }
 
+function rejectAffineComposition(left: MeasurementUnit, right: MeasurementUnit): void {
+  if (isAffineUnit(left) || isAffineUnit(right)) {
+    throw new ExternalUnitTextError('Affine units may not be used in external unit products or divisions', false);
+  }
+}
+
 function validateUnit(unit: MeasurementUnit): MeasurementUnit {
-  if (!Number.isFinite(unit.scale) || unit.scale <= 0
+  if (!Number.isFinite(unit.scale) || unit.scale <= 0 || !Number.isFinite(unit.offset)
     || Object.values(unit.vector).some(exponent => !Number.isSafeInteger(exponent))
     || unit.factors.some(factor => !Number.isSafeInteger(factor.exponent))) {
     throw new ExternalUnitTextError('Unit expression exceeds supported scale or exponent limits', false);

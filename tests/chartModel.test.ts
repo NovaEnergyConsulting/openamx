@@ -207,6 +207,96 @@ show trend`);
     expect(chart.accessibility.summary).toContain('1 source rows; 0 plotted points');
   });
 
+  it('AFF-CHART-01/AFF-CHART-NULL-01/AFF-CHART-FIRST-01 normalizes affine values into the first display unit', () => {
+    const emission = capture(`dimension ThermodynamicTemperature
+unit kelvin: ThermodynamicTemperature
+unit celsius = kelvin + 273.15
+unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)
+type Reading {
+  label: String
+  temperature: ThermodynamicTemperature?
+}
+let readings: Reading[] = [
+  Reading { label = "empty", temperature = null },
+  Reading { label = "C", temperature = 0 celsius },
+  Reading { label = "F", temperature = 32 fahrenheit },
+  Reading { label = "K", temperature = 273.15 kelvin }
+]
+chart temperatures = column(readings) {
+  title: "Temperatures"
+  description: "Affine values"
+  category: label
+  series temperature as "Temperature"
+}
+show temperatures`);
+    expect(emission.headings).toEqual(['label', 'Temperature (celsius)']);
+    expect(emission.data.map(row => (row as Record<string, unknown>).temperature)).toEqual([null, 0, 0, 0]);
+    expect(emission.measurementDescriptors?.[0]).toMatchObject({
+      role: 'series', field: 'temperature', label: 'Temperature',
+      unit: { text: 'celsius', scale: 1 }
+    });
+    expect(Object.isFrozen(emission.measurementDescriptors?.[0].unit.vector)).toBe(true);
+
+    const fahrenheitFirst = model(`dimension ThermodynamicTemperature
+unit kelvin: ThermodynamicTemperature
+unit celsius = kelvin + 273.15
+unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)
+type Reading {
+  label: String
+  temperature: ThermodynamicTemperature
+}
+let readings: Reading[] = [
+  Reading { label = "F", temperature = 32 fahrenheit },
+  Reading { label = "K", temperature = 273.15 kelvin },
+  Reading { label = "C", temperature = 0 celsius }
+]
+chart temperatures = column(readings) {
+  title: "Temperatures"
+  description: "Fahrenheit first"
+  category: label
+  series temperature as "Temperature"
+  showTable false
+}
+show temperatures`);
+    expect(fahrenheitFirst.table.headings).toEqual(['label', 'Temperature (fahrenheit)']);
+    for (const row of fahrenheitFirst.table.rows) expect(row.values[1]).toBeCloseTo(32, 12);
+    expect(fahrenheitFirst.axes[0].unit?.text).toBe('fahrenheit');
+    expect(fahrenheitFirst.showTable).toBe(false);
+    expect(fahrenheitFirst.accessibility.tableId).toBe(fahrenheitFirst.table.id);
+  });
+
+  it('AFF-CHART-FAIL-01 reports non-finite normalization without changing S118-SHOWTABLE-STAGE-01', () => {
+    const tinyScale = `0.${'0'.repeat(307)}1`;
+    const hugeValue = `1${'0'.repeat(308)}`;
+    const source = `dimension ThermodynamicTemperature
+unit kelvin: ThermodynamicTemperature
+unit tiny = ${tinyScale} * kelvin
+type Reading {
+  label: String
+  temperature: ThermodynamicTemperature
+}
+let readings: Reading[] = [
+  Reading { label = "tiny", temperature = 1 tiny },
+  Reading { label = "huge", temperature = ${hugeValue} kelvin }
+]
+chart temperatures = column(readings) {
+  title: "Temperatures"
+  description: "Overflow"
+  category: label
+  series temperature as "Temperature"
+  showTable false
+}
+show temperatures`;
+    expect(() => model(source)).toThrow(expect.objectContaining({
+      code: 'AMX3007',
+      message: "Chart 'temperatures' measurement cannot be normalized to its first display unit",
+      file: 'chart-model.amx',
+      line: 17,
+      column: 3,
+      declarationSource: { line: 13, column: 1 }
+    }));
+  });
+
   it('is stable and immutable with deterministic palette extension and contrast-safe accent fallback', () => {
     const source = `type Sample {\n  category: String\n  a: Number\n  b: Number\n  c: Number\n  d: Number\n  e: Number\n  f: Number\n}\nlet samples: Sample[] = [Sample { category = "A", a = 1, b = 2, c = 3, d = 4, e = 5, f = 6 }]\nchart amounts = column(samples) {\n  title: "Amounts"\n  description: "Six series"\n  category: category\n  series a as "A"\n  series b as "B"\n  series c as "C"\n  series d as "D"\n  series e as "E"\n  series f as "F"\n}\nshow amounts`;
     const emission = capture(source);

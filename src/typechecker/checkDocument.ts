@@ -1,5 +1,6 @@
 import { ChartDeclarationNode, ChartFieldOptionNode, ChartSeriesOptionNode, DiagramContentNode, DiagramDeclarationNode, DiagramElementNode, DiagramPropertyNode, DimensionDeclarationNode, EnumDeclarationNode, ExportNamesDeclarationNode, FunctionDeclarationNode, InputDeclarationNode, OpenAmxDocument, RecordFieldNode, SourceLocation, StatementNode, TableDeclarationNode, TypeDeclarationNode, TypeReferenceNode, UnitDeclarationNode, V02ExpressionNode, VisualizationOptionNode } from '../ast/types';
 import { moduleError, staticError } from '../diagnostics/errors';
+import { physicalValue } from '../runtime/measurement';
 import type { DimensionMetadata, DimensionUnitRegistry, UnitMetadata } from './dimensionTypes';
 import { fieldRegistry, setDeclaringRegistry } from './declarationRegistry';
 
@@ -664,7 +665,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     if (expression.type === 'measurementAttachment') {
       const value = constantValue(expression.value);
       const unit = units.get(expression.unit);
-      return typeof value === 'number' && unit ? value * unit.scale : undefined;
+      return typeof value === 'number' && unit ? physicalValue(value, unit) : undefined;
     }
     if (expression.type === 'measurementConversion') return literalMeasurementValue(expression.value);
     if (expression.type === 'unaryExpression' && expression.operator === '-') {
@@ -753,7 +754,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
           fail('AMX3010', 'Measurement value must be finite', expression.source);
         }
         const value = constantValue(expression.value);
-        if (typeof value === 'number' && !Number.isFinite(value * unit!.scale)) {
+        if (typeof value === 'number' && !Number.isFinite(physicalValue(value, unit!))) {
           fail('AMX3010', 'Measurement physical value must be finite', expression.source);
         }
         return { kind: 'measurement', vector: unit!.vector };

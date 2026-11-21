@@ -119,10 +119,15 @@ describe("Sprint 055 dimension and unit declarations", () => {
       if (kind === "Derived dimension") return [`export dimension ${name} = ${definition}`];
       return [`export unit ${name} = ${definition}`];
     }).flat();
+    expectedDeclarations.splice(expectedDeclarations.indexOf("export unit K = kelvin") + 1, 0,
+      "export unit celsius = kelvin + 273.15",
+      "export unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)",
+      "export unit degC = celsius",
+      "export unit degF = fahrenheit");
     const actualDeclarations = library.split(/\r?\n/).map(line => line.trim()).filter(line => line.startsWith("export "));
     expect(actualDeclarations).toEqual(expectedDeclarations);
     expect(checked.exportedDimensions.size).toBe(16);
-    expect(checked.exportedUnits.size).toBe(46);
+    expect(checked.exportedUnits.size).toBe(50);
     expect(checked.units.get("millimeter")?.scale).toBe(0.001);
     expect(checked.units.get("kilometer_per_hour")?.scale).toBe(1000 / 3600);
     expect(checked.units.get("N")?.vector).toEqual(checked.units.get("newton")?.vector);
@@ -133,7 +138,9 @@ describe("Sprint 055 dimension and unit declarations", () => {
       kilogram: "Mass", gram: "Mass", tonne: "Mass",
       second: "Time", millisecond: "Time", minute: "Time", hour: "Time",
       ampere: "ElectricCurrent", milliampere: "ElectricCurrent",
-      kelvin: "ThermodynamicTemperature", mole: "AmountOfSubstance", candela: "LuminousIntensity",
+      kelvin: "ThermodynamicTemperature", celsius: "ThermodynamicTemperature", fahrenheit: "ThermodynamicTemperature",
+      degC: "ThermodynamicTemperature", degF: "ThermodynamicTemperature",
+      mole: "AmountOfSubstance", candela: "LuminousIntensity",
       square_meter: "Area", cubic_meter: "Volume", meter_per_second: "Speed", kilometer_per_hour: "Speed",
       hertz: "Frequency", newton: "Force", pascal: "Pressure", joule: "Energy", watt: "Power"
     };
@@ -153,7 +160,15 @@ describe("Sprint 055 dimension and unit declarations", () => {
       expect(checked.units.get(unitName)?.scale).toBe(scale);
       expect(checked.units.get(unitName)?.offset).toBe(0);
     }
-    for (const unit of checked.units.values()) expect(unit.offset).toBe(0);
+    expect(checked.units.get("celsius")).toMatchObject({ scale: 1, offset: 273.15 });
+    expect(checked.units.get("fahrenheit")?.scale).toBeCloseTo(5 / 9, 14);
+    expect(checked.units.get("fahrenheit")?.offset).toBeCloseTo(273.15 - 160 / 9, 14);
+    expect(checked.units.get("degC")).toMatchObject({ scale: 1, offset: 273.15 });
+    expect(checked.units.get("degF")?.scale).toBe(checked.units.get("fahrenheit")?.scale);
+    expect(checked.units.get("degF")?.offset).toBe(checked.units.get("fahrenheit")?.offset);
+    expect(checked.units.get("degC")?.vector).toEqual(checked.units.get("celsius")?.vector);
+    expect(checked.units.get("degF")?.vector).toEqual(checked.units.get("fahrenheit")?.vector);
+    for (const unit of checked.units.values()) expect(Number.isFinite(unit.offset)).toBe(true);
     for (const { name, definition } of inventoryRows.filter(row => row.kind === "Alias")) {
       expect(checked.units.get(name)?.scale).toBe(checked.units.get(definition)?.scale);
       expect(checked.units.get(name)?.vector).toEqual(checked.units.get(definition)?.vector);

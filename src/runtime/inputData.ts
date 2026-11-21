@@ -5,7 +5,7 @@ import { Environment } from './environment';
 import { evaluateExpression } from './evaluateExpression';
 import { parseStrictCsvText, parseStrictJsonText, type CsvTextCell } from './dataText';
 import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
-import { isMeasurement, measurement, type MeasurementValue } from './measurement';
+import { isMeasurement, measurement, measurementPhysicalValue, type MeasurementValue } from './measurement';
 import { ExternalUnitTextError, parseExternalUnitText } from './externalUnits';
 import { fieldRegistry } from '../typechecker/declarationRegistry';
 
@@ -489,7 +489,12 @@ function convertMeasurement(
     report(measurementDiagnostic('AMX4005', 'Measurement unit has an incompatible dimension', unitPath, context, declarationSource, fieldSource, formatVector(expectedVector, registry), formatVector(unit.vector, registry)));
     return null;
   }
-  return measurement(value, unit);
+  const result = measurement(value, unit);
+  if (!Number.isFinite(measurementPhysicalValue(result))) {
+    report(measurementDiagnostic('AMX4005', 'Measurement physical value must be finite', unitPath, context, declarationSource, fieldSource, 'finite physical value', String(measurementPhysicalValue(result))));
+    return null;
+  }
+  return result;
 }
 
 function measurementDiagnostic(

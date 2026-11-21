@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { AmxError } from '../src/diagnostics/errors';
 import { parseDocumentText } from '../src/parser/parseDocument';
 import { Environment } from '../src/runtime/environment';
-import { parseExternalUnitText } from '../src/runtime/externalUnits';
+import { ExternalUnitTextError, parseExternalUnitText } from '../src/runtime/externalUnits';
 import { describeInputSchema, validateInputText } from '../src/runtime/inputData';
 import { isMeasurement, measurement } from '../src/runtime/measurement';
 import { evaluateDocumentEnvironment } from '../src/runtime/evaluateDocument';
@@ -321,5 +321,116 @@ Rating for {{transformer.EquipmentNumber}} {{transformer.PowerRating_MVA}} upgra
         { path: '$.Spare', dimension: 'ApparentPower', visibleUnits: ['MVA', 'kVA'] }
       ]
     });
+  });
+
+  it('AFF-EXTERNAL-01/AFF-EXTERNAL-ALIAS-01 accepts atomic affine and alias unit text with internal offset', () => {
+    const metadata = parseDocumentText(`\`\`\`amx
+dimension ThermodynamicTemperature
+dimension Time
+unit kelvin: ThermodynamicTemperature
+unit celsius = kelvin + 273.15
+unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)
+unit degC = celsius
+unit degF = fahrenheit
+unit second: Time
+\`\`\``);
+    const checked = checkDocument(metadata, 'affine-data.amx');
+    const registry: DimensionUnitRegistry = { dimensions: checked.dimensions, units: checked.units, baseUnits: checked.baseUnits };
+    const document = parseDocumentText(`\`\`\`amx
+type Reading {
+  temperature: ThermodynamicTemperature
+}
+input reading: Reading
+input rows: Reading[]
+\`\`\``);
+    const statements = document.nodes.flatMap(node => node.type === 'executableCodeBlock' ? node.statements : []);
+    const types = new Map(statements.filter((item): item is TypeDeclarationNode => item.type === 'typeDeclaration').map(item => [item.name, item]));
+    const inputs = new Map(statements.filter((item): item is InputDeclarationNode => item.type === 'inputDeclaration').map(item => [item.name, item]));
+    const json = validateInputText('{"temperature":{"value":20,"unit":"celsius"}}', 'json', inputs.get('reading')!, types, 'aggregate', { dataFile: 'reading.json' }, registry);
+    const alias = validateInputText('{"temperature":{"value":20,"unit":"degF"}}', 'json', inputs.get('reading')!, types, 'aggregate', {}, registry);
+    const csv = validateInputText('temperature\n20 degC\n', 'csv', inputs.get('rows')!, types, 'aggregate', {}, registry);
+
+    expect(json.diagnostics).toEqual([]);
+    expect(alias.diagnostics).toEqual([]);
+    expect(csv.diagnostics).toEqual([]);
+    expect(json.value).toMatchObject({ temperature: { value: 20, unit: { text: 'celsius', scale: 1, offset: 273.15 } } });
+    expect(alias.value).toMatchObject({ temperature: { value: 20, unit: { text: 'degF', scale: 5 / 9 } } });
+    expect((alias.value as any).temperature.unit.offset).toBeCloseTo(273.15 - 160 / 9, 14);
+    expect((csv.value as any[])[0].temperature).toMatchObject({ value: 20, unit: { text: 'degC', offset: 273.15 } });
+    expect(parseExternalUnitText('(celsius)', registry).offset).toBe(273.15);
+  });
+
+  it('AFF-EXTERNAL-COMPOUND-01 rejects affine external factors with AMX4004 and data paths', () => {
+    const metadata = parseDocumentText(`\`\`\`amx
+dimension ThermodynamicTemperature
+dimension Time
+unit kelvin: ThermodynamicTemperature
+unit celsius = kelvin + 273.15
+unit second: Time
+\`\`\``);
+    const checked = checkDocument(metadata, 'affine-compound.amx');
+    const registry: DimensionUnitRegistry = { dimensions: checked.dimensions, units: checked.units, baseUnits: checked.baseUnits };
+    const inputDocument = parseDocumentText(`\`\`\`amx
+type Reading {
+  temperature: ThermodynamicTemperature
+}
+input reading: ThermodynamicTemperature
+input rows: Reading[]
+\`\`\``);
+    const statements = inputDocument.nodes.flatMap(node => node.type === 'executableCodeBlock' ? node.statements : []);
+    const types = new Map(statements.filter((item): item is TypeDeclarationNode => item.type === 'typeDeclaration').map(item => [item.name, item]));
+    const inputs = new Map(statements.filter((item): item is InputDeclarationNode => item.type === 'inputDeclaration').map(item => [item.name, item]));
+    const statement = inputs.get('reading')!;
+
+    for (const text of ['celsius / second', 'celsius * kelvin', '2 / celsius', 'celsius ^ 1', '(celsius) ^ 2']) {
+      expect(() => parseExternalUnitText(text, registry)).toThrow(ExternalUnitTextError);
+      const result = validateInputText(JSON.stringify({ value: 20, unit: text }), 'json', statement, new Map(), 'aggregate', { dataFile: 'temperature.json' }, registry);
+      expect(result.diagnostics[0]).toMatchObject({ code: 'AMX4004', dataPath: '/unit', dataFile: 'temperature.json' });
+      const csv = validateInputText(`temperature\n20 ${text}\n`, 'csv', inputs.get('rows')!, types, 'aggregate', { dataFile: 'temperature.csv' }, registry);
+      expect(csv.diagnostics[0]).toMatchObject({ code: 'AMX4004', dataPath: 'record[1].temperature', dataFile: 'temperature.csv', dataLine: 2, dataColumn: 1 });
+    }
+  });
+
+  it('AFF-EXTERNAL-SHAPE-01/S118-OUTPUT-SHAPE-01 preserves exact public JSON/CSV shape', () => {
+    const metadata = parseDocumentText(`\`\`\`amx
+dimension ThermodynamicTemperature
+unit kelvin: ThermodynamicTemperature
+unit celsius = kelvin + 273.15
+unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)
+\`\`\``);
+    const checked = checkDocument(metadata, 'affine-shape.amx');
+    const registry: DimensionUnitRegistry = { dimensions: checked.dimensions, units: checked.units, baseUnits: checked.baseUnits };
+    const inputDocument = parseDocumentText(`\`\`\`amx
+type Reading {
+  temperature: ThermodynamicTemperature
+}
+input reading: ThermodynamicTemperature
+input rows: Reading[]
+\`\`\``);
+    const statements = inputDocument.nodes.flatMap(node => node.type === 'executableCodeBlock' ? node.statements : []);
+    const types = new Map(statements.filter((item): item is TypeDeclarationNode => item.type === 'typeDeclaration').map(item => [item.name, item]));
+    const inputs = new Map(statements.filter((item): item is InputDeclarationNode => item.type === 'inputDeclaration').map(item => [item.name, item]));
+    const statement = inputs.get('reading')!;
+    for (const invalid of [
+      '{"value":20,"unit":"celsius","offset":273.15}',
+      '{"value":20,"unit":"celsius","scale":1}',
+      '{"value":20}',
+      '{"unit":"celsius"}'
+    ]) {
+      const result = validateInputText(invalid, 'json', statement, new Map(), 'aggregate', {}, registry);
+      expect(result.diagnostics[0]).toMatchObject({ code: 'AMX4005', dataPath: '' });
+    }
+
+    const unit = parseExternalUnitText('celsius', registry);
+    const env = new Environment(types, new Map(), registry);
+    env.set('reading', measurement(20, unit));
+    env.set('rows', [{ temperature: measurement(20, unit) }]);
+    const binding: CheckedType = { kind: 'measurement', vector: registry.dimensions.get('ThermodynamicTemperature')!.vector };
+    const rowBinding: CheckedType = { kind: 'list', element: { kind: 'named', name: 'Reading' } };
+    const outputs = prepareOutputs(['reading=value.json', 'rows=value.csv'], new Map([['reading', binding], ['rows', rowBinding]]), types, undefined, registry);
+    const serialized = serializeOutputs(outputs, env);
+    expect(JSON.parse(serialized[0].contents)).toEqual({ value: 20, unit: 'celsius' });
+    expect(serialized[1].contents).toBe('temperature\n20 celsius\n');
+    expect(serialized.every(output => !output.contents.includes('offset') && !output.contents.includes('scale'))).toBe(true);
   });
 });

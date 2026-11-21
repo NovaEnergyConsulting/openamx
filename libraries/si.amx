@@ -39,6 +39,10 @@ export unit h = hour
 export unit A = ampere
 export unit mA = milliampere
 export unit K = kelvin
+export unit celsius = kelvin + 273.15
+export unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)
+export unit degC = celsius
+export unit degF = fahrenheit
 export unit mol = mole
 export unit cd = candela
 

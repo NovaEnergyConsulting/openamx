@@ -7,10 +7,11 @@ export interface MeasurementUnitFactor {
 }
 
 export interface MeasurementUnit {
-  scale: number;
-  vector: Readonly<Record<string, number>>;
-  factors: readonly MeasurementUnitFactor[];
-  text: string;
+  readonly scale: number;
+  readonly offset: number;
+  readonly vector: Readonly<Record<string, number>>;
+  readonly factors: readonly MeasurementUnitFactor[];
+  readonly text: string;
 }
 
 export interface MeasurementValue {
@@ -44,10 +45,31 @@ export function unitFromMetadata(unit: UnitMetadata): MeasurementUnit {
   const factors = [{ identity: unit.identity, name: unit.name, exponent: 1 }];
   return Object.freeze({
     scale: unit.scale,
+    offset: unit.offset,
     vector: vectorRecord(unit.vector),
     factors: Object.freeze(factors),
     text: unit.name
   });
+}
+
+export function physicalValue(value: number, unit: Readonly<{ scale: number; offset: number }>): number {
+  return value * unit.scale + unit.offset;
+}
+
+export function displayValue(physical: number, unit: Readonly<{ scale: number; offset: number }>): number {
+  return (physical - unit.offset) / unit.scale;
+}
+
+export function measurementPhysicalValue(value: MeasurementValue): number {
+  return physicalValue(value.value, value.unit);
+}
+
+export function measurementDisplayValue(physical: number, unit: MeasurementUnit): number {
+  return displayValue(physical, unit);
+}
+
+export function isAffineUnit(unit: MeasurementUnit): boolean {
+  return unit.offset !== 0;
 }
 
 function combineFactors(left: MeasurementUnit, right: MeasurementUnit, multiplier: number): MeasurementUnitFactor[] {
@@ -75,10 +97,14 @@ function combineVectorRecords(left: MeasurementUnit, right: MeasurementUnit, mul
 }
 
 export function composeUnits(left: MeasurementUnit, right: MeasurementUnit, divide = false): MeasurementUnit {
+  if (isAffineUnit(left) || isAffineUnit(right)) {
+    throw new Error('Affine measurement units cannot be composed');
+  }
   const multiplier = divide ? -1 : 1;
   const factors = combineFactors(left, right, multiplier);
   return Object.freeze({
     scale: divide ? left.scale / right.scale : left.scale * right.scale,
+    offset: 0,
     vector: Object.freeze(combineVectorRecords(left, right, multiplier)),
     factors: Object.freeze(factors),
     text: formatFactors(factors)
@@ -86,10 +112,14 @@ export function composeUnits(left: MeasurementUnit, right: MeasurementUnit, divi
 }
 
 export function powerUnit(unit: MeasurementUnit, exponent: number): MeasurementUnit {
+  if (isAffineUnit(unit)) {
+    throw new Error('Affine measurement units may not be powered');
+  }
   const factors = unit.factors.map(factor => ({ ...factor, exponent: factor.exponent * exponent }))
     .filter(factor => factor.exponent !== 0);
   return Object.freeze({
     scale: Math.pow(unit.scale, exponent),
+    offset: unit.offset,
     vector: Object.freeze(Object.fromEntries(Object.entries(unit.vector)
       .map(([identity, power]) => [identity, power * exponent]).filter(([, power]) => power !== 0) as [string, number][])),
     factors: Object.freeze(factors),
@@ -110,6 +140,7 @@ export function canonicalUnit(vector: ReadonlyMap<string, number>, registry: Dim
   }
   return Object.freeze({
     scale: 1,
+    offset: 0,
     vector: vectorRecord(vector),
     factors: Object.freeze(factors),
     text: formatFactors(factors)
@@ -117,12 +148,13 @@ export function canonicalUnit(vector: ReadonlyMap<string, number>, registry: Dim
 }
 
 export function sqrtMeasurement(value: MeasurementValue, registry: DimensionUnitRegistry): MeasurementValue {
+  if (isAffineUnit(value.unit)) throw new Error('Affine measurement sqrt is not supported');
   const vector = new Map<string, number>();
   for (const [identity, exponent] of Object.entries(value.unit.vector)) {
     if (exponent % 2 !== 0) throw new Error('sqrt requires integral measurement dimension exponents');
     vector.set(identity, exponent / 2);
   }
-  const physical = value.value * value.unit.scale;
+  const physical = measurementPhysicalValue(value);
   const physicalRoot = Math.sqrt(physical);
   if (!Number.isFinite(physicalRoot)) return measurement(physicalRoot, canonicalUnit(vector, registry));
   const requestedScale = Math.sqrt(value.unit.scale);
