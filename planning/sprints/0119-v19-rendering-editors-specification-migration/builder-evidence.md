@@ -12,8 +12,9 @@ desktop Vite behavior, and generated artifact inspections pass. The full VS Code
 host command remains nonzero on unrelated Windows temp cleanup/path-case tests;
 both V0.19 host cases pass independently within that host run.
 
-**Separate product-owner disposition:** PENDING. This Builder recommendation does
-not close Sprint 119, authorize Sprint 120, or authorize release/publication.
+**Separate product-owner disposition:** ACCEPTED/CLOSED WITH RECORDED RESIDUALS by
+the user on 2026-11-21. This closes Sprint 119 only; it does not authorize
+Sprint 120 or release/publication.
 
 ## Entry and Baseline
 
@@ -178,6 +179,8 @@ artifacts prove actual omission and true preservation. The sole residual is the
 full extension-host suite's unrelated Windows cleanup/path-case failures, owned by
 the extension test harness and recorded above.
 
-**Separate product-owner disposition:** PENDING. Sprint 120, V0.19 integrated
-closeout, release, publication, package/version, deployment, installer,
-distribution, certification, and platform actions remain independently gated.
+**Separate product-owner disposition:** ACCEPTED/CLOSED WITH RECORDED RESIDUALS by
+the user on 2026-11-21. Sprint 119 is closed against its authorized scope and
+recorded extension-host harness residual. Sprint 120, V0.19 integrated closeout,
+release, publication, package/version, deployment, installer, distribution,
+certification, and platform actions remain independently gated.
