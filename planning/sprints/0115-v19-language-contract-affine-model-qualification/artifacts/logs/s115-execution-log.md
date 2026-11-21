@@ -256,7 +256,19 @@ manifest.
 
 VS Code file diagnostics for the Sprint 115 package reported no errors.
 
+## Product-Owner Disposition
+
+On 2026-11-21, after the Builder recommendation and integrity validation, the
+user issued the explicit instruction `Accept and close Sprint 115`.
+
+Disposition: ACCEPTED/CLOSED. D115-01 through D115-09 are accepted as the
+Sprint 115 contract. The closeout satisfies the Sprint 115 chart, affine
+declaration, and D115-08 external-compatibility planning gates. It does not
+convert any NOT RUN, arithmetic-only, source-audit, or downstream production
+check into PASS, and it does not authorize Sprint 116-118 execution,
+implementation, release, publication, deployment, or certification.
+
 `artifacts/hashes/s115-artifact-manifest.json` records SHA-256 hashes, byte
-sizes, and final modification disposition for the seven planning edits and
-four generated evidence inputs. The manifest itself is validated by recomputing
-all listed hashes; it intentionally does not hash itself.
+sizes, and final modification disposition for the planning and generated
+evidence inputs. The manifest itself is validated by recomputing all listed
+hashes; it intentionally does not hash itself.

@@ -12,9 +12,11 @@ planning and arithmetic qualification evidence only; it does not claim current
 parser, checker, runtime, chart, renderer, editor, external-data, or release
 behavior.
 
-**Separate product-owner disposition:** PENDING. Sprint 116 and Sprint 117
-remain BLOCKED/OPEN until the product owner accepts the chart and affine
-declaration contracts. Sprint 118 remains additionally gated by D115-08.
+**Separate product-owner disposition:** ACCEPTED/CLOSED by the user on
+2026-11-21. D115-01 through D115-09 are accepted for the Sprint 115 contract
+scope. The Sprint 115 chart and affine contract gates are satisfied. Sprints 116,
+117, and 118 remain subject to their own entry authorization and dependency
+sequence; this disposition does not itself authorize implementation.
 
 ## Authorization and Baseline
 
@@ -168,7 +170,11 @@ complete and internally reconciled, the canonical formulas are arithmetically
 qualified, all 68 stable cases are traceable, and D115-01 through D115-09 have
 explicit dispositions ready for owner review.
 
-**Separate product-owner disposition:** PENDING. Only a distinct product-owner
-`ACCEPTED/CLOSED` or `BLOCKED/OPEN` decision may close this gate. This Builder
-recommendation does not authorize S116, S117, S118, implementation, release,
-publication, package/version changes, deployment, or certification.
+**Separate product-owner disposition:** ACCEPTED/CLOSED by the user on
+2026-11-21. The owner accepts D115-01 through D115-09 and the qualified Sprint
+115 contract package. The chart, affine declaration, and external compatibility
+contract gates are closed for planning purposes. Sprint 116, Sprint 117, and
+Sprint 118 preparation or execution still requires its separately approved
+baseline, scope, plan, and authorization; no implementation, release,
+publication, package/version change, deployment, or certification is authorized
+by this disposition.
