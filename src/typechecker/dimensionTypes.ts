@@ -16,6 +16,7 @@ export interface UnitMetadata {
   identity: string;
   vector: ReadonlyMap<string, number>;
   scale: number;
+  offset: number;
   source?: SourceLocation;
 }
 

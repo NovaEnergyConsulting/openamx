@@ -166,6 +166,30 @@ describe("parseStatements", () => {
     expect(statements[1].source).toEqual({ line: 9, column: 1 });
   });
 
+  it("AFF-PRECEDENCE-01 parses affine operators with exact declaration operator sources", () => {
+    const [statement] = parseStatements("unit result = 2 * kelvin / 4 + PI", { line: 7, column: 1 });
+    expect(statement).toMatchObject({
+      type: "unitDeclaration",
+      expression: {
+        type: "binaryExpression",
+        operator: "+",
+        operatorSource: { line: 7, column: 30 },
+        left: {
+          type: "binaryExpression",
+          operator: "/",
+          operatorSource: { line: 7, column: 26 },
+          left: {
+            type: "binaryExpression",
+            operator: "*",
+            operatorSource: { line: 7, column: 17 }
+          },
+          right: { type: "numberLiteral", value: 4, source: { line: 7, column: 28 } }
+        },
+        right: { type: "identifier", name: "PI", source: { line: 7, column: 32 } }
+      }
+    });
+  });
+
   it("does not treat a semicolon as a statement separator", () => {
     expect(() => parseStatements("let first = 1; let second = 2")).toThrow(/Invalid declaration/);
   });

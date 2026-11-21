@@ -395,10 +395,13 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     return failDeclaration('Dimension expressions may use only visible dimensions, *, /, and integer powers', expression.source);
   }
 
-  interface UnitExpressionValue {
-    vector: ReadonlyMap<string, number>;
-    scale: number;
-    hasUnit: boolean;
+  type UnitExpressionValue =
+    | { kind: 'scalar'; value: number }
+    | { kind: 'unit'; vector: ReadonlyMap<string, number>; scale: number; offset: number };
+
+  function validateUnitExpressionScalar(value: number, source?: SourceLocation): number {
+    if (!Number.isFinite(value)) failDeclaration('Unit expression scalar must be finite', source);
+    return value;
   }
 
   function validateUnitScale(scale: number, source?: SourceLocation): number {
@@ -406,42 +409,142 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     return scale;
   }
 
+  function validateUnitOffset(offset: number, source?: SourceLocation): number {
+    if (!Number.isFinite(offset)) failDeclaration('Unit offset must be finite', source);
+    return offset;
+  }
+
+  function scaledUnit(unit: Extract<UnitExpressionValue, { kind: 'unit' }>, factor: number, source?: SourceLocation): UnitExpressionValue {
+    const scale = validateUnitScale(unit.scale * factor, source);
+    const offset = validateUnitOffset(unit.offset * factor, source);
+    return { kind: 'unit', vector: unit.vector, scale, offset };
+  }
+
   function resolveUnitExpression(expression: V02ExpressionNode): UnitExpressionValue {
+    const operatorSource = expression.type === 'binaryExpression' ? expression.operatorSource ?? expression.source : expression.source;
     if (expression.type === 'numberLiteral') {
-      return { vector: new Map(), scale: validateUnitScale(expression.value, expression.source), hasUnit: false };
+      return { kind: 'scalar', value: validateUnitExpressionScalar(expression.value, expression.source) };
     }
     if (expression.type === 'identifier') {
+      if (expression.name === 'PI') return { kind: 'scalar', value: Math.PI };
+      if (expression.name === 'E') return { kind: 'scalar', value: Math.E };
       const unit = units.get(expression.name);
       if (!unit) return failDeclaration(`Unknown or not-yet-declared unit '${expression.name}'`, expression.source);
-      return { vector: unit.vector, scale: unit.scale, hasUnit: true };
+      return {
+        kind: 'unit',
+        vector: unit.vector,
+        scale: validateUnitScale(unit.scale, expression.source),
+        offset: validateUnitOffset(unit.offset, expression.source)
+      };
     }
-    if (expression.type === 'binaryExpression' && (expression.operator === '*' || expression.operator === '/')) {
+    if (expression.type === 'unaryExpression') {
+      if (expression.operator !== '-') return failDeclaration('Unit expressions may use only finite scalars, visible units, PI, E, +, -, *, /, and signed integer powers', expression.source);
+      const argument = resolveUnitExpression(expression.argument);
+      if (argument.kind !== 'scalar') return failDeclaration('Unit declaration unary minus requires a dimensionless scalar', expression.source);
+      return { kind: 'scalar', value: validateUnitExpressionScalar(-argument.value, expression.source) };
+    }
+    if (expression.type === 'binaryExpression') {
       const left = resolveUnitExpression(expression.left);
       const right = resolveUnitExpression(expression.right);
-      const divide = expression.operator === '/';
-      return {
-        vector: combineVectors(left.vector, right.vector, divide ? -1 : 1, expression.source),
-        scale: validateUnitScale(divide ? left.scale / right.scale : left.scale * right.scale, expression.source),
-        hasUnit: left.hasUnit || right.hasUnit
-      };
-    }
-    if (expression.type === 'binaryExpression' && expression.operator === '^') {
-      const exponent = integerExponent(expression.right);
-      if (exponent === undefined) return failDeclaration('Unit powers must be signed integer literals', expression.right.source ?? expression.source);
-      const base = resolveUnitExpression(expression.left);
-      const vector = new Map<string, number>();
-      for (const [identity, value] of base.vector) {
-        const powered = value * exponent;
-        if (!Number.isSafeInteger(powered)) failDeclaration('Dimension exponent is outside the supported integer range', expression.source);
-        if (powered !== 0) vector.set(identity, powered);
+
+      if (expression.operator === '+' || expression.operator === '-') {
+        if (left.kind === 'scalar' && right.kind === 'scalar') {
+          return {
+            kind: 'scalar',
+            value: validateUnitExpressionScalar(expression.operator === '+' ? left.value + right.value : left.value - right.value, operatorSource)
+          };
+        }
+        if (left.kind === 'unit' && right.kind === 'unit') {
+          return failDeclaration('Unit declaration addition and subtraction require one affine unit term and one dimensionless scalar', operatorSource);
+        }
+        if (left.kind === 'scalar' && right.kind === 'unit') {
+          if (expression.operator === '-') {
+            return failDeclaration('Unit declaration subtraction requires the unit term on the left', operatorSource);
+          }
+          return {
+            kind: 'unit',
+            vector: right.vector,
+            scale: right.scale,
+            offset: validateUnitOffset(right.offset + left.value, operatorSource)
+          };
+        }
+        if (left.kind === 'unit' && right.kind === 'scalar') {
+          return {
+            kind: 'unit',
+            vector: left.vector,
+            scale: left.scale,
+            offset: validateUnitOffset(expression.operator === '+' ? left.offset + right.value : left.offset - right.value, operatorSource)
+          };
+        }
+        return failDeclaration('Unit declaration addition and subtraction require one affine unit term and one dimensionless scalar', operatorSource);
       }
-      return {
-        vector: normalizedVector(vector),
-        scale: validateUnitScale(Math.pow(base.scale, exponent), expression.source),
-        hasUnit: base.hasUnit
-      };
+
+      if (expression.operator === '*' || expression.operator === '/') {
+        const divide = expression.operator === '/';
+        if (left.kind === 'scalar' && right.kind === 'scalar') {
+          if (divide && right.value === 0) {
+            return failDeclaration('Unit expression scalar division requires a non-zero denominator', operatorSource);
+          }
+          return {
+            kind: 'scalar',
+            value: validateUnitExpressionScalar(divide ? left.value / right.value : left.value * right.value, operatorSource)
+          };
+        }
+        if (left.kind === 'unit' && right.kind === 'scalar') {
+          if (right.value <= 0) return failDeclaration('Unit scale must be finite and greater than zero', operatorSource);
+          return scaledUnit(left, divide ? 1 / right.value : right.value, operatorSource);
+        }
+        if (left.kind === 'scalar' && right.kind === 'unit') {
+          if (!divide) return scaledUnit(right, left.value, operatorSource);
+          if (right.offset !== 0) {
+            return failDeclaration('Affine units may not be multiplied, divided, or raised to non-identity powers in declarations', operatorSource);
+          }
+          return {
+            kind: 'unit',
+            vector: combineVectors(new Map(), right.vector, -1, operatorSource),
+            scale: validateUnitScale(left.value / right.scale, operatorSource),
+            offset: 0
+          };
+        }
+        if (left.kind === 'unit' && right.kind === 'unit') {
+          if (left.offset !== 0 || right.offset !== 0) {
+            return failDeclaration('Affine units may not be multiplied, divided, or raised to non-identity powers in declarations', operatorSource);
+          }
+          return {
+            kind: 'unit',
+            vector: combineVectors(left.vector, right.vector, divide ? -1 : 1, operatorSource),
+            scale: validateUnitScale(divide ? left.scale / right.scale : left.scale * right.scale, operatorSource),
+            offset: 0
+          };
+        }
+        return failDeclaration('Unit declaration multiplication and division require a supported scalar or affine unit combination', operatorSource);
+      }
+
+      if (expression.operator === '^') {
+        const exponent = integerExponent(expression.right);
+        if (exponent === undefined) return failDeclaration('Unit powers must be signed integer literals', expression.right.source ?? operatorSource);
+        if (left.kind === 'scalar') {
+          return { kind: 'scalar', value: validateUnitExpressionScalar(Math.pow(left.value, exponent), operatorSource) };
+        }
+        if (exponent === 1) return left;
+        if (left.offset !== 0) {
+          return failDeclaration('Affine units may not be multiplied, divided, or raised to non-identity powers in declarations', operatorSource);
+        }
+        const vector = new Map<string, number>();
+        for (const [identity, value] of left.vector) {
+          const powered = value * exponent;
+          if (!Number.isSafeInteger(powered)) failDeclaration('Dimension exponent is outside the supported integer range', operatorSource);
+          if (powered !== 0) vector.set(identity, powered);
+        }
+        return {
+          kind: 'unit',
+          vector: normalizedVector(vector),
+          scale: validateUnitScale(Math.pow(left.scale, exponent), operatorSource),
+          offset: 0
+        };
+      }
     }
-    return failDeclaration('Unit expressions may use only positive finite numbers, visible units, *, /, and integer powers', expression.source);
+    return failDeclaration('Unit expressions may use only finite scalars, visible units, PI, E, +, -, *, /, and signed integer powers', expression.source);
   }
 
   function checkDimension(statement: DimensionDeclarationNode): void {
@@ -475,6 +578,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     }
     let vector: ReadonlyMap<string, number>;
     let scale: number;
+    let offset: number;
     if (statement.dimension) {
       const dimension = dimensions.get(statement.dimension);
       if (!dimension) failDeclaration(`Unknown or not-yet-declared dimension '${statement.dimension}'`, statement.dimensionSource ?? statement.source);
@@ -485,11 +589,13 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
       if (existing) failDeclaration(`Base dimension '${statement.dimension}' already has independent unit '${existing.name}'`, statement.dimensionSource ?? statement.source, existing.source);
       vector = dimension!.vector;
       scale = 1;
+      offset = 0;
     } else if (statement.expression) {
       const resolved = resolveUnitExpression(statement.expression);
-      if (!resolved.hasUnit) failDeclaration('A derived unit must reference at least one visible unit', statement.expression.source);
+      if (resolved.kind === 'scalar') return failDeclaration('A derived unit must reference at least one visible unit', statement.expression.source);
       vector = resolved.vector;
       scale = validateUnitScale(resolved.scale, statement.expression.source);
+      offset = validateUnitOffset(resolved.offset, statement.expression.source);
     } else {
       return failDeclaration('Unit declaration requires a base dimension or a unit expression', statement.source);
     }
@@ -500,6 +606,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
       identity: JSON.stringify([moduleIdentity, statement.name]),
       vector: normalizedVector(new Map(vector)),
       scale,
+      offset,
       source: statement.nameSource ?? statement.source
     };
     units.set(statement.name, metadata);

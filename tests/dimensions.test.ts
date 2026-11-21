@@ -149,7 +149,11 @@ describe("Sprint 055 dimension and unit declarations", () => {
       square_meter: 1, cubic_meter: 1, meter_per_second: 1, kilometer_per_hour: 1000 / 3600,
       hertz: 1, newton: 1, pascal: 1, joule: 1, watt: 1, Hz: 1, N: 1, Pa: 1, J: 1, W: 1
     };
-    for (const [unitName, scale] of Object.entries(scales)) expect(checked.units.get(unitName)?.scale).toBe(scale);
+    for (const [unitName, scale] of Object.entries(scales)) {
+      expect(checked.units.get(unitName)?.scale).toBe(scale);
+      expect(checked.units.get(unitName)?.offset).toBe(0);
+    }
+    for (const unit of checked.units.values()) expect(unit.offset).toBe(0);
     for (const { name, definition } of inventoryRows.filter(row => row.kind === "Alias")) {
       expect(checked.units.get(name)?.scale).toBe(checked.units.get(definition)?.scale);
       expect(checked.units.get(name)?.vector).toEqual(checked.units.get(definition)?.vector);
@@ -274,5 +278,241 @@ describe("Sprint 055 dimension and unit declarations", () => {
     expect(loaded.registry.dimensions.has("Length")).toBe(true);
     expect(loaded.registry.units.has("meter")).toBe(true);
     expect(loaded.env.has("mustNotEvaluate")).toBe(false);
+  });
+});
+
+describe("Sprint 117 affine declaration metadata", () => {
+  it("AFF-LINEAR-01/DECL-CEL-01/DECL-FHR-01/ALIAS-01/PRECEDENCE-01 and scalar/metadata cases retain complete transforms", () => {
+    const checked = checkDocument(document([
+      "dimension ThermodynamicTemperature",
+      "dimension Length",
+      "dimension Time",
+      "unit kelvin: ThermodynamicTemperature",
+      "unit meter: Length",
+      "unit second: Time",
+      "unit celsius = kelvin + 273.15",
+      "unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)",
+      "unit degC = celsius",
+      "unit degF = fahrenheit",
+      "unit scaledCelsius = 2 * celsius",
+      "unit halfCelsius = celsius / 2",
+      "unit piKelvin = kelvin + PI",
+      "unit piScale = PI * kelvin",
+      "unit eKelvin = E * kelvin",
+      "unit eOffset = kelvin + E",
+      "unit precedence = 2 * kelvin / 4 + PI",
+      "unit parenthesizedPrecedence = (2 * kelvin / 4) + PI",
+      "unit negativeOffset = meter + (273.15 - 300)",
+      "unit negativeIntermediate = meter + (2 - 3)",
+      "unit shiftedLeft = 2 + meter",
+      "unit scalarPower = 2 ^ -2 * meter",
+      "unit linearCompound = meter / second",
+      "unit reciprocal = 2 / second",
+      "unit identity = celsius ^ 1"
+    ].join("\n")), "/workspace/affine.amx");
+
+    const expected: Record<string, { scale: number; offset: number }> = {
+      kelvin: { scale: 1, offset: 0 },
+      meter: { scale: 1, offset: 0 },
+      second: { scale: 1, offset: 0 },
+      celsius: { scale: 1, offset: 273.15 },
+      fahrenheit: { scale: 5 / 9, offset: 273.15 - 160 / 9 },
+      degC: { scale: 1, offset: 273.15 },
+      degF: { scale: 5 / 9, offset: 273.15 - 160 / 9 },
+      scaledCelsius: { scale: 2, offset: 546.3 },
+      halfCelsius: { scale: 0.5, offset: 136.575 },
+      piKelvin: { scale: 1, offset: Math.PI },
+      piScale: { scale: Math.PI, offset: 0 },
+      eKelvin: { scale: Math.E, offset: 0 },
+      eOffset: { scale: 1, offset: Math.E },
+      precedence: { scale: 0.5, offset: Math.PI },
+      parenthesizedPrecedence: { scale: 0.5, offset: Math.PI },
+      negativeOffset: { scale: 1, offset: 273.15 - 300 },
+      negativeIntermediate: { scale: 1, offset: -1 },
+      shiftedLeft: { scale: 1, offset: 2 },
+      scalarPower: { scale: 0.25, offset: 0 },
+      linearCompound: { scale: 1, offset: 0 },
+      reciprocal: { scale: 2, offset: 0 },
+      identity: { scale: 1, offset: 273.15 }
+    };
+    for (const [name, transform] of Object.entries(expected)) {
+      expect(checked.units.get(name)?.scale).toBeCloseTo(transform.scale, 14);
+      expect(checked.units.get(name)?.offset).toBeCloseTo(transform.offset, 14);
+      expect(Number.isFinite(checked.units.get(name)?.offset)).toBe(true);
+    }
+    expect(checked.units.get("kelvin")?.offset).toBe(0);
+    expect(checked.units.get("degC")?.vector).toEqual(checked.units.get("celsius")?.vector);
+    expect(checked.units.get("degC")?.identity).toBe(JSON.stringify(["/workspace/affine.amx", "degC"]));
+    expect(checked.units.get("degC")?.identity).not.toBe(checked.units.get("celsius")?.identity);
+    expect(checked.units.get("degC")?.source).toEqual({ line: 10, column: 6 });
+    expect(checked.units.get("celsius")?.source).toEqual({ line: 8, column: 6 });
+    expect([...checked.units.get("linearCompound")!.vector]).toEqual([
+      [JSON.stringify(["/workspace/affine.amx", "Length"]), 1],
+      [JSON.stringify(["/workspace/affine.amx", "Time"]), -1]
+    ]);
+  });
+
+  it("AFF-USER-CONST-01/FORWARD-01/CALL-01/TWO-UNIT-ADD-01/REVERSE-SUB-01 reject with AMX3008", () => {
+    const cases: Array<{ id: string; source: string; message: string; line: number; column: number }> = [
+      { id: "AFF-USER-CONST-01", source: "dimension Length\nunit meter: Length\nlet factor: Number = 2\nunit invalid = factor * meter", message: "Unknown or not-yet-declared unit 'factor'", line: 5, column: 16 },
+      { id: "AFF-FORWARD-01", source: "dimension Length\nunit meter: Length\nunit invalid = later\nunit later = meter", message: "Unknown or not-yet-declared unit 'later'", line: 4, column: 16 },
+      { id: "AFF-CALL-01", source: "fn factor(value: Number): Number = value\ndimension Length\nunit meter: Length\nunit invalid = factor(2) * meter", message: "Unit expressions may use only finite scalars, visible units, PI, E, +, -, *, /, and signed integer powers", line: 5, column: 16 },
+      { id: "AFF-TWO-UNIT-ADD-01", source: "dimension Temperature\nunit kelvin: Temperature\nunit celsius = kelvin + 273.15\nunit invalid = kelvin + celsius", message: "Unit declaration addition and subtraction require one affine unit term and one dimensionless scalar", line: 5, column: 23 },
+      { id: "AFF-TWO-UNIT-ADD-01 subtraction", source: "dimension Temperature\nunit kelvin: Temperature\nunit celsius = kelvin + 273.15\nunit invalid = celsius - kelvin", message: "Unit declaration addition and subtraction require one affine unit term and one dimensionless scalar", line: 5, column: 24 },
+      { id: "AFF-REVERSE-SUB-01", source: "dimension Temperature\nunit kelvin: Temperature\nunit invalid = 273.15 - kelvin", message: "Unit declaration subtraction requires the unit term on the left", line: 4, column: 23 }
+    ];
+    for (const testCase of cases) {
+      const failure = expectCode(() => checkDocument(document(testCase.source)), "AMX3008");
+      expect(failure.message, testCase.id).toBe(testCase.message);
+      expect(failure.line, testCase.id).toBe(testCase.line);
+      expect(failure.column, testCase.id).toBe(testCase.column);
+    }
+  });
+
+  it("AFF-SCALE-ZERO-01/NEG-01/INF-01/OFFSET-INF-01 and S117 scalar cases enforce finite transforms", () => {
+    const hugeFiniteScale = `1${"0".repeat(200)}`;
+    const hugeFiniteOffset = `1${"0".repeat(308)}`;
+    const cases: Array<{ id: string; source: string; message: string; line: number; column: number }> = [
+      { id: "AFF-SCALE-ZERO-01", source: "dimension Length\nunit meter: Length\nunit invalid = 0 * meter", message: "Unit scale must be finite and greater than zero", line: 4, column: 18 },
+      { id: "AFF-SCALE-NEG-01", source: "dimension Length\nunit meter: Length\nunit invalid = -1 * meter", message: "Unit scale must be finite and greater than zero", line: 4, column: 19 },
+      { id: "AFF-SCALE-INF-01", source: `dimension Length\nunit meter: Length\nunit huge = ${hugeFiniteScale} * meter\nunit invalid = huge * huge`, message: "Unit scale must be finite and greater than zero", line: 5, column: 21 },
+      { id: "AFF-OFFSET-INF-01", source: `dimension Temperature\nunit kelvin: Temperature\nunit huge = kelvin + ${hugeFiniteOffset}\nunit invalid = huge + ${hugeFiniteOffset}`, message: "Unit offset must be finite", line: 5, column: 21 },
+      { id: "S117-SCALAR-NONFINITE-01", source: "dimension Length\nunit meter: Length\nunit invalid = meter + (1 / 0)", message: "Unit expression scalar division requires a non-zero denominator", line: 4, column: 27 },
+      { id: "S117-SCALAR-NONFINITE-01 overflow", source: `dimension Length\nunit meter: Length\nunit invalid = meter + (${hugeFiniteScale} * ${hugeFiniteScale})`, message: "Unit expression scalar must be finite", line: 4, column: 227 },
+      { id: "S117-SCALAR-ONLY-01", source: "unit invalid = PI", message: "A derived unit must reference at least one visible unit", line: 2, column: 16 }
+    ];
+    for (const testCase of cases) {
+      const failure = expectCode(() => checkDocument(document(testCase.source)), "AMX3008");
+      expect(failure.message, testCase.id).toBe(testCase.message);
+      expect(failure.line, testCase.id).toBe(testCase.line);
+      expect(failure.column, testCase.id).toBe(testCase.column);
+    }
+  });
+
+  it("AFF-COMPOUND-01/POWER-IDENTITY-01/S117-POWER-01/DIM-01 enforce affine and dimension composition", () => {
+    const affineFailures = [
+      { id: "celsius * second", source: "dimension Temperature\ndimension Time\nunit kelvin: Temperature\nunit second: Time\nunit celsius = kelvin + 273.15\nunit invalid = celsius * second", line: 7, column: 24 },
+      { id: "celsius / second", source: "dimension Temperature\ndimension Time\nunit kelvin: Temperature\nunit second: Time\nunit celsius = kelvin + 273.15\nunit invalid = celsius / second", line: 7, column: 24 },
+      { id: "2 / celsius", source: "dimension Temperature\nunit kelvin: Temperature\nunit celsius = kelvin + 273.15\nunit invalid = 2 / celsius", line: 5, column: 18 },
+      { id: "celsius ^ 2", source: "dimension Temperature\nunit kelvin: Temperature\nunit celsius = kelvin + 273.15\nunit invalid = celsius ^ 2", line: 5, column: 24 }
+    ];
+    for (const testCase of affineFailures) {
+      const failure = expectCode(() => checkDocument(document(testCase.source)), "AMX3008");
+      expect(failure.message, testCase.id).toBe("Affine units may not be multiplied, divided, or raised to non-identity powers in declarations");
+      expect(failure.line, testCase.id).toBe(testCase.line);
+      expect(failure.column, testCase.id).toBe(testCase.column);
+    }
+
+    const nonInteger = expectCode(() => checkDocument(document("dimension Length\nunit meter: Length\nunit invalid = meter ^ 0.5")), "AMX3008");
+    expect(nonInteger.message).toBe("Unit powers must be signed integer literals");
+    expect(nonInteger.line).toBe(4);
+    expect(nonInteger.column).toBe(24);
+
+    const dimensionOverflow = expectCode(() => checkDocument(document("dimension Length\nunit meter: Length\nunit area = meter ^ 2\nunit invalid = area ^ 4503599627370496")), "AMX3008");
+    expect(dimensionOverflow.message).toBe("Dimension exponent is outside the supported integer range");
+    expect(dimensionOverflow.line).toBe(5);
+    expect(dimensionOverflow.column).toBe(21);
+  });
+
+  it("AFF-IMPORT-01/IMPORTED-CONST-01/S117-REEXPORT-01/S117-EDITOR-01 preserve affine metadata across module maps", async () => {
+    const directory = await makeDir();
+    const base = await write(directory, "temperature.amx", [
+      "```amx",
+      "export dimension Temperature",
+      "export unit kelvin: Temperature",
+      "export unit celsius = kelvin + 273.15",
+      "export unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)",
+      "export let factor: Number = 2",
+      "```",
+      ""
+    ].join("\n"));
+    await write(directory, "bridge.amx", [
+      "```amx",
+      "import { Temperature, kelvin, celsius, fahrenheit } from \"./temperature.amx\"",
+      "export { Temperature, kelvin, celsius, fahrenheit }",
+      "```",
+      ""
+    ].join("\n"));
+    const entry = await write(directory, "entry.amx", [
+      "```amx",
+      "import { Temperature, kelvin, celsius, fahrenheit } from \"./bridge.amx\"",
+      "unit degC = celsius",
+      "unit degF = fahrenheit",
+      "```",
+      ""
+    ].join("\n"));
+
+    const loaded = await loadEntryModule(entry, { outputInspection: true });
+    const runtimeCelsius = loaded.registry.units.get("celsius")!;
+    const runtimeFahrenheit = loaded.registry.units.get("fahrenheit")!;
+    const alias = loaded.registry.units.get("degC")!;
+    const aliasF = loaded.registry.units.get("degF")!;
+    expect(runtimeCelsius.scale).toBe(1);
+    expect(runtimeCelsius.offset).toBe(273.15);
+    expect(runtimeCelsius.moduleIdentity).toBe(realpathSync(base));
+    expect(runtimeFahrenheit.scale).toBe(5 / 9);
+    expect(runtimeFahrenheit.offset).toBeCloseTo(273.15 - 160 / 9, 14);
+    expect(alias.scale).toBe(runtimeCelsius.scale);
+    expect(alias.offset).toBe(runtimeCelsius.offset);
+    expect(alias.vector).toEqual(runtimeCelsius.vector);
+    expect(aliasF.scale).toBe(runtimeFahrenheit.scale);
+    expect(aliasF.offset).toBe(runtimeFahrenheit.offset);
+    expect(aliasF.vector).toEqual(runtimeFahrenheit.vector);
+
+    const analysis = analyzeEditorModules(await Bun.file(entry).text(), entry, (_fromFile, targetPath) => ({
+      file: targetPath,
+      text: readFileSync(targetPath, "utf8")
+    }));
+    const editorCelsius = analysis.importedUnits.get("celsius")!;
+    expect(editorCelsius.scale).toBe(runtimeCelsius.scale);
+    expect(editorCelsius.offset).toBe(runtimeCelsius.offset);
+    expect(editorCelsius.vector).toEqual(runtimeCelsius.vector);
+    expect(editorCelsius.identity).toBe(runtimeCelsius.identity);
+    const editorFahrenheit = analysis.importedUnits.get("fahrenheit")!;
+    expect(editorFahrenheit.scale).toBe(runtimeFahrenheit.scale);
+    expect(editorFahrenheit.offset).toBe(runtimeFahrenheit.offset);
+    expect(editorFahrenheit.identity).toBe(runtimeFahrenheit.identity);
+
+    const invalid = await write(directory, "invalid-import.amx", "```amx\nimport { Temperature, kelvin, factor } from \"./temperature.amx\"\nunit invalid = factor * kelvin\n```\n");
+    try {
+      await loadEntryModule(invalid, { outputInspection: true });
+      throw new Error("Expected imported ordinary binding to be rejected");
+    } catch (error) {
+      expect(error).toBeInstanceOf(AmxError);
+      expect((error as AmxError).code).toBe("AMX3008");
+      expect((error as AmxError).message).toBe("Unknown or not-yet-declared unit 'factor'");
+      expect((error as AmxError).line).toBe(3);
+      expect((error as AmxError).column).toBe(16);
+    }
+  });
+
+  it("S117-SOURCE-01 preserves affine diagnostic locations for LF and CRLF documents", () => {
+    const body = [
+      "dimension Temperature",
+      "unit kelvin: Temperature",
+      "unit celsius = kelvin + 273.15",
+      "unit invalid = kelvin + celsius",
+      ""
+    ];
+    for (const separator of ["\n", "\r\n"]) {
+      const failure = expectCode(() => checkDocument(parseDocumentText(`\`\`\`amx${separator}${body.join(separator)}\`\`\`${separator}`)), "AMX3008");
+      expect(failure.message).toBe("Unit declaration addition and subtraction require one affine unit term and one dimensionless scalar");
+      expect(failure.line).toBe(5);
+      expect(failure.column).toBe(23);
+    }
+  });
+
+  it("AFF-CYCLE-01 preserves AMX5003 module-cycle diagnostics", async () => {
+    const directory = await makeDir();
+    const left = await write(directory, "left.amx", "```amx\nimport { celsius } from \"./right.amx\"\nexport unit hidden = celsius\n```\n");
+    await write(directory, "right.amx", "```amx\nimport { hidden } from \"./left.amx\"\nexport unit celsius = hidden\n```\n");
+    try {
+      await loadEntryModule(left, { outputInspection: true });
+      throw new Error("Expected module cycle");
+    } catch (error) {
+      expect(error).toBeInstanceOf(AmxError);
+      expect((error as AmxError).code).toBe("AMX5003");
+      expect((error as AmxError).message).toContain("Import cycle detected");
+    }
   });
 });
