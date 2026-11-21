@@ -14,11 +14,11 @@ owner disposition never rewrites the raw status.
 
 | Evidence ID | Gate | Required evidence | S120 record | Raw status | Residual/disposition |
 | --- | --- | --- | --- | --- | --- |
-| INT120-ENTRY-115 | Sprint 115 contract gate | S115 disposition accepted; D115-01..09 and 68 cases/source audit reconciled | NOT RUN | NOT RUN | S115 owner evidence |
-| INT120-ENTRY-116 | Chart AST/parser/checker/evaluation/model | S116 accepted; 208/208; no residual | NOT RUN | NOT RUN | No residual |
-| INT120-ENTRY-117 | Affine declaration metadata | S117 accepted; 159/159; 1,233 assertions; no residual | NOT RUN | NOT RUN | No residual |
-| INT120-ENTRY-118 | Runtime/external/SI | S118 accepted; 169/169; 1,297 assertions; no residual | NOT RUN | NOT RUN | No residual |
-| INT120-ENTRY-119 | Rendering/editor/spec/examples | S119 accepted with residual; full VS Code 20/9 while V0.19 host rows pass | NOT RUN | NOT RUN | Extension harness residual |
+| INT120-ENTRY-115 | Sprint 115 contract gate | S115 disposition accepted; D115-01..09 and 68 cases/source audit reconciled | Accepted 2026-11-21; 68/68 IDs; no duplicates/missing | PASS | S115 owner evidence |
+| INT120-ENTRY-116 | Chart AST/parser/checker/evaluation/model | S116 accepted; 208/208; no residual | Accepted 2026-11-21; 208 pass, 0 fail | PASS | No residual |
+| INT120-ENTRY-117 | Affine declaration metadata | S117 accepted; 159/159; 1,233 assertions; no residual | Accepted 2026-11-21; 159 pass, 0 fail; 1,233 assertions | PASS | No residual |
+| INT120-ENTRY-118 | Runtime/external/SI | S118 accepted; 169/169; 1,297 assertions; no residual | Accepted 2026-11-21; 169 pass, 0 fail; 1,297 assertions | PASS | No residual |
+| INT120-ENTRY-119 | Rendering/editor/spec/examples | S119 accepted with residual; full VS Code 20/9 while V0.19 host rows pass | Accepted with residual 2026-11-21; focused 133 pass, 0 fail; host 20 pass/9 fail; V0.19 rows pass | PASS | Extension harness residual remains raw FAIL |
 
 ## Chart End-to-End Evidence
 
@@ -66,8 +66,8 @@ owner disposition never rewrites the raw status.
 
 | Evidence ID | Gate | Required evidence | Candidate action | Raw status |
 | --- | --- | --- | --- | --- |
-| INT120-ROOT-FOCUSED | Exact master focused command | 10-file V0.19 chart/affine/editor/render command | verification plan | NOT RUN |
-| INT120-ROOT-SUPPLEMENTAL | Explicit affine/data/examples selection | measurement/data/examples/guide selection | verification plan | NOT RUN |
+| INT120-ROOT-FOCUSED | Exact master focused command | 10-file V0.19 chart/affine/editor/render command | First and retry each exited 1 after Bun startup banner; 0 tests/assertions produced; `artifacts/logs/s120-root-focused*.log` | FAIL |
+| INT120-ROOT-SUPPLEMENTAL | Explicit affine/data/examples selection | measurement/data/examples/guide selection | Stop rule applied after focused launch failure; command not executed | NOT RUN |
 | INT120-ROOT-ALL | Broader root regression | exact `bun test`, all raw failures/skip/retries | approved broad command | NOT RUN |
 | INT120-VSCODE | Full extension host | full aggregate plus V0.19 row subset | extension command | NOT RUN |
 | INT120-DESKTOP-TYPE | Desktop typecheck | configured typecheck result, no silent no-result | desktop command | NOT RUN |
@@ -80,6 +80,7 @@ owner disposition never rewrites the raw status.
 
 | Residual ID | Raw entering condition | S120 action | Final raw status | Owner/disposition |
 | --- | --- | --- | --- | --- |
+| RES-S120-LAUNCH-01 | Bun test runner exits 1 after startup banner before any test/assertion output; identical authorized retry | preserve both logs; diagnose separately; fresh acceptance cycle required | FAIL | Test-host/Builder owner; corrective diagnostic plan and separate product owner |
 | RES-S120-VSCODE-01 | S119 VS Code full host 20 pass/9 fail on unrelated Windows cleanup/path-case tests; V0.19 host rows pass | rerun exact host and classify failures | NOT RUN | Extension harness owner / separate product owner |
 | RES-S120-NATIVE-01 | Native desktop/cross-platform not in evidence | report available/unavailable; no platform claim | NOT RUN | Product owner/platform gate |
 | RES-S120-ROOT-01 | Any broad-root unrelated failure, if observed | preserve aggregate and first/retry log | NOT RUN | owning subsystem / product owner |

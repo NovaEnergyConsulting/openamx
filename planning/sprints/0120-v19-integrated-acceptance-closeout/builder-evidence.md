@@ -2,36 +2,39 @@
 
 ## Status
 
-**Architect preparation only.** Sprint 120 execution has not been separately
-authorized or performed. This template must be completed at the approved S120
-baseline; preparation statuses are not product evidence.
+Sprint 120 was separately authorized and began on 2026-11-21 at clean branch
+`feat/create-V0.19`, commit
+`f05991a81571cabc96bd2d0b6f9634ac860ab4ec`, in an isolated detached worktree.
+S115-S119 dependency reconciliation passed. The exact focused 10-file command
+failed at Bun test launch before any test/assertion output, and its one
+authorized retry failed identically. The approved stop rule was applied; all
+downstream gates are `NOT RUN`.
 
-**Builder recommendation:** NOT READY FOR EXECUTION UNTIL SEPARATELY
-AUTHORIZED. S115-S119 are individually dispositioned, but their accepted
-statuses do not execute integrated closeout or authorize release.
+**Builder recommendation:** `BLOCKED/OPEN` pending narrowly scoped launch
+diagnostics and a fresh separately approved acceptance cycle.
 
-**Separate product-owner disposition:** PENDING; no V0.19 closeout, package,
-release, publication, deployment, or certification authority follows this
-package.
+**Separate product-owner disposition:** PENDING. No V0.19 closeout, package,
+release, publication, deployment, or certification authority follows.
 
 ## Authorization and Baseline
 
 | Evidence item | Status | Record required during execution |
 | --- | --- | --- |
-| S115-S119 dependency dispositions | VERIFIED | Dated accepted records and S119 residual reconciled |
+| S115-S119 dependency dispositions | VERIFIED | Accepted dates/counts and S119 raw residual reconciled |
 | S119 VS Code residual | CARRY-FORWARD | 20 pass/9 fail full host; V0.19 rows pass |
-| Sprint 120 execution authorization | NOT RUN | Approver/date, exact baseline/worktree/commands/paths/output/retry plan |
-| Repository baseline | NOT RECORDED | Branch, commit, full status, preservation inventory |
-| Host/tool versions | NOT RECORDED | OS/arch, Bun, Node, Git, TypeScript, VS Code, Vite, Playwright, Chromium, Hutch/Cottontail |
-| Generated/prior artifacts | NOT RECORDED | Browser runtime/package/extension/desktop/S115-S119 artifact hashes |
+| Sprint 120 execution authorization | AUTHORIZED | User approved exact baseline/worktree/commands/outputs/retries/evidence/cleanup on 2026-11-21 |
+| Repository baseline | VERIFIED | `feat/create-V0.19`; `f05991a81571cabc96bd2d0b6f9634ac860ab4ec`; clean live and isolated status |
+| Host/tool versions | RECORDED | Windows 10.0.26300 AMD64; Bun 1.4.4; Node 24.13.1; Git 2.56.1; TypeScript 5.9.3; VS Code 1.147.0; Vite 6.4.3; Playwright 1.64.1; Hutch 0.28.2 |
+| Generated/prior artifacts | RECORDED | Key package/generator/runtime and all 9 prior artifact hashes in the execution summary/baseline record |
 
 ## Exact Command Ledger
 
 | Run ID | Exact command/CWD | Raw result/counts/assertions | Log/artifact |
 | --- | --- | --- | --- |
-| S120-ROOT-FOCUSED | Master 10-file `bun test ...` | NOT RUN | NOT RECORDED |
-| S120-ROOT-SUPPLEMENTAL | Approved measurement/data/examples/guide selection | NOT RUN | NOT RECORDED |
-| S120-ROOT-ALL | Approved full `bun test` | NOT RUN | NOT RECORDED |
+| S120-ROOT-FOCUSED | Isolated CWD; exact master 10-file `bun test ...` | FAIL; exit 1 after Bun banner; 0 tests/assertions | `artifacts/logs/s120-root-focused.log`; SHA-256 `490beefad0e64aa8540d8f118e8480b80d97b8f9ac8d98888dd47b03ba6e1390` |
+| S120-ROOT-FOCUSED-R1 | Identical command; plain file redirection | FAIL; same exit 1/startup-only result; 0 tests/assertions | `artifacts/logs/s120-root-focused.retry-01.log`; identical SHA-256 |
+| S120-ROOT-SUPPLEMENTAL | Approved measurement/data/examples/guide selection | NOT RUN; focused stop applied | `artifacts/logs/s120-execution-summary.md` |
+| S120-ROOT-ALL | Approved full `bun test` | NOT RUN; focused stop applied | `artifacts/logs/s120-execution-summary.md` |
 | S120-BUILD | Repository root `bun run build` | NOT RUN | NOT RECORDED |
 | S120-TYPE | Repository root `bunx tsc --noEmit` | NOT RUN | NOT RECORDED |
 | S120-VSCODE | `vscode-extension` `bun run test` | NOT RUN | NOT RECORDED |
@@ -74,6 +77,7 @@ and never overwrite an earlier log/harness/output directory.
 
 | Item | Raw entering status | Final raw status | Owner/impact | Separate disposition |
 | --- | --- | --- | --- | --- |
+| S120 focused launch | NOT APPLICABLE | FAIL; identical first/retry exit 1 before tests | Test-host/Builder; all downstream gates blocked | Separate corrective diagnostic plan required |
 | S119 VS Code full aggregate | FAIL/PARTIAL: 20 pass/9 fail; V0.19 rows pass | NOT RUN | Extension test harness owner; V0.19 evidence separate | Product owner at S120 closeout |
 | Broad root regression | NOT RUN | NOT RUN | subsystem owner if failure | Separate product owner decision |
 | Native/platform | BLOCKED/UNAVAILABLE / not claimed | NOT RUN | Product owner/platform gate | no certification |
@@ -84,27 +88,19 @@ retries, skipped/unavailable checks, and artifacts independently.
 
 ## Scope and Preservation Audit
 
-- Worktree used and exact commit: NOT RECORDED.
-- Prior S115-S119 artifact roots preserved: NOT RUN.
-- Product source/test/spec/example/generated/package changes during S120: must be
-  none unless separately corrective-authorized; any change is a scope failure
-  for this closeout evidence.
-- S120 planning/evidence/artifact output roots changed only as approved.
-- Release/version/package/publication/deployment/installer/distribution/
-  certification commands run: MUST BE NONE.
+- Worktree used: `C:\Users\gamez\Programming\openamx-s120-v19-verify`, detached at `f05991a81571cabc96bd2d0b6f9634ac860ab4ec`; isolated status remained clean and the path was removed after evidence capture.
+- Final `git diff --check` passed. Package/generator/runtime hashes, all 9 prior artifacts, and shared output counts/bytes match baseline.
+- Prior S115-S119 artifacts and existing `dist`, `desktop-app/test-results`, extension `dist/out/.vscode-test`, and live source remained unchanged.
+- Product source/test/spec/example/generated/package changes during S120: NONE.
+- S120 planning evidence/artifact roots changed only as approved.
+- Release/version/package/publication/deployment/installer/distribution/certification commands run: NONE.
 
 ## Final Recommendation and Disposition
 
-At authorized completion, replace this section with:
-
-- Builder recommendation: ACCEPT/CLOSED, ACCEPT/CLOSED WITH RECORDED RESIDUALS,
-  or BLOCKED/OPEN;
-- focused/supplemental/broad root counts and raw status;
-- build/typecheck/generated provenance;
-- extension aggregate plus V0.19-specific outcomes;
-- desktop typecheck/UI/harness/native classifications;
-- exact HTML/PDF/DOCX/artifact evidence and examples;
-- named residual owners and raw status;
-- separate product-owner V0.19 disposition/date;
-- explicit statement that no release, publication, package/version, deployment,
-  installer, distribution, or certification authority follows.
+- Builder recommendation: `BLOCKED/OPEN`.
+- Dependency reconciliation: PASS for S115-S119; S119 raw host residual preserved.
+- Focused root gate: first run FAIL and authorized retry FAIL at Bun launch, with 0 tests/assertions and identical 60-byte startup-only logs.
+- Supplemental, broad, build, typecheck, generated-runtime, extension, desktop, Example 05/07, artifact-inspection, and final patch gates: `NOT RUN` under the approved stop rule.
+- Required next step: separate narrowly scoped diagnostic plan for the isolated Bun test-launch failure, followed by a fresh acceptance cycle.
+- Separate product-owner V0.19 disposition: PENDING.
+- No release, publication, package/version, deployment, installer, distribution, or certification authority follows.

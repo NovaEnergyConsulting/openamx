@@ -1,5 +1,14 @@
 # Sprint 120 Closeout Contract
 
+## Execution Status
+
+Sprint 120 dependency reconciliation passed, but the exact focused 10-file gate
+failed at Bun test launch on the approved first run and one authorized retry,
+before any test/assertion output. The approved stop rule was applied: the
+focused raw status is `FAIL`; all downstream gates are `NOT RUN`; Builder
+recommendation is `BLOCKED/OPEN`; separate owner disposition is PENDING. See
+`artifacts/logs/s120-execution-summary.md` for exact baseline and evidence.
+
 ## Evidence and Disposition Separation
 
 Sprint 120 produces four distinct records for every gate:
