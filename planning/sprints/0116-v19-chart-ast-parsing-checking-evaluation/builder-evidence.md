@@ -11,9 +11,10 @@ shared chart model while preserving existing renderer and accessibility output.
 AST/parser/checker/emission/model scope. Focused behavior, diagnostics, source
 mapping, typecheck, and patch integrity pass; no S116 residual is recorded.
 
-**Separate product-owner disposition:** PENDING. This Builder recommendation
-does not close Sprint 116, authorize Sprint 119 rendering, or authorize release,
-publication, package/version, deployment, or certification work.
+**Separate product-owner disposition:** ACCEPTED/CLOSED by the user on
+2026-11-21. This closes Sprint 116 only; it does not authorize Sprint 119
+rendering, release, publication, package/version, deployment, installer, or
+certification work.
 
 ## Entry and Baseline
 
@@ -118,9 +119,9 @@ source ranges are reconciled, and the changed-path audit remains inside the
 authorized S116 scope. There are no unexplained raw failures or unresolved S116
 residuals; earlier test-only retries are recorded above.
 
-**Separate product-owner disposition:** PENDING as of 2026-11-21. Sprint 116 is
-not closed until that distinct disposition is recorded. Sprint 119 remains
-independently gated by accepted S116 propagation and must own all renderer,
-output omission, browser JSON, and accessibility-output changes. This evidence
-and disposition recommendation authorize no renderer, release, publication,
-package/version, deployment, installer, or certification work.
+**Separate product-owner disposition:** ACCEPTED/CLOSED by the user on
+2026-11-21. Sprint 116 is closed. Sprint 119 remains independently gated by this
+accepted propagation result and must own all renderer, output omission, browser
+JSON, and accessibility-output changes. This disposition authorizes no renderer,
+release, publication, package/version, deployment, installer, or certification
+work.
