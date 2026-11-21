@@ -17,6 +17,59 @@ function model(source: string, accent = '#146C94') {
 }
 
 describe('shared chart model', () => {
+  it('copies resolved showTable while retaining S116 table and accessibility staging', () => {
+    const omitted = model(`let values: Number[] = [1, 2]
+chart amounts = column(values) {
+  title: "Amounts"
+  description: "Omitted visibility"
+  series "Value"
+}
+show amounts`);
+    const explicitFalse = model(`let values: Number[] = [1, 2]
+chart amounts = column(values) {
+  title: "Amounts"
+  description: "Explicit false"
+  showTable false
+  series "Value"
+}
+show amounts`);
+    const explicitTrue = model(`let values: Number[] = [1, 2]
+let enabled: Boolean = true
+chart amounts = column(values) {
+  title: "Amounts"
+  description: "Resolved visibility"
+  showTable enabled
+  series "Value"
+}
+show amounts`);
+
+    expect([omitted.showTable, explicitFalse.showTable, explicitTrue.showTable]).toEqual([false, false, true]);
+    expect(omitted.table.rows.map(row => row.values)).toEqual([['1', 1], ['2', 2]]);
+    expect(omitted.accessibility.tableId).toBe(omitted.table.id);
+    expect(Object.isFrozen(explicitFalse)).toBe(true);
+
+    const dynamicDocument = parseDocumentText(`\`\`\`amx
+let values: Number[] = [1]
+let enabled: Boolean = true
+chart amounts = column(values) {
+  title: "Amounts"
+  description: "Dynamic"
+  showTable enabled
+  series "Value"
+}
+show amounts
+enabled = false
+show amounts
+\`\`\``);
+    const dynamic = evaluateDocumentEnvironment(dynamicDocument, 'chart-model-dynamic.amx').viewEmissions
+      .map(emission => {
+        if (emission.kind !== 'chart') throw new Error('Expected chart emission');
+        return createChartViewModel(emission, { accent: '#146C94' });
+      });
+    expect(dynamic.map(chart => chart.showTable)).toEqual([true, false]);
+    expect(dynamic.every(chart => chart.accessibility.tableId === chart.table.id)).toBe(true);
+  });
+
   it('keeps bar duplicates, negatives, nulls, and first-row-top order', () => {
     const chart = model(`type Item {\n  category: String\n  amount: Number?\n}\nlet items: Item[] = [\n  Item { category = "same", amount = -2 },\n  Item { category = "same", amount = 0 },\n  Item { category = "last", amount = null }\n]\nchart amounts = bar(items) {\n  title: "Amounts"\n  description: "Signed amounts"\n  category: category\n  series amount as "Amount"\n}\nshow amounts`);
     const option = chart.option as any;

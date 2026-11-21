@@ -23,6 +23,7 @@ export interface TableViewEmission extends ViewEmissionLocation {
 export interface ChartViewEmission extends ViewEmissionLocation {
   kind: 'chart';
   declaration: ChartDeclarationNode;
+  readonly showTable: boolean;
   labels?: readonly string[];
   headings?: readonly string[];
   measurementDescriptors?: readonly ChartMeasurementDescriptor[];

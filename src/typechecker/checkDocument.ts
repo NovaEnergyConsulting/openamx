@@ -1246,9 +1246,14 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
     checkViewName(view.name, view.source, view.exported);
     oneOption(view, 'viewTitleOption', 'title', true);
     oneOption(view, 'viewDescriptionOption', 'description', true);
-    const allowed: Set<VisualizationOptionNode['type']> = new Set(['viewTitleOption', 'viewDescriptionOption', 'chartFieldOption', 'chartSeriesOption']);
+    const showTable = oneOption(view, 'chartShowTableOption', "'showTable'", false);
+    const allowed: Set<VisualizationOptionNode['type']> = new Set(['viewTitleOption', 'viewDescriptionOption', 'chartFieldOption', 'chartSeriesOption', 'chartShowTableOption']);
     const unsupported = view.options.find(option => !allowed.has(option.type));
     if (unsupported) fail('AMX3003', 'Option is not valid for a chart', unsupported.source);
+    if (showTable) {
+      const actual = infer(showTable.expression);
+      if (!equal(actual, named('Boolean'))) fail('AMX3002', `Expected Boolean, got ${format(actual)}`, showTable.expression.source);
+    }
     const input = viewListElement(view.binding, view.bindingSource);
     const fields = optionsOf(view, 'chartFieldOption');
     const series = optionsOf(view, 'chartSeriesOption');

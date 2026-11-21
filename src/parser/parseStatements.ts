@@ -555,6 +555,42 @@ function parseVisualization(
       continue;
     }
 
+    if (/^\s*showTable\b/.test(line)) {
+      match = line.match(/^(\s*)showTable[ \t]+(.*?)[ \t]*$/);
+      if (!match || !match[2].trim()) return syntaxError('Invalid chart option', optionSource);
+      const expressionText = match[2].trimEnd();
+      const expressionOffset = line.indexOf(expressionText, match[1].length + 'showTable'.length);
+      const expressionSource = { line: optionSource.line, column: expressionOffset + 1 };
+      let expression;
+      try {
+        expression = parseExpression(expressionText, expressionSource);
+      } catch (error) {
+        if (error instanceof AmxError) throw error;
+        const message = error instanceof Error ? error.message : String(error);
+        let errorOffset = 0;
+        if (message.startsWith('Unexpected input after expression')) {
+          for (let index = 1; index < expressionText.length; index++) {
+            if (!/\s/.test(expressionText[index])) continue;
+            const prefix = expressionText.slice(0, index).trimEnd();
+            try {
+              parseExpression(prefix);
+              errorOffset = index + expressionText.slice(index).search(/\S/);
+              break;
+            } catch {
+            }
+          }
+        }
+        return syntaxError(message, {
+          line: expressionSource.line,
+          column: expressionSource.column + errorOffset
+        });
+      }
+      options.push({
+        type: 'chartShowTableOption', expression, source: optionSource
+      });
+      continue;
+    }
+
     if (header[1] === 'chart' && (match = line.match(new RegExp(`^\\s*description\\s*:\\s*${quoted}\\s*$`)))) {
       options.push({ type: 'viewDescriptionOption', value: match[1].slice(1, -1), source: optionSource });
       continue;

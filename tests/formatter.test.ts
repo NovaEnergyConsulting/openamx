@@ -349,6 +349,61 @@ describe('formatAmx', () => {
     expect(() => parseStatements(formatted)).not.toThrow();
   });
 
+  it('formats showTable without reordering or rewriting its expression', () => {
+    const source = [
+      'let values: Number[] = [1]',
+      'let enabled: Boolean = true',
+      'let threshold: Number = 10',
+      'chart amounts = column(values) {',
+      'title: "Amounts"',
+      'showTable (threshold >= 10) and enabled',
+      'description: "Dynamic"',
+      'series "Value"',
+      '}',
+      'show amounts'
+    ].join('\n');
+    const expected = [
+      'let values: Number[] = [1]',
+      'let enabled: Boolean = true',
+      'let threshold: Number = 10',
+      'chart amounts = column(values) {',
+      '  title: "Amounts"',
+      '  showTable (threshold >= 10) and enabled',
+      '  description: "Dynamic"',
+      '  series "Value"',
+      '}',
+      'show amounts',
+      ''
+    ].join('\n');
+    const formatted = formatAmx(source);
+    const before = (parseStatements(source)[3] as any).options;
+    const after = (parseStatements(formatted)[3] as any).options;
+    const withoutLocations = (option: any): unknown => option.type === 'chartShowTableOption'
+      ? { type: option.type, expression: option.expression.type, operator: option.expression.operator }
+      : { type: option.type };
+
+    expect(formatted).toBe(expected);
+    expect(formatAmx(formatted)).toBe(formatted);
+    expect(before.map(withoutLocations)).toEqual(after.map(withoutLocations));
+    expect(formatted).toContain('  showTable (threshold >= 10) and enabled\n  description:');
+  });
+
+  it('preserves LF and CRLF showTable document formatting and source-relative order', () => {
+    const lf = '# Chart\n```amx\nlet values: Number[] = [1]\nchart amounts = column(values) {\n  title: "Amounts"\n  showTable true\n  description: "Table"\n  series "Value"\n}\nshow amounts\n```\n';
+    const crlf = lf.replace(/\n/g, '\r\n');
+    for (const source of [lf, crlf]) {
+      const formatted = formatAmxDocument(source);
+      expect(formatted).toBe(source);
+      if (source.includes('\r\n')) expect(formatted).not.toMatch(/(^|[^\r])\n/);
+      else expect(formatted).not.toContain('\r\n');
+      const chart = parseDocumentText(formatted).nodes
+        .find(node => node.type === 'executableCodeBlock') as any;
+      expect(chart.statements[1].options.map((option: any) => option.type)).toEqual([
+        'viewTitleOption', 'chartShowTableOption', 'viewDescriptionOption', 'chartSeriesOption'
+      ]);
+    }
+  });
+
   it('formats valid multiline constructors idempotently and refuses legacy constructor colons', () => {
     const source = [
       'let item = Outer {',

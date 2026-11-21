@@ -53,6 +53,7 @@ export interface ChartViewModel {
   readonly kind: ChartDeclarationNode['kind'];
   readonly title: string;
   readonly description: string;
+  readonly showTable: boolean;
   readonly dimensions: Readonly<{ width: 720; height: 360 }>;
   readonly option: EChartsOption;
   readonly table: ChartTableModel;
@@ -275,6 +276,7 @@ export function createChartViewModel(
     kind: declaration.kind,
     title,
     description,
+    showTable: emission.showTable,
     dimensions: Object.freeze({ width: 720, height: 360 }),
     option,
     table,

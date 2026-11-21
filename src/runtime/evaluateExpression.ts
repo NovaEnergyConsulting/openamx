@@ -818,8 +818,17 @@ function snapshotView(name: string, env: Environment, file?: string, source?: So
   let labels: readonly string[] | undefined;
   let headings: readonly string[] | undefined;
   let measurementDescriptors: ChartViewEmission['measurementDescriptors'];
+  let showTable = false;
   let viewData: readonly ViewDataValue[];
   if (declaration.type === 'chartDeclaration') {
+    const showTableOption = declaration.options.find(option => option.type === 'chartShowTableOption');
+    if (showTableOption?.type === 'chartShowTableOption') {
+      const resolved = evaluateExpression(showTableOption.expression, env, file);
+      if (typeof resolved !== 'boolean') {
+        staticError('AMX3002', `Expected Boolean, got ${typeof resolved}`, showTableOption.expression.source, file);
+      }
+      showTable = resolved;
+    }
     const labelsOption = declaration.options.find(option => option.type === 'chartFieldOption' && option.role === 'labels');
     if (labelsOption?.type === 'chartFieldOption') {
       const labelValues = env.get(labelsOption.field, labelsOption.fieldSource, file);
@@ -854,7 +863,7 @@ function snapshotView(name: string, env: Environment, file?: string, source?: So
   return declaration.type === 'tableDeclaration'
     ? Object.freeze({ kind: 'table', ...emission, declaration })
     : Object.freeze({
-      kind: 'chart', ...emission, declaration,
+      kind: 'chart', ...emission, declaration, showTable,
       ...(labels ? { labels } : {}), ...(headings ? { headings } : {}),
       ...(measurementDescriptors?.length ? { measurementDescriptors } : {})
     });

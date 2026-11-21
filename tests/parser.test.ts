@@ -792,6 +792,64 @@ show barView`);
     });
   });
 
+  it("parses showTable expressions for every chart kind with exact source locations", () => {
+    const statements = parseStatements(`chart bars = bar(values) {
+\tshowTable enabled and threshold >= 10
+}
+chart columns = column(values) {
+  showTable false
+}
+chart lines = line(values) {
+  showTable (enabled)
+}
+chart points = scatter(values) {
+  showTable true
+}`);
+
+    for (const statement of statements) {
+      expect(statement).toMatchObject({ type: 'chartDeclaration' });
+      expect((statement as any).options[0]).toMatchObject({
+        type: 'chartShowTableOption',
+        expression: { source: expect.any(Object) }
+      });
+    }
+    expect((statements[0] as any).options[0]).toMatchObject({
+      source: { line: 2, column: 2 },
+      expression: { source: { line: 2, column: 12 } }
+    });
+  });
+
+  it("retains duplicate showTable nodes and preserves CRLF UTF-16 expression locations", () => {
+    const [chart] = parseStatements('chart view = column(values) {\r\n  title: "Values"\r\n  showTable true\r\n  showTable "😀" == "😀"\r\n  series "Value"\r\n}');
+    const options = (chart as any).options.filter((option: any) => option.type === 'chartShowTableOption');
+    expect(options).toHaveLength(2);
+    expect(options.map((option: any) => option.source)).toEqual([
+      { line: 3, column: 3 },
+      { line: 4, column: 3 }
+    ]);
+    expect(options[1].expression).toMatchObject({
+      type: 'binaryExpression',
+      source: { line: 4, column: 13 },
+      operatorSource: { line: 4, column: 18 }
+    });
+  });
+
+  it("rejects malformed showTable forms with AMX3006 and exact primary locations", () => {
+    const malformed = [
+      { source: 'chart bad = bar(items) {\n  showTable\n}', line: 2, column: 3, message: 'Invalid chart option' },
+      { source: 'chart bad = bar(items) {\n  showTable: true\n}', line: 2, column: 3, message: 'Invalid chart option' },
+      { source: 'chart bad = bar(items) {\n  showTable true trailing\n}', line: 2, column: 18, message: 'Unexpected input after expression at token identifier' }
+    ];
+    for (const fixture of malformed) {
+      expect(() => parseStatements(fixture.source)).toThrow(expect.objectContaining({
+        code: 'AMX3006',
+        message: fixture.message,
+        line: fixture.line,
+        column: fixture.column
+      }));
+    }
+  });
+
   it("rejects malformed forms and preserves placement violations for static checking", () => {
     expect(() => parseStatements('table bad = line(items) {\n  title: "bad"\n}')).toThrow(/Invalid visualization declaration/);
     expect(() => parseStatements('chart bad = bar(items) {\n  subtitle: "bad"\n}')).toThrow(/Invalid chart option/);

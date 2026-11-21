@@ -194,8 +194,14 @@ export interface ChartSeriesOptionNode {
   source?: SourceLocation;
 }
 
+export interface ChartShowTableOptionNode {
+  type: 'chartShowTableOption';
+  expression: V02ExpressionNode;
+  source?: SourceLocation;
+}
+
 export type VisualizationOptionNode = ViewTitleOptionNode | ViewDescriptionOptionNode
-  | TableColumnOptionNode | ChartFieldOptionNode | ChartSeriesOptionNode;
+  | TableColumnOptionNode | ChartFieldOptionNode | ChartSeriesOptionNode | ChartShowTableOptionNode;
 
 export interface TableDeclarationNode {
   type: 'tableDeclaration';

@@ -473,6 +473,81 @@ describe("Sprint 021 visualization checking", () => {
     expect(Object.isFrozen(emission.labels)).toBe(true);
   });
 
+  it("resolves showTable once per emission and snapshots reassigned bindings independently", () => {
+    const source = `let values: Number[] = [1, 2]\nlet enabled: Boolean = true\nlet threshold: Number = 10\nchart omitted = column(values) {\n  title: "Omitted"\n  description: "Default"\n  series "Value"\n}\nchart dynamic = column(values) {\n  title: "Dynamic"\n  description: "Current binding"\n  showTable threshold >= 10 and enabled\n  series "Value"\n}\nshow omitted\nshow dynamic\nenabled = false\nshow dynamic`;
+    const emissions = evaluateDocumentEnvironment(document(source), 'show-table-snapshot.amx').viewEmissions;
+    expect(emissions.map(emission => emission.kind === 'chart' ? emission.showTable : undefined)).toEqual([false, true, false]);
+    expect(emissions.map(emission => emission.data)).toEqual([[1, 2], [1, 2], [1, 2]]);
+    for (const emission of emissions) expect(Object.isFrozen(emission)).toBe(true);
+  });
+
+  it("emits literal showTable values for bar, column, line, and scatter charts", () => {
+    const source = `let values: Number[] = [1]\ntype Point {\n  x: Number\n  y: Number\n}\nlet points: Point[] = [Point { x = 1, y = 2 }]\nchart bars = bar(values) {\n  title: "Bar"\n  description: "False"\n  showTable false\n  series "Value"\n}\nchart columns = column(values) {\n  title: "Column"\n  description: "True"\n  showTable true\n  series "Value"\n}\nchart lines = line(values) {\n  title: "Line"\n  description: "False"\n  showTable false\n  series "Value"\n}\nchart pointsChart = scatter(points) {\n  title: "Scatter"\n  description: "True"\n  showTable true\n  x: x\n  y: y\n}\nshow bars\nshow columns\nshow lines\nshow pointsChart`;
+    const emissions = evaluateDocumentEnvironment(document(source), 'show-table-kinds.amx').viewEmissions;
+    expect(emissions.map(emission => emission.kind === 'chart' ? emission.showTable : undefined)).toEqual([
+      false, true, false, true
+    ]);
+  });
+
+  it("checks showTable with exact Boolean typing and ordinary diagnostics", () => {
+    const valid = `let values: Number[] = []\nlet enabled: Boolean = true\nlet threshold: Number = 10\nchart view = column(values) {\n  title: "Values"\n  description: "Typed option"\n  showTable threshold >= 10 and enabled\n  series "Value"\n}`;
+    expect(() => checkDocument(document(valid), 'show-table-valid.amx')).not.toThrow();
+
+    const invalid: Array<[string, string, string, number, number]> = [
+      ['showTable 1', 'AMX3002', 'Expected Boolean, got Number', 6, 13],
+      ['showTable "yes"', 'AMX3002', 'Expected Boolean, got String', 6, 13],
+      ['showTable missing', 'AMX3001', "Unknown identifier 'missing'", 6, 13]
+    ];
+    invalid.push(['showTable [true]', 'AMX3002', 'Expected Boolean, got Boolean[]', 6, 13]);
+    for (const [option, code, message, line, column] of invalid) {
+      const source = `let values: Number[] = []\nchart invalid = column(values) {\n  title: "Values"\n  description: "Invalid"\n  ${option}\n  series "Value"\n}`;
+      expect(() => checkDocument(document(source), 'show-table-invalid.amx')).toThrow(
+        expect.objectContaining({ code, message, line, column })
+      );
+    }
+
+    const nullable = `let values: Number[] = []\nlet maybe: Boolean? = null\nchart invalid = column(values) {\n  title: "Values"\n  description: "Nullable"\n  showTable maybe\n  series "Value"\n}`;
+    expect(() => checkDocument(document(nullable), 'show-table-nullable.amx')).toThrow(
+      expect.objectContaining({ code: 'AMX3002', message: 'Expected Boolean, got Boolean?', line: 7, column: 13 })
+    );
+
+    const record = `type Item {\n  id: String\n}\nlet item: Item = Item { id = "A" }\nlet values: Number[] = []\nchart invalid = column(values) {\n  title: "Values"\n  description: "Record"\n  showTable item\n  series "Value"\n}`;
+    expect(() => checkDocument(document(record), 'show-table-record.amx')).toThrow(
+      expect.objectContaining({ code: 'AMX3002', message: 'Expected Boolean, got Item', line: 10, column: 13 })
+    );
+
+    const call = `fn positive(value: Number): Boolean = value >= 0\nlet values: Number[] = []\nchart validCall = column(values) {\n  title: "Values"\n  description: "Valid call"\n  showTable positive(1)\n  series "Value"\n}`;
+    expect(() => checkDocument(document(call), 'show-table-call.amx')).not.toThrow();
+    const invalidCall = call.replace('positive(1)', 'positive("one")');
+    expect(() => checkDocument(document(invalidCall), 'show-table-call-invalid.amx')).toThrow(
+      expect.objectContaining({ code: 'AMX3002', message: 'Expected Number, got String', line: 7, column: 22 })
+    );
+    const invalidOperator = call.replace('positive(1)', '1 and true');
+    expect(() => checkDocument(document(invalidOperator), 'show-table-operator-invalid.amx')).toThrow(
+      expect.objectContaining({ code: 'AMX3007', message: 'Expected Boolean, got Number', line: 7, column: 13 })
+    );
+
+    const dimension = `dimension Length\nunit meter: Length\nlet values: Number[] = []\nchart invalid = column(values) {\n  title: "Values"\n  description: "Invalid"\n  showTable 1 meter\n  series "Value"\n}`;
+    expect(() => checkDocument(document(dimension), 'show-table-measurement.amx')).toThrow(
+      expect.objectContaining({
+        code: 'AMX3002',
+        message: 'Expected Boolean, got Measurement<["show-table-measurement.amx","Length"]^1>',
+        line: 8,
+        column: 13
+      })
+    );
+
+    const duplicate = `let values: Number[] = []\nchart duplicate = column(values) {\n  title: "Values"\n  description: "Duplicate"\n  showTable true\n  showTable false\n  series "Value"\n}`;
+    expect(() => checkDocument(document(duplicate), 'show-table-duplicate.amx')).toThrow(
+      expect.objectContaining({ code: 'AMX3005', message: "Repeated 'showTable' option", line: 7, column: 3 })
+    );
+
+    const table = `type Item {\n  id: String\n}\nlet items: Item[] = []\ntable register = table(items) {\n  title: "Register"\n  showTable true\n  column id as "ID"\n}`;
+    expect(() => checkDocument(document(table), 'show-table-table.amx')).toThrow(
+      expect.objectContaining({ code: 'AMX3003', message: 'Option is not valid for a table', line: 8, column: 3 })
+    );
+  });
+
   it("accepts the contracted typed table and chart data shapes", () => {
     const doc = document(`type Point {\n  id: String\n  x: Number?\n  y: Number?\n  score: Number?\n  at: DateTime\n  group: String\n}\nlet points: Point[] = []\nlet values: Number[] = [1, 2]\nlet labels: String[] = ["one", "two"]\ntable register = table(points) {\n  title: "Register"\n  column id as "Point"\n  column score as "Score"\n}\nchart bars = bar(points) {\n  title: "Bars"\n  description: "Grouped values"\n  category: id\n  series score as "Score"\n}\nchart columns = column(values) {\n  title: "Columns"\n  description: "Scalar values"\n  series "Value"\n  labels: labels\n}\nchart linePoints = line(points) {\n  title: "Line"\n  description: "Time series"\n  x: at\n  series score as "Score"\n}\nchart lineValues = line(values) {\n  title: "Line values"\n  description: "Indexed values"\n  series "Value"\n}\nchart scatterPoints = scatter(points) {\n  title: "Scatter"\n  description: "Grouped points"\n  x: x\n  y: y\n  group: group\n}`);
     expect(() => checkDocument(doc, 'chart-shapes.amx')).not.toThrow();
