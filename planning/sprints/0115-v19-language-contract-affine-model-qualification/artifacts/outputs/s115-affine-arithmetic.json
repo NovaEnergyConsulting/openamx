@@ -1,0 +1,144 @@
+{
+  "probe": "S115 affine arithmetic qualification",
+  "baselineEvidenceOnly": true,
+  "productRuntimeEvidence": false,
+  "parserCheckerEvidence": false,
+  "rendererEvidence": false,
+  "tolerance": 1e-10,
+  "passedCaseIds": [
+    "AFF-CONV-INVARIANT-01",
+    "AFF-CONV-REVERSE-01",
+    "AFF-ROUNDTRIP-01",
+    "AFF-SUB-SAME-01",
+    "AFF-SUB-MIX-01",
+    "AFF-SUM-01",
+    "AFF-MEAN-01",
+    "AFF-PRECEDENCE-01",
+    "AFF-PI-01",
+    "AFF-E-01"
+  ],
+  "declarationMetadata": {
+    "celsius": {
+      "scale": 1,
+      "offset": 273.15
+    },
+    "fahrenheit": {
+      "scale": 0.5555555555555556,
+      "offset": 255.3722222222222
+    },
+    "precedence": {
+      "scale": 0.5,
+      "offset": 3.141592653589793
+    },
+    "constants": {
+      "PI": 3.141592653589793,
+      "E": 2.718281828459045
+    }
+  },
+  "invariantPhysicalValues": [
+    {
+      "unit": "celsius",
+      "displayValue": 0,
+      "physicalKelvin": 273.15
+    },
+    {
+      "unit": "fahrenheit",
+      "displayValue": 32,
+      "physicalKelvin": 273.15
+    },
+    {
+      "unit": "kelvin",
+      "displayValue": 273.15,
+      "physicalKelvin": 273.15
+    }
+  ],
+  "conversionResults": [
+    {
+      "sourceCelsius": -40,
+      "toFahrenheit": -40.00000000000001,
+      "toKelvin": 233.14999999999998,
+      "viaFahrenheitCelsius": -40,
+      "viaKelvinCelsius": -40,
+      "finalUnit": "celsius"
+    },
+    {
+      "sourceCelsius": 0,
+      "toFahrenheit": 31.999999999999986,
+      "toKelvin": 273.15,
+      "viaFahrenheitCelsius": 0,
+      "viaKelvinCelsius": 0,
+      "finalUnit": "celsius"
+    },
+    {
+      "sourceCelsius": 20,
+      "toFahrenheit": 67.99999999999999,
+      "toKelvin": 293.15,
+      "viaFahrenheitCelsius": 20,
+      "viaKelvinCelsius": 20,
+      "finalUnit": "celsius"
+    },
+    {
+      "sourceCelsius": 21.25,
+      "toFahrenheit": 70.24999999999999,
+      "toKelvin": 294.4,
+      "viaFahrenheitCelsius": 21.25,
+      "viaKelvinCelsius": 21.25,
+      "finalUnit": "celsius"
+    }
+  ],
+  "subtraction": {
+    "same": {
+      "value": 10,
+      "unit": "celsius"
+    },
+    "mixed": {
+      "value": -36,
+      "unit": "fahrenheit"
+    }
+  },
+  "physicalAggregates": {
+    "sum": {
+      "value": 303.15,
+      "unit": "celsius"
+    },
+    "mean": {
+      "value": 15.616666666666674,
+      "unit": "celsius"
+    }
+  },
+  "rejectionPolicyEvidence": [
+    {
+      "caseId": "AFF-ADD-01",
+      "result": "REJECT-POLICY-ONLY"
+    },
+    {
+      "caseId": "AFF-MUL-01",
+      "result": "REJECT-POLICY-ONLY"
+    },
+    {
+      "caseId": "AFF-DIV-01",
+      "result": "REJECT-POLICY-ONLY"
+    },
+    {
+      "caseId": "AFF-POW-01",
+      "result": "REJECT-POLICY-ONLY"
+    },
+    {
+      "caseId": "AFF-SQRT-01",
+      "result": "REJECT-POLICY-ONLY"
+    },
+    {
+      "caseId": "AFF-USER-CONST-01",
+      "result": "NOT-RUN-DECLARATION-CHECKER"
+    },
+    {
+      "caseId": "AFF-IMPORTED-CONST-01",
+      "result": "NOT-RUN-DECLARATION-CHECKER"
+    },
+    {
+      "caseId": "AFF-CALL-01",
+      "result": "NOT-RUN-DECLARATION-CHECKER"
+    }
+  ],
+  "limitation": "Arithmetic evidence only; this probe does not execute OpenAMX parsing, checking, runtime evaluation, chart normalization, external-data validation, or rendering."
+}

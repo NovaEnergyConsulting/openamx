@@ -1,0 +1,30 @@
+{
+  "qualificationRows": 68,
+  "qualificationDistinct": 68,
+  "qualificationChtRows": 17,
+  "qualificationAffRows": 51,
+  "duplicateQualificationIds": [],
+  "diagnosticDistinctIds": 29,
+  "matrixDistinctIds": 68,
+  "missingFromRequirementMatrix": [],
+  "diagnosticIdsMissingFromCases": [],
+  "rangeOnlyMatrixRows": [
+    {
+      "requirementId": "V19-S115-01",
+      "finding": "Uses aggregate range wording for chart cases, but the full matrix still contains every distinct CHT-* case ID."
+    }
+  ],
+  "decisionIds": [
+    "D115-01",
+    "D115-02",
+    "D115-03",
+    "D115-04",
+    "D115-05",
+    "D115-06",
+    "D115-07",
+    "D115-08",
+    "D115-09"
+  ],
+  "status": "RECONCILED",
+  "limitation": "Source-coordinate and production evidence are outside this reconciliation; IDs are stable planning anchors only."
+}

@@ -1,0 +1,65 @@
+{
+  "sprint": "0115-v19-language-contract-affine-model-qualification",
+  "generatedAt": "2026-11-21",
+  "baselineBranch": "feat/create-V0.19",
+  "baselineCommit": "38627d8d783a2e99509eed79a75628451c271312",
+  "hashAlgorithm": "sha256",
+  "manifestExcludesItself": true,
+  "artifacts": [
+    {
+      "path": "affine-model-and-operations.md",
+      "bytes": 12133,
+      "sha256": "4735493b660bbece2481332044b920a08a919f7d476163cf33fc6836dbcffcff"
+    },
+    {
+      "path": "blueprint.md",
+      "bytes": 8262,
+      "sha256": "24ece7352f6d4136c2a6a8be53bbfb1e4f0c8ade0c17e435b69d189fed64a4a8"
+    },
+    {
+      "path": "builder-evidence.md",
+      "bytes": 12727,
+      "sha256": "b1607c99baa764a51e6f5310ce307238d9ba1bd6b3ee18f7f1c6d1a6e5e0b4fd"
+    },
+    {
+      "path": "diagnostic-matrix.md",
+      "bytes": 7756,
+      "sha256": "8ce25b1c9a23b01dc3f7642290b084850290f63b30ee8ce5b2a21561ef26af7d"
+    },
+    {
+      "path": "language-and-rendering-contract.md",
+      "bytes": 7556,
+      "sha256": "191b778a95bb62018f5d57b7548d9452da9ed42aa2efef5cce88112a8e2388e2"
+    },
+    {
+      "path": "qualification-cases.md",
+      "bytes": 11762,
+      "sha256": "522634be0f17ef1c8da6ba77b11bd98f2566a64fdc9719fbebebd8a27a66b8c8"
+    },
+    {
+      "path": "requirement-test-matrix.md",
+      "bytes": 8550,
+      "sha256": "a3d4770045c5c004f5d4dd748522064003899523ebf5ea3c766bfe3a33ddfd4a"
+    },
+    {
+      "path": "artifacts/probes/s115-affine-arithmetic-probe.ts",
+      "bytes": 7047,
+      "sha256": "6a3a6c8253c4e4274b4c7d271634003126dca67e5f88d750c6fa946e5f0c6d4b"
+    },
+    {
+      "path": "artifacts/outputs/s115-affine-arithmetic.json",
+      "bytes": 3222,
+      "sha256": "f13f85fa7fafd4442b7eda43ef94b354146948e94b2dd7dc64494e1f5da53a27"
+    },
+    {
+      "path": "artifacts/outputs/s115-id-reconciliation.json",
+      "bytes": 849,
+      "sha256": "f52d449922c4eab988f94ca43c8ee4cd259d388b22d488552e2e19a8637bd30e"
+    },
+    {
+      "path": "artifacts/logs/s115-execution-log.md",
+      "bytes": 9412,
+      "sha256": "4faeabc6ce66bfed8de9c03c4efe6adc671bfc974db878372d2ce5896ea2a076"
+    }
+  ]
+}

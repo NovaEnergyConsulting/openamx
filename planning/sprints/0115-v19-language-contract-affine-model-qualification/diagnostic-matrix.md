@@ -39,7 +39,9 @@ not allocated identities and not proof that the current runtime emits them.
 | AFF-ADD-01 | Direct addition where either measurement is affine | Static check where known | `+` operator | Reuse `AMX3007`, candidate `Direct addition of affine measurements is not supported` |
 | AFF-MUL-01 / AFF-DIV-01 | Unsupported affine multiplication/division | Static check where dimension is known | `*` or `/` operator | Reuse `AMX3007`, candidate `Affine measurement multiplication and division are not supported` |
 | AFF-POW-01 / AFF-SQRT-01 | Unsupported affine power/root | Static check | `^`, `pow`, or `sqrt` call source | Reuse `AMX3007`, candidate operation-specific affine rejection |
-| AFF-FINITE-01 | Affine physical/displayed result or chart normalization is non-finite | Runtime | Producing operator/call/source argument | Reuse `AMX3010` measurement-domain finite-result behavior or static-error `AMX3007` for chart normalization, preserving current phase policy |
+| AFF-FINITE-01 | Literal/static affine physical or arithmetic result is non-finite | Static check | Producing expression/operator or source argument | Reuse `AMX3010` static measurement finite-result behavior |
+| AFF-FINITE-01 | Runtime affine physical/displayed result is non-finite | Runtime | Producing operator/call/source argument | Reuse `AMX1009` dynamic measurement-domain behavior |
+| AFF-FINITE-01 | Chart measurement cannot normalize finitely | Runtime/check integration | Selected field/source or declaration context | Reuse the existing `AMX3007` chart-normalization diagnostic family rather than changing phase into a runtime-domain code |
 | AFF-EXTERNAL-COMPOUND-01 | External compound expression uses an affine factor | Input parsing/validation | Input unit text/data path and declaration source | Reuse `AMX4004` unknown/invalid unit error family; exact message must explain affine compound prohibition |
 | AFF-EXTERNAL-SHAPE-01 | External shape is not exactly `{ value, unit }` | Input validation | Input object/data path | Preserve `AMX4005`, `Measurement input must contain exactly the value and unit fields` |
 | AFF-CHART-FAIL-01 | Chart measurement cannot normalize to the first selected unit | Runtime/check integration | Selected field option plus declaration source | Preserve `AMX3007` chart normalization family and report declaration/field context |
@@ -51,9 +53,11 @@ not allocated identities and not proof that the current runtime emits them.
   affine metadata matters.
 - Do not allocate a fresh code merely to distinguish linear from affine for a
   condition already represented exactly by `AMX3007`, `AMX3008`, or `AMX3010`.
-- New exact codes are unnecessary in this candidate package. If implementation
-  discovers an existing code collision or a condition not expressible by an
-  existing family, the Lead Developer records a named allocation in
+- New exact codes are unnecessary in this candidate package. Static finite
+  checks remain `AMX3010`, dynamic measurement-domain failures remain `AMX1009`,
+  and chart normalization remains `AMX3007`. If implementation discovers an
+  existing code collision or a condition not expressible by one of these
+  phase-specific families, the Lead Developer records a named allocation in
   `planning/decisions.md` before the affected sprint proceeds.
 - Every negative fixture must assert phase, code, exact accepted message,
   primary source range, and applicable declaration/field secondary ranges.
@@ -67,5 +71,5 @@ D115-09 is blocking only for exact final message wording and any implementation
 discovered to need a new identity. The default candidate policy requires no
 new code: `AMX3006` parsing, `AMX3001` names, `AMX3002` Boolean/type,
 `AMX3003` option shape, `AMX3005` duplicate, `AMX3007` dimensional operation,
-`AMX3008` declaration, `AMX3010` finite runtime result, and `AMX4004`/`AMX4005`
-external input.
+`AMX3008` declaration, `AMX3010` static finite result, `AMX1009` dynamic
+measurement-domain result, and `AMX4004`/`AMX4005` external input.

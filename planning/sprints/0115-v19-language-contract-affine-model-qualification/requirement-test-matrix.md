@@ -19,7 +19,7 @@ sprints retain the case IDs in their test and evidence records.
 | V19-S115-03 | Define Boolean typing and normal expression/name environment | CHT-TYPE-01, CHT-NAME-01 | S116 | CANDIDATE; static checker feature absent |
 | V19-S115-04 | Define evaluation once per chart emission and dynamic environment timing | CHT-ENV-01; D115-02 | S116 | CANDIDATE; production emission field absent |
 | V19-S115-05 | Define omitted false and duplicate-option behavior | CHT-OMIT-01, CHT-FALSE-01, CHT-TRUE-01, CHT-DUP-01, CHT-PARSE-01 | S116 | CANDIDATE; no `showTable` AST option |
-| V19-S115-06 | Define exact output omission and all-output consistency without hidden markup | CHT-HTML-01, CHT-PDF-01, CHT-DOCX-01, CHT-OUTPUT-OMISSION-01, CHT-OUTPUT-TRUE-01; D115-03 | S119/S120 | CANDIDATE; current outputs always emit tables |
+| V19-S115-06 | Define exact output omission and all-output consistency without hidden markup or table-specific browser JSON | CHT-HTML-01, CHT-PDF-01, CHT-DOCX-01, CHT-OUTPUT-OMISSION-01, CHT-OUTPUT-TRUE-01; D115-03 | S119/S120 | RESOLVED FOR REVIEW; current outputs always emit tables and serialize table metadata |
 | V19-S115-07 | Define migration from implicit V0.18 table to explicit true | CHT-DEFAULT-MIGRATION-01 | S119/S120 | CANDIDATE; documentation update owned later |
 | V19-S115-08 | Formalize $p=v\times scale+offset$, inverse conversion, and display/physical distinction | AFF-CONV-INVARIANT-01, AFF-CONV-REVERSE-01, AFF-ROUNDTRIP-01, AFF-DISPLAY-01 | S117/S118 | CANDIDATE; current runtime scale-only |
 | V19-S115-09 | Define affine declaration precedence and accepted `+`/`-` forms | AFF-PRECEDENCE-01, AFF-TWO-UNIT-ADD-01, AFF-REVERSE-SUB-01; D115-04 | S117 | CANDIDATE; product review required |

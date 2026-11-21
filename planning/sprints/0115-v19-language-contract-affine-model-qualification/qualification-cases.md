@@ -26,7 +26,7 @@ remain exact.
 | CHT-PARSE-01 | Missing expression, `showTable: true`, or trailing invalid syntax | Parse failure at the option's first offending token | S116 |
 | CHT-TABLE-01 | `showTable true` appears in a table declaration | Existing invalid-option behavior | S116 |
 | CHT-NAME-01 | Expression refers to unknown/not-yet-visible name | Ordinary unknown-identifier diagnostic preserved | S116 |
-| CHT-HTML-01 | False/omitted chart prepared for interactive HTML and preview | Plot emitted; table markup/data caption absent; accessibility has no table reference | S119 |
+| CHT-HTML-01 | False/omitted chart prepared for interactive HTML and preview | Plot emitted; table markup/data caption and table-specific browser JSON are absent; accessibility has no table reference | S119 |
 | CHT-PDF-01 | False/omitted chart prepared for PDF | Plot emitted; no chart data table | S119 |
 | CHT-DOCX-01 | False/omitted chart prepared for DOCX | Plot emitted; no chart data table | S119 |
 | CHT-OUTPUT-OMISSION-01 | Any false/omitted renderer still emits table markup/content or table-linked accessibility output | Acceptance failure with artifact-level evidence; no table hiding fallback is accepted | S119/S120 |

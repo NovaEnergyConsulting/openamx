@@ -108,24 +108,34 @@ tables.
 
 The internal table model may still be constructed for model consistency and
 future consumers, but output surfaces must consult `showTable` before emitting
-markup/content. False is an output omission rule, not a reason to skip chart
-normalization or silently alter plotted data.
+markup/content or table-specific serialized metadata. False is an output
+omission rule, not a reason to skip chart normalization or silently alter
+plotted data. The browser chart payload may retain the plotted `option` needed
+by ECharts, but it must omit `table`, `tableId`, table caption/headings/rows,
+and any added alternate table representation when visibility is false.
+
+The accessibility model carries `tableId` only while a table is emitted. Its
+summary names a complete-data table only in that state. When the table is
+omitted, accessibility describes the chart and its row/point counts without a
+reference to nonexistent table content.
 
 ## Output Omission
 
 When resolved `showTable` is `false` or omitted:
 
 - Interactive HTML and preview emit the chart visualization but no table
-  element, caption, heading row, body row, table link, or CSS-hidden table.
+  element, caption, heading row, body row, table link, CSS-hidden table, or
+  serialized table property in chart JSON.
 - PDF and DOCX emit the chart visualization but no corresponding chart data
-  table, repeated heading, or caption.
+  table, repeated heading, caption, or alternate table image.
 - No screen-reader-only table, visually hidden duplicate, alternate data JSON,
   embedded table image, or serialized fallback is added for the hidden table.
 - Chart source data still exists in the runtime/model for plotting and normal
-  diagnostics; “emit no table” does not erase the source value.
-- Accessibility metadata must describe the chart without a reference to a
-  table that is absent. When `showTable` is true, the existing table-linked
-  accessibility behavior is preserved.
+  diagnostics; “emit no table” does not erase the source value. Data required by
+  the plot itself is not a table fallback.
+- Accessibility metadata must describe the chart without `tableId`, table
+  caption text, or a reference to a table that is absent. When `showTable` is
+  true, the existing table-linked accessibility behavior is preserved.
 
 When resolved `showTable` is `true`, chart plot and existing table contents,
 headings, null behavior, source order, measurement display, title, and

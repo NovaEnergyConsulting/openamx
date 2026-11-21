@@ -44,6 +44,7 @@ Existing unit declarations remain:
 UnitDeclaration ::= "unit" Name ":" DimensionName
                   | "unit" Name "=" UnitExpression
 UnitExpression ::= SumExpression
+ScalarExpression ::= DimensionlessExpression
 ```
 
 Reuse ordinary declaration-expression precedence:
@@ -52,6 +53,15 @@ Reuse ordinary declaration-expression precedence:
 2. signed integer power `^`;
 3. `*` and `/` from left to right;
 4. `+` and `-` from left to right, with the affine offset rules below.
+
+`DimensionlessExpression` permits numeric literals, `PI`, `E`, parentheses,
+unary numeric signs, and `+`, `-`, `*`, `/`, and signed integer `^` while the
+intermediate and final values remain finite. It permits zero as an intermediate
+scalar operand and may therefore produce a positive, zero, or negative offset;
+it does not permit a declaration to finish as scalar-only. User/imported
+values, calls, forward names, record access, and arbitrary Boolean or string
+expressions remain excluded. Division by zero and non-finite intermediate or
+final scalar values are declaration errors.
 
 Candidate Sprint 115 refinement D115-04:
 
@@ -79,7 +89,8 @@ Let an affine expression have transformation $A(v)=sv+o$.
 - Multiply a unit-bearing affine expression by finite positive scalar $k$:
   $(s,o) \rightarrow (ks,ko)$.
 - Divide a unit-bearing affine expression by finite positive scalar $k$:
-  $(s,o) \rightarrow (s/k,o/k)$.
+  $(s,o) \rightarrow (s/k,o/k)$. The affine expression must be the numerator;
+  `scalar / affineUnit` is rejected for a nonzero-offset affine transform.
 - For declaration `unit + k` or `scalar + unit`:
   $(s,o) \rightarrow (s,o+k)$.
 - For declaration `unit - k`: $(s,o) \rightarrow (s,o-k)$.
