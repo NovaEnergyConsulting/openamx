@@ -13,10 +13,6 @@ OpenAMX aims to become a “Markdown on steroids” for Asset Management: readab
     - Main programming language: TypeScript
     - Package manager: bun
     - Organisation: mono-repo organised in packages
-    - Main frameworks used:
-        - Langium
-            - Used as the basis of e-lang language implementation
-            - Framework docs URL: https://langium.org/docs/introduction/
 
 # Operating Model
 
