@@ -2,10 +2,10 @@
 
 ## Approach
 
-1. Reconcile the accepted S121 disposition from `state.md`, `decisions.md`,
-   `STATUS.json`, and the top-level S121 Builder evidence. Correct only the
-   stale S121 pending-status statements as an explicitly approved entry
-   reconciliation; retain all raw probe/test outcomes and residuals.
+1. Entry reconciliation completed before S122 implementation: verify the
+  accepted S121 disposition from `state.md`, `decisions.md`, `STATUS.json`,
+  and S121 Builder evidence; correct only stale pending-status statements
+  under explicit approval, preserving all raw probe/test outcomes/residuals.
 2. Record the approved S122 baseline and preserve the existing `dist` tree and
    prior S121 artifacts. List exact source/test paths and isolated fixture
    roots before implementation begins.
@@ -60,6 +60,8 @@ S122 execution scope. D121-01 through D121-18 remain authoritative.
 | D122-12 | Public helper compatibility | ACCEPTED: external fixture imports only the built package subpath and compiles under the approved TS/Bun baseline. | Product owner, 2026-11-25 |
 | D122-13 | Diagnostic code allocation | ACCEPTED: do not introduce new AMX codes/messages or change AMX semantics without separate allocation/disposition. | Product owner, 2026-11-25 |
 | D122-14 | Interpolation formatting | ACCEPTED: expose `amxFormatValue` for String/Number/Boolean/Measurement/null formatting and preserve AMX3007 for unsupported values. | Product owner, 2026-11-25 |
+| D122-15 | Enum-default parity applicability | ACCEPTED: preserve existing AMX semantics; test helper enum default factories, but require AMX oracle parity only for enum defaults the language can express. The unsupported enum-valued record-default subcase remains a named no-parity residual. | Product owner, 2026-11-25 |
+| D122-15 | Enum-default parity applicability | ACCEPTED: preserve existing AMX semantics. Direct helper default factories may return enum members and are helper-tested, but AMX oracle parity is not required for enum-valued field defaults because current AMX rejects both enum-member expressions (AMX3005) and primitive literals (AMX3002) as defaults. Record no enum-default AMX parity claim as a residual. | Product owner, 2026-11-25 |
 
 ## Source-Grounded Baseline
 

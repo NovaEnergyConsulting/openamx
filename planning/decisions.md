@@ -37,6 +37,14 @@
   and rejects the equivalent string literal as a String/Status type mismatch
   (`AMX3002`). Do not change checker/runtime semantics in S122; other helper,
   enum-member, and non-enum default cases continue within approved scope.
+- D122-15, accepted by the product owner on 2026-11-25, narrows AMX parity
+  acceptance to enum defaults that current AMX can express. The helper's
+  generated enum default-factory behavior remains tested, but no AMX parity
+  claim is made for enum-valued record defaults. The product owner
+  ACCEPTED/CLOSED S122 WITH RECORDED RESIDUALS on 2026-11-25, including this
+  parity limitation and the documented retry/stop-protocol deviation. This
+  closes only the approved S122 helper scope; it authorizes no AMX semantic
+  change, S123, S121 final feasibility closeout, or release/platform work.
 
 ## V0.20 Sprint 121 Product-Owner Contract Decisions (2026-11-25)
 

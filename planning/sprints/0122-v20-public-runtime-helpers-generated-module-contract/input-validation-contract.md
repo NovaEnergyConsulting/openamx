@@ -22,7 +22,7 @@ behavior.
 - Validation is recursive and returns a normalized, detached runtime value.
   It does not return the original object for mutation by generated code.
 
-## Candidate Public Type Descriptor
+## Public Type Descriptor
 
 The generated entry emits this compact schema consumed by a generic helper.
 The descriptor's `kind` discriminant is closed to these cases:
@@ -39,7 +39,6 @@ The descriptor's `kind` discriminant is closed to these cases:
 | `list` | Element descriptor; preserve order and recursively validate every element. |
 | `record` | Record name and declaration-ordered field descriptors, including required/optional/default policy. Reject unknown keys. |
 
-Candidate generic helper:
 Approved generic helper:
 
 ```ts
@@ -78,8 +77,15 @@ second set of primitive rules.
   expressions. Both numeric and string enum values are supported; reject a
   value with a different primitive type or a nonmember value.
 - Enums validate recursively in nested lists and records, including nullable
-  fields and defaults. S121 focused file-input tests do not alone prove direct
-  generated helper parity.
+  fields and generated default factories. S121 focused file-input tests do
+  not alone prove direct generated helper parity.
+- **D122-15 enum-default applicability:** the helper validates an enum member
+  returned by a generated default factory, but current AMX does not permit an
+  enum-valued record field default: an enum-member expression is rejected as
+  non-literal (`AMX3005`) and the equivalent primitive literal is rejected as
+  the wrong enum type (`AMX3002`). Keep the helper factory test; do not claim
+  AMX oracle parity for a source construct AMX cannot express. This exception
+  changes no AMX checker/runtime behavior.
 
 ## Measurement Inputs
 
@@ -106,9 +112,10 @@ second set of primitive rules.
 - Direct generated `run(inputs)` schema validation is tested separately using
   the public helper subpath. A file-backed validator pass is not used as a
   substitute for generated direct-input validation, or vice versa.
-- Any discrepancy in accepted defaults, optional fields, enum member values,
-  or measurement shape becomes a blocking compatibility decision; do not
-  silently maintain two behaviors.
+- Any discrepancy in AMX-expressible defaults, optional fields, enum member
+  values, or measurement shape becomes a blocking compatibility decision; do
+  not silently maintain two behaviors. D122-15 is the owner-dispositioned
+  exception for enum defaults that current AMX cannot express.
 
 ## Required Negative Cases
 

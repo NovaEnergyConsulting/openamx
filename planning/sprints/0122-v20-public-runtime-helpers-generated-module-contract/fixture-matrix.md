@@ -2,9 +2,10 @@
 
 ## Status and Comparison Rules
 
-Architect-prepared fixtures for the S122 public helper contract. These are not
-implementation evidence. Keep every `RT122-*` ID stable through tests and
-Builder evidence.
+Approved fixtures for the S122 public helper contract. Execution results are
+recorded in `builder-evidence.md`. Keep every `RT122-*` ID stable through tests
+and Builder evidence; D122-15 explicitly scopes enum-default AMX parity to
+source forms the current language can express.
 
 For AMX parity, run identical values through the current AMX runtime and the
 separately authored TypeScript consumer. Compare values, unit identity/display,
@@ -56,12 +57,12 @@ renderer output.
 | --- | --- | --- |
 | RT122-IN-PRIM-01 | Number/String/Boolean/DateTime valid and invalid values | Correct normalized type; Number finite; DateTime valid RFC 3339 string. |
 | RT122-IN-ENUM-01 | String and numeric enum member/nonmember/type mismatch | Only exact resolved values accepted; error path and AMX4003 exact. |
-| RT122-IN-RECURSE-01 | Enum nested in list, record, nullable field, and default | All accepted members/defaults work; invalid nested member reports full field path. |
+| RT122-IN-RECURSE-01 | Enum nested in list, record, nullable field, and generated default factory | Valid/invalid recursive members, nullable and list/record paths, and helper default factories pass. Under D122-15, no AMX parity claim is made for enum-valued record defaults because current AMX cannot express them. |
 | RT122-IN-FIELD-01 | Missing required, omitted optional, defaulted field, explicit null, unknown key | Current S121 presence/default semantics are exact and distinct. |
 | RT122-IN-MEASURE-01 | Exact `{value,unit}` linear/affine measure and alias | Correct display unit/value and dimension; no scale/offset serialized. |
 | RT122-IN-INVALID-01 | Extra/missing measurement key, unknown unit, wrong vector, nonfinite value/result | Reject before evaluation with exact `AMXInputError` fields. |
 | RT122-IN-FILE-JSON-01 | File-backed JSON record containing imported string/numeric enum | Existing validator accepts member, rejects nonmember, preserves nested path. |
-| RT122-IN-FILE-CSV-01 | File-backed CSV record with enum column/default/null cases | Existing validator and supported formats match accepted S121 behavior. |
+| RT122-IN-FILE-CSV-01 | File-backed CSV record with imported string/numeric enum columns, defaults, and null cases | Existing validator accepts exact string/numeric members and rejects nonmembers with AMX4003 paths. |
 
 ## View and Result Fixtures
 
@@ -96,13 +97,13 @@ successful compilation alone is not semantic parity.
 
 ## Master-Plan Traceability
 
-| Requirement ID | Sprint 122 master-plan requirement | Fixture / contract coverage | Preparation status |
+| Requirement ID | Sprint 122 master-plan requirement | Fixture / contract coverage | Builder result |
 | --- | --- | --- | --- |
-| V20-S122-01 | Provide a stable public helper subpath without exposing unrelated internals. | RT122-PKG-01 through RT122-PKG-03; `runtime-api-contract.md` | CANDIDATE; NOT RUN |
-| V20-S122-02 | Provide only helpers needed for AMX calculation semantics and typed caller input validation; reuse runtime behavior. | All rows in Operation and List Fixtures, Builtin Fixtures, and Input and Enum Fixtures; `runtime-api-contract.md`, `input-validation-contract.md` | CANDIDATE; NOT RUN |
-| V20-S122-03 | Complete the separately authorized enum-input validation prerequisite before claiming enum parity. | RT122-IN-ENUM-01, RT122-IN-RECURSE-01, RT122-IN-FILE-JSON-01, RT122-IN-FILE-CSV-01 | CANDIDATE; NOT RUN |
-| V20-S122-04 | Define generated types and `run(inputs)` contracts for exports and structured views, including declaration-time diagrams. | RT122-TYPE-01, RT122-RESULT-01, all rows in View and Result Fixtures; `view-dto-contract.md` | CANDIDATE; NOT RUN |
-| V20-S122-05 | Compile and run a separately authored TS fixture importing the helper entry point; verify module compatibility and runtime behavior. | RT122-PKG-01, `Separately Authored Consumer Fixture` section, all parity rows | CANDIDATE; NOT RUN |
+| V20-S122-01 | Provide a stable public helper subpath without exposing unrelated internals. | RT122-PKG-01 through RT122-PKG-03; `runtime-api-contract.md` | PASS |
+| V20-S122-02 | Provide only helpers needed for AMX calculation semantics and typed caller input validation; reuse runtime behavior. | All rows in Operation and List Fixtures, Builtin Fixtures, and Input and Enum Fixtures; `runtime-api-contract.md`, `input-validation-contract.md` | PASS for applicable behavior |
+| V20-S122-03 | Complete the separately authorized enum-input validation prerequisite before claiming enum parity. | RT122-IN-ENUM-01, applicable RT122-IN-RECURSE-01 cases, RT122-IN-FILE-JSON-01, RT122-IN-FILE-CSV-01; D122-15 enum-default residual | PASS for member parity; no enum-default AMX parity claim |
+| V20-S122-04 | Define generated types and `run(inputs)` contracts for exports and structured views, including declaration-time diagrams. | RT122-TYPE-01, RT122-RESULT-01, all rows in View and Result Fixtures; `view-dto-contract.md` | PASS |
+| V20-S122-05 | Compile and run a separately authored TS fixture importing the helper entry point; verify module compatibility and runtime behavior. | RT122-PKG-01, `Separately Authored Consumer Fixture`, applicable parity rows | PASS |
 
 The S121 four-case probe remains separate evidence. Passing RT122 consumer
 fixtures does not replace S121 final feasibility closeout or authorize S123.

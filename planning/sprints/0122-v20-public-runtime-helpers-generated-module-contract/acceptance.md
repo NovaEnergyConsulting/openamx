@@ -9,8 +9,9 @@ transpiler, CLI, desktop export, or release workflow.
 ## Entry and Authority
 
 - S121 is verified ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-11-25 from
-  canonical state/decision records and Builder evidence. Reconcile the stale
-  pending clauses in S121 acceptance/evidence before S122 implementation.
+  canonical state/decision records and Builder evidence. The stale pending
+  clauses in S121 acceptance/evidence were reconciled before S122 execution;
+  raw outcomes remain unchanged.
 - D121-13 through D121-18 remain fixed: source envelopes, distinct ordered
   diagram DTOs, enum support prerequisite, public-helper-first sequence, and
   best-effort/non-crash-atomic rollback.
@@ -69,6 +70,11 @@ transpiler, CLI, desktop export, or release workflow.
 - String- and numeric-valued enums validate exact resolved members recursively
   in direct helper inputs and existing file-backed JSON/CSV validation. The
   S121 Number-only probe is not used as enum parity evidence.
+- Direct helper enum default factories are tested, but AMX parity is required
+  only for default expressions expressible by current AMX. Under D122-15,
+  enum-valued record defaults remain an explicit no-parity residual because
+  the checker rejects both enum-member expressions and primitive literals;
+  S122 does not change AMX semantics.
 - Invalid inputs fail before evaluation and return no success-shaped result.
   Error path identifies the input or nested field.
 
@@ -114,5 +120,9 @@ transpiler, CLI, desktop export, or release workflow.
   Builder recommendation and product-owner disposition are separate.
 - Product owner separately accepts/closes or blocks/opens S122. S123 remains
   blocked until S122 and S121 final feasibility closeout are accepted.
+- The product owner ACCEPTED/CLOSED S122 WITH RECORDED RESIDUALS on
+  2026-11-25 for the approved helper scope. The enum-default no-parity
+  limitation and retry/stop-protocol deviation are recorded in
+  `builder-evidence.md`; neither is reclassified as a passing test.
 - No package/version, release, publication, deployment, distribution,
   installer, or platform-certification authority follows S122.

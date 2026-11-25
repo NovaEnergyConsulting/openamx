@@ -105,7 +105,8 @@ Do not claim generic Node or third-party runner compatibility from a Bun run.
 | Isolated package build | Detached worktree | PASS; `bun run build`, exit 0. No primary `dist/` path was written. |
 | Strict consumer compile | Detached worktree | PASS; exact ES2022/ESNext/bundler/strict command above, exit 0. |
 | Consumer/oracle execution | Detached worktree | PASS; exports, table/chart/diagram views and ordering match; 3 enum input errors, 2 top-level input errors, fresh result state, and affine diagnostic match. |
-| Enum-default oracle subcase | Detached worktree | BLOCKED/UNAVAILABLE by product-owner disposition; existing AMX checker rejects enum-valued field defaults. No semantics changed. |
+| Enum-default oracle subcase | Detached worktree | BLOCKED/UNAVAILABLE raw status; accepted as a no-parity residual under D122-15 because current AMX cannot express enum-valued record defaults. No semantics changed. |
+| Retry/stop-protocol compliance | Builder execution process | FAIL raw status; five repair/typecheck iterations exceeded the two-repair cap and work continued. Product Owner accepted the deviation as a recorded process residual. |
 | Public declaration audit | Detached worktree | PASS; no `any` or private engine type leaks. |
 | Root `dist` preservation | Repository root | PASS; exact 196-file path/length/hash manifests match before and after. |
 | `git diff --check` | Repository root | PASS; no whitespace errors. |

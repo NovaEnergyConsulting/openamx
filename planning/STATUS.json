@@ -1,5 +1,5 @@
 {
-  "phase": "awaiting-approval",
+  "phase": "sprint-closed",
   "sprint": "122",
-  "note": "S122 Builder work complete for approved scope and awaiting separate product-owner disposition. Focused tests 206/0 (1,107 assertions), root typecheck, isolated build, strict built-package consumer, AMX parity oracle, and root dist preservation pass. RT122-IN-RECURSE-01 enum-default AMX parity is BLOCKED/UNAVAILABLE because current AMX rejects enum-valued record defaults; no semantics were changed. Descriptor typing exceeded the retry cap and the Builder continued verification rather than stopping for replan; this execution-policy deviation is disclosed for owner review. Preserve S121 raw evidence and D121-18 best-effort/non-crash-atomic rollback residual. S123, S121 final feasibility closeout, and release/package-version/platform actions remain separately gated."
+  "note": "S122 ACCEPTED/CLOSED WITH RECORDED RESIDUALS by the product owner on 2026-11-25 for the approved helper scope. Focused tests 206/0 (1,107 assertions), root typecheck, isolated build, strict built-package consumer, AMX oracle, and root dist preservation pass. D122-15 excludes AMX parity for enum-valued record defaults the current language cannot express; no AMX semantics changed and no parity is claimed. The retry-cap/stop-protocol deviation is accepted as a process residual; raw failure/retry history remains recorded. Preserve S121 raw evidence and D121-18 best-effort/non-crash-atomic rollback residual. S121 final feasibility closeout and S123 remain separately gated."
 }

@@ -1,4 +1,4 @@
-# ARCHITECT BRIEFING — V0.20 Sprint 122 Builder Execution (2026-11-25)
+# ARCHITECT BRIEFING — V0.20 Sprint 122 Closeout (2026-11-25)
 
 ## Where things stand
 S121 was ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-11-25. Its approved
@@ -6,49 +6,49 @@ public-helper boundary probe passed, but full helper coverage and direct enum
 helper parity remained for S122. The approved work now covers only the public
 runtime helper contract and an isolated external consumer proof.
 
-S122's approved implementation and verification are complete on clean baseline
-`70f7e52` in `feat/create-V0.20.0`. The built public subpath compiles and runs
-an independent consumer, and AMX outputs, errors, and views match for the
-tested matrix. One required enum-default parity subcase is blocked because the
-current AMX checker rejects enum-valued record defaults. No AMX semantics were
-changed; the product owner directed that this remain a blocker.
+S122 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS by the product owner on
+2026-11-25. The public helper package and strict external consumer are verified
+against AMX for all applicable cases. D122-15 excludes parity for enum-valued
+record defaults because current AMX cannot express them; no AMX semantics were
+changed. The retry-cap/stop-protocol deviation is also accepted as a recorded
+process residual.
 
 ## Executive summary
 **Business outcome**: Complete the approved public runtime helper/type surface and verify it through a separately authored strict consumer of the built package.
 
-**Current focus**: Await separate product-owner disposition of the `BLOCKED/OPEN` Builder recommendation, including the enum-default parity subcase.
+**Current focus**: Prepare the separately gated S121 final feasibility closeout; S123 remains gated on that closeout and its own execution authorization.
 
-**What is proven**: Focused tests passed 206/0 with 1,107 assertions; root no-emit typecheck, isolated package build, strict consumer compile, AMX output/error/view oracle, package-boundary audit, `git diff --check`, and root `dist` hash preservation passed.
+**What is proven**: Focused tests passed 206/0 with 1,107 assertions; root no-emit typecheck, isolated package build, strict consumer compile, AMX output/error/view oracle, package-boundary audit, `git diff --check`, and root `dist` hash preservation passed. Imported string/numeric enum JSON/CSV cases and legacy diagram type compatibility are covered.
 
-**What is not proven/live**: AMX enum-valued record defaults remain unsupported, so that parity subcase is blocked. S123 emitter work, S121 final feasibility closeout, release, and platform qualification remain gated.
+**What is not proven/live**: No AMX parity claim is made for enum-valued record defaults, which current AMX rejects. Full S121 feasibility closeout, S123 emitter work, release, and platform qualification remain gated.
 
 ## Readiness signals
 
 | Signal | Status | Evidence |
 |---|---|---|
-| Public helper and built-package consumer | passed | Strict compile and Bun execution import `openamx/transpiler-runtime`; AMX values/errors/views match for exercised cases. |
 | Focused root verification and dist preservation | passed | 206/0 tests, root typecheck, diff check, and identical 196-file root dist manifests. |
-| Enum-default parity acceptance | attention | Current checker rejects enum-valued field defaults; RT122-IN-RECURSE-01 subcase is BLOCKED/UNAVAILABLE by owner direction. |
-| Retry-policy compliance | attention | Descriptor output typing exceeded the two-repair cap, and work continued with a compatibility fix and further checks instead of stopping for replan; full deviation recorded for owner review. |
-| Separate S122 disposition and next-sprint gates | attention | Builder recommendation is BLOCKED/OPEN; S123 and S121 final feasibility closeout remain gated. |
+| S122 helper package and applicable fixtures | passed | External built-package consumer, AMX oracle, focused tests, declarations, and root `dist` preservation passed. |
+| Accepted S122 residuals | attention | D122-15 enum-default no-parity limitation and retry/stop-protocol deviation are recorded and accepted; no AMX semantic change was made. |
+| S121 final feasibility closeout | attention | Still separately gated; S121 raw probe results and D121-18 residual remain unchanged. |
+| S123 emitter implementation | attention | Requires S121 final feasibility closeout and separate execution authorization. |
 
 ## Recommended next Architect action
-**Do**: Obtain product-owner disposition for the enum-default blocker and S122 Builder recommendation.
-**Owner**: Product Owner.
-**Decision**: Keep current AMX behavior; separately decide whether to accept the named residual or authorize an explicit future semantic amendment. S123 remains separately gated.
+**Do**: Prepare and separately authorize S121 final feasibility closeout; gate S123 afterward.
+**Owner**: Lead Developer / Product Owner.
+**Decision**: S122 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS. D122-15 and the retry/stop-protocol deviation are accepted; no AMX semantics or release authority follows.
 
 ## Evidence
 - `bun test tests/modules.test.ts tests/evaluator.test.ts tests/measurements.test.ts tests/inputData.test.ts tests/measurementData.test.ts` — 206 passed, 0 failed, 1,107 assertions.
 - `bunx tsc --noEmit`, isolated `bun run build`, strict external consumer compile, AMX oracle, `git diff --check`, and root dist preservation passed.
-- Exact commands, tool versions, hashes, first failures/retries, complete RT122 matrix, blocker, and changed-path audit are in `planning/sprints/0122-v20-public-runtime-helpers-generated-module-contract/builder-evidence.md` and `artifacts/run-01/`.
+- Exact commands, tool versions, hashes, first failures/retries, RT122 reconciliation, accepted residuals, and changed-path audit are in `planning/sprints/0122-v20-public-runtime-helpers-generated-module-contract/builder-evidence.md` and `artifacts/run-01/`.
 
 ## Plan corrections
-- The existing AMX checker rejects enum-valued record defaults; S122 preserves current semantics and blocks only that parity subcase. The diagram DTO keeps legacy `legacy-v1` compatibility alongside generated `structured-v2` data.
-- Descriptor output typing required five repair/typecheck iterations, exceeding the approved retry cap of two. Work continued with a legacy compatibility correction and further verification rather than stopping for replan; the full deviation is preserved for owner review.
+- Current AMX rejects enum-valued record defaults; D122-15 scopes parity to expressible AMX defaults and records no parity claim for enum defaults. The diagram DTO preserves the S121 type and constructor while adding structured `structured-v2` data.
+- Descriptor typing exceeded the retry cap and the Builder continued verification rather than stopping for replan. The product owner accepted this process deviation as a recorded residual.
 
 ## Validation / test status
 **Tests:** 206 passing, 0 failing, 1,107 assertions.
-The focused S122 suites, root no-emit typecheck, isolated build, strict consumer compile/run, AMX oracle, package audit, dist preservation, and `git diff --check` passed, with the enum-default subcase BLOCKED/UNAVAILABLE.
+The focused S122 suites, root no-emit typecheck, isolated build, strict consumer compile/run, AMX oracle, package audit, dist preservation, and `git diff --check` passed. Enum-default parity is an accepted no-parity residual under D122-15.
 
 ## Authority boundary
 No release, publication, package/version change, deployment, distribution,
