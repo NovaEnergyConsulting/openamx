@@ -40,24 +40,26 @@
 
 ## Decision Register
 
-The decisions below are S122 proposals until separately reviewed and
-dispositioned. D121-01 through D121-18 remain authoritative.
+The decisions below were approved by the product owner on 2026-11-25 for the
+S122 execution scope. D121-01 through D121-18 remain authoritative.
 
 | ID | Topic | Candidate disposition | Blocking owner |
 | --- | --- | --- | --- |
 | D122-01 | Public package boundary | Keep only `openamx/transpiler-runtime`; preserve current `./transpiler-runtime` target and wildcard fallback. Test built-package resolution; do not expose internal engine modules. | S122 contract gate |
-| D122-02 | Shared runtime errors | Export a stable AMX runtime diagnostic/error contract with code, message, source file/line/column, and input path. Preserve `AMXInputError` compatibility and existing AMX codes/messages where behavior is delegated. | S122 contract gate |
-| D122-03 | AMX value and measurement types | Publish recursive `AMXValue`, generic/branded `AMXMeasurement<DimensionId>`, `AMXUnitDescriptor<DimensionId>`, exact external `AMXMeasurementInput`, and source-context types. | S122 contract gate |
-| D122-04 | Operator API | Provide typed public helpers or one typed dispatcher for arithmetic, equality/order, logical, unary, and type-test semantics. No JavaScript `^`/list-index leakage; preserve current AMX evaluation order and affine rules. | S122/S123 |
-| D122-05 | Lists and ranges | Provide 1-based get/insert/remove, range construction, iteration, and list-argument copying with current bounds, mutation, and copy semantics. | S122/S123 |
-| D122-06 | Builtin ownership | Expose the checked builtin set through a narrow typed entry (candidate `amxBuiltin`) backed by existing standard-library behavior; include measurement-specific aggregate/unary semantics without exporting evaluator internals. | S122 contract gate |
-| D122-07 | Recursive input schema | Use a public descriptor/validator contract for primitive, DateTime, enum, nullable, list, record/default, and measurement values. Generated code may supply default factories; no unknown-key discard. | S122 contract gate |
-| D122-08 | Enum parity | Verify string and numeric enum members recursively for direct generated inputs and file-backed JSON/CSV; defaults, nullable values, and invalid members have exact cases. | S121/S122 |
-| D122-09 | View DTO schema | Keep table/chart/diagram discriminants; add sufficient chart labels/headings/series/measurement descriptors and complete declaration-time diagram data; no renderer types. | S122 contract gate |
-| D122-10 | Result type ownership | Generated entry defines `AMXRunInputs` and `AMXRunExports`; helper package owns generic `AMXRunResult<TExports>` and `AMXShownView`. | S122/S123 |
-| D122-11 | Immutability/copying | DTO constructors detach nested arrays/records from caller values and freeze the resulting tree; AMX value/list mutation semantics remain separate from view snapshot behavior. | S122 contract gate |
-| D122-12 | Public helper compatibility | The separately authored fixture imports only the package subpath and compiles under TS 5.9.3/ES2022/ESNext/bundler with Bun 1.4.5 execution. | S122 contract gate |
-| D122-13 | Diagnostic code allocation | Reuse existing AMX error identities for equivalent runtime conditions. Any new code/message or behavior change requires project-owner allocation and separate disposition. | Lead Developer allocator |
+| D122-01 | Public package boundary | ACCEPTED: keep only `openamx/transpiler-runtime`; preserve current `./transpiler-runtime` target and wildcard fallback; do not expose internal engine modules. | Product owner, 2026-11-25 |
+| D122-02 | Shared runtime errors | ACCEPTED: export stable AMX runtime diagnostic/error types with code, message, source context, and input path; preserve `AMXInputError` compatibility and delegated AMX identities. | Product owner, 2026-11-25 |
+| D122-03 | AMX value and measurement types | ACCEPTED: publish recursive `AMXValue`, branded `AMXMeasurement<DimensionId>`, unit/input descriptors, and source-context types. | Product owner, 2026-11-25 |
+| D122-04 | Operator API | ACCEPTED: expose closed `amxBinary` and `amxUnary` dispatchers for AMX operator semantics; no JavaScript `^`/index leakage. | Product owner, 2026-11-25 |
+| D122-05 | Lists and ranges | ACCEPTED: expose `amxGet1Based`, `amxAdd1Based`, `amxRemove1Based`, `amxRange`, `amxIterate`, and `amxCopyListArgument` with evaluator behavior. | Product owner, 2026-11-25 |
+| D122-06 | Builtin ownership | ACCEPTED: expose the closed current builtin set through `amxBuiltin`; reuse runtime behavior without public evaluator exports. | Product owner, 2026-11-25 |
+| D122-07 | Recursive input schema | ACCEPTED: expose `AMXInputDescriptor<T>` and `validateAMXValue<T>` for typed recursive validation, including generated default factories. | Product owner, 2026-11-25 |
+| D122-08 | Enum parity | ACCEPTED: verify string/numeric enum values recursively for direct generated inputs and file-backed JSON/CSV. | Product owner, 2026-11-25 |
+| D122-09 | View DTO schema | ACCEPTED: retain separate table/chart/diagram kinds; preserve the S121 `AMXDiagramView` type/constructor input, tag constructed legacy values `legacy-v1`, and expose closed structured `structured-v2` diagrams as `AMXStructuredDiagramView`; keep DTOs renderer-independent. | Product owner, 2026-11-25 |
+| D122-10 | Result type ownership | ACCEPTED: generated entry owns `AMXRunInputs`/`AMXRunExports`; helper owns generic `AMXRunResult<TExports>` and shared value/view types. | Product owner, 2026-11-25 |
+| D122-11 | Immutability/copying | ACCEPTED: DTO constructors detach nested values and freeze snapshots without freezing caller values. | Product owner, 2026-11-25 |
+| D122-12 | Public helper compatibility | ACCEPTED: external fixture imports only the built package subpath and compiles under the approved TS/Bun baseline. | Product owner, 2026-11-25 |
+| D122-13 | Diagnostic code allocation | ACCEPTED: do not introduce new AMX codes/messages or change AMX semantics without separate allocation/disposition. | Product owner, 2026-11-25 |
+| D122-14 | Interpolation formatting | ACCEPTED: expose `amxFormatValue` for String/Number/Boolean/Measurement/null formatting and preserve AMX3007 for unsupported values. | Product owner, 2026-11-25 |
 
 ## Source-Grounded Baseline
 

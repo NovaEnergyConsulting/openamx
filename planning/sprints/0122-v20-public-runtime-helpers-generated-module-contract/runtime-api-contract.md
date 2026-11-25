@@ -2,11 +2,10 @@
 
 ## Status
 
-Architect-prepared contract proposal for the existing
-`openamx/transpiler-runtime` subpath. S121's tested exports remain the
-compatibility baseline; additions below are required candidates for S122.
-Exact public names/signatures are finalized before implementation and then
-covered by declaration-file tests.
+Approved S122 contract for the existing `openamx/transpiler-runtime` subpath.
+The product owner approved the public names and behavior below on 2026-11-25;
+S121's tested exports remain the compatibility baseline. New declarations are
+additive and are covered by declaration-file tests.
 
 ## Public Boundary
 
@@ -26,7 +25,7 @@ covered by declaration-file tests.
 
 ## Public Types
 
-Candidate public types:
+Public types:
 
 | Type | Contract |
 | --- | --- |
@@ -38,8 +37,12 @@ Candidate public types:
 | `AMXMeasurement<DimensionId>` | Opaque/branded runtime measurement preserving displayed value and unit identity. It is not interchangeable with a plain number. |
 | `AMXMeasurementInput<DimensionId>` | Exact external shape `{ value: number; unit: string }`; no serialized offset/scale/physical-value fields. |
 | `AMXUnitDescriptor<DimensionId>` | Validated identity/name, positive finite scale, finite offset, dimension vector, and optional factor metadata. |
+| `AMXDiagramView` | Preserved S121 legacy diagram type; `schema` is optional so prior typed object literals remain assignable. |
+| `AMXStructuredDiagramView` | Closed `structured-v2` diagram DTO with primitive-specific element types. |
 | `AMXRunResult<TExports>` | Readonly `{ exports: Readonly<TExports>; views: readonly AMXShownView[] }`. Entry-specific `AMXRunInputs`/`AMXRunExports` remain generated types. |
-| `AMXShownView` | Discriminated union of `AMXTableView`, `AMXChartView`, and `AMXDiagramView`, as specified in `view-dto-contract.md`. |
+| `AMXInputDescriptor<T>` | Recursive descriptor for scalar, DateTime, enum, measurement, nullable, list, and record input values. |
+| `AMXRuntimeContext` | `AMXSourceContext` plus the explicit visible unit descriptors needed by measurement-aware helpers. |
+| `AMXShownView` | Union of table/chart views, the source-compatible S121 `AMXDiagramView`, and `AMXStructuredDiagramView`; constructed diagram values carry `legacy-v1` or `structured-v2`. |
 
 An opaque measurement brand must not alter the external `{ value, unit }`
 contract or require users to forge an internal measurement object. Helpers
@@ -48,10 +51,26 @@ construct the branded runtime value after validation.
 ## Operation Helpers
 
 Generated code uses native TypeScript only where semantics are identical. The
-candidate public operation surface is either typed operator-specific functions
-or a single `amxBinary`/`amxUnary` dispatcher with overloads that preserve
-strict caller typing. The S122 disposition must choose and document one shape;
-do not expose both redundant forms without a demonstrated need.
+approved operation surface is a closed `amxBinary`/`amxUnary` dispatcher; do
+not add redundant operator-specific forms.
+
+```ts
+export type AMXBinaryOperator = '+' | '-' | '*' | '/' | '%' | '^'
+  | '==' | '!=' | '>' | '>=' | '<' | '<=' | 'and' | 'or';
+export type AMXUnaryOperator = '-' | 'not';
+
+export function amxBinary(
+  operator: AMXBinaryOperator,
+  left: AMXValue,
+  right: AMXValue,
+  context?: AMXSourceContext
+): AMXValue;
+export function amxUnary(
+  operator: AMXUnaryOperator,
+  value: AMXValue,
+  context?: AMXSourceContext
+): AMXValue;
+```
 
 | Behavior | Required semantics |
 | --- | --- |
@@ -74,6 +93,26 @@ no public `any`; generated expressions may use checker-derived assertions only
 where the operation's checked result type is not expressible as a public
 conditional type.
 
+Generated string interpolation uses the approved `amxFormatValue` helper,
+which returns String values unchanged, formats Number and Boolean values with
+AMX's current representation, formats null as `null`, formats measurements as
+`<displayed value> <display unit>`, and raises AMX3007 for unsupported values.
+
+```ts
+export function amxFormatValue(
+  value: AMXValue,
+  context?: AMXSourceContext
+): string;
+```
+
+The approved list surface is `amxIsType`, `amxGet1Based`, `amxRange`,
+`amxAdd1Based`, `amxRemove1Based`, `amxIterate`, and `amxCopyListArgument`.
+They preserve evaluator mutation, bounds, order, scoping, and recursive-array
+copy behavior. An omitted add position appends. An omitted remove position
+pops one element; the AMX count argument is still validated as a positive
+integer. These helpers accept optional `AMXSourceContext` where an AMX error
+can be raised.
+
 ## Measurement and Builtin Helpers
 
 - Retain `amxAttach`, `amxConvert`, `amxPhysicalValue`, and `amxEqual`, with
@@ -82,8 +121,24 @@ conditional type.
   required by `evaluateExpression.ts`, including dimensions, scale/offset,
   compatible vectors, first/left display-unit selection, finite checks, and
   affine rejections.
-- Add the currently supported builtin set through a narrow typed entry
-  (candidate `amxBuiltin(name, args, context)`): `sum`, `min`, `max`, `mean`,
+- Add the currently supported builtin set through the approved narrow typed
+  entry `amxBuiltin(name, args, context)`: `sum`, `min`, `max`, `mean`,
+
+  ```ts
+  export type AMXBuiltinName = 'sum' | 'min' | 'max' | 'mean' | 'round' | 'abs'
+    | 'sqrt' | 'pow' | 'len' | 'trim' | 'left' | 'right' | 'format'
+    | 'sin' | 'cos' | 'tan' | 'asin' | 'acos' | 'atan' | 'sinh' | 'cosh'
+    | 'tanh' | 'asinh' | 'acosh' | 'atanh' | 'ln' | 'log' | 'exp';
+
+  export function amxBuiltin(
+    name: AMXBuiltinName,
+    args: readonly AMXValue[],
+    context?: AMXRuntimeContext
+  ): AMXValue;
+  ```
+
+  `AMXRuntimeContext.unitDescriptors` is the explicit generated-module unit set;
+  helpers do not consult a global registry, filesystem, or process environment.
   `round`, `abs`, `sqrt`, `pow`, `len`, `trim`, `left`, `right`, `format`,
   `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`,
   `asinh`, `acosh`, `atanh`, `ln`, `log`, and `exp`.
@@ -115,7 +170,9 @@ conditional type.
 
 - Existing S121 public functions remain callable with their prior signatures;
   optional context parameters are additive or new overloads preserve existing
-  consumers.
+  consumers. `amxDiagramView` retains the S121 legacy input overload and
+  returns the `legacy-v1` diagram schema; structured generated-module DTOs use
+  the `structured-v2` overload. Consumers narrow diagram payloads by `schema`.
 - Public objects and descriptor arrays have deterministic property/order
   behavior where it is observable. No locale/timezone/environment dependency
   is introduced except the explicit existing `format` locale argument.

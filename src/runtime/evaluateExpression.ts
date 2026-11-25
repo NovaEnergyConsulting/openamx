@@ -508,6 +508,164 @@ function evalUnary(
   throw new Error(`Unsupported unary operator: ${node.operator}`);
 }
 
+export function evaluateBinaryValues(
+  operator: BinaryExpressionNode['operator'],
+  leftValue: unknown,
+  rightValue: unknown,
+  source?: SourceLocation,
+  file?: string
+): unknown {
+  const environment = new Environment();
+  const leftName = '__amxRuntimeLeftValue';
+  const rightName = '__amxRuntimeRightValue';
+  environment.set(leftName, leftValue);
+  environment.set(rightName, rightValue);
+  return evalBinary({
+    type: 'binaryExpression',
+    operator,
+    left: { type: 'identifier', name: leftName, source },
+    right: { type: 'identifier', name: rightName, source },
+    operatorSource: source,
+    source
+  }, environment, file);
+}
+
+export function evaluateUnaryValue(
+  operator: UnaryExpressionNode['operator'],
+  value: unknown,
+  source?: SourceLocation,
+  file?: string
+): unknown {
+  const environment = new Environment();
+  const name = '__amxRuntimeUnaryValue';
+  environment.set(name, value);
+  return evalUnary({
+    type: 'unaryExpression',
+    operator,
+    argument: { type: 'identifier', name, source },
+    source
+  }, environment, file);
+}
+
+export function evaluateBuiltinValues(
+  callee: string,
+  values: readonly unknown[],
+  source?: SourceLocation,
+  file?: string,
+  dimensionRegistry?: DimensionUnitRegistry
+): unknown {
+  const environment = new Environment();
+  environment.dimensionRegistry = dimensionRegistry;
+  const argumentsList = values.map((value, index) => {
+    const name = `__amxRuntimeArgument${index}`;
+    environment.set(name, value);
+    return { type: 'identifier' as const, name, source };
+  });
+  return evalFunctionCall({
+    type: 'functionCall',
+    callee,
+    arguments: argumentsList,
+    source
+  }, environment, file);
+}
+
+export function evaluateListItem(
+  listValue: unknown,
+  indexValue: unknown,
+  source?: SourceLocation,
+  file?: string
+): unknown {
+  const environment = new Environment();
+  const listName = '__amxRuntimeListValue';
+  const indexName = '__amxRuntimeIndexValue';
+  environment.set(listName, listValue);
+  environment.set(indexName, indexValue);
+  return evalListAccess({
+    type: 'listAccess',
+    receiver: { type: 'identifier', name: listName, source },
+    index: { type: 'identifier', name: indexName, source },
+    source
+  }, environment, file);
+}
+
+export function evaluateRangeValues(
+  startValue: unknown,
+  endValue: unknown,
+  source?: SourceLocation,
+  file?: string
+): number[] {
+  const environment = new Environment();
+  const startName = '__amxRuntimeRangeStart';
+  const endName = '__amxRuntimeRangeEnd';
+  environment.set(startName, startValue);
+  environment.set(endName, endValue);
+  return evalRange({
+    type: 'rangeExpression',
+    start: { type: 'identifier', name: startName, source },
+    end: { type: 'identifier', name: endName, source },
+    source
+  }, environment, file);
+}
+
+export function evaluateListAddition(
+  list: unknown,
+  value: unknown,
+  position: unknown,
+  mutable: boolean,
+  targetName: string,
+  source?: SourceLocation,
+  file?: string
+): void {
+  const environment = new Environment();
+  environment.set(targetName, list);
+  if (!mutable) environment.markImmutable(list);
+  const valueName = '__amxRuntimeListAddValue';
+  const positionName = '__amxRuntimeListAddPosition';
+  environment.set(valueName, value);
+  environment.set(positionName, position);
+  evaluateAddStatement({
+    type: 'addStatement', name: targetName,
+    value: { type: 'identifier', name: valueName, source },
+    ...(position === undefined ? {} : { index: { type: 'identifier' as const, name: positionName, source } }),
+    source
+  }, environment, file);
+}
+
+export function evaluateListRemoval(
+  list: unknown,
+  count: unknown,
+  position: unknown,
+  mutable: boolean,
+  targetName: string,
+  source?: SourceLocation,
+  file?: string
+): void {
+  const environment = new Environment();
+  environment.set(targetName, list);
+  if (!mutable) environment.markImmutable(list);
+  const countName = '__amxRuntimeListRemoveCount';
+  const positionName = '__amxRuntimeListRemovePosition';
+  environment.set(countName, count);
+  environment.set(positionName, position);
+  evaluateRemoveStatement({
+    type: 'removeStatement', name: targetName,
+    count: { type: 'identifier', name: countName, source },
+    ...(position === undefined ? {} : { index: { type: 'identifier' as const, name: positionName, source } }),
+    source
+  }, environment, file);
+}
+
+export function evaluateIterableValue(
+  value: unknown,
+  source?: SourceLocation,
+  file?: string
+): unknown[] {
+  const environment = new Environment();
+  const name = '__amxRuntimeIterableValue';
+  environment.set(name, value);
+  return evaluateLoopIterable({ type: 'identifier', name, source }, environment, file);
+}
+
 function evalConditional(
   node: ConditionalExpressionNode,
   env: Environment,

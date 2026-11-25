@@ -104,13 +104,17 @@ Builder interpretation and owner disposition.
   helper probe matched exports and ordered chart/diagram data; enum checker and
   JSON/CSV validation tests pass. Cite unrun emitter/graph/UI work as outside
   this S121 gate, not as passing evidence.
-- **Product-owner disposition:** PENDING; record separately with date and
-  exact accepted scope. A Builder recommendation does not close Sprint 121.
+- **Product-owner disposition:** `ACCEPTED/CLOSED WITH RECORDED RESIDUALS` by
+  the product owner on 2026-11-25 for the S121 contract and approved
+  helper-boundary feasibility scope only. The disposition does not upgrade
+  raw outcomes or close the recorded residuals.
 - **S122 readiness:** The authorized helper slice and public subpath are
   implemented and proven for the four-case boundary only; full helper API
   semantics, list/builtin coverage, and a separate S122 acceptance remain
   pending.
-- **S123 readiness:** PENDING on S121 acceptance and S122 helper acceptance.
+- **S123 readiness:** BLOCKED on S122 helper acceptance and S121 final
+  feasibility closeout; the S121 product-owner disposition is already
+  ACCEPTED/CLOSED WITH RECORDED RESIDUALS for its approved scope only.
 - **Limitations:** One Windows/Bun host only. No full emitter, CLI/desktop,
   rendered report, native/platform, release, or multi-file publication-failure
   acceptance is claimed. The D121-18 rollback residual remains open for later

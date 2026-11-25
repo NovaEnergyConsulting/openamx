@@ -1,5 +1,43 @@
 # Planning Decisions
 
+## V0.20 Sprint 122 Product-Owner Authorization and Contract Decisions (2026-11-25)
+
+- The product owner authorized S122 execution against clean baseline
+  `70f7e52aca9b82407183ec3ebf9e51fabb54d8da` on
+  `feat/create-V0.20.0`, with the exact source/test/planning paths, commands,
+  fixture/oracle sources, isolated build worktree, artifact root, retry limit,
+  root `dist` preservation, and cleanup boundary recorded in the S122
+  `verification-plan.md`.
+- D122-01 through D122-13 are accepted as recorded in the S122 blueprint.
+  Public helpers use closed `amxBinary`/`amxUnary` and `amxBuiltin` dispatchers,
+  the named 1-based list/range helpers, recursive `AMXInputDescriptor<T>` and
+  `validateAMXValue<T>`, and the generic result/value/view types.
+- Direct input failures use `AMX4003`; nested paths append zero-based,
+  escaped JSON Pointer segments to the root input name. Defaults are supplied
+  as generated value factories; missing optional fields materialize as null.
+- Diagram DTO compatibility is amended to preserve the S121 constructor as
+  `schema: 'legacy-v1'` and introduce the closed structured primitive DTO as
+  `schema: 'structured-v2'`. Both retain `kind: 'diagram'`; consumers narrow
+  by `schema`. The legacy shape does not weaken the structured element type.
+- No new AMX error code/message or AMX semantic change is authorized. A
+  mismatch or need for a new code blocks the affected case for separate
+  disposition. S121's helper boundary passed its approved probe; full helper
+  coverage and direct string/numeric enum parity remain S122 work.
+- D121-18 remains best-effort/non-crash-atomic; no graph publication or
+  rollback test is in S122. S123 and S121 final feasibility closeout remain
+  separately gated. No release, version, publication, deployment, installer,
+  distribution, registry, or certification authority follows.
+- D122-14, separately approved on 2026-11-25, adds public
+  `amxFormatValue(value, context?)` for AMX String/Number/Boolean/Measurement/
+  null interpolation formatting and AMX3007 unsupported-value errors.
+- Product-owner disposition on 2026-11-25: keep current AMX semantics and
+  record the enum-valued record-default parity subcase of
+  `RT122-IN-RECURSE-01` as `BLOCKED/UNAVAILABLE`, owned by the Product Owner.
+  The AMX checker rejects `Status.READY` defaults as non-literals (`AMX3005`)
+  and rejects the equivalent string literal as a String/Status type mismatch
+  (`AMX3002`). Do not change checker/runtime semantics in S122; other helper,
+  enum-member, and non-enum default cases continue within approved scope.
+
 ## V0.20 Sprint 121 Product-Owner Contract Decisions (2026-11-25)
 
 - D121-01 through D121-12 and D121-14 are accepted as recorded in the S121

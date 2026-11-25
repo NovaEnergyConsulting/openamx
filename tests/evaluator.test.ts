@@ -1,3 +1,4 @@
+import { evaluateBinaryValues, evaluateBuiltinValues, evaluateUnaryValue } from "../src/runtime/evaluateExpression";
 /**
  * Evaluator tests for Sprint 003: Variable Declarations + Basic Arithmetic Expressions.
  *
@@ -27,6 +28,17 @@ import { evaluateExpression } from "../src/runtime/evaluateExpression";
 import { parseDocumentText } from "../src/parser/parseDocument";
 import { checkDocument, checkingActivated } from "../src/typechecker/checkDocument";
 import { renderHtml } from "../src/renderer/renderHtml";
+
+describe("S122 shared operation value adapters", () => {
+  it("routes generated values through existing AMX operator semantics", () => {
+    expect(evaluateBinaryValues('^', 2, 3)).toBe(8);
+    expect(evaluateBinaryValues('+', '2', 3)).toBe(5);
+    expect(evaluateBinaryValues('and', 1, 'x')).toBe(true);
+    expect(evaluateUnaryValue('not', '')).toBe(true);
+    expect(evaluateBuiltinValues('sum', [[1, 2, 3]])).toBe(6);
+    expect(evaluateBuiltinValues('trim', ['  AMX  '])).toBe('AMX');
+  });
+});
 
 describe("Sprint 014 activated checking and records", () => {
   const document = (source: string) => parseDocumentText(`\`\`\`amx\n${source}\n\`\`\``);

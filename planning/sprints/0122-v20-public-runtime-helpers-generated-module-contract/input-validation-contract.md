@@ -2,10 +2,10 @@
 
 ## Status
 
-Architect-prepared proposal. Preserve D121-10 and D121-16. The exact public
-descriptor and helper signatures are to be dispositioned before implementation;
-the validation rules below follow the accepted S121 contract and current
-`runtime/inputData.ts` behavior.
+Approved S122 contract. Preserve D121-10 and D121-16. The public descriptor
+uses the `AMXInputDescriptor<T>` name and `validateAMXValue<T>` helper; rules
+below follow the accepted S121 contract and current `runtime/inputData.ts`
+behavior.
 
 ## Direct `run(inputs)` Validation
 
@@ -15,16 +15,17 @@ the validation rules below follow the accepted S121 contract and current
   entry input keys. Missing and unknown keys reject before any AMX statement
   executes.
 - Errors carry `inputPath`, expected type, actual type, and the accepted
-  `AMX4003` code. Nested paths use escaped JSON Pointer segments (`~0`, `~1`)
-  or another single accepted stable format; record that exact format in the
-  public type docs and fixture assertions.
+  `AMX4003` code. `inputPath` is the root AMX input name followed by zero or
+  more JSON Pointer segments: `/` is `~1`, `~` is `~0`, and list indexes are
+  zero-based decimal segments. For example, field `status` in the first item
+  of input `payload` is `payload/0/status`; the root itself is `payload`.
 - Validation is recursive and returns a normalized, detached runtime value.
   It does not return the original object for mutation by generated code.
 
 ## Candidate Public Type Descriptor
 
-The generated entry may emit a compact schema consumed by a generic helper.
-Candidate discriminants:
+The generated entry emits this compact schema consumed by a generic helper.
+The descriptor's `kind` discriminant is closed to these cases:
 
 | Descriptor | Required data and validation |
 | --- | --- |
@@ -39,10 +40,23 @@ Candidate discriminants:
 | `record` | Record name and declaration-ordered field descriptors, including required/optional/default policy. Reject unknown keys. |
 
 Candidate generic helper:
+Approved generic helper:
 
 ```ts
 validateAMXValue<T>(value: unknown, descriptor: AMXInputDescriptor<T>, context: AMXSourceContext): T
 ```
+
+The descriptor's `T` is the normalized runtime value returned by validation,
+not the caller's serialized measurement input shape. The type binding is
+carried by a private unique-symbol marker and is not a descriptor data field.
+
+Record field descriptors are declaration-ordered and contain `name`, a nested
+`descriptor`, and optional `optional` and `defaultValue` properties. A
+`defaultValue` is a zero-argument factory for the already checked AMX default
+value; it runs only for an absent field. `optional: true` without a default
+materializes `null`. A missing field without either policy fails. Top-level
+input descriptors are records with required declared fields and reject unknown
+keys.
 
 Keep the existing low-level `requireAMX*` functions as compatibility helpers;
 the generated schema helper must compose or reuse them rather than create a
@@ -80,6 +94,8 @@ second set of primitive rules.
   physical values into input/output JSON.
 - Dimension identity is authoritative; matching display names alone is not
   sufficient.
+- `AMXInputError.inputPath` uses the root-name-plus-JSON-Pointer format defined
+  above. Existing four-argument low-level guard signatures are unchanged.
 
 ## File-Backed JSON/CSV Boundary
 

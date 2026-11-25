@@ -30,6 +30,13 @@ transpiler, CLI, desktop export, or release workflow.
   external consumer. No public `any` escape hatch is introduced.
 - `AMXRunInputs` and `AMXRunExports` are generated-entry-specific. The helper
   package exports the generic result/view/value contracts consumed by them.
+- The old S121 `amxDiagramView` signature remains callable and produces an
+  explicit `schema: 'legacy-v1'` DTO. Structured generated-module diagrams
+  use `schema: 'structured-v2'` with the closed primitive element union;
+  consumers narrow by `schema` without widening the structured DTO. The
+  exported `AMXDiagramView` type name remains assignable from an S121-shaped
+  object without a `schema` field; structured callers use
+  `AMXStructuredDiagramView`.
 
 ## Semantics Coverage
 

@@ -1,0 +1,432 @@
+{
+  "status": "PASS",
+  "outputsAndViews": {
+    "actual": {
+      "exports": {
+        "total": 11,
+        "status": "ready",
+        "priority": 2,
+        "distanceMeters": {
+          "value": 1000,
+          "unit": "meter",
+          "vector": {
+            "Length": 1
+          }
+        },
+        "temperatureDelta": {
+          "value": 10,
+          "unit": "celsius",
+          "vector": {
+            "ThermodynamicTemperature": 1
+          }
+        },
+        "distanceText": "Distance 1 kilometer"
+      },
+      "views": [
+        {
+          "kind": "diagram",
+          "schema": "structured-v2",
+          "name": "scene",
+          "title": "Scene",
+          "description": "Initial frame",
+          "canvas": {
+            "width": 100,
+            "height": 80,
+            "coordinates": "bottom-left-y-up"
+          },
+          "timeline": {
+            "variable": "time",
+            "from": 0,
+            "to": 1,
+            "duration": 1
+          },
+          "initialFrame": {
+            "time": 0,
+            "elements": [
+              {
+                "primitive": "line",
+                "name": "axis",
+                "x1": 0,
+                "y1": 0,
+                "x2": 10,
+                "y2": 10,
+                "stroke": "#111111",
+                "lineWidth": 1,
+                "arrow": "none"
+              },
+              {
+                "primitive": "rectangle",
+                "name": "block",
+                "x": 2,
+                "y": 3,
+                "width": 4,
+                "height": 5,
+                "stroke": "#222222",
+                "fill": "#eeeeee",
+                "lineWidth": 1
+              },
+              {
+                "primitive": "circle",
+                "name": "pivot",
+                "cx": 5,
+                "cy": 6,
+                "r": 2,
+                "stroke": "#333333",
+                "fill": "#ffffff",
+                "lineWidth": 1
+              },
+              {
+                "primitive": "text",
+                "name": "label",
+                "x": 7,
+                "y": 8,
+                "value": "AMX",
+                "fill": "#444444"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "table",
+          "name": "rowsTable",
+          "title": "Input rows",
+          "description": "",
+          "columns": [
+            {
+              "field": "amount",
+              "label": "Amount"
+            },
+            {
+              "field": "tag",
+              "label": "Tag"
+            },
+            {
+              "field": "note",
+              "label": "Note"
+            }
+          ],
+          "rows": [
+            [
+              2,
+              "default",
+              null
+            ],
+            [
+              4,
+              "default",
+              null
+            ]
+          ]
+        },
+        {
+          "kind": "chart",
+          "name": "distanceChart",
+          "chartKind": "line",
+          "title": "Distance",
+          "description": "Normalized measurements",
+          "data": [
+            1,
+            0.5
+          ],
+          "labels": [
+            "input",
+            "comparison"
+          ],
+          "headings": [
+            "label",
+            "Distance (kilometer)"
+          ],
+          "measurementDescriptors": [
+            {
+              "role": "series",
+              "label": "Distance",
+              "unit": {
+                "text": "kilometer",
+                "scale": 1000,
+                "vector": {
+                  "Length": 1
+                },
+                "factors": [
+                  {
+                    "identity": "kilometer",
+                    "name": "kilometer",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          ],
+          "showTable": false
+        }
+      ]
+    },
+    "reference": {
+      "exports": {
+        "total": 11,
+        "status": "ready",
+        "priority": 2,
+        "distanceMeters": {
+          "value": 1000,
+          "unit": "meter",
+          "vector": {
+            "Length": 1
+          }
+        },
+        "temperatureDelta": {
+          "value": 10,
+          "unit": "celsius",
+          "vector": {
+            "ThermodynamicTemperature": 1
+          }
+        },
+        "distanceText": "Distance 1 kilometer"
+      },
+      "views": [
+        {
+          "kind": "diagram",
+          "schema": "structured-v2",
+          "name": "scene",
+          "title": "Scene",
+          "description": "Initial frame",
+          "canvas": {
+            "width": 100,
+            "height": 80,
+            "coordinates": "bottom-left-y-up"
+          },
+          "timeline": {
+            "variable": "time",
+            "from": 0,
+            "to": 1,
+            "duration": 1
+          },
+          "initialFrame": {
+            "time": 0,
+            "elements": [
+              {
+                "primitive": "line",
+                "name": "axis",
+                "x1": 0,
+                "y1": 0,
+                "x2": 10,
+                "y2": 10,
+                "stroke": "#111111",
+                "lineWidth": 1,
+                "arrow": "none"
+              },
+              {
+                "primitive": "rectangle",
+                "name": "block",
+                "x": 2,
+                "y": 3,
+                "width": 4,
+                "height": 5,
+                "stroke": "#222222",
+                "fill": "#eeeeee",
+                "lineWidth": 1
+              },
+              {
+                "primitive": "circle",
+                "name": "pivot",
+                "cx": 5,
+                "cy": 6,
+                "r": 2,
+                "stroke": "#333333",
+                "fill": "#ffffff",
+                "lineWidth": 1
+              },
+              {
+                "primitive": "text",
+                "name": "label",
+                "x": 7,
+                "y": 8,
+                "value": "AMX",
+                "fill": "#444444"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "table",
+          "name": "rowsTable",
+          "title": "Input rows",
+          "description": "",
+          "columns": [
+            {
+              "field": "amount",
+              "label": "Amount"
+            },
+            {
+              "field": "tag",
+              "label": "Tag"
+            },
+            {
+              "field": "note",
+              "label": "Note"
+            }
+          ],
+          "rows": [
+            [
+              2,
+              "default",
+              null
+            ],
+            [
+              4,
+              "default",
+              null
+            ]
+          ]
+        },
+        {
+          "kind": "chart",
+          "name": "distanceChart",
+          "chartKind": "line",
+          "title": "Distance",
+          "description": "Normalized measurements",
+          "data": [
+            1,
+            0.5
+          ],
+          "labels": [
+            "input",
+            "comparison"
+          ],
+          "headings": [
+            "label",
+            "Distance (kilometer)"
+          ],
+          "measurementDescriptors": [
+            {
+              "role": "series",
+              "label": "Distance",
+              "unit": {
+                "text": "kilometer",
+                "scale": 1000,
+                "vector": {
+                  "Length": 1
+                },
+                "factors": [
+                  {
+                    "identity": "kilometer",
+                    "name": "kilometer",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          ],
+          "showTable": false
+        }
+      ]
+    }
+  },
+  "invalidInputs": [
+    {
+      "name": "status",
+      "path": "status",
+      "generated": {
+        "code": "AMX4003",
+        "message": "Invalid input at 'status': expected member of enum 'Status', got number",
+        "inputPath": "status",
+        "file": "entry.amx"
+      },
+      "amx": {
+        "code": "AMX4003",
+        "message": "Value is not a member of enum 'Status'",
+        "file": "C:\\Users\\gamez\\AppData\\Local\\Temp\\openamx-s122-oracle-EjfCUW\\entry.amx",
+        "dataFile": "C:\\Users\\gamez\\AppData\\Local\\Temp\\openamx-s122-oracle-EjfCUW\\invalid-status.json",
+        "inputName": "status",
+        "declarationSource": {
+          "line": 4,
+          "column": 1
+        },
+        "dataPath": "",
+        "expected": "Status",
+        "actual": "1"
+      }
+    },
+    {
+      "name": "priority",
+      "path": "priority",
+      "generated": {
+        "code": "AMX4003",
+        "message": "Invalid input at 'priority': expected member of enum 'Priority', got string",
+        "inputPath": "priority",
+        "file": "entry.amx"
+      },
+      "amx": {
+        "code": "AMX4003",
+        "message": "Value is not a member of enum 'Priority'",
+        "file": "C:\\Users\\gamez\\AppData\\Local\\Temp\\openamx-s122-oracle-EjfCUW\\entry.amx",
+        "dataFile": "C:\\Users\\gamez\\AppData\\Local\\Temp\\openamx-s122-oracle-EjfCUW\\invalid-priority.json",
+        "inputName": "priority",
+        "declarationSource": {
+          "line": 5,
+          "column": 1
+        },
+        "dataPath": "",
+        "expected": "Priority",
+        "actual": "\"2\""
+      }
+    },
+    {
+      "name": "rows",
+      "path": "rows/0/status",
+      "generated": {
+        "code": "AMX4003",
+        "message": "Invalid input at 'rows/0/status': expected member of enum 'Status', got number",
+        "inputPath": "rows/0/status",
+        "file": "entry.amx"
+      },
+      "amx": {
+        "code": "AMX4003",
+        "message": "Value is not a member of enum 'Status'",
+        "file": "C:\\Users\\gamez\\AppData\\Local\\Temp\\openamx-s122-oracle-EjfCUW\\entry.amx",
+        "dataFile": "C:\\Users\\gamez\\AppData\\Local\\Temp\\openamx-s122-oracle-EjfCUW\\invalid-rows.json",
+        "inputName": "rows",
+        "declarationSource": {
+          "line": 7,
+          "column": 1
+        },
+        "dataPath": "/0/status",
+        "expected": "Status",
+        "actual": "1",
+        "fieldSource": {
+          "line": 17,
+          "column": 3
+        }
+      }
+    }
+  ],
+  "topLevelErrors": [
+    {
+      "name": "missing amount",
+      "path": "amount",
+      "error": {
+        "code": "AMX4003",
+        "message": "Invalid input at 'amount': expected required AMX input, got missing",
+        "inputPath": "amount"
+      }
+    },
+    {
+      "name": "unknown input",
+      "path": "inputs/unexpected",
+      "error": {
+        "code": "AMX4003",
+        "message": "Invalid input at 'inputs/unexpected': expected declared record field, got boolean",
+        "inputPath": "inputs/unexpected"
+      }
+    }
+  ],
+  "repeatedRunFreshness": "PASS",
+  "affineDiagnostic": {
+    "generated": {
+      "code": "AMX3007",
+      "message": "Direct addition of affine measurements is not supported"
+    },
+    "amx": {
+      "code": "AMX3007",
+      "message": "Direct addition of affine measurements is not supported"
+    }
+  }
+}

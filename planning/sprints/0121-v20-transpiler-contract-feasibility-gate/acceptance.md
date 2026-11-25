@@ -80,8 +80,9 @@ adds no product behavior and authorizes no release or package action.
 - The S121 helper/API contract checkpoint is accepted. The authorized helper
   slice and enum prerequisite are implemented in this worktree; full S122
   completion remains separately gated. The approved S121 probe used the real
-  public helper, with no private imports in generated fixture code. Final S121
-  disposition remains pending evidence review.
+  public helper, with no private imports in generated fixture code. The product
+  owner ACCEPTED/CLOSED S121 WITH RECORDED RESIDUALS on 2026-11-25 for the
+  S121 contract and approved helper-boundary feasibility scope only.
 
 ## Modules, Errors, and Destinations
 
@@ -119,8 +120,10 @@ adds no product behavior and authorizes no release or package action.
 - `D121-13` is dispositioned; S123 has an unambiguous source-text input for
   every required comment, including any frontmatter in scope.
 - D121-01 through D121-18 have explicit product-owner contract decisions.
-  The separate final Sprint 121 disposition remains pending until the helper
-  proof and evidence review are complete.
+  The product owner ACCEPTED/CLOSED S121 WITH RECORDED RESIDUALS on 2026-11-25
+  for the S121 contract and approved helper-boundary feasibility scope only.
+  Final S121 feasibility closeout remains separately gated on S122 helper
+  completion and evidence review.
 - Probe evidence is isolated and does not change tracked product sources,
   tests, package manifests, generated output, or previous sprint artifacts.
 
@@ -134,8 +137,8 @@ adds no product behavior and authorizes no release or package action.
 - A separate product-owner disposition accepts/closes or blocks/opens the
   S121 contract. Builder recommendation alone is not acceptance.
 - S122 may begin only after the accepted S121 helper/API checkpoint and its
-  own exact implementation authorization. S123 remains blocked until S121
-  final acceptance and S122 helper acceptance; it also requires separate
-  execution authorization.
+  own exact implementation authorization. S121 was ACCEPTED/CLOSED WITH
+  RECORDED RESIDUALS on 2026-11-25; S123 remains blocked until S122 helper
+  acceptance and separately authorized S121 final feasibility closeout.
 - No release, publication, package/version, deployment, distribution,
   installer, or platform certification authority follows S121.

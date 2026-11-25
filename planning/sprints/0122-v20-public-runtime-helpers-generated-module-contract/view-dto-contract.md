@@ -2,11 +2,13 @@
 
 ## Status and Authority
 
-Architect-prepared type contract proposal. Preserve accepted D121-04,
-D121-09, and D121-15: results contain explicit entry exports; table/chart
-snapshots are captured by `show`; diagrams are declaration-time emissions in a
-separate discriminant; all views are ordered by module and source/evaluation
-position; diagrams do not gain AMX `show` syntax.
+Approved S122 type contract. Preserve accepted D121-04, D121-09, and D121-15:
+results contain explicit entry exports; table/chart snapshots are captured by
+`show`; diagrams are declaration-time emissions in a separate `kind`; all
+views are ordered by module and source/evaluation position; diagrams do not
+gain AMX `show` syntax. The product owner additionally approved a legacy
+diagram schema alongside the structured generated-module schema on
+2026-11-25.
 
 ## Run Result
 
@@ -48,7 +50,7 @@ export interface AMXRunResult<TExports extends object> {
 ## Table DTO
 
 ```ts
-interface AMXTableView {
+export interface AMXTableView {
   readonly kind: 'table';
   readonly name: string;
   readonly title: string;
@@ -62,6 +64,62 @@ Preserve declaration order, selected column order, row order, null placement,
 and the AMX snapshot at each executed `show`. Unselected source record fields
 are omitted if that is the current table emission contract. S122 tests exact
 column/row data and snapshot independence after later mutation.
+
+## Diagram DTOs and Compatibility
+
+`AMXDiagramView` retains the S121 legacy type name and shape. Its optional
+`schema` property preserves source compatibility for old typed object literals;
+the S122 constructor returns the tagged `AMXLegacyDiagramView` with
+`schema: 'legacy-v1'`. Structured generated modules use the distinct
+`AMXStructuredDiagramView` with `schema: 'structured-v2'`. Both have
+`kind: 'diagram'`; `AMXShownView` includes both, and returned DTOs narrow by
+`schema`. There is no implicit or lossy conversion between schemas.
+
+```ts
+export interface AMXLegacyDiagramElement {
+  readonly type: string;
+  readonly name: string;
+  readonly properties: Readonly<Record<string, AMXViewData>>;
+}
+
+export interface AMXDiagramView {
+  readonly kind: 'diagram';
+  readonly schema?: 'legacy-v1';
+  readonly name: string;
+  readonly title: string;
+  readonly description: string;
+  readonly canvas: Readonly<{ width: number; height: number; coordinates: 'bottom-left-y-up' }>;
+  readonly timeline: Readonly<{ variable: string; from: number; to: number; duration: number }>;
+  readonly initialFrame: Readonly<{ time: number; elements: readonly AMXLegacyDiagramElement[] }>;
+}
+
+export interface AMXLegacyDiagramView extends AMXDiagramView {
+  readonly schema: 'legacy-v1';
+}
+
+export type AMXDiagramPrimitiveElement =
+  | { readonly primitive: 'line'; readonly name: string; readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number; readonly stroke: string; readonly lineWidth: number; readonly arrow: 'none' | 'start' | 'end' | 'both' }
+  | { readonly primitive: 'rectangle'; readonly name: string; readonly x: number; readonly y: number; readonly width: number; readonly height: number; readonly stroke: string; readonly fill?: string; readonly lineWidth: number }
+  | { readonly primitive: 'circle'; readonly name: string; readonly cx: number; readonly cy: number; readonly r: number; readonly stroke: string; readonly fill?: string; readonly lineWidth: number }
+  | { readonly primitive: 'text'; readonly name: string; readonly x: number; readonly y: number; readonly value: string; readonly fill: string };
+
+export interface AMXStructuredDiagramView {
+  readonly kind: 'diagram';
+  readonly schema: 'structured-v2';
+  readonly name: string;
+  readonly title: string;
+  readonly description: string;
+  readonly canvas: Readonly<{ width: number; height: number; coordinates: 'bottom-left-y-up' }>;
+  readonly timeline: Readonly<{ variable: string; from: number; to: number; duration: number }>;
+  readonly initialFrame: Readonly<{ time: number; elements: readonly AMXDiagramPrimitiveElement[] }>;
+}
+
+export type AMXShownView = AMXTableView | AMXChartView | AMXDiagramView | AMXStructuredDiagramView;
+```
+
+The legacy constructor overload retains the S121 input signature and adds only
+the tagged runtime `schema` property. The structured overload requires the
+closed primitive union; it never exposes renderer models or private scene data.
 
 ## Chart DTO
 
@@ -94,27 +152,10 @@ and be covered by a compatibility test.
 
 ## Declaration-Time Diagram DTO
 
-```ts
-type AMXDiagramElement =
-  | { readonly primitive: 'line'; readonly name: string; readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number; readonly stroke: string; readonly lineWidth: number; readonly arrow: 'none' | 'start' | 'end' | 'both' }
-  | { readonly primitive: 'rectangle'; readonly name: string; readonly x: number; readonly y: number; readonly width: number; readonly height: number; readonly stroke: string; readonly fill?: string; readonly lineWidth: number }
-  | { readonly primitive: 'circle'; readonly name: string; readonly cx: number; readonly cy: number; readonly r: number; readonly stroke: string; readonly fill?: string; readonly lineWidth: number }
-  | { readonly primitive: 'text'; readonly name: string; readonly x: number; readonly y: number; readonly value: string; readonly fill: string };
-
-interface AMXDiagramView {
-  readonly kind: 'diagram';
-  readonly name: string;
-  readonly title: string;
-  readonly description: string;
-  readonly canvas: { readonly width: number; readonly height: number; readonly coordinates: 'bottom-left-y-up' };
-  readonly timeline: { readonly variable: string; readonly from: number; readonly to: number; readonly duration: number };
-  readonly initialFrame: { readonly time: number; readonly elements: readonly AMXDiagramElement[] };
-}
-```
-
-The DTO represents the current declaration-time scene and initial frame. It
-does not embed `DiagramDeclarationNode`, captured `Environment`, WeakMap state,
-serialized private envelopes, playback controllers, or renderer payloads.
+`AMXStructuredDiagramView` represents the current declaration-time scene and
+initial frame. It does not embed `DiagramDeclarationNode`, captured
+`Environment`, WeakMap state, serialized private envelopes, playback
+controllers, or renderer payloads.
 Recursive loop/conditional membership and source ordering must match the
 current AMX model's initial frame. A missing/unsupported primitive is a
 contract failure, not an omitted diagram event.

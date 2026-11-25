@@ -1,5 +1,5 @@
 {
-  "phase": "completed",
-  "sprint": "121",
-  "note": "S120 remains ACCEPTED/CLOSED WITH RECORDED RESIDUALS; preserve raw VS Code 21/8, passing V0.19-specific rows, and native/platform BLOCKED/UNAVAILABLE. Sprint 121 was ACCEPTED/CLOSED WITH RECORDED RESIDUALS by the product owner on 2026-11-25 after the approved public-helper probe and focused enum-input validation passed. Multi-file publication remains best-effort and not crash-atomic; full emitter, CLI/desktop, rendered, native/platform, and release acceptance were not established. Full S122 helper completion and S123 emitter implementation remain independently gated."
+  "phase": "awaiting-approval",
+  "sprint": "122",
+  "note": "S122 Builder work complete for approved scope and awaiting separate product-owner disposition. Focused tests 206/0 (1,107 assertions), root typecheck, isolated build, strict built-package consumer, AMX parity oracle, and root dist preservation pass. RT122-IN-RECURSE-01 enum-default AMX parity is BLOCKED/UNAVAILABLE because current AMX rejects enum-valued record defaults; no semantics were changed. Descriptor typing exceeded the retry cap and the Builder continued verification rather than stopping for replan; this execution-policy deviation is disclosed for owner review. Preserve S121 raw evidence and D121-18 best-effort/non-crash-atomic rollback residual. S123, S121 final feasibility closeout, and release/package-version/platform actions remain separately gated."
 }

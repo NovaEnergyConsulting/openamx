@@ -1,5 +1,40 @@
 # Planning State
 
+## V0.20 Sprint 122 Builder Execution (2026-11-25)
+
+- Product-owner execution authorization received for the exact S122 contract,
+  source/test paths, checks, consumer/oracle, isolated worktree, evidence root,
+  retry policy, `dist` preservation, and cleanup plan in the S122
+  `verification-plan.md`.
+- Baseline was clean on `feat/create-V0.20.0` at
+  `70f7e52aca9b82407183ec3ebf9e51fabb54d8da`; package version `0.19.0`,
+  tracked lockfile `bun.lock`; Bun 1.4.5, TypeScript 5.9.3, Git 2.56.1.
+- Root `dist/` has 196 files / 1,661,955 bytes; before/after path, length, and
+  SHA-256 manifests match exactly. S121 artifacts remain untouched.
+- S121 stale disposition text was reconciled only in its `acceptance.md` and
+  `builder-evidence.md`. Raw S121 probe/test outcomes remain unchanged.
+- S122 contracts now record the approved public helper surface and the
+- S122 implements the approved public helper surface, preserving the legacy
+  diagram constructor as `legacy-v1` and adding structured `structured-v2`
+  diagrams. Focused tests pass 206/0 with 1,107 assertions; root no-emit
+  typecheck, isolated build, strict external consumer, AMX parity oracle, and
+  root `dist` preservation checks pass.
+- One subcase remains blocked: the current AMX checker rejects enum-valued
+  record defaults, so `RT122-IN-RECURSE-01` enum-default AMX parity cannot be
+  proved without a separately authorized AMX semantic change. The product
+  owner directed that S122 preserve current semantics and record this as
+  `BLOCKED/UNAVAILABLE`; see `planning/decisions.md` and S122 evidence.
+- Builder recommendation is `BLOCKED/OPEN`; separate S122 owner disposition
+  remains pending. S123 and S121 final feasibility closeout remain separately
+  gated. No release/package-version/platform work is authorized.
+- Execution-policy deviation: public descriptor typing exceeded the approved
+  two-repair retry cap, and work continued with a legacy type compatibility
+  fix and further verification instead of stopping for replan. The full
+  sequence is recorded in Builder evidence for Product Owner review.
+- Preserve the direct-helper enum parity gap and D121-18's best-effort,
+  non-crash-atomic rollback residual. S123 and S121 final feasibility closeout
+  are not authorized. No release/package-version/platform work is authorized.
+
 ## V0.20 Sprint 121 Contract and Feasibility Closeout (2026-11-25)
 
 - Sprint 120 was separately ACCEPTED/CLOSED WITH RECORDED RESIDUALS on

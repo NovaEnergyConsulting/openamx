@@ -10,17 +10,37 @@ import { tmpdir } from "node:os";
 import { loadEntryModule } from "../src/runtime/moduleLoader";
 import { AmxError } from "../src/diagnostics/errors";
 import {
+  AMXRuntimeError,
+  amxAdd1Based,
   AMXInputError,
   amxAttach,
+  amxBinary,
+  amxBuiltin,
   amxChartView,
+  amxCopyListArgument,
   amxConvert,
   amxDiagramView,
   amxEqual,
+  amxFormatValue,
+  amxGet1Based,
+  amxIterate,
+  amxIsType,
   amxPhysicalValue,
+  amxRange,
+  amxRemove1Based,
   amxTableView,
+  amxUnary,
+  type AMXInputDescriptor,
+  type AMXMeasurement,
+  type AMXValue,
+  type AMXViewData,
   requireAMXEnum,
   requireAMXMeasurement,
-  requireAMXNumber
+  requireAMXBoolean,
+  requireAMXNumber,
+  requireAMXRecord,
+  requireAMXString,
+  validateAMXValue
 } from "../src/transpilerRuntime";
 
 const tmpDirs: string[] = [];
@@ -57,11 +77,318 @@ afterEach(async () => {
 });
 
 describe("S122 transpiler runtime boundary", () => {
+  it("routes operators, interpolation, list operations, and builtins through public helpers", () => {
+    expect(amxBinary('^', 2, 3)).toBe(8);
+    expect(amxUnary('not', '')).toBe(true);
+    expect(amxFormatValue(null)).toBe('null');
+    expect(amxFormatValue(true)).toBe('true');
+    expect(() => amxFormatValue({ nested: [] })).toThrow(expect.objectContaining({ code: 'AMX3007' }));
+
+    const values: AMXValue[] = [1, 3];
+    amxAdd1Based(values, 2, 2);
+    expect(values).toEqual([1, 2, 3]);
+    expect(amxGet1Based(values, 2)).toBe(2);
+    expect(amxRange(3, 1)).toEqual([3, 2, 1]);
+    expect(amxIterate(values)).toEqual([1, 2, 3]);
+    amxRemove1Based(values, 1, 2);
+    expect(values).toEqual([1, 3]);
+
+    const nested: AMXValue[] = [[1, [2]]];
+    const copied = amxCopyListArgument(nested);
+    expect(copied).toEqual(nested);
+    expect(copied).not.toBe(nested);
+    expect(copied[0]).not.toBe(nested[0]);
+    const shared: AMXValue[] = [1];
+    const copiedAliases = amxCopyListArgument([shared, shared]);
+    expect(copiedAliases[0]).not.toBe(copiedAliases[1]);
+    expect(copiedAliases[0]).not.toBe(shared);
+    expect(amxBuiltin('sum', [[1, 2, 3]])).toBe(6);
+    expect(amxBuiltin('trim', ['  AMX  '])).toBe('AMX');
+  });
+
+  it("matches AMX arithmetic, comparison, measurement, range, and list diagnostics", () => {
+    expect(amxBinary('-', 8, 3)).toBe(5);
+    expect(amxBinary('*', 4, 3)).toBe(12);
+    expect(amxBinary('/', 8, 2)).toBe(4);
+    expect(amxBinary('%', 8, 3)).toBe(2);
+    expect(amxBinary('==', 2, 2)).toBe(true);
+    expect(amxBinary('!=', 2, 3)).toBe(true);
+    expect(amxBinary('>', 3, 2)).toBe(true);
+    expect(amxBinary('>=', 3, 3)).toBe(true);
+    expect(amxBinary('<', 2, 3)).toBe(true);
+    expect(amxBinary('<=', 3, 3)).toBe(true);
+
+    const meter = { identity: 'length', name: 'meter', scale: 1, offset: 0, vector: { length: 1 } } as const;
+    const kilometer = { identity: 'length', name: 'kilometer', scale: 1000, offset: 0, vector: { length: 1 } } as const;
+    const oneKilometer = amxAttach(1, kilometer);
+    const halfKilometer = amxAttach(500, meter);
+    expect(amxBinary('+', oneKilometer, halfKilometer)).toMatchObject({ value: 1.5, unit: { text: 'kilometer' } });
+    expect(amxBinary('==', oneKilometer, amxAttach(1000, meter))).toBe(true);
+    expect(amxBinary('>', oneKilometer, halfKilometer)).toBe(true);
+    expect(amxUnary('-', oneKilometer)).toMatchObject({ value: -1, unit: { text: 'kilometer' } });
+    expect(amxBinary('/', oneKilometer, halfKilometer)).toBe(2);
+    expect(amxBinary('*', oneKilometer, amxAttach(2, {
+      identity: 'time', name: 'second', scale: 1, offset: 0, vector: { time: 1 }
+    }))).toMatchObject({ value: 2, unit: { text: 'kilometer * second' } });
+    expect(amxBinary('^', amxAttach(2, meter), 2)).toMatchObject({ value: 4, unit: { text: 'meter ^ 2' } });
+    expect(amxFormatValue(oneKilometer)).toBe('1 kilometer');
+    expect(amxRange(2, 2)).toEqual([2]);
+    expect(amxRange(3, 1)).toEqual([3, 2, 1]);
+    expect(amxGet1Based([1, 2, 3], 1)).toBe(1);
+    expect(amxGet1Based([1, 2, 3], 3)).toBe(3);
+    expect(amxIterate([1, 2, 3])).toEqual([1, 2, 3]);
+    expect(() => amxIterate(3)).toThrow(expect.objectContaining({ code: 'AMX1006' }));
+    expect(() => amxGet1Based([1], 2)).toThrow(expect.objectContaining({ code: 'AMX1008' }));
+    const insertedAtStart: AMXValue[] = [2, 3];
+    amxAdd1Based(insertedAtStart, 1, 1);
+    expect(insertedAtStart).toEqual([1, 2, 3]);
+
+    try {
+      amxGet1Based([1], 0, { file: 'entry.amx', line: 2, column: 5 });
+      throw new Error('Expected invalid list index');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AMXRuntimeError);
+      expect(error).toMatchObject({ code: 'AMX1008', file: 'entry.amx', line: 2, column: 5 });
+    }
+    expect(() => amxRange(1.5, 3)).toThrow(expect.objectContaining({ code: 'AMX1005' }));
+    expect(() => amxBinary('/', oneKilometer, amxAttach(0, meter), { file: 'entry.amx', line: 3, column: 8 }))
+      .toThrow(expect.objectContaining({ code: 'AMX1009', file: 'entry.amx', line: 3, column: 8 }));
+
+    const celsius = { identity: 'celsius', name: 'celsius', scale: 1, offset: 273.15, vector: { temperature: 1 } } as const;
+    const warm = amxAttach(20, celsius);
+    const cool = amxAttach(10, celsius);
+    expect(amxBinary('-', warm, cool)).toMatchObject({ value: 10, unit: { text: 'celsius' } });
+    expect(() => amxBinary('+', warm, cool)).toThrow(expect.objectContaining({ code: 'AMX3007' }));
+    expect(() => amxBinary('*', warm, 2)).toThrow(expect.objectContaining({ code: 'AMX3007' }));
+    expect(() => amxBinary('/', warm, 2)).toThrow(expect.objectContaining({ code: 'AMX3007' }));
+    expect(() => amxBinary('^', warm, 2)).toThrow(expect.objectContaining({ code: 'AMX3007' }));
+    expect(() => amxBuiltin('sqrt', [warm], { unitDescriptors: [celsius] }))
+      .toThrow(expect.objectContaining({ code: 'AMX3007' }));
+    expect(() => amxBuiltin('pow', [warm, 2], { unitDescriptors: [celsius] }))
+      .toThrow(expect.objectContaining({ code: 'AMX3007' }));
+
+    const list: AMXValue[] = [1, 2, 3, 4];
+    amxRemove1Based(list, 2, 2);
+    expect(list).toEqual([1, 4]);
+    amxRemove1Based(list, 1);
+    expect(list).toEqual([1]);
+    amxAdd1Based(list, 2);
+    expect(list).toEqual([1, 2]);
+    expect(() => amxAdd1Based(list, 3, 5)).toThrow(expect.objectContaining({ code: 'AMX1008' }));
+    expect(() => amxRemove1Based(list, 1, 2, { mutable: false, targetName: 'imported' }))
+      .toThrow(expect.objectContaining({ code: 'AMX1008' }));
+    expect(() => amxRemove1Based(list, 0)).toThrow(expect.objectContaining({ code: 'AMX1008' }));
+    expect(() => amxRemove1Based(list, 2, 2)).toThrow(expect.objectContaining({ code: 'AMX1008' }));
+  });
+
+  it("exercises every public standard-library builtin and its domain diagnostics", () => {
+    expect(amxBuiltin('sum', [[1, 2, 3]])).toBe(6);
+    expect(amxBuiltin('min', [[3, 1, 2]])).toBe(1);
+    expect(amxBuiltin('max', [[3, 1, 2]])).toBe(3);
+    expect(amxBuiltin('mean', [[2, 4]])).toBe(3);
+    expect(amxBuiltin('round', [1.236, 2])).toBe(1.24);
+    expect(amxBuiltin('abs', [-3])).toBe(3);
+    expect(amxBuiltin('sqrt', [9])).toBe(3);
+    expect(amxBuiltin('pow', [2, 3])).toBe(8);
+    expect(amxBuiltin('len', ['🍎'])).toBe(1);
+    expect(amxBuiltin('trim', ['  AMX  '])).toBe('AMX');
+    expect(amxBuiltin('left', ['🍎OpenAMX', 1])).toBe('🍎');
+    expect(amxBuiltin('right', ['OpenAMX🍎', 1])).toBe('🍎');
+    expect(amxBuiltin('format', [1234.5, '#,##0.00'])).toBe('1,234.50');
+    expect(amxBuiltin('sin', [0])).toBe(0);
+    expect(amxBuiltin('cos', [0])).toBe(1);
+    expect(amxBuiltin('tan', [0])).toBe(0);
+    expect(amxBuiltin('asin', [1])).toBeCloseTo(Math.PI / 2);
+    expect(amxBuiltin('acos', [1])).toBe(0);
+    expect(amxBuiltin('atan', [0])).toBe(0);
+    expect(amxBuiltin('sinh', [0])).toBe(0);
+    expect(amxBuiltin('cosh', [0])).toBe(1);
+    expect(amxBuiltin('tanh', [0])).toBe(0);
+    expect(amxBuiltin('asinh', [0])).toBe(0);
+    expect(amxBuiltin('acosh', [1])).toBe(0);
+    expect(amxBuiltin('atanh', [0])).toBe(0);
+    expect(amxBuiltin('ln', [1])).toBe(0);
+    expect(amxBuiltin('log', [100])).toBe(2);
+    expect(amxBuiltin('exp', [0])).toBe(1);
+    expect(() => amxBuiltin('sqrt', [-1])).toThrow(expect.objectContaining({ code: 'AMX2005' }));
+    expect(() => amxBuiltin('asin', [2])).toThrow(expect.objectContaining({ code: 'AMXSL001' }));
+    expect(() => amxBuiltin('sum', [])).toThrow(expect.objectContaining({ code: 'AMX2003' }));
+  });
+
+  it("validates recursive values, exact enum primitives, defaults, and JSON Pointer paths", () => {
+    type Payload = {
+      state: 'ready' | 'failed';
+      level: 1 | 2;
+      rows: Array<{ 'state/code': 'ready' | 'failed' }>;
+      note: string | null;
+      nullableRequired: string | null;
+    };
+    const descriptor: AMXInputDescriptor<Payload> = {
+      kind: 'record',
+      recordName: 'Payload',
+      fields: [
+        { name: 'state', descriptor: { kind: 'enum', enumName: 'Status', members: ['ready', 'failed'] }, defaultValue: () => 'ready' },
+        { name: 'level', descriptor: { kind: 'enum', enumName: 'Priority', members: [1, 2] } },
+        { name: 'rows', descriptor: { kind: 'list', element: { kind: 'record', recordName: 'Row', fields: [
+          { name: 'state/code', descriptor: { kind: 'enum', enumName: 'Status', members: ['ready', 'failed'] } }
+        ] } } },
+        { name: 'note', descriptor: { kind: 'nullable', value: { kind: 'string' } }, optional: true },
+        { name: 'nullableRequired', descriptor: { kind: 'nullable', value: { kind: 'string' } } }
+      ]
+    };
+    const context = { inputPath: 'payload', file: 'entry.amx', line: 9, column: 4 };
+    const normalized = validateAMXValue<Payload>({
+      level: 1,
+      rows: [{ 'state/code': 'ready' }],
+      nullableRequired: null
+    }, descriptor, context);
+    expect(normalized).toEqual({
+      state: 'ready', level: 1, rows: [{ 'state/code': 'ready' }], note: null, nullableRequired: null
+    });
+    expect(amxIsType(normalized, descriptor)).toBe(true);
+    expect(amxIsType({ level: '1' }, descriptor)).toBe(false);
+
+    expect(() => validateAMXValue({
+      level: 1, rows: [], extra: true, nullableRequired: null
+    }, descriptor, context)).toThrow(expect.objectContaining({
+      code: 'AMX4003', inputPath: 'payload/extra', expected: 'declared record field'
+    }));
+    expect(() => validateAMXValue({ level: 1, rows: [] }, descriptor, context))
+      .toThrow(expect.objectContaining({ code: 'AMX4003', inputPath: 'payload/nullableRequired', actual: 'missing' }));
+    expect(() => validateAMXValue(null, descriptor, context)).toThrow(AMXInputError);
+
+    const cyclicList: unknown[] = [];
+    cyclicList.push(cyclicList);
+    expect(() => validateAMXValue(cyclicList, { kind: 'list', element: { kind: 'number' } }, { inputPath: 'items' }))
+      .toThrow(expect.objectContaining({ code: 'AMX4003', inputPath: 'items/0' }));
+
+    try {
+      validateAMXValue({
+        level: '1',
+        rows: [{ 'state/code': 'ready' }],
+        nullableRequired: null
+      }, descriptor, context);
+      throw new Error('Expected an invalid numeric enum input');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AMXInputError);
+      expect(error).toMatchObject({ code: 'AMX4003', inputPath: 'payload/level', expected: "member of enum 'Priority'" });
+      expect((error as AMXInputError).diagnostic).toMatchObject({ file: 'entry.amx', line: 9, column: 4 });
+    }
+
+    try {
+      validateAMXValue({
+        level: 1,
+        rows: [{ 'state/code': 1 }],
+        nullableRequired: null
+      }, descriptor, context);
+      throw new Error('Expected an invalid nested string enum input');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AMXInputError);
+      expect(error).toMatchObject({ inputPath: 'payload/rows/0/state~1code', actual: 'number' });
+    }
+    expect(() => validateAMXValue('2024-02-29T12:30:00Z', { kind: 'dateTime' }, context)).not.toThrow();
+    expect(() => validateAMXValue('2023-02-29T12:30:00Z', { kind: 'dateTime' }, context)).toThrow(AMXInputError);
+  });
+
+  it("preserves measurement builtin units and source diagnostics", () => {
+    const length = { identity: 'length', name: 'meter', scale: 1, offset: 0, vector: { length: 1 } } as const;
+    const area = {
+      identity: 'area', name: 'square_meter', scale: 1, offset: 0, vector: { length: 2 },
+      factors: [{ identity: 'length', name: 'meter', exponent: 2 }]
+    } as const;
+    const squareMeters = amxAttach(9, area);
+    const root = amxBuiltin('sqrt', [squareMeters], { unitDescriptors: [area, length] }) as AMXMeasurement;
+    expect(root).toMatchObject({ value: 3, unit: { text: 'meter', vector: { length: 1 } } });
+
+    const kilometer = { identity: 'kilometer', name: 'kilometer', scale: 1000, offset: 0, vector: { length: 1 } } as const;
+    const distances = [amxAttach(1, kilometer), amxAttach(500, length)];
+    expect(amxBuiltin('sum', [distances])).toMatchObject({ value: 1.5, unit: { text: 'kilometer' } });
+    expect(amxBuiltin('mean', [distances])).toMatchObject({ value: 0.75, unit: { text: 'kilometer' } });
+    expect(amxBuiltin('min', [distances])).toBe(distances[1]);
+    expect(amxBuiltin('max', [distances])).toBe(distances[0]);
+    expect(amxBuiltin('abs', [amxAttach(-2, kilometer)])).toMatchObject({ value: 2, unit: { text: 'kilometer' } });
+    expect(amxBuiltin('round', [amxAttach(1.236, kilometer), 2])).toMatchObject({ value: 1.24, unit: { text: 'kilometer' } });
+    expect(amxBuiltin('format', [amxAttach(12.5, kilometer), '0.0'])).toBe('12.5 kilometer');
+
+    const one = { identity: 'one', name: 'one', scale: 1, offset: 0, vector: {} } as const;
+    const dimensionless = amxAttach(1, one);
+    expect(amxBuiltin('sin', [dimensionless], { unitDescriptors: [one] })).toBeCloseTo(Math.sin(1));
+    expect(() => amxBuiltin('sin', [amxAttach(1, length)], { unitDescriptors: [length] }))
+      .toThrow(expect.objectContaining({ code: 'AMX3007' }));
+
+    const celsius = { identity: 'temperature', name: 'celsius', scale: 1, offset: 273.15, vector: { temperature: 1 } } as const;
+    const fahrenheit = { identity: 'fahrenheit', name: 'fahrenheit', scale: 5 / 9, offset: 273.15 - 160 / 9, vector: { temperature: 1 } } as const;
+    const kelvin = { identity: 'kelvin', name: 'kelvin', scale: 1, offset: 0, vector: { temperature: 1 } } as const;
+    expect(amxConvert(amxAttach(0, celsius), fahrenheit).value).toBeCloseTo(32, 12);
+    expect(amxConvert(amxAttach(0, celsius), kelvin).value).toBeCloseTo(273.15, 12);
+    const affineValues = [amxAttach(10, celsius), amxAttach(20, celsius)];
+    expect(amxBuiltin('sum', [affineValues])).toMatchObject({ value: 303.15, unit: { text: 'celsius' } });
+    expect(amxBuiltin('mean', [affineValues])).toMatchObject({ value: 15, unit: { text: 'celsius' } });
+    const temperature = amxAttach(20, celsius);
+    try {
+      amxBinary('+', temperature, temperature, { file: 'entry.amx', line: 4, column: 7 });
+      throw new Error('Expected affine addition to reject');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AMXRuntimeError);
+      expect(error).toMatchObject({ code: 'AMX3007', file: 'entry.amx', line: 4, column: 7 });
+    }
+  });
+
+  it("validates exact recursive measurement inputs and descriptor boundaries", () => {
+    const meter = { identity: 'length', name: 'meter', scale: 1, offset: 0, vector: { length: 1 } } as const;
+    const kilometer = { identity: 'length', name: 'kilometer', scale: 1000, offset: 0, vector: { length: 1 } } as const;
+    const second = { identity: 'time', name: 'second', scale: 1, offset: 0, vector: { time: 1 } } as const;
+    const descriptor: AMXInputDescriptor<AMXMeasurement> = {
+      kind: 'measurement', dimensionName: 'Length', dimensionVector: { length: 1 },
+      units: { meter, kilometer }
+    };
+    const context = { inputPath: 'distance' };
+    const distance = validateAMXValue<AMXMeasurement>({ value: 1, unit: 'kilometer' }, descriptor, context);
+    expect(distance).toMatchObject({ value: 1, unit: { text: 'kilometer' } });
+
+    for (const invalid of [
+      { value: 1, unit: 'meter', extra: true },
+      { value: 1 },
+      1
+    ]) {
+      expect(() => validateAMXValue(invalid, descriptor, context))
+        .toThrow(expect.objectContaining({ code: 'AMX4003', inputPath: 'distance' }));
+    }
+    expect(() => validateAMXValue({ value: 1, unit: 'mile' }, descriptor, context))
+      .toThrow(expect.objectContaining({ code: 'AMX4003', inputPath: 'distance/unit' }));
+    expect(() => requireAMXMeasurement({ value: 1, unit: 'second' }, 'Length', { length: 1 }, { meter, second }, 'distance'))
+      .toThrow(AMXInputError);
+    expect(() => validateAMXValue({ value: Number.POSITIVE_INFINITY, unit: 'meter' }, descriptor, context))
+      .toThrow(expect.objectContaining({ code: 'AMX4003', inputPath: 'distance/value' }));
+    const overflowing: AMXInputDescriptor<AMXMeasurement> = {
+      kind: 'measurement', dimensionName: 'Length', dimensionVector: { length: 1 },
+      units: { huge: { ...meter, name: 'huge', scale: 1e308 } }
+    };
+    expect(() => validateAMXValue({ value: 1e308, unit: 'huge' }, overflowing, context))
+      .toThrow(expect.objectContaining({ code: 'AMX4003', expected: 'finite physical Measurement' }));
+    const invalidDescriptor: AMXInputDescriptor<AMXMeasurement> = {
+      kind: 'measurement', dimensionName: 'Length', dimensionVector: { length: 1 },
+      units: { meter: { ...meter, scale: Number.POSITIVE_INFINITY } }
+    };
+    let descriptorError: unknown;
+    try { validateAMXValue({ value: 1, unit: 'meter' }, invalidDescriptor, context); }
+    catch (error) { descriptorError = error; }
+    expect(descriptorError).toBeInstanceOf(AMXInputError);
+    expect(descriptorError).toMatchObject({ code: 'AMX4003', expected: 'valid Measurement descriptor' });
+  });
+
   it("provides typed scalar and enum input checks with source-path errors", () => {
     expect(requireAMXNumber(6, "amount")).toBe(6);
+    expect(requireAMXString('ready', 'status')).toBe('ready');
+    expect(requireAMXBoolean(true, 'enabled')).toBe(true);
     expect(requireAMXEnum("ready", "Status", ["ready", "failed"], "status")).toBe("ready");
     expect(() => requireAMXNumber(Number.POSITIVE_INFINITY, "amount")).toThrow(AMXInputError);
+    expect(() => requireAMXString(1, 'status')).toThrow(AMXInputError);
+    expect(() => requireAMXBoolean('true', 'enabled')).toThrow(AMXInputError);
     expect(() => requireAMXEnum("unknown", "Status", ["ready", "failed"], "status")).toThrow(AMXInputError);
+    expect(() => requireAMXRecord(null, 'inputs', ['amount'])).toThrow(AMXInputError);
+    expect(() => requireAMXRecord({ amount: 1, 'other/key': 2 }, 'inputs', ['amount']))
+      .toThrow(expect.objectContaining({ inputPath: 'inputs/other~1key', code: 'AMX4003' }));
   });
 
   it("validates measurement shape and preserves conversion and physical equality", () => {
@@ -100,6 +427,52 @@ describe("S122 transpiler runtime boundary", () => {
     expect([table.kind, chart.kind, diagram.kind]).toEqual(["table", "chart", "diagram"]);
     expect(Object.isFrozen(table.rows[0])).toBe(true);
     expect(Object.isFrozen(diagram.initialFrame)).toBe(true);
+    expect(diagram.schema).toBe('legacy-v1');
+    for (const chartKind of ['bar', 'column', 'line', 'scatter'] as const) {
+      expect(amxChartView({
+        name: chartKind, chartKind, title: chartKind, description: '', data: [], showTable: false
+      }).chartKind).toBe(chartKind);
+    }
+    expect(() => amxTableView('unsupported', [], [[new Date() as unknown as AMXViewData]]))
+      .toThrow(AMXInputError);
+  });
+
+  it("detaches view snapshots and exposes structured diagram data beside legacy DTOs", () => {
+    const sourceRow = { nested: [1, { value: 2 }] };
+    const table = amxTableView('records', [{ field: 'payload', label: 'Payload' }], [[sourceRow]], 'Records', 'Snapshot');
+    const sourceChartData = [{ label: 'A', value: 2 }];
+    const chart = amxChartView({
+      name: 'series', chartKind: 'line', title: 'Series', description: 'Values',
+      data: sourceChartData, labels: ['A'], headings: ['label', 'value'],
+      measurementDescriptors: [{ role: 'series', field: 'value', label: 'Load', unit: {
+        text: 'kilonewton', scale: 1000, vector: { force: 1 },
+        factors: [{ identity: 'force', name: 'kilonewton', exponent: 1 }]
+      } }],
+      showTable: false
+    });
+    const structured = amxDiagramView({
+      schema: 'structured-v2', name: 'scene', title: 'Scene', description: 'Initial frame',
+      canvas: { width: 100, height: 80, coordinates: 'bottom-left-y-up' },
+      timeline: { variable: 'time', from: 0, to: 1, duration: 1 },
+      initialFrame: { time: 0, elements: [{
+        primitive: 'line', name: 'axis', x1: 0, y1: 0, x2: 10, y2: 10,
+        stroke: '#000000', lineWidth: 1, arrow: 'none'
+      }] }
+    });
+
+    sourceRow.nested[0] = 99;
+    sourceRow.nested[1].value = 100;
+    sourceChartData[0].value = 10;
+    expect(table).toMatchObject({ title: 'Records', description: 'Snapshot', rows: [[{ nested: [1, { value: 2 }] }]] });
+    expect(chart).toMatchObject({ labels: ['A'], headings: ['label', 'value'], showTable: false, data: [{ value: 2 }] });
+    expect(structured).toMatchObject({ kind: 'diagram', schema: 'structured-v2', initialFrame: { elements: [{ primitive: 'line' }] } });
+    expect(Object.isFrozen(sourceRow)).toBe(false);
+    expect(Object.isFrozen(sourceRow.nested)).toBe(false);
+    expect(Object.isFrozen(table.rows[0][0])).toBe(true);
+
+    const cyclic: { value?: AMXViewData } = {};
+    cyclic.value = cyclic as AMXViewData;
+    expect(() => amxTableView('cycle', [], [[cyclic]])).toThrow(AMXRuntimeError);
   });
 });
 
@@ -296,9 +669,52 @@ describe("Sprint 015 modules, imports, and exports", () => {
     expect(env.toObject().status).toBe('ready');
     expect(env.toObject().rows).toEqual([{ status: 'failed' }]);
 
+    const validCsv = await write(dir, "rows.csv", 'status\nready\n');
+    const csvResult = await loadEntryModule(entry, { inputMappings: [`status=${validInput}`, `rows=${validCsv}`] });
+    expect(csvResult.env.toObject().rows).toEqual([{ status: 'ready' }]);
+
     const invalidInput = await write(dir, "invalid-status.json", '"unknown"');
     const error = await expectAmxError(loadEntryModule(entry, { inputMappings: [`status=${invalidInput}`, `rows=${rowsInput}`] }), "AMX4003");
     expect(error.diagnostics?.[0]).toMatchObject({ inputName: 'status', expected: 'Status', actual: '"unknown"' });
+    const invalidCsv = await write(dir, "invalid-rows.csv", 'status\nunknown\n');
+    const csvError = await expectAmxError(loadEntryModule(entry, { inputMappings: [`status=${validInput}`, `rows=${invalidCsv}`] }), "AMX4003");
+    expect(csvError.diagnostics?.[0]).toMatchObject({ inputName: 'rows', dataPath: 'record[1].status', expected: 'Status' });
+  });
+
+  it("validates imported numeric enums in file-backed JSON and CSV inputs", async () => {
+    const dir = await makeDir();
+    await write(dir, "library.amx", [
+      '```amx',
+      'export enum Priority = {',
+      '  LOW = 10,',
+      '  HIGH = 20',
+      '}',
+      'export type Row {',
+      '  priority: Priority',
+      '}',
+      '```',
+      ''
+    ].join('\n'));
+    const entry = await write(dir, "entry.amx", [
+      '```amx',
+      'import { Priority, Row } from "./library.amx"',
+      'input rows: Row[]',
+      '```',
+      ''
+    ].join('\n'));
+    const json = await write(dir, "rows.json", '[{"priority":20}]');
+    const csv = await write(dir, "rows.csv", 'priority\n10\n');
+    const jsonResult = await loadEntryModule(entry, { inputMappings: [`rows=${json}`] });
+    const csvResult = await loadEntryModule(entry, { inputMappings: [`rows=${csv}`] });
+    expect(jsonResult.env.toObject().rows).toEqual([{ priority: 20 }]);
+    expect(csvResult.env.toObject().rows).toEqual([{ priority: 10 }]);
+
+    const invalidJson = await write(dir, "invalid-rows.json", '[{"priority":"20"}]');
+    const jsonError = await expectAmxError(loadEntryModule(entry, { inputMappings: [`rows=${invalidJson}`] }), "AMX4003");
+    expect(jsonError.diagnostics?.[0]).toMatchObject({ inputName: 'rows', dataPath: '/0/priority', expected: 'Priority' });
+    const invalidCsv = await write(dir, "invalid-rows.csv", 'priority\n30\n');
+    const csvError = await expectAmxError(loadEntryModule(entry, { inputMappings: [`rows=${invalidCsv}`] }), "AMX4003");
+    expect(csvError.diagnostics?.[0]).toMatchObject({ inputName: 'rows', dataPath: 'record[1].priority', expected: 'Priority' });
   });
 
   it("rejects EN-I09 when an imported enum is not exported", async () => {
