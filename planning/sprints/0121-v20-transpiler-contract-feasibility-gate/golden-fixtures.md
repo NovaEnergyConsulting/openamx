@@ -84,13 +84,15 @@ omitted `count` uses its default `2`; both exports match exactly. A missing
 required `id` or an undeclared record key rejects before evaluation. This case
 must follow the current input validator's field/default order.
 
-### GOLD-INPUT-ENUM-BLOCKER-01: Enum Input Compatibility
+### GOLD-INPUT-ENUM-BLOCKER-01: Enum Runtime Prerequisite
 
 Use an enum-typed `input` declaration accepted by the checker, then compare
 checker behavior with the current input converter. The checker resolves enum
 names, but the current loader supplies only record declarations to that
-converter. This is a source-audit blocker for D121-16, not a passing golden
-result or authority to add enum input semantics.
+converter. D121-16 accepts a separately authorized AMX runtime validation
+prerequisite before the helper probe; this source-audit case remains NOT RUN
+until that prerequisite exists. It is not authority to change product source
+in S121.
 
 ### GOLD-VIEW-01: Shown Chart Snapshot
 
@@ -112,13 +114,13 @@ Expected `views` contains exactly one chart DTO with kind `chart`, name
 ECharts options, or rendered output. Add a false case with the same chart data
 and `showTable: false`.
 
-### GOLD-DIAGRAM-VIEW-BLOCKER-01: Diagram Result Semantics
+### GOLD-DIAGRAM-VIEW-BLOCKER-01: Diagram Result Semantics (D121-15 Resolved)
 
-Use the valid diagram declaration in `GOLD-AST-DIAGRAM-01` and check how its
-declaration-time runtime emission can satisfy the master-plan `{ exports,
-views }` result while `show` currently accepts only tables/charts. The
-disposition is blocked by D121-15; do not make `show diagram` a valid fixture
-or claim diagram view parity before the product owner decides the contract.
+Use the valid diagram declaration in `GOLD-AST-DIAGRAM-01`. Under accepted
+D121-15, its declaration-time emission becomes a distinct `diagram` DTO in
+`result.views`, ordered with table/chart show snapshots by module and
+source/evaluation order. Do not make `show diagram` a valid fixture. This
+contract case is accepted but remains NOT RUN until the helper/emitter exists.
 
 ## Comment-Encoding Fixture
 
@@ -163,7 +165,7 @@ needed while retaining each ID in the test name or evidence record.
 | GOLD-AST-UNIT-01 | Measurement attachment/conversion, affine units, measurement comparisons and operations | Value, dimension, display unit, and failure behavior match AMX. |
 | GOLD-AST-TABLE-01 | Table declarations, title/description, ordered column options, show | Shown table data matches rows, field order, labels, nulls, and source order. |
 | GOLD-AST-CHART-01 | All four chart kinds, fields/series/options, `showTable`, show | Structured chart DTO parity; true/false table selection is explicit. |
-| GOLD-AST-DIAGRAM-01 | Properties, timeline, primitives, recursive for/if diagram content, declaration-time emission | Structured scene/frame data, element order, and bindings match AMX; inclusion in generated `views` is blocked by D121-15. |
+| GOLD-AST-DIAGRAM-01 | Properties, timeline, primitives, recursive for/if diagram content, declaration-time emission | Structured scene/frame data, element order, and bindings match AMX; emit as a distinct ordered `diagram` DTO in `views` without adding `show` support. |
 | GOLD-AST-ERROR-01 | Invalid syntax, type mismatch, unknown name, invalid measurement and unsupported lowering | Source-local diagnostic; no partial generated module graph. |
 
 ## Exact Values and Floating Comparison
@@ -176,7 +178,7 @@ needed while retaining each ID in the test name or evidence record.
 - `GOLD-INPUT-RECORD-01`: `firstAlias === null` and `firstCount === 2` exactly.
 - `GOLD-VIEW-01`: chart data is exactly `[2, 4]`; kind, source order, title,
   and `showTable` are exact structural comparisons; no rendered table payload
-  is compared.
+  is compared. Diagram DTO fields/kind and ordering are exact under D121-15.
 - `GOLD-AST-UNIT-01/affine-C-to-F`: compare the Fahrenheit display value to
   `31.999999999999986` with absolute tolerance `1e-12` and relative tolerance
   `1e-12`. Measurement dimension, display-unit identity, and output shape are

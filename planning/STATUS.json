@@ -1,5 +1,5 @@
 {
-  "phase": "completed",
-  "sprint": "114",
-  "note": "S112 and S113 were separately accepted with recorded residuals on 2026-10-31. The product owner ACCEPTED/CLOSED Sprint 114 and V0.18 as complete WITH RECORDED RESIDUALS on 2026-11-01. Preserve S114's original root-focused 345/1 result, VS Code 21/7, desktop Vite UI 7/1/1, Hutch no-result, and native/cross-platform outcomes; these are not rewritten by the later 629/0 full-root follow-up. All package manifests are 0.18.0. GitHub release description drafted only; no release published or installer/certification performed."
+  "phase": "blocked",
+  "sprint": "121",
+  "note": "S120 was ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-11-21; preserve raw VS Code 21/8, passing V0.19-specific rows, and native/platform BLOCKED/UNAVAILABLE. S121 contract checkpoint and D121-01..18 product decisions accepted on 2026-11-25; final feasibility evidence and closeout remain pending. S122 helper implementation requires separate authorization and the enum-input runtime prerequisite; the S121 probe requires the actual public helper and separate exact approval. S123 remains blocked. No implementation, release, package/version, deployment, or certification authority follows."
 }

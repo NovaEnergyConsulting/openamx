@@ -72,14 +72,14 @@ mapping discrepancy, not an accepted extension.
 | `BracedIfStatementNode` | Native `if` with checked Boolean test and scoped branches. | Evaluation once, branch scope, optional alternate; `GOLD-AST-EXPR-01` |
 | `ReturnStatementNode` | Native return of the lowered expression. | Checker-approved reachability/result; `GOLD-AST-FUNCTION-01` |
 | `TableDeclarationNode` | Build renderer-independent table declaration/data through helper; do not render markup. | Field/column order, labels, nulls; `GOLD-AST-TABLE-01` |
-| `ChartDeclarationNode` | Build structured chart view data through helper; evaluate `showTable` at AMX snapshot timing and preserve resolved value. | Chart kind, data, units, selected table data; `GOLD-AST-CHART-01` |
-| `DiagramDeclarationNode` | Build structured scene/timeline data through helper, retaining recursive content, bindings, and deterministic order. Whether this declaration-time emission belongs in `run().views` is blocked by D121-15. | Diagram controls and serialization-safe DTO; `GOLD-AST-DIAGRAM-01`; D121-15 |
+| `ChartDeclarationNode` | Build structured chart view data through helper; evaluate `showTable` at AMX snapshot timing and preserve the resolved value without renderer-generated table payload. | Chart kind, data, units, and showTable; `GOLD-AST-CHART-01` |
+| `DiagramDeclarationNode` | Build structured scene/timeline data through helper and append a distinct declaration-time diagram DTO to `run().views`, retaining recursive content, bindings, and deterministic order. This does not add `show` semantics. | D121-15; diagram controls and serialization-safe DTO; `GOLD-AST-DIAGRAM-01` |
 | `DiagramElementNode` | Typed primitive descriptor passed to the diagram builder. | Supported primitive/property validation; `GOLD-AST-DIAGRAM-01` |
 | `DiagramForBlockNode` | Helper-backed ordered expansion with scoped iterator binding. | Same expansion/frame semantics as AMX runtime; `GOLD-AST-DIAGRAM-01` |
 | `DiagramIfBlockNode` | Evaluate condition once and preserve selected branch/order. | Alternate/empty branch semantics; `GOLD-AST-DIAGRAM-01` |
 | `DiagramPropertyNode` | Typed property value in stable declaration order. | Value type and source diagnostics; `GOLD-AST-DIAGRAM-01` |
 | `DiagramTimeNode` | Typed timeline descriptor with unit-aware bounds/duration. | Measurement values and exact frame semantics; `GOLD-AST-DIAGRAM-01` |
-| `ShowStatementNode` | Capture a referenced table/chart as a structured snapshot appended to `views` in source order. Current checker showability excludes diagrams; D121-15 blocks the result contract for declaration-time diagram emissions. | Repeated show and intervening mutation behavior; `GOLD-VIEW-01`; D121-15 |
+| `ShowStatementNode` | Capture a referenced table/chart as a structured snapshot appended to `views` in source/evaluation order. Checker showability continues to exclude diagrams. | Repeated show and intervening mutation behavior; `GOLD-VIEW-01`; D121-15 |
 | `VisualizationOptionNode` | Type-specific field/series/title/description helper data; reject invalid option-kind combinations before emission. | Stable option order and checked fields; `GOLD-AST-TABLE-01` and `GOLD-AST-CHART-01` |
 | `ViewTitleOptionNode` | Store the literal title in the corresponding structured view declaration. | Default title and source order; `GOLD-AST-TABLE-01` and `GOLD-AST-CHART-01` |
 | `ViewDescriptionOptionNode` | Store the literal description in the corresponding structured view declaration. | Default description and source order; `GOLD-AST-TABLE-01` and `GOLD-AST-CHART-01` |
@@ -128,22 +128,24 @@ mapping discrepancy, not an accepted extension.
   or generated types.
 - Only checker-accepted syntax is emitted. A checker-approved construct with
   no mapping is a contract blocker, not a runtime fallback.
-- `result.views` includes structured data selected by `show` only. Rendered
-  ECharts options, HTML, PDF, DOCX, and renderer accessibility markup are not
-  part of the generated runtime contract.
+- `result.views` merges table/chart `show` snapshots with declaration-time
+  diagram emissions as distinct DTO kinds, ordered by module and
+  source/evaluation order. Rendered ECharts options, HTML, PDF, DOCX, and
+  renderer accessibility markup are not part of the generated runtime
+  contract.
 
-## Source-Observed Contract Blockers
+## Source-Observed Constraints and Owner Decisions
 
 - `DateTime` is a string in the current evaluator and input boundary; the input
   validator checks RFC 3339 text. Do not invent a runtime `AMXDateTime` object.
 - The checker registers only tables and charts as showable views. A diagram
-  declaration creates a separate runtime diagram emission immediately. The
-  master-plan `{ exports, views }` wording does not settle whether this
-  declaration-time data belongs in `views`; D121-15 requires product-owner
-  disposition before its row can be finalized.
+  declaration creates a separate runtime emission immediately. Accepted
+  D121-15 places that emission in `result.views` under a distinct discriminant
+  without adding `show` behavior.
 - Enum type annotations resolve in the checker, but current input loading does
-  not pass enum declarations to the value converter. D121-16 blocks a claim
-  that enum inputs already have a compatible runtime validation contract.
+  not pass enum declarations to the value converter. D121-16 requires a
+  separately authorized runtime prerequisite before AMX/generated parity is
+  claimed; no product behavior changes in S121.
 
 ## Reconciliation Checklist
 

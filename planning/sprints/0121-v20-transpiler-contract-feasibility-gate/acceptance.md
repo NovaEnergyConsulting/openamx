@@ -12,11 +12,12 @@ adds no product behavior and authorizes no release or package action.
 - The raw Sprint 120 full VS Code aggregate remains 21 pass/8 fail; V0.19
   host-specific evidence passes independently. Native/platform evidence stays
   `BLOCKED/UNAVAILABLE`; no residual is upgraded or deleted.
-- The stale lifecycle ledgers are reconciled before S121 execution, and the
-  baseline, worktree, exact file/output plan, commands, and any isolated probe
-  are separately authorized.
-- The V0.20 master plan remains the confirmed product scope. Candidate
-  technical refinements have a distinct disposition from Builder evidence.
+- The lifecycle ledgers identify S121 as current and record the verified S120
+  closeout. Any execution still requires approval of its exact baseline,
+  worktree, files, commands, source, output roots, and preservation plan.
+- The V0.20 master plan includes the 2026-11-25 product-owner clarifications.
+  D121-01 through D121-18 contract decisions are separate from raw Builder
+  evidence and the final Sprint 121 owner disposition.
 
 ## AST and Semantics Coverage
 
@@ -35,12 +36,12 @@ adds no product behavior and authorizes no release or package action.
 - Imports/exports preserve visibility, source ordering, entry-only inputs,
   module identities, cycle/containment checks, and explicit export semantics.
 - Tables, charts, and recursive diagrams produce renderer-independent data.
-  The source baseline permits `show` only for tables/charts and emits diagrams
-  at declaration time into a separate collection; D121-15 blocks acceptance
-  until the product owner resolves how that behavior maps to `result.views`.
-- D121-16 is dispositioned: checker-accepted enum input annotations currently
-  lack a corresponding runtime input-conversion path. No new enum input
-  semantics may be inferred by the Builder.
+  `result.views` combines table/chart `show` snapshots with declaration-time
+  diagram emissions as distinct, ordered DTOs; this does not add `show` support
+  for diagrams.
+- D121-16 requires enum-value input validation in the AMX runtime as a
+  separately authorized prerequisite before helper/parity execution. No S121
+  product change is authorized.
 - Unknown or newly added AST node kinds fail closed. No unsupported construct
   is silently omitted, approximated, or emitted as `any` without explicit
   contract disposition.
@@ -50,10 +51,9 @@ adds no product behavior and authorizes no release or package action.
 - Every narrative line, including blank lines, non-AMX fences, and literal
   interpolation text, is encoded as inert TypeScript comments under the
   accepted newline/escaping rule.
-- The frontmatter boundary is explicitly resolved. If its source is covered by
-  the confirmed preservation rule, generated output has access to raw
-  frontmatter text and a golden fixture proves it is retained; parsed-only
-  metadata is not presented as byte-faithful source.
+- Accepted D121-13 carries raw source per module and emits frontmatter lines as
+  inert comments using the same normalized line encoding; parsed metadata is
+  not presented as a source-fidelity representation.
 - Generated source compiles under the accepted TypeScript, ESM, target, and
   module-resolution baseline. Imported output modules resolve from the public
   helper subpath without private engine imports.
@@ -71,14 +71,17 @@ adds no product behavior and authorizes no release or package action.
   and synchronous `run(inputs)`. Caller values are runtime-validated; no
   prompts, filesystem reads, or implicit environment inputs occur.
 - `result.exports` contains explicitly exported entry-module values only.
-  `result.views` preserves each shown view's kind, data, and source/evaluation
-  order; generated code does not render HTML, PDF, or DOCX.
+  `result.views` preserves shown table/chart snapshots and declaration-time
+  diagram DTOs under distinct kinds and source/evaluation order; generated
+  code does not render HTML, PDF, or DOCX.
 - The helper package subpath is stable, narrow, documented, versioned, and
   compatible with current package entry points. The existing absence of a
   root `exports` map is addressed without accidental deep-import breakage.
-- D121-17 is dispositioned before the feasibility probe: the proposed helper
-  subpath is absent at this baseline, so a probe must not substitute private
-  engine imports or hand-copied helper behavior.
+- The S121 helper/API contract checkpoint is accepted for the S122 entry gate.
+  S122 still requires separate implementation authorization. Its real public
+  helper, plus the enum-input prerequisite, must exist before the exact
+  separately approved S121 probe; private imports and copied helpers are not
+  substitutes. S121 final closeout follows that probe.
 
 ## Modules, Errors, and Destinations
 
@@ -90,9 +93,9 @@ adds no product behavior and authorizes no release or package action.
 - Existing files are never silently overwritten. Confirmation/explicit
   overwrite and cancellation behavior is defined for CLI and desktop use; a
   rejected/cancelled graph write leaves no partial success-shaped output.
-- D121-18 is dispositioned: multi-file publication failure has a tested
-  rollback/reporting contract or an explicitly accepted filesystem residual;
-  graph-wide crash atomicity is not claimed without evidence.
+- D121-18 is accepted as best-effort rollback with per-path reporting and an
+  explicit no-crash-atomicity residual. S124/S125 must test actual rollback;
+  S121 claims no publication implementation pass.
 - Parse/type errors retain source path and range and block emission. Emitter
   and destination diagnostics have an allocated identity or are clearly
   marked pending allocation; no invented stable code is claimed.
@@ -104,8 +107,9 @@ adds no product behavior and authorizes no release or package action.
   for invalid documents.
 - The mandatory helper-boundary cases cover one imported module, one
   measurement, one caller-supplied input with invalid-input rejection, and one
-  shown structured view. Each is compiled and executed using the approved
-  toolchain, not merely string-inspected.
+  shown structured view. Run them against the actual public helper after S122
+  and the enum-input prerequisite, using a separately approved exact plan;
+  string inspection is insufficient.
 - Generated `run(inputs).exports` and `run(inputs).views` are compared with
   the AMX runtime for identical sources and inputs. Exact comparisons and
   floating tolerances are declared per field; first mismatch is source/case
@@ -115,11 +119,9 @@ adds no product behavior and authorizes no release or package action.
   recorded and resolved.
 - `D121-13` is dispositioned; S123 has an unambiguous source-text input for
   every required comment, including any frontmatter in scope.
-- D121-15, D121-16, and D121-17 have explicit product-owner dispositions;
-  unresolved diagram or enum-input semantics block acceptance rather than
-  being treated as Builder implementation details.
-- D121-18 has a separate owner disposition for the documented multi-file
-  publication-failure behavior.
+- D121-01 through D121-18 have explicit product-owner contract decisions.
+  The separate final Sprint 121 disposition remains pending until the helper
+  proof and evidence review are complete.
 - Probe evidence is isolated and does not change tracked product sources,
   tests, package manifests, generated output, or previous sprint artifacts.
 
@@ -132,8 +134,9 @@ adds no product behavior and authorizes no release or package action.
   Source audit/probe evidence is not reported as full emitter acceptance.
 - A separate product-owner disposition accepts/closes or blocks/opens the
   S121 contract. Builder recommendation alone is not acceptance.
-- S122 helper implementation and S123 emitter implementation remain blocked
-  until the required S121 decisions are accepted; each also requires separate
+- S122 may begin only after the accepted S121 helper/API checkpoint and its
+  own exact implementation authorization. S123 remains blocked until S121
+  final acceptance and S122 helper acceptance; it also requires separate
   execution authorization.
 - No release, publication, package/version, deployment, distribution,
   installer, or platform certification authority follows S121.

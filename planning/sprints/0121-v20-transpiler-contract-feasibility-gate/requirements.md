@@ -3,8 +3,9 @@
 ## Document Status
 
 Architect-prepared Sprint 121 package. This package translates the confirmed
-V0.20 scope into proposed implementation contracts. Candidate technical
-choices remain subject to review and separate product-owner disposition.
+V0.20 scope into implementation contracts. The product owner accepted
+D121-01 through D121-18 on 2026-11-25; the final S121 sprint
+disposition remains separate and pending.
 Preparing these documents does not authorize implementation, release,
 publication, package/version changes, deployment, or platform certification.
 
@@ -29,21 +30,17 @@ acceptance gates below.
   2026-11-21. The full VS Code aggregate remains raw FAIL at 21 pass/8 fail;
   V0.19-specific rows pass; native/platform evidence remains
   `BLOCKED/UNAVAILABLE`. Preserve those statuses.
-- Lifecycle ledgers currently still identify Sprint 114 as current. Reconcile
-  `planning/state.md`, `planning/decisions.md`, `planning/STATUS.json`, and
-  `planning/ARCHITECT_BRIEFING.md` against Sprint 120 evidence before Sprint
-  121 execution or V0.20 implementation. This preparation package does not
-  rewrite those ledgers.
+- Lifecycle ledgers were reconciled on 2026-11-25 under product-owner approval
+  to identify S121 as current and record the verified S120 closeout. Historical
+  S120 raw results and residuals remain unchanged.
 - AST inventory: `src/ast/types.ts`; parser: `src/parser/parseDocument.ts`,
   `src/parser/parseStatements.ts`, and `src/parser/parseExpression.ts`;
   checker: `src/typechecker/checkDocument.ts`.
-- Source-fidelity blocker: `parseDocumentText` extracts YAML frontmatter into
-  `OpenAmxDocument.metadata`; the raw frontmatter text is not retained in the
-  document or narrative nodes. S121 must settle how the transpiler receives
-  original source for comment preservation. Candidate D121-13 carries raw
-  source text per module and emits the frontmatter prefix as inert comments;
-  parsed metadata alone is not a source-fidelity representation. Owner
-  disposition is still required.
+- Source-fidelity constraint: `parseDocumentText` extracts YAML frontmatter
+  into `OpenAmxDocument.metadata`; the raw text is not retained in the
+  document or narrative nodes. Accepted D121-13 carries original source per
+  module and emits raw frontmatter lines as inert comments; parsed metadata
+  alone is not a source-fidelity representation.
 - Runtime references: `src/runtime/measurement.ts`,
   `src/runtime/evaluateExpression.ts`, `src/runtime/evaluateDocument.ts`,
   `src/runtime/moduleLoader.ts`, `src/runtime/environment.ts`, and
@@ -51,12 +48,12 @@ acceptance gates below.
 - View references: `src/renderer/chartModel.ts` and the shared view emissions
   in `src/runtime/environment.ts`. Generated TypeScript must not depend on
   renderer-private models.
-- Source audit has identified three contract blockers to disposition rather
-  than infer around: diagram declarations produce separate declaration-time
-  emissions while `show` accepts only tables/charts (D121-15); checker-accepted
-  enum inputs have no matching current input-conversion path (D121-16); and
-  the proposed public helper subpath does not exist for the required probe
-  (D121-17).
+- Source audit has identified three implementation dependencies: diagram
+  declarations produce separate declaration-time emissions while `show`
+  accepts only tables/charts (resolved by D121-15); checker-accepted enum
+  inputs have no current input-conversion path (D121-16 runtime prerequisite);
+  and the proposed public helper subpath does not exist yet (D121-17 S122-first
+  sequence).
 - `DateTime` is represented as RFC 3339 text and remains a string in the
   current runtime. Do not model it as an unverified `AMXDateTime` object.
 - Current toolchain facts to reverify at execution: root package is ESM;
@@ -104,19 +101,19 @@ acceptance gates below.
 - Specify a narrowly isolated helper-boundary feasibility probe. Any probe
   execution and artifact location require separate approval; it must not
   alter tracked product source.
-- Reconcile D121-15, D121-16, and D121-17 with the product owner. These are
-  blocking semantic/sequence decisions, not implementation details that the
-  Builder may resolve.
-- Reconcile D121-18's multi-file publication-failure/rollback contract with
-  the product owner; do not claim graph-wide crash atomicity from single-file
-  atomic writers.
+- Preserve the accepted D121-15 through D121-18 decisions: distinct
+  declaration-time diagram DTOs, an external enum-validation prerequisite,
+  helper-first sequencing, and best-effort rollback with a no-crash-atomicity
+  residual. Do not treat these as permission to change product source or run
+  the probe.
 
 ## Out of Scope
 
 - Production emitter, helper implementation, CLI command, desktop export,
   published specification, README, example, package manifest, or generated
   output changes.
-- New AMX syntax, runtime semantic changes, arbitrary source-map generation,
+- New AMX syntax, runtime semantic changes other than the separately
+  authorized enum-input validation prerequisite, arbitrary source-map generation,
   rendered HTML/PDF/DOCX output, narrative interpolation evaluation, or
   execution of generated code during transpilation.
 - Silent best-effort or partial output for invalid documents; implicit
@@ -127,8 +124,9 @@ acceptance gates below.
 
 ## Contract Rules
 
-- The V0.20 master plan is the product-behavior authority. This package labels
-  technical refinements as confirmed, source-observed, proposed, or unresolved.
+- The V0.20 master plan, including the 2026-11-25 product-owner amendments, is
+  the product-behavior authority. Source observations do not authorize any
+  additional semantic changes.
 - Parse and type-check the complete entry module graph before emission. Any
   parse/type error rejects the operation; no generated file is reported as a
   successful partial result.
@@ -140,20 +138,27 @@ acceptance gates below.
   asynchronous change is a blocking contract decision, not an emitter detail.
 - Only explicitly exported entry-module values appear in `result.exports`.
   Imported module exports remain governed by AMX visibility and explicit
-  imports. `result.views` contains structured data for `show` statements in
-  source/evaluation order; it is not a renderer output.
+  imports. `result.views` combines shown table/chart snapshots with
+  declaration-time diagram DTOs as distinct kinds in module/source order; it
+  is not a renderer output and does not add AMX `show` behavior for diagrams.
 - Comment preservation means source text remains inert and recognizable in
   generated comments. It never means evaluating Markdown interpolation.
-- Frontmatter is a known source-retention gap and remains blocking until an
-  explicit S121 decision defines its inclusion and source-text handoff.
-- Diagram result inclusion and enum input behavior remain blocking under
-  D121-15 and D121-16. The proposed helper probe is not executable against a
-  public helper package until D121-17 is dispositioned and the exact isolated
-  plan is separately approved. D121-18 also blocks any unsupported guarantee
-  about multi-file publication failure or crash atomicity.
+- D121-13 accepts raw source text per module and inert frontmatter comments.
+  Enum-input parity requires the separately authorized AMX runtime
+  prerequisite. The helper-boundary proof waits for the real S122 public
+  package and separate exact probe approval. D121-18 accepts best-effort
+  rollback; graph-wide crash atomicity is not guaranteed.
 - Runtime helper APIs are intentionally narrow and versioned. Generated
   modules may rely only on the accepted public subpath, never private engine
   paths or renderer implementation details.
+- `result.views` contains shown table/chart snapshots and declaration-time
+  diagram DTOs under distinct discriminants; diagrams are not made showable.
+  Enum-input parity requires the separately authorized AMX runtime prerequisite
+  before S122/S121 proof. S122 may begin only after a dispositioned S121
+  helper/API checkpoint and separate authorization; S121 final closeout resumes
+  after the actual public helper is available.
+- Best-effort multi-file rollback with exact per-path reporting is accepted;
+  graph-wide crash atomicity is not guaranteed.
 - Raw evidence statuses are `PASS`, `FAIL`, `BLOCKED/UNAVAILABLE`, and
   `NOT RUN`. A probe, proposal, or source audit is not an implementation pass.
 
@@ -162,7 +167,7 @@ acceptance gates below.
 - Complete AST-to-TypeScript mapping with explicit handling for every current
   union member and fail-closed handling for future/unknown node kinds.
 - Accepted generated-module, helper, type, input, export, view, compiler, and
-  module-graph contracts, with unresolved choices named as blockers.
+  module-graph contracts, with prerequisites and residuals explicitly named.
 - Golden fixtures and parity matrix with stable IDs, expected values, exact
   versus tolerance-based comparisons, and downstream owners.
 - Diagnostic and destination-safety contracts with no unallocated stable IDs

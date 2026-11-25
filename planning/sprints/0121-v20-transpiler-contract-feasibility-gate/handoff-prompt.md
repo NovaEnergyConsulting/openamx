@@ -15,8 +15,9 @@ Feasibility Gate.
   `generated-runtime-contract.md`, `module-graph-and-diagnostics.md`,
   `golden-fixtures.md`, `parity-matrix.md`, and this handoff.
 - The source surfaces named in the V0.20 master plan and S121 requirements.
-  Verify source facts at the recorded baseline; do not treat this package's
-  candidates as accepted product behavior.
+  Verify source facts at the recorded baseline. Product-owner contract
+  decisions D121-01 through D121-18 were recorded on 2026-11-25; do not treat
+  contract disposition as execution or final sprint acceptance.
 
 ## Authority and Entry Gate
 
@@ -27,12 +28,15 @@ Feasibility Gate.
 - Verify Sprint 120's separate `ACCEPTED/CLOSED WITH RECORDED RESIDUALS`
   disposition. Preserve its raw VS Code aggregate 21/8, passing V0.19-specific
   rows, and native/platform `BLOCKED/UNAVAILABLE` status.
-- Reconcile lifecycle ledger entries that still identify Sprint 114 before
-  execution or V0.20 implementation. Do not silently rewrite S120 historical
-  evidence or imply the ledger is already reconciled.
-- Product decisions in the V0.20 master plan are fixed. Any semantic gap,
-  unsupported AST family, or scope change is a blocking decision for the
-  product owner; do not infer around it.
+- The four lifecycle ledgers were reconciled on 2026-11-25 under
+  product-owner approval. Do not rewrite S120 historical evidence or its raw
+  residuals.
+- Preserve the accepted product clarifications: raw frontmatter is passed in
+  the module source envelope; `result.views` includes shown table/chart
+  snapshots and distinct declaration-time diagram DTOs without adding `show`
+  for diagrams; enum input parity requires a separately authorized AMX runtime
+  prerequisite; and multi-file publication uses best-effort rollback with a
+  no-crash-atomicity residual.
 
 ## Task Contract
 
@@ -45,9 +49,11 @@ Feasibility Gate.
   behavior.
 - Reconcile every golden case to the parity matrix and every S121 master-plan
   bullet. Keep exact values and floating tolerances explicit.
-- Execute the imported-module, measurement, input, and shown-view feasibility
-  proof only if its exact isolated source, commands, output roots, toolchain,
-  and preservation plan were separately approved.
+- The helper-boundary proof must use the actual public helper after the
+  separately gated S122 implementation and enum-input prerequisite. Obtain a
+  new explicit approval for exact sources, commands, tool versions, worktree,
+  output roots, preservation, retries, and cleanup before execution. The
+  2026-11-25 sequence decision does not authorize S122 or the probe.
 - Complete `builder-evidence.md` with baseline, exact commands and outputs,
   raw statuses, retries, limitations, residual owners, recommendation, and a
   separate owner-disposition field.
@@ -75,4 +81,7 @@ Meet `acceptance.md`, reconcile the full AST and requirement inventory, finish
 the fixtures and parity matrix, and submit an evidence-based Builder
 recommendation. Only a separate product-owner disposition closes Sprint 121.
 Sprint 122 helper implementation and Sprint 123 emitter implementation each
-remain independently gated and authorized.
+remain independently gated and authorized. S122 may begin after the
+dispositioned S121 helper/API checkpoint; S121 final closeout resumes after the
+real helper-boundary proof. S123 remains blocked until S121 final acceptance
+and S122 helper acceptance.

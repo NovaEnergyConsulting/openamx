@@ -2,9 +2,9 @@
 
 ## Status
 
-Architect-prepared output contract. Reverify current module-loader behavior at
-the authorized baseline. Proposed path and overwrite choices require S121
-disposition; CLI/desktop implementation remains assigned to later sprints.
+Contract candidates were dispositioned by the product owner on 2026-11-25.
+Reverify current module-loader behavior at the authorized execution baseline;
+CLI/desktop implementation remains assigned to later sprints.
 
 ## Module Graph and Output Paths
 
@@ -12,7 +12,7 @@ disposition; CLI/desktop implementation remains assigned to later sprints.
   root-containment, cycle, source-order, visibility, and module-identity rules
   as the current AMX loader. Do not execute AMX or generated TypeScript as part
   of transpilation.
-- Candidate default import root is the entry document's directory tree, in
+- The default import root is the entry document's directory tree, in
   line with the current module loader. If an explicit import root is supported,
   apply the same canonical containment rule used by AMX imports.
 - Mirror each canonical source path relative to that root under the selected
@@ -30,7 +30,7 @@ disposition; CLI/desktop implementation remains assigned to later sprints.
 
 ## Destination Selection and Overwrite
 
-- Candidate CLI shape: `openamx transpile <entry.amx> --out-dir <directory>`.
+- Accepted CLI shape: `openamx transpile <entry.amx> --out-dir <directory>`.
   Require an explicit destination. Any optional import-root flag must match
   the loader's containment semantics and be settled during S121.
 - CLI overwrite is opt-in through an explicit `--overwrite` flag; without it,
@@ -52,7 +52,7 @@ disposition; CLI/desktop implementation remains assigned to later sprints.
 - Never overwrite unrelated files in the output directory. Only replace files
   whose exact generated destination is part of the confirmed graph.
 
-## Candidate Publication-Failure Contract
+## Accepted D121-18 Publication-Failure Contract
 
 - Complete parsing, typechecking, module validation, path mapping, collision
   checks, and overwrite confirmation before creating staged output.
@@ -65,8 +65,9 @@ disposition; CLI/desktop implementation remains assigned to later sprints.
   entry path.
 - This protocol does not claim crash-atomic multi-file replacement. A process
   or host failure during sequential renames can expose an incomplete graph;
-  rollback itself can also fail. D121-18 blocks acceptance until the product
-  owner accepts this residual or chooses a stronger platform-bounded contract.
+  rollback itself can also fail. The product owner accepted this as a named
+  residual on 2026-11-25. S124/S125 must test/report rollback and must not claim
+  stronger guarantees without direct platform evidence.
 
 ## Diagnostics
 
@@ -100,9 +101,9 @@ disposition; CLI/desktop implementation remains assigned to later sprints.
 - Collision refusal, missing confirmation, or cancellation leaves existing
   destination contents unchanged and creates no success-shaped partial graph.
 - If a filesystem failure occurs during publication, report every destination
-  that was staged, published, preserved, or rolled back. The contract gate
-  must decide whether transactional rollback is guaranteed on all supported
-  filesystems or whether that rare failure mode is an explicit residual.
+  that was staged, published, preserved, restored, or unrecovered. Best-effort
+  rollback is required; crash-atomic graph replacement is not guaranteed and
+  remains an accepted residual.
 - A successful result names the entry `.ts` path and every emitted graph file.
   A failed result never reports a valid entry output.
 

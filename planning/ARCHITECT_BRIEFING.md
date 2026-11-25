@@ -1,3 +1,31 @@
+# ARCHITECT BRIEFING — V0.20 Sprint 121 Contract Checkpoint (2026-11-25)
+
+## Where things stand
+S120 was separately ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-11-21.
+Its raw VS Code 21/8 aggregate, passing V0.19-specific rows, and native/platform
+BLOCKED/UNAVAILABLE status remain unchanged. The lifecycle ledgers now identify
+S121 as current.
+
+The product owner accepted the D121-01 through D121-18 contract decisions and
+the S121 helper/API contract checkpoint on 2026-11-25. Final S121 feasibility
+evidence and closeout remain pending. The accepted sequence requires a
+separately authorized S122 public helper and enum-input runtime prerequisite
+before the actual helper-boundary probe; S123 remains blocked until S121 final
+acceptance and S122 helper acceptance.
+
+## Next action
+Prepare the exact S122 implementation scope and authorization separately. After
+the public helper exists, submit the exact S121 probe sources, commands, tool
+versions, baseline, artifact roots, preservation, retry, and cleanup plan for
+approval. No probe or implementation is authorized yet.
+
+## Authority boundary
+No S121 final disposition, release, publication, package/version change,
+deployment, distribution, installer, or platform certification is recorded or
+authorized by this checkpoint.
+
+---
+
 # ARCHITECT BRIEFING — Sprint 114 Builder Submission
 
 ## Where things stand

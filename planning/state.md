@@ -1,5 +1,20 @@
 # Planning State
 
+## V0.20 Sprint 121 Contract Checkpoint (2026-11-25)
+
+- Sprint 120 was separately ACCEPTED/CLOSED WITH RECORDED RESIDUALS on
+  2026-11-21. Preserve its raw VS Code aggregate 21 pass/8 fail, passing
+  V0.19-specific rows, and native/platform `BLOCKED/UNAVAILABLE` status.
+- Sprint 121 is current. The product owner accepted D121-01 through D121-18
+  contract decisions on 2026-11-25; the S121 helper/API contract checkpoint is
+  accepted, but final S121 feasibility evidence and closeout are pending.
+- S122 helper implementation may proceed only after separate exact
+  authorization and the enum-input runtime prerequisite. The S121 probe must
+  use the actual public helper and receive its own exact approval. S123 remains
+  blocked until S121 final acceptance and S122 helper acceptance.
+- No S121 probe, S122/S123 implementation, release, package/version change,
+  deployment, or platform certification is authorized by this checkpoint.
+
 ## V0.18 Sprint 114 Product-Owner Closeout (2026-11-01)
 
 - The product owner ACCEPTED/CLOSED Sprint 114 and V0.18 as complete, WITH

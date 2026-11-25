@@ -1,5 +1,24 @@
 # Planning Decisions
 
+## V0.20 Sprint 121 Product-Owner Contract Decisions (2026-11-25)
+
+- D121-01 through D121-12 and D121-14 are accepted as recorded in the S121
+  blueprint. D121-13 accepts a per-module original-source envelope and inert
+  frontmatter comments using normalized line encoding.
+- D121-15 places shown table/chart snapshots and distinct declaration-time
+  diagram DTOs in `result.views`, ordered by module and source/evaluation
+  order. It does not add `show` support for diagrams.
+- D121-16 requires a separately authorized AMX runtime enum-input validation
+  prerequisite before helper/parity execution; S121 remains planning-only.
+- D121-17 approves the helper-first sequence: S122 may be separately
+  authorized after the S121 helper/API contract checkpoint; the actual S121
+  probe and final closeout follow once the public helper exists.
+- D121-18 accepts best-effort graph rollback with per-path reporting and an
+  explicit residual that multi-file publication is not crash-atomic.
+- These are contract decisions, not the final S121 sprint disposition. Probe
+  execution, S122/S123 implementation, release, and package/platform actions
+  remain separately gated and unauthorized.
+
 ## V0.18 Sprint 114 and Version Closeout (2026-11-01)
 
 - The product owner ACCEPTED/CLOSED Sprint 114 and V0.18 as complete on

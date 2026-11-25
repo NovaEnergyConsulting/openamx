@@ -4,7 +4,7 @@
 
 OpenAMX documents combine Markdown narrative, executable AMX fences, imported modules, typed inputs, and report declarations. V0.20 will add one feature: a core-engine transpiler that emits valid TypeScript from `.amx` documents and is made available through the CLI and desktop app.
 
-The transpiler will use the existing parser and checker to validate a document and its module graph, lower checked AMX syntax into TypeScript, preserve non-AMX Markdown as comments, and emit corresponding TypeScript modules for imported AMX modules. Generated code will preserve AMX calculation semantics with support from a versioned OpenAMX runtime helper package where direct TypeScript would differ. The generated entry module will expose `run(inputs)`, returning explicit exports and structured data for shown views. This is calculation and data parity, not a second HTML, PDF, or DOCX renderer.
+The transpiler will use the existing parser and checker to validate a document and its module graph, lower checked AMX syntax into TypeScript, preserve non-AMX Markdown as comments, and emit corresponding TypeScript modules for imported AMX modules. Generated code will preserve AMX calculation semantics with support from a versioned OpenAMX runtime helper package where direct TypeScript would differ. The generated entry module will expose `run(inputs)`, returning explicit exports and structured data in `views`: shown table/chart snapshots plus declaration-time diagram emissions as distinct DTO kinds, ordered by module and source/evaluation order. This is calculation and data parity, not a second HTML, PDF, or DOCX renderer.
 
 Implementation follows the V0.19 Sprint 120 closeout disposition and begins with the V0.20 contract gate in Sprint 121. This plan authorizes no release, publication, package-version change, deployment, or platform certification.
 
@@ -14,9 +14,10 @@ Implementation follows the V0.19 Sprint 120 closeout disposition and begins with
 - **Generated code:** Emit native TypeScript constructs that preserve AMX calculation behavior when compiled and run. Generated modules may import a versioned OpenAMX runtime helper package.
 - **Language coverage:** Cover all AMX features supported by the implementation baseline, including the V0.19 language additions.
 - **Validation:** Parse and type-check before emission. Invalid documents fail with source-oriented diagnostics; do not emit partial best-effort output.
-- **Narrative:** Preserve all non-AMX Markdown source as TypeScript line comments, including Markdown syntax, non-AMX fences, blank lines, and literal `{{ expression }}` interpolation text. Do not evaluate narrative interpolation.
+- **Narrative:** Preserve all non-AMX Markdown source as TypeScript line comments, including Markdown syntax, non-AMX fences, blank lines, and literal `{{ expression }}` interpolation text. Preserve raw YAML frontmatter lines as inert comments using the same normalized line encoding. Pass original source text alongside parsed modules; do not evaluate narrative interpolation.
 - **Modules:** Transpile imported `.amx` modules to corresponding `.ts` modules and rewrite relative imports.
-- **Generated API:** Generate an entry-module `run(inputs)` function. The caller supplies input values; generated code does not prompt interactively. `run` returns `{ exports, views }`, containing explicitly exported values and structured data for report/diagram views selected by `show`.
+- **Generated API:** Generate an entry-module `run(inputs)` function. The caller supplies input values; generated code does not prompt interactively. `run` returns `{ exports, views }`, containing explicitly exported values, table/chart snapshots selected by `show`, and declaration-time diagram DTOs under a distinct discriminant. This does not add `show` support for diagrams to AMX.
+- **Enum inputs:** Preserve full language coverage by adding enum-value input validation to the AMX runtime as a separately authorized prerequisite before the helper-boundary parity proof. S121 remains planning-only and does not implement this runtime change.
 - **Behavior boundary:** Preserve calculation and structured report/view data semantics, but do not render HTML, PDF, or DOCX from generated TypeScript.
 - **Surfaces:** Provide CLI file output and a desktop TypeScript export action. Defer source maps.
 - **Release authority:** This plan does not authorize release, publication, package-version changes, deployment, or platform certification.
@@ -27,7 +28,7 @@ Implementation follows the V0.19 Sprint 120 closeout disposition and begins with
 - Keep emission deterministic and source ordered. Emit TypeScript types for records, enums, inputs, exports, and view data. Route AMX-specific semantics, including 1-based indexing, units, standard-library behavior, and input validation, through a small documented runtime surface.
 - Expose generated-code helpers through a stable package subpath. Settle the precise export path and TypeScript/module compatibility baseline in Sprint 121. Use the supported TypeScript toolchain to compile generated fixtures; do not add a compiler dependency to runtime execution unless the contract gate establishes a need.
 - Mirror each source module's relative path under an output root and rewrite imports to `.ts`. Recommended CLI shape: `openamx transpile <entry.amx> --out-dir <directory>`. Use explicit destination selection and confirmation for graph output; do not silently overwrite files.
-- Use golden output fixtures and compile-and-execute comparisons against AMX runtime results. Compare explicit exports and structured shown-view data, not rendered report bytes.
+- Use golden output fixtures and compile-and-execute comparisons against AMX runtime results. Compare explicit exports and structured view events, including declaration-time diagrams, not rendered report bytes.
 
 ## Confirmed Scope
 
@@ -55,20 +56,20 @@ Implementation follows the V0.19 Sprint 120 closeout disposition and begins with
 ### Tests and Acceptance
 
 - Add focused emitter golden tests and generated-source TypeScript compilation tests for every supported AST family.
-- Compare generated `run(inputs)` exports and shown views with AMX runtime results for representative calculations, modules, inputs, measurements, lists, and report/diagram data.
+- Compare generated `run(inputs)` exports and structured view events with AMX runtime results for representative calculations, modules, inputs, measurements, lists, and report/diagram data.
 - Add CLI and desktop coverage for successful graph output, invalid documents, destination collisions, cancellation, overwrite, and stale document identity.
 
 ## Explicit Exclusions
 
 - HTML, PDF, or DOCX rendering from generated TypeScript; report declarations are emitted as structured data only.
 - Evaluation of `{{ expression }}` narrative interpolation; it remains literal comment text.
-- Source maps, editor integration, new AMX syntax, changes to AMX runtime behavior, and unrelated CLI or desktop work.
+- Source maps, editor integration, new AMX syntax, changes to AMX runtime behavior other than the separately authorized enum-input validation prerequisite, and unrelated CLI or desktop work.
 - Silent best-effort output or partial emission for parse/type errors.
 - Release publication, deployment, package/version changes, and platform certification.
 
 ## Sprint Sequence
 
-Continue after V0.19 Sprint 120. Planning may begin earlier, but implementation beyond the contract gate depends on the V0.19 closeout disposition being recorded and Sprint 121 acceptance.
+Continue after V0.19 Sprint 120. Planning may begin earlier, but S123 implementation depends on final S121 acceptance and S122 helper acceptance. By the product owner's 2026-11-25 sequence disposition, S122 may be separately authorized after a dispositioned S121 helper/API contract checkpoint; the S121 feasibility proof and final closeout then resume against the real public helper package. This sequence amendment grants no implementation or execution authority.
 
 ### Sprint 121: Transpiler Contract and Feasibility Gate
 
@@ -77,17 +78,18 @@ Architect-prepared Sprint 121 documentation package.
 - Define a complete AST-to-TypeScript mapping for every supported AMX node, including statements, type forms, measurements, inputs, imports, diagrams, tables/charts, and `show` behavior.
 - Specify comment encoding, `run(inputs)` input/result types, input validation, runtime-helper ownership, package subpath, TypeScript/module baseline, module graph paths, collision/overwrite behavior, and diagnostics.
 - Build golden fixtures and a parity matrix that compare compiled TypeScript behavior with AMX runtime results.
-- Prove the helper-package boundary with one imported module, one measurement case, one input case, and one shown view before the full emitter proceeds.
+- Complete and disposition the helper/API contract checkpoint. After the separately gated S122 helper exists, prove its public-package boundary with one imported module, one measurement case, one input case, and one shown view before S121 final closeout or the full emitter proceeds.
 - Record any construct that cannot meet the confirmed contract as a blocking scope decision rather than silently omitting or approximating it.
 
-### Sprint 122: Public Runtime Helpers and Generated-Module Contract (depends on Sprint 121)
+### Sprint 122: Public Runtime Helpers and Generated-Module Contract (depends on the dispositioned S121 helper/API contract checkpoint; precedes S121 final feasibility closeout by the approved sequence amendment)
 
 Architect-prepared Sprint 122 documentation package.
 
 - Add a stable public package entry point for generated TypeScript helpers without exposing unrelated engine internals.
 - Provide only helpers needed to preserve AMX calculation semantics and typed caller-supplied input validation; reuse existing runtime behavior where practical.
-- Define generated types and `run(inputs)` result contracts for exports and structured shown views.
-- Compile and run a separately authored TypeScript fixture that imports the public helper entry point; verify module compatibility and runtime behavior.
+- Complete the separately authorized AMX runtime enum-input validation prerequisite before claiming enum-input parity.
+- Define generated types and `run(inputs)` result contracts for exports and structured view events, including declaration-time diagram DTOs.
+- Compile and run a separately authored TypeScript fixture that imports the public helper entry point; verify module compatibility and runtime behavior. This S122 fixture does not replace S121's separately authorized four-case parity probe.
 
 ### Sprint 123: Core Document and AST Emitter (depends on Sprints 121-122)
 
@@ -96,7 +98,7 @@ Architect-prepared Sprint 123 documentation package.
 - Add the core transpiler module and public API through `src/index.ts`.
 - Convert each non-AMX Markdown line into a safe TypeScript line comment while preserving source content; emit every AMX fence as formatted TypeScript in source order.
 - Lower the complete checked AST, using runtime helpers only where direct TypeScript would change AMX semantics.
-- Generate typed input parameters, explicit exports, and structured view results; return shown views with exports from `run(inputs)`.
+- Generate typed input parameters, explicit exports, and structured view results; return shown table/chart snapshots and declaration-time diagram DTOs from `run(inputs)`.
 - Add focused golden-output tests, parse/type-check rejection tests, and generated-source compilation tests.
 
 ### Sprint 124: Module Graph and CLI (depends on Sprint 123)
@@ -121,7 +123,7 @@ Architect-prepared Sprint 125 documentation package.
 
 Architect-prepared Sprint 126 documentation package.
 
-- Run example and fixture documents through transpilation, compile generated TypeScript, execute fixtures, and compare exports and shown-view structures with AMX runtime results.
+- Run example and fixture documents through transpilation, compile generated TypeScript, execute fixtures, and compare exports and structured view events with AMX runtime results.
 - Verify comment fidelity, every current AST construct, imported-module paths, input validation, measurement/list/builtin semantics, and source-local diagnostics.
 - Verify CLI and desktop output graph equivalence, safe destination handling, overwrite/cancel behavior, and reproducible output.
 - Run focused root and CLI tests, `bun run build`, desktop typecheck/test/UI gates as applicable.
@@ -150,5 +152,5 @@ Architect-prepared Sprint 126 documentation package.
 
 ## Decisions and Assumptions
 
-- The feature contract above is confirmed. The exact runtime package subpath, destination default, overwrite policy, and generated `run` type details are implementation-level items for Sprint 121. Recommended defaults are a public runtime subpath, explicit output directory, no silent overwrite, and exported TypeScript interfaces.
+- The feature contract above and the 2026-11-25 product-owner clarifications are authoritative. S121 records the accepted helper path, output policy, source envelope, view DTOs, compiler baseline, input rules, and publication-failure residual. S121 final feasibility evidence and closeout remain pending.
 - `run(inputs)` is synchronous unless the Sprint 121 feasibility gate finds an existing AMX behavior that requires asynchronous execution. Any such finding must return as a contract decision before implementation scope broadens.

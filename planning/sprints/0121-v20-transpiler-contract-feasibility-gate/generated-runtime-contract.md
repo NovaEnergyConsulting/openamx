@@ -2,10 +2,9 @@
 
 ## Status
 
-Architect-prepared proposal based on the V0.20 master plan and current root
-package/tsconfig. Public shape, TypeScript baseline, and helper subpath are
-contract-gate decisions; the candidate choices below do not change product
-behavior until disposition.
+Contract baseline accepted by the product owner on 2026-11-25. The installed
+toolchain and public helper package still require verification; the S121
+feasibility proof remains NOT RUN.
 
 ## Narrative and Source Fidelity
 
@@ -15,12 +14,12 @@ behavior until disposition.
   interpolation.
 - YAML frontmatter is currently removed from source text and retained only as
   parsed `metadata`, so `OpenAmxDocument` alone cannot preserve its original
-  spelling or YAML comments. Candidate D121-13 contract: every module source
-  envelope carries both the parsed document and original source text; emit
+  spelling or YAML comments. Accepted D121-13 requires each module source
+  envelope to carry both the parsed document and original source text; emit
   every raw frontmatter line as an inert comment under the normalized line
   encoding before body nodes. Do not serialize parsed metadata and call it
-  original-source preservation. This proposal still requires owner disposition.
-- Candidate encoding: split on ECMAScript line terminators (CRLF, CR, LF,
+  original-source preservation.
+- Accepted D121-02 encoding: split on ECMAScript line terminators (CRLF, CR, LF,
   U+2028, and U+2029), normalize separators to LF, then prefix each line with
   `// `; encode an empty source line as `//`. Do not use block comments, so
   embedded `*/` cannot terminate a comment. A final source newline is
@@ -33,7 +32,7 @@ behavior until disposition.
 
 ## Public Generated API
 
-Candidate generated entry shape:
+Accepted generated entry shape:
 
 ```ts
 export interface AMXRunInputs {
@@ -63,18 +62,20 @@ export function run(inputs: AMXRunInputs): AMXRunResult;
   values only. Unexported locals and imported module values are not copied
   into the result. Generated module exports still follow AMX visibility for
   inter-module imports.
-- `result.views` contains one structured snapshot per executed `show`, in
-  source/evaluation order. Repeated shows remain separate entries. Non-shown
-  declarations are not included. It is data, never rendered HTML/PDF/DOCX.
-- Generated API names use an `AMX`-prefixed reserved namespace (candidate
+- `result.views` contains table/chart snapshots for each executed `show` and
+  declaration-time diagram emissions as distinct discriminants. Preserve
+  module traversal and source/evaluation order; repeated shows remain separate
+  entries. Do not add AMX `show` support for diagrams. It is data, never
+  rendered HTML/PDF/DOCX.
+- Generated API names use an `AMX`-prefixed reserved namespace (accepted
   `AMXRunInputs`, `AMXRunExports`, `AMXRunResult`). D121-14 proposes lowering
   every AMX declaration to a deterministic, collision-checked internal
   TypeScript identifier so source names cannot shadow the public wrapper/types;
   original AMX names remain keys in exports and import bindings.
 - Source-facing AMX names are preserved only as explicit result keys and
   module bindings; generated implementation identifiers are deterministically
-  mangled. This is the D121-14 candidate rule, not a promise to retain AMX names
-  as local TypeScript identifiers.
+  mangled under accepted D121-14; AMX names are not promised as local
+  TypeScript identifiers.
 - Exported functions/types/enums may be TypeScript module exports when required
   by an AMX import, but are not serialized into the entry `exports` object.
 
@@ -95,18 +96,17 @@ export function run(inputs: AMXRunInputs): AMXRunResult;
   descriptors carry dimension identity, scale, offset, and display-unit name.
 - Generated values avoid `any`. `unknown` is permitted only at runtime input
   validation boundaries, before conversion to a checked generated type.
-- View DTOs are public, renderer-independent, readonly data. Candidate table
+- View DTOs are public, renderer-independent, readonly data. Table
   snapshots preserve the runtime's ordered data; measurement values use the
   current snapshot display text and nested arrays/records are copied as data.
   Candidate chart snapshots preserve chart kind, normalized numeric data,
   labels/headings, measurement descriptors, and resolved `showTable`; they do
   not contain renderer models, accessibility markup, or an extra rendered
   table payload. Exact fields remain a contract decision.
-- Current diagrams are not `show` snapshots: the checker allows `show` only
-  for tables/charts, while diagram declarations produce a separate
-  declaration-time runtime emission. Whether diagram data is represented in
-  `result.views` or otherwise returned is blocked by D121-15. Do not claim
-  parity or finalize the result union until the product owner decides.
+- Diagrams remain declaration-time emissions, not `show` snapshots. The
+  accepted D121-15 result union includes them as a distinct `diagram` DTO in
+  `result.views`, ordered alongside show snapshots by module and source/eval
+  order. This does not change AMX `show` semantics.
 - View DTOs must not expose `ChartViewModel`, ECharts options, renderer
   accessibility internals, live `Environment` objects, Maps/Sets, or private
   diagram serialization envelopes. Table snapshots and chart normalization
@@ -114,9 +114,10 @@ export function run(inputs: AMXRunInputs): AMXRunResult;
 
 ## Runtime Helper Boundary
 
-Candidate package subpath: `openamx/transpiler-runtime`. The name is proposed
-because the current package has no export map and generated code must not
-import private implementation paths. S122 owns the public implementation.
+Accepted package subpath: `openamx/transpiler-runtime`. The current package has
+no export map; S122 must add the public entry without breaking supported
+package/CLI entry points. Generated code must not import private implementation
+paths. This contract does not authorize S122 implementation.
 
 The accepted public subpath should expose only the following categories:
 
@@ -127,9 +128,9 @@ The accepted public subpath should expose only the following categories:
 - Measurement semantics: attach/convert, arithmetic/comparison, standard
   library operations, unit identity, and finite/domain diagnostics.
 - Input validation from `unknown` to generated typed inputs, including nested
-  lists/records, optional/null fields, and measurement dimension
-  compatibility. Enum input validation remains excluded until D121-16 is
-  dispositioned.
+  lists/records, optional/null fields, enum member values, and measurement
+  dimension compatibility. Enum parity depends on the separately authorized
+  AMX runtime validation prerequisite in D121-16.
 - Structured table/chart/diagram snapshot constructors, with no HTML/PDF/DOCX
   renderer or filesystem access.
 - A narrow diagnostic/error type carrying source module and input path context.
@@ -163,8 +164,8 @@ compatibility policy.
 ## Runtime Input Validation
 
 `run(inputs)` performs runtime validation even when the caller uses TypeScript
-types. Candidate rules, grounded in `src/runtime/inputData.ts` and subject to
-S121 disposition:
+types. The following D121-10 rules are accepted and grounded in
+`src/runtime/inputData.ts`, with enum parity gated by D121-16:
 
 - The top-level value must be a non-null, non-array object containing every
   declared entry input and no unknown input keys. Imported modules cannot
@@ -183,10 +184,10 @@ S121 disposition:
   materialize as `null`, and missing required fields fail. Explicit `null`
   remains distinct from an absent field. Lists preserve element order and
   recursively apply these rules.
-- Enum annotations are checker-accepted but are not handled by the existing
-  runtime input converter. D121-16 blocks enum-input support/parity until the
-  product owner decides how this baseline mismatch is handled; do not claim
-  enum validation from a proposed helper alone.
+- Enum annotations use the checked declaration's resolved string/number
+  member values. Reject any other value before AMX statements execute. The
+  current runtime lacks this path; the separately authorized D121-16 runtime
+  prerequisite must be implemented and accepted before parity is claimed.
 - An invalid input fails before any AMX statements execute and identifies the
   input/property path plus expected type. It does not return partial exports
   or views.
@@ -208,7 +209,8 @@ The isolated boundary fixture must demonstrate, at minimum:
 Record exact sources, tool versions, compile/run commands, raw output, parity
 assertions, package subpath used, and limitations in `builder-evidence.md`.
 This proof is a boundary feasibility result, not evidence that the full emitter
-is implemented. At the current baseline the proposed public subpath is absent;
-the probe is blocked until D121-17 decides how it can exercise that boundary
-without private engine imports or hand-copied helper behavior. No probe has
-been run or authorized.
+is implemented. Under accepted D121-17 sequencing, run it against the actual
+S122 public helper after the enum-input prerequisite is in place, then return
+to S121 final closeout. No probe has been run or authorized; exact approval is
+still required for baseline, sources, commands, roots, preservation, retries,
+and cleanup.
