@@ -637,7 +637,7 @@ export function checkDocument(doc: OpenAmxDocument, file?: string, context?: Mod
       const scope = owner ? fieldRegistry(owner) : undefined;
       const dimension = ref.name ? (scope?.dimensions ?? dimensions).get(ref.name) : undefined;
       if (dimension) return { kind: 'measurement', vector: dimension.vector };
-      if (!ref.name || (!primitives.has(ref.name) && !types.has(ref.name))) fail('AMX3001', `Unknown type '${ref.name}'`, ref.source);
+      if (!ref.name || (!primitives.has(ref.name) && !types.has(ref.name) && !enums.has(ref.name))) fail('AMX3001', `Unknown type '${ref.name}'`, ref.source);
       return named(ref.name!);
     }
     return ref.type === 'listType' ? list(resolve(ref.element!, owner)) : nullable(resolve(ref.element!, owner));

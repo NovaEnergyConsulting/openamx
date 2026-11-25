@@ -1,0 +1,848 @@
+import { parseForExpression } from './parseFor';
+import { findBracedIfExpressionEnd, parseBracedIfExpression } from './parseIf';
+import { AmxError, syntaxError } from '../diagnostics/errors';
+import { findInterpolationEnd as findInterpolationClose, findStringLiteralEnd } from './stringScanner';
+function tokenize(text, source) {
+    const tokens = [];
+    let i = 0;
+    const len = text.length;
+    function skipWs() {
+        while (i < len && /\s/.test(text[i]))
+            i++;
+    }
+    while (i < len) {
+        skipWs();
+        if (i >= len)
+            break;
+        const ch = text[i];
+        if (text.startsWith('if', i) && !/[A-Za-z0-9_]/.test(text[i + 2] ?? '')) {
+            const end = findBracedIfExpressionEnd(text, i);
+            if (end !== undefined) {
+                const ifText = text.slice(i, end + 1);
+                tokens.push({ type: 'bracedIfExpression', value: ifText, text: ifText, offset: i });
+                i = end + 1;
+                continue;
+            }
+        }
+        if (text.startsWith('for', i) && !/[A-Za-z0-9_]/.test(text[i + 3] ?? '')) {
+            const end = findForExpressionEnd(text, i, source);
+            const loopText = text.slice(i, end + 1);
+            tokens.push({ type: 'forExpression', value: loopText, text: loopText, offset: i });
+            i = end + 1;
+            continue;
+        }
+        if (text.startsWith('match', i) && !/[A-Za-z0-9_]/.test(text[i + 5] ?? '')) {
+            const end = findMatchExpressionEnd(text, i, source);
+            const matchText = text.slice(i, end + 1);
+            tokens.push({ type: 'matchExpression', value: matchText, text: matchText, offset: i });
+            i = end + 1;
+            continue;
+        }
+        // Number literal: digits, optional decimal part. No sign here (unary minus is separate).
+        if (/\d/.test(ch)) {
+            let j = i;
+            while (j < len && /\d/.test(text[j]))
+                j++;
+            if (text[j] === '.') {
+                j++;
+                while (j < len && /\d/.test(text[j]))
+                    j++;
+            }
+            const numStr = text.slice(i, j);
+            tokens.push({ type: 'number', value: Number(numStr), text: numStr, offset: i });
+            i = j;
+            continue;
+        }
+        // String literal "..." or '...'
+        if (ch === '"' || ch === "'") {
+            const end = findStringEnd(text, i, source);
+            const literal = text.slice(i, end + 1);
+            tokens.push({ type: 'string', value: literal.slice(1, -1), text: literal, offset: i });
+            i = end + 1;
+            continue;
+        }
+        // Identifier or boolean literal
+        if (/[A-Za-z]/.test(ch)) {
+            let j = i;
+            while (j < len && /[A-Za-z0-9_]/.test(text[j]))
+                j++;
+            const word = text.slice(i, j);
+            if (word === 'true') {
+                tokens.push({ type: 'boolean', value: true, text: word, offset: i });
+            }
+            else if (word === 'false') {
+                tokens.push({ type: 'boolean', value: false, text: word, offset: i });
+            }
+            else if (word === 'null') {
+                tokens.push({ type: 'null', text: word, offset: i });
+            }
+            else if (word === 'and' || word === 'or' || word === 'not' || word === 'if' || word === 'then' || word === 'else') {
+                tokens.push({ type: 'keyword', word: word, text: word });
+            }
+            else {
+                tokens.push({ type: 'identifier', name: word, text: word, offset: i });
+            }
+            i = j;
+            continue;
+        }
+        // Two-character comparison operators
+        if (ch === '=' || ch === '!' || ch === '>' || ch === '<') {
+            const two = text.slice(i, i + 2);
+            if (two === '==' || two === '!=' || two === '>=' || two === '<=') {
+                tokens.push({ type: 'operator', op: two, text: two, offset: i });
+                i += 2;
+                continue;
+            }
+        }
+        // Single-character comparison operators (bare > < after two-char check)
+        if (ch === '>' || ch === '<') {
+            tokens.push({ type: 'operator', op: ch, text: ch, offset: i });
+            i++;
+            continue;
+        }
+        // Single-character operators and grouping
+        if ('+-*/%^()[].,{}:=?'.includes(ch)) {
+            if (ch === '(') {
+                tokens.push({ type: 'lparen', text: ch, offset: i });
+            }
+            else if (ch === ')') {
+                tokens.push({ type: 'rparen', text: ch, offset: i });
+            }
+            else if (ch === '[') {
+                tokens.push({ type: 'lbracket', text: ch, offset: i });
+            }
+            else if (ch === ']') {
+                tokens.push({ type: 'rbracket', text: ch, offset: i });
+            }
+            else if (ch === ',') {
+                tokens.push({ type: 'comma', text: ch, offset: i });
+            }
+            else if (ch === '?') {
+                tokens.push({ type: 'question', text: ch, offset: i });
+            }
+            else if (ch === '{' || ch === '}' || ch === ':' || ch === '=' || ch === '.') {
+                tokens.push({ type: { '{': 'lbrace', '}': 'rbrace', ':': 'colon', '=': 'equals', '.': 'dot' }[ch], text: ch, offset: i });
+            }
+            else {
+                tokens.push({ type: 'operator', op: ch, text: ch, offset: i });
+            }
+            i++;
+            continue;
+        }
+        throw new Error(`Unexpected character '${ch}' in expression at position ${i}`);
+    }
+    tokens.push({ type: 'eof' });
+    return tokens;
+}
+function findStringEnd(text, start, source) {
+    const quote = text[start];
+    for (let index = start + 1; index < text.length; index++) {
+        const character = text[index];
+        if (character === '\r' || character === '\n') {
+            syntaxError('Raw strings must remain on one line', locationAt(text, index, source));
+        }
+        if (character === '\\') {
+            const escaped = text[index + 1];
+            if (escaped === undefined) {
+                syntaxError('Incomplete string escape', locationAt(text, index, source));
+            }
+            if (escaped === '\r' || escaped === '\n') {
+                syntaxError('Raw strings must remain on one line', locationAt(text, index + 1, source));
+            }
+            index++;
+            continue;
+        }
+        if (character === quote)
+            return index;
+        if (quote === '"' && text.startsWith('${', index)) {
+            const close = findInterpolationClose(text, index + 2);
+            if (close === undefined)
+                syntaxError('Unclosed string interpolation', locationAt(text, index, source));
+            index = close;
+        }
+    }
+    syntaxError('Unterminated string literal', locationAt(text, start, source));
+}
+function parseStringToken(raw, source) {
+    const quote = raw[0];
+    const end = raw.length - 1;
+    const parts = [];
+    let literal = '';
+    let hasInterpolation = false;
+    const flushLiteral = () => {
+        if (literal)
+            parts.push(literal);
+        literal = '';
+    };
+    for (let index = 1; index < end;) {
+        const character = raw[index];
+        if (character === '\\') {
+            const escape = raw[index + 1];
+            const decoded = {
+                '"': '"',
+                "'": "'",
+                '\\': '\\',
+                n: '\n',
+                r: '\r',
+                t: '\t'
+            };
+            if (escape === '$' && raw[index + 2] === '{') {
+                literal += '${';
+                index += 3;
+                continue;
+            }
+            if (escape === undefined || decoded[escape] === undefined) {
+                syntaxError(`Unknown or incomplete string escape '\\${escape ?? ''}'`, locationAt(raw, index, source));
+            }
+            literal += decoded[escape];
+            index += 2;
+            continue;
+        }
+        if (quote === '"' && raw.startsWith('${', index)) {
+            const close = findInterpolationClose(raw, index + 2);
+            if (close === undefined)
+                syntaxError('Unclosed string interpolation', locationAt(raw, index, source));
+            const expressionText = raw.slice(index + 2, close);
+            const leading = expressionText.length - expressionText.trimStart().length;
+            const trimmed = expressionText.trim();
+            if (!trimmed)
+                syntaxError('String interpolation requires an expression', locationAt(raw, index, source));
+            flushLiteral();
+            try {
+                parts.push(parseExpression(trimmed, locationAt(raw, index + 2 + leading, source)));
+            }
+            catch (error) {
+                if (error instanceof AmxError)
+                    throw error;
+                syntaxError(`Invalid string interpolation expression: ${error instanceof Error ? error.message : String(error)}`, locationAt(raw, index, source));
+            }
+            hasInterpolation = true;
+            index = close + 1;
+            continue;
+        }
+        literal += character;
+        index++;
+    }
+    flushLiteral();
+    if (!hasInterpolation) {
+        return { type: 'stringLiteral', value: parts.join(''), source };
+    }
+    return { type: 'stringInterpolation', parts, source };
+}
+function findForExpressionEnd(text, start, source) {
+    let open = -1;
+    let depth = 0;
+    for (let index = start; index < text.length; index++) {
+        const character = text[index];
+        if (character === '"' || character === "'") {
+            const end = findStringLiteralEnd(text, index);
+            if (end === undefined)
+                syntaxError('Invalid or incomplete string in for expression', locationAt(text, index, source));
+            index = end;
+            continue;
+        }
+        if (character === '{') {
+            if (open === -1)
+                open = index;
+            depth++;
+        }
+        else if (character === '}' && open !== -1) {
+            depth--;
+            if (depth === 0)
+                return index;
+        }
+    }
+    throw new Error(`Unclosed braced expression`);
+}
+function findMatchExpressionEnd(text, start, source) {
+    const braces = [];
+    let parentheses = 0;
+    let pendingMatches = 0;
+    let pendingFor = false;
+    for (let index = start; index < text.length; index++) {
+        const character = text[index];
+        if (character === '"' || character === "'") {
+            const end = findStringLiteralEnd(text, index);
+            if (end === undefined)
+                syntaxError('Invalid or incomplete string in match expression', locationAt(text, index, source));
+            index = end;
+            continue;
+        }
+        if (character === '(')
+            parentheses++;
+        else if (character === ')')
+            parentheses--;
+        else if (text.startsWith('match', index)
+            && !/[A-Za-z0-9_]/.test(text[index - 1] ?? '')
+            && !/[A-Za-z0-9_]/.test(text[index + 5] ?? '')) {
+            pendingMatches++;
+            index += 4;
+        }
+        else if (text.startsWith('for', index)
+            && !/[A-Za-z0-9_]/.test(text[index - 1] ?? '')
+            && !/[A-Za-z0-9_]/.test(text[index + 3] ?? '')) {
+            pendingFor = true;
+            index += 2;
+        }
+        else if (character === '{') {
+            const activeMatches = braces.filter(Boolean).length;
+            braces.push(!pendingFor && pendingMatches > activeMatches);
+            pendingFor = false;
+        }
+        else if (character === '}') {
+            if (braces.pop())
+                pendingMatches--;
+            if (braces.length === 0 && pendingMatches === 0 && parentheses === 0)
+                return index;
+        }
+    }
+    const position = locationAt(text, start, source);
+    throw new Error(`Unclosed match expression at ${position.line}:${position.column}`);
+}
+function locationAt(text, offset, source) {
+    const before = text.slice(0, offset).split(/\r?\n/);
+    return {
+        line: (source?.line ?? 1) + before.length - 1,
+        column: (before.length === 1 ? source?.column ?? 1 : 1) + before[before.length - 1].length
+    };
+}
+function tokenOffset(token, fallback) {
+    return 'offset' in token ? token.offset ?? fallback : fallback;
+}
+function parseMatchExpression(text, source) {
+    let open = -1;
+    let depth = 0;
+    for (let index = 0; index < text.length; index++) {
+        const character = text[index];
+        if (character === '"' || character === "'") {
+            const end = findStringLiteralEnd(text, index);
+            if (end === undefined)
+                syntaxError('Invalid or incomplete string in match expression', locationAt(text, index, source));
+            index = end;
+            continue;
+        }
+        if (character === '{') {
+            if (depth === 0)
+                open = index;
+            depth++;
+        }
+        else if (character === '}') {
+            depth--;
+        }
+    }
+    const fail = (message, offset) => {
+        const position = locationAt(text, offset, source);
+        throw new Error(`${message} at ${position.line}:${position.column}`);
+    };
+    if (open < 0 || depth !== 0)
+        fail('Malformed match braces', 0);
+    const scrutineeText = text.slice(5, open).trim();
+    if (!scrutineeText)
+        fail('Missing match scrutinee', 5);
+    const scrutineeOffset = text.indexOf(scrutineeText, 5);
+    const expression = parseExpression(scrutineeText, locationAt(text, scrutineeOffset, source));
+    const body = text.slice(open + 1, -1);
+    if (!/^[ \t]*\r?\n/.test(body) || !/\r?\n[ \t]*$/.test(body))
+        fail('Match arms require newlines', open + 1);
+    const arms = [];
+    let armStart = open + 1;
+    depth = 0;
+    for (let index = armStart; index < text.length - 1; index++) {
+        const character = text[index];
+        if (character === '"' || character === "'") {
+            const end = findStringLiteralEnd(text, index);
+            if (end === undefined)
+                syntaxError('Invalid or incomplete string in match expression', locationAt(text, index, source));
+            index = end;
+            continue;
+        }
+        if (character === '{')
+            depth++;
+        else if (character === '}')
+            depth--;
+        else if (character === '\n' && depth === 0) {
+            if (text.slice(armStart, index).trim())
+                arms.push({ text: text.slice(armStart, index), offset: armStart });
+            armStart = index + 1;
+        }
+    }
+    if (text.slice(armStart, -1).trim())
+        fail('Match arm must end with a newline', armStart);
+    const cases = [];
+    let defaultExpression;
+    let defaultSource;
+    const parseBranch = (branch, offset) => {
+        try {
+            return parseExpression(branch, locationAt(text, offset, source));
+        }
+        catch (error) {
+            if (error instanceof AmxError)
+                throw error;
+            return fail(`Invalid match arm expression: ${error instanceof Error ? error.message : String(error)}`, offset);
+        }
+    };
+    for (const arm of arms) {
+        const leading = arm.text.length - arm.text.trimStart().length;
+        const armOffset = arm.offset + leading;
+        const armText = arm.text.trim();
+        const armSource = locationAt(text, armOffset, source);
+        const arrow = armText.indexOf('=>');
+        if (arrow < 0)
+            fail('Expected => in match arm', armOffset);
+        const pattern = armText.slice(0, arrow).trim();
+        const branch = armText.slice(arrow + 2).trim();
+        if (!branch)
+            fail('Missing match arm expression', armOffset + arrow + 2);
+        const branchOffset = armOffset + armText.indexOf(branch, arrow + 2);
+        if (pattern === 'default') {
+            if (defaultExpression)
+                fail('Duplicate default match arm', armOffset);
+            defaultSource = armSource;
+            defaultExpression = parseBranch(branch, branchOffset);
+        }
+        else {
+            const literal = pattern.match(/^case\s+(-?(?:\d+(?:\.\d*)?)|"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|true|false)$/);
+            if (!literal)
+                return fail('Match case requires a number, string, or boolean literal', armOffset);
+            const valueOffset = armOffset + armText.indexOf(literal[1]);
+            const valueSource = locationAt(text, valueOffset, source);
+            let value;
+            if (/^-?\d/.test(literal[1])) {
+                value = { type: 'numberLiteral', value: Number(literal[1]), source: valueSource };
+            }
+            else if (literal[1] === 'true' || literal[1] === 'false') {
+                value = { type: 'booleanLiteral', value: literal[1] === 'true', source: valueSource };
+            }
+            else {
+                const parsedString = parseStringToken(literal[1], valueSource);
+                if (parsedString.type !== 'stringLiteral') {
+                    syntaxError('Match case requires a literal string without interpolation', valueSource);
+                }
+                value = parsedString;
+            }
+            cases.push({ value, expression: parseBranch(branch, branchOffset), source: armSource });
+        }
+    }
+    if (!defaultExpression)
+        return fail('Match requires exactly one default arm', 0);
+    return { type: 'matchExpression', expression, cases, defaultExpression, defaultSource, source };
+}
+export function parseExpression(text, source) {
+    const tokens = tokenize(text, source);
+    let pos = 0;
+    function current() {
+        return tokens[pos];
+    }
+    function advance() {
+        pos++;
+    }
+    function consumeRParen() {
+        const t = current();
+        if (t.type !== 'rparen') {
+            throw new Error(`Expected ')' but got ${t.type}`);
+        }
+        advance();
+    }
+    // Full precedence (highest to lowest) per Sprint 004 / language-spec-v0.1.md:
+    // parentheses, function calls (handled in primary)
+    // unary: - not
+    // power: ^ (right-assoc)
+    // * / %
+    // + -
+    // comparison: == != > >= < <= is
+    // logical and
+    // logical or
+    // conditional if/then/else (lowest)
+    const PREC = {
+        // comparisons
+        '==': 2,
+        '!=': 2,
+        '>': 2,
+        '>=': 2,
+        '<': 2,
+        '<=': 2,
+        'is': 2,
+        // Measurement conversion binds below arithmetic and above comparisons.
+        'in': 2.5,
+        // arithmetic
+        '^': 5,
+        '*': 4,
+        '/': 4,
+        '%': 4,
+        '+': 3,
+        '-': 3,
+        // logicals (lower than comparisons)
+        'and': 1,
+        'or': 0
+    };
+    function isRightAssociative(op) {
+        return op === '^';
+    }
+    function parsePrimary() {
+        const t = current();
+        const attach = (value) => {
+            const unit = current();
+            if (unit.type !== 'identifier' || unit.name === 'in' || unit.name === 'to' || unit.name === 'is')
+                return value;
+            advance();
+            return {
+                type: 'measurementAttachment',
+                value,
+                unit: unit.name,
+                unitSource: locationAt(text, unit.offset, source),
+                source: value.source
+            };
+        };
+        if (t.type === 'matchExpression') {
+            advance();
+            return parseMatchExpression(t.value, locationAt(text, t.offset, source));
+        }
+        if (t.type === 'forExpression') {
+            advance();
+            return parseForExpression(t.value, source);
+        }
+        if (t.type === 'bracedIfExpression') {
+            advance();
+            return parseBracedIfExpression(t.value, locationAt(text, t.offset, source));
+        }
+        if (t.type === 'number') {
+            advance();
+            return attach({ type: 'numberLiteral', value: t.value, source: locationAt(text, t.offset, source) });
+        }
+        if (t.type === 'string') {
+            advance();
+            return parseStringToken(t.text, locationAt(text, t.offset, source));
+        }
+        if (t.type === 'boolean') {
+            advance();
+            return { type: 'booleanLiteral', value: t.value, source: locationAt(text, t.offset, source) };
+        }
+        if (t.type === 'null') {
+            advance();
+            return { type: 'nullLiteral', source: locationAt(text, t.offset, source) };
+        }
+        if (t.type === 'identifier') {
+            const name = t.name;
+            advance();
+            if (current().type === 'lbrace') {
+                advance();
+                const fields = [];
+                while (current().type !== 'rbrace') {
+                    const field = current();
+                    if (field.type !== 'identifier') {
+                        syntaxError('Expected record constructor field name', locationAt(text, tokenOffset(field, text.length), source));
+                    }
+                    advance();
+                    if (current().type === 'colon') {
+                        syntaxError('Record constructor fields use =, not :', locationAt(text, tokenOffset(current(), text.length), source));
+                    }
+                    if (current().type !== 'equals') {
+                        syntaxError('Expected = after record constructor field', locationAt(text, tokenOffset(current(), text.length), source));
+                    }
+                    advance();
+                    fields.push({ name: field.name, expression: parseExpr(0), source: locationAt(text, field.offset, source) });
+                    if (current().type !== 'comma') {
+                        if (current().type !== 'rbrace') {
+                            syntaxError('Expected , or } after record constructor field', locationAt(text, tokenOffset(current(), text.length), source));
+                        }
+                        break;
+                    }
+                    advance();
+                    if (current().type === 'rbrace')
+                        break;
+                }
+                if (current().type !== 'rbrace')
+                    throw new Error('Expected } after constructor fields');
+                advance();
+                return { type: 'recordConstructor', name, fields, source: locationAt(text, t.offset, source) };
+            }
+            // Function call: identifier followed by '('
+            if (current().type === 'lparen') {
+                advance(); // consume '('
+                const args = [];
+                if (current().type !== 'rparen') {
+                    while (true) {
+                        args.push(parseExpr(0));
+                        if (current().type === 'comma') {
+                            advance();
+                            continue;
+                        }
+                        break;
+                    }
+                }
+                if (current().type !== 'rparen') {
+                    throw new Error(`Expected ')' after function call arguments`);
+                }
+                advance(); // consume ')'
+                return {
+                    type: 'functionCall',
+                    callee: name,
+                    arguments: args,
+                    source: locationAt(text, t.offset, source)
+                };
+            }
+            return attach({ type: 'identifier', name, source: locationAt(text, t.offset, source) });
+        }
+        if (t.type === 'lparen') {
+            advance();
+            const expr = parseExpr(0);
+            consumeRParen();
+            return attach(expr);
+        }
+        if (t.type === 'lbracket') {
+            advance();
+            if (current().type === 'rbracket') {
+                advance();
+                return { type: 'listLiteral', elements: [], source };
+            }
+            const first = parseExpr(0);
+            const rangeSeparator = current();
+            if (rangeSeparator.type === 'identifier' && rangeSeparator.name === 'to') {
+                advance();
+                const end = parseExpr(0);
+                if (current().type !== 'rbracket') {
+                    throw new Error(`Expected ']' after range expression`);
+                }
+                advance();
+                return { type: 'rangeExpression', start: first, end, source };
+            }
+            const elements = [first];
+            while (current().type === 'comma') {
+                advance();
+                elements.push(parseExpr(0));
+            }
+            if (current().type !== 'rbracket') {
+                throw new Error(`Expected ',' or ']' after list expression`);
+            }
+            advance();
+            return { type: 'listLiteral', elements, source };
+        }
+        if (t.type === 'operator' && t.op === '-') {
+            // Unary minus (higher precedence than ^)
+            advance();
+            const argument = parsePrimary();
+            return {
+                type: 'unaryExpression',
+                operator: '-',
+                argument,
+                source
+            };
+        }
+        if (t.type === 'keyword' && t.word === 'not') {
+            // Unary not
+            advance();
+            const argument = parsePrimary();
+            return {
+                type: 'unaryExpression',
+                operator: 'not',
+                argument,
+                source
+            };
+        }
+        throw new Error(`Unexpected token in expression: ${t.type} ${t.op || t.name || t.word || ''}`);
+    }
+    function parseIsTarget() {
+        const name = current();
+        if (name.type !== 'identifier') {
+            syntaxError("Expected target type after 'is'", locationAt(text, tokenOffset(name, text.length), source));
+        }
+        advance();
+        let target = {
+            type: 'namedType',
+            name: name.name,
+            source: locationAt(text, name.offset, source)
+        };
+        let suffixEnd = name.offset + name.text.length;
+        while (current().type === 'lbracket' || current().type === 'question') {
+            const suffix = current();
+            const suffixOffset = tokenOffset(suffix, text.length);
+            if (suffixOffset !== suffixEnd) {
+                syntaxError("Invalid type suffix in 'is' target", locationAt(text, suffixOffset, source));
+            }
+            if (suffix.type === 'question') {
+                if (target.type === 'nullableType') {
+                    syntaxError("Invalid type suffix in 'is' target", locationAt(text, suffixOffset, source));
+                }
+                advance();
+                target = {
+                    type: 'nullableType',
+                    element: target,
+                    source: locationAt(text, suffixOffset, source)
+                };
+                suffixEnd = suffixOffset + 1;
+                continue;
+            }
+            advance();
+            const close = current();
+            if (close.type !== 'rbracket' || tokenOffset(close, text.length) !== suffixOffset + 1) {
+                syntaxError("Invalid type suffix in 'is' target", locationAt(text, suffixOffset, source));
+            }
+            advance();
+            target = {
+                type: 'listType',
+                element: target,
+                source: locationAt(text, suffixOffset, source)
+            };
+            suffixEnd = tokenOffset(close, text.length) + 1;
+        }
+        return target;
+    }
+    function parseExpr(minPrec) {
+        // Handle leading conditional (lowest precedence) before calling parsePrimary.
+        // Conditionals only start at the top level of an expression (minPrec === 0).
+        const t0 = current();
+        if (minPrec === 0 && t0.type === 'keyword' && t0.word === 'if') {
+            advance(); // consume 'if'
+            const test = parseExpr(0);
+            if (current().type !== 'keyword' || current().word !== 'then') {
+                throw new Error(`Expected 'then' after if condition`);
+            }
+            advance(); // then
+            const consequent = parseExpr(0);
+            if (current().type !== 'keyword' || current().word !== 'else') {
+                throw new Error(`Expected 'else' after then branch`);
+            }
+            advance(); // else
+            const alternate = parseExpr(0);
+            return {
+                type: 'conditionalExpression',
+                test,
+                consequent,
+                alternate,
+                source
+            };
+        }
+        let left = parsePrimary();
+        while (true) {
+            const t = current();
+            if (t.type === 'identifier' && t.name === 'is') {
+                const prec = PREC.is;
+                if (prec < minPrec)
+                    break;
+                advance();
+                const target = parseIsTarget();
+                left = {
+                    type: 'typeTestExpression',
+                    value: left,
+                    target,
+                    operatorSource: locationAt(text, t.offset, source),
+                    source
+                };
+                continue;
+            }
+            if (t.type === 'identifier' && t.name === 'in') {
+                const prec = PREC.in;
+                if (prec < minPrec)
+                    break;
+                advance();
+                const unit = current();
+                if (unit.type !== 'identifier' || unit.name === 'to' || unit.name === 'in') {
+                    syntaxError("Conversion requires a visible unit name after 'in'", locationAt(text, tokenOffset(unit, text.length), source));
+                }
+                advance();
+                left = {
+                    type: 'measurementConversion',
+                    value: left,
+                    unit: unit.name,
+                    unitSource: locationAt(text, unit.offset, source),
+                    source: locationAt(text, t.offset ?? 0, source)
+                };
+                continue;
+            }
+            if (t.type === 'dot') {
+                advance();
+                const field = current();
+                if (field.type !== 'identifier')
+                    throw new Error('Expected field name after .');
+                advance();
+                left = { type: 'fieldAccess', receiver: left, field: field.name, source: locationAt(text, t.offset ?? 0, source) };
+                continue;
+            }
+            if (t.type === 'lbracket') {
+                advance();
+                if (current().type === 'rbracket') {
+                    syntaxError('List index cannot be empty', locationAt(text, t.offset ?? 0, source));
+                }
+                const index = parseExpr(0);
+                if (current().type !== 'rbracket') {
+                    syntaxError("Expected ']' after list index", locationAt(text, tokenOffset(current(), text.length), source));
+                }
+                advance();
+                left = { type: 'listAccess', receiver: left, index, source: locationAt(text, t.offset ?? 0, source) };
+                continue;
+            }
+            // Conditional appearing after a left-hand side (e.g. via lower-precedence context).
+            // Guarded so it only triggers at the true top level.
+            if (t.type === 'keyword' && t.word === 'if') {
+                if (0 < minPrec)
+                    break;
+                advance(); // consume 'if'
+                const test = parseExpr(0);
+                if (current().type !== 'keyword' || current().word !== 'then') {
+                    throw new Error(`Expected 'then' after if condition`);
+                }
+                advance(); // then
+                const consequent = parseExpr(0);
+                if (current().type !== 'keyword' || current().word !== 'else') {
+                    throw new Error(`Expected 'else' after then branch`);
+                }
+                advance(); // else
+                const alternate = parseExpr(0);
+                return {
+                    type: 'conditionalExpression',
+                    test,
+                    consequent,
+                    alternate,
+                    source
+                };
+            }
+            // Binary operators (arithmetic, comparison, logical keywords)
+            if (t.type === 'operator') {
+                const op = t.op;
+                const prec = PREC[op];
+                if (prec === undefined || prec < minPrec)
+                    break;
+                advance(); // consume operator
+                const nextMinPrec = isRightAssociative(op) ? prec
+                    : ['==', '!=', '>', '>=', '<', '<='].includes(op) ? 2.5
+                        : prec + 1;
+                const right = parseExpr(nextMinPrec);
+                left = {
+                    type: 'binaryExpression',
+                    operator: op,
+                    left,
+                    right,
+                    operatorSource: locationAt(text, t.offset, source),
+                    source
+                };
+                continue;
+            }
+            if (t.type === 'keyword' && (t.word === 'and' || t.word === 'or')) {
+                const op = t.word;
+                const prec = PREC[op];
+                if (prec === undefined || prec < minPrec)
+                    break;
+                advance(); // consume keyword operator
+                const nextMinPrec = prec + 1;
+                const right = parseExpr(nextMinPrec);
+                left = {
+                    type: 'binaryExpression',
+                    operator: op,
+                    left,
+                    right,
+                    operatorSource: locationAt(text, tokenOffset(t, 0), source),
+                    source
+                };
+                continue;
+            }
+            break;
+        }
+        return left;
+    }
+    const result = parseExpr(0);
+    if (current().type !== 'eof') {
+        throw new Error(`Unexpected input after expression at token ${current().type}`);
+    }
+    return result;
+}
+//# sourceMappingURL=parseExpression.js.map

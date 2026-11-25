@@ -60,7 +60,7 @@ closeout disposition; raw evidence remains unrun.
 | D121-13 | Frontmatter fidelity | ACCEPTED 2026-11-25: carry original source text alongside each parsed module and emit every raw frontmatter line as inert comments under the normalized line encoding before body nodes. Parsed metadata is not a substitute. | Product owner |
 | D121-14 | Generated-name isolation | Mangle all AMX declarations to deterministic collision-checked internal TypeScript names; reserve stable top-level `run` and `AMXRun*` API names. Preserve original names as object keys and module-visible AMX exports. | S121 contract gate |
 | D121-15 | Diagram result semantics | ACCEPTED 2026-11-25: `result.views` contains shown table/chart snapshots and declaration-time diagram DTOs under distinct discriminants, ordered by module and source/evaluation order. Do not add `show` support for diagrams. The V0.20 master plan is amended accordingly. | Product owner |
-| D121-16 | Enum input validation | ACCEPTED 2026-11-25: preserve full language coverage by adding enum-value validation to the AMX runtime as a separately authorized prerequisite before S122/S121 parity proof. S121 remains planning-only; no runtime source change is authorized here. | Product owner / runtime owner |
+| D121-16 | Enum input validation and type resolution | AMENDED 2026-11-25: accept enum declarations as named types in `TypeReferenceNode` contexts; validate exact resolved string/number members recursively in JSON and CSV record inputs, including nullable/default behavior. Checker/runtime implementation is present in the current worktree and focused suites pass; public-helper parity is recorded separately. | Product owner / runtime owner |
 | D121-17 | Helper-boundary probe prerequisite | ACCEPTED 2026-11-25: use the real public `openamx/transpiler-runtime` subpath. S122 may be separately authorized after a dispositioned S121 helper/API contract checkpoint; then run the separately approved S121 probe and return to final S121 closeout. This disposition does not authorize S122. | Product owner |
 | D121-18 | Multi-file publication failure | ACCEPTED 2026-11-25: stage the graph, attempt rollback on publish failure, report per-path staged/published/restored/unrecovered state, and record that crash-atomic multi-file replacement is not guaranteed. | Product owner |
 
@@ -89,10 +89,13 @@ closeout disposition; raw evidence remains unrun.
   `viewEmissions`; diagram declarations instead create `DiagramSceneModel`
   values in `diagramEmissions`. D121-15 resolves the generated `views` DTO
   contract without adding AMX `show` behavior.
-- `checkDocument.ts` resolves enum names as named types, while
-  `moduleLoader.ts` passes only record declarations into `loadInputValues`;
-  `inputData.ts` has no enum conversion path. D121-16 requires a separately
-  authorized AMX runtime prerequisite before parity can be demonstrated.
+- At baseline, `checkDocument.resolve` rejected enum names as ordinary type
+  references (while `resolveIsTarget` handled enums only for type tests), and
+  `moduleLoader.ts` passed only record declarations into `loadInputValues`.
+  D121-16 now authorizes checker type resolution plus enum-aware JSON/CSV input
+  validation. Both are implemented in the current worktree and pass the
+  focused input/module/measurement suites; helper oracle parity is in the S121
+  probe record.
 - `src/runtime/moduleLoader.ts` canonicalizes imports, enforces import-root
   containment, detects cycles, and evaluates dependencies before importers.
   Transpilation must preserve those rules without executing generated output.

@@ -373,8 +373,10 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
   const entryStatements = flattenStatements(entryRecord.doc);
   const inputDeclarations = entryStatements.filter(statement => statement.type === 'inputDeclaration');
   const entryTypes = new Map(entryRecord.importedTypes);
+  const entryEnums = new Map(entryRecord.importedEnums);
   for (const statement of entryStatements) {
     if (statement.type === 'typeDeclaration') entryTypes.set(statement.name, statement);
+    else if (statement.type === 'enumDeclaration') entryEnums.set(statement.name, statement);
   }
   const outputs = prepareOutputs(
     options.outputMappings,
@@ -403,7 +405,8 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
       entryTypes,
       options.validation ?? 'aggregate',
       { file: entryPath },
-      registry
+      registry,
+      entryEnums
     );
     return {
       doc: entryRecord.doc,
@@ -413,7 +416,7 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
       diagramEmissions: [],
       registry,
       inputInspection: {
-        schema: describeInputSchema(declaration, entryTypes, registry),
+        schema: describeInputSchema(declaration, entryTypes, registry, entryEnums),
         valid: validation.diagnostics.length === 0,
         diagnostics: validation.diagnostics,
         outputs: outputSchemas ?? []
@@ -437,7 +440,8 @@ export async function loadEntryModule(entryPath: string, options: ModuleLoadOpti
     options.inputMappings,
     options.validation,
     entryPath,
-    registry
+    registry,
+    entryEnums
   );
 
   const evaluatedEnvironments = new Map<string, Environment>();

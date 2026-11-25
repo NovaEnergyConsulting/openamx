@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { InputDeclarationNode, SourceLocation, TypeDeclarationNode, TypeReferenceNode } from '../ast/types';
+import { EnumDeclarationNode, InputDeclarationNode, SourceLocation, TypeDeclarationNode, TypeReferenceNode } from '../ast/types';
 import { AmxDiagnostic, inputError, throwInputErrors } from '../diagnostics/errors';
 import { Environment } from './environment';
 import { evaluateExpression } from './evaluateExpression';
@@ -56,14 +56,15 @@ export interface InputSchema {
 export function describeInputSchema(
   declaration: InputDeclarationNode,
   types: Map<string, TypeDeclarationNode>,
-  registry?: DimensionUnitRegistry
+  registry?: DimensionUnitRegistry,
+  enums?: Map<string, EnumDeclarationNode>
 ): InputSchema {
   const recordType = declaration.annotation.type === 'listType'
     && declaration.annotation.element?.type === 'namedType'
     ? types.get(declaration.annotation.element.name!)
     : undefined;
   const csvCompatible = !!recordType && recordType.fields.every(field =>
-    isCsvScalar(field.annotation, fieldRegistry(field, registry)));
+    isCsvScalar(field.annotation, fieldRegistry(field, registry), enums));
   return {
     name: declaration.name,
     type: typeName(declaration.annotation),
@@ -89,7 +90,8 @@ export function validateInputText(
   types: Map<string, TypeDeclarationNode>,
   mode: ValidationMode = 'aggregate',
   context: Pick<AmxDiagnostic, 'file' | 'dataFile'> = {},
-  registry?: DimensionUnitRegistry
+  registry?: DimensionUnitRegistry,
+  enums?: Map<string, EnumDeclarationNode>
 ): InputTextValidationResult {
   if (mode !== 'aggregate' && mode !== 'fail-fast') {
     return { diagnostics: [inputError('AMX4001', `Unsupported validation mode '${safeText(String(mode))}'`, { ...context, inputName: declaration.name })] };
@@ -100,7 +102,7 @@ export function validateInputText(
     if (mode === 'fail-fast') throw new StopValidation();
   };
   const validationContext = { ...context, inputName: declaration.name, declarationSource: declaration.source };
-  const environment = new Environment(types);
+  const environment = inputEnvironment(types, enums);
   let value: unknown;
   try {
     if (format === 'json') {
@@ -116,9 +118,9 @@ export function validateInputText(
         }));
         return { value: undefined, diagnostics };
       }
-      value = convertJson(parsed.value, declaration.annotation, '', declaration.source, types, environment, report, validationContext, undefined, registry);
+      value = convertJson(parsed.value, declaration.annotation, '', declaration.source, types, environment, report, validationContext, undefined, registry, false, enums);
     } else {
-      value = convertCsv(text, declaration.annotation, declaration.source, types, environment, report, validationContext, registry);
+      value = convertCsv(text, declaration.annotation, declaration.source, types, environment, report, validationContext, registry, enums);
     }
   } catch (error) {
     if (!(error instanceof StopValidation)) throw error;
@@ -132,7 +134,8 @@ export async function loadInputValues(
   rawMappings: string[] = [],
   mode: ValidationMode = 'aggregate',
   entryFile?: string,
-  registry?: DimensionUnitRegistry
+  registry?: DimensionUnitRegistry,
+  enums?: Map<string, EnumDeclarationNode>
 ): Promise<Map<string, unknown>> {
   if (mode !== 'aggregate' && mode !== 'fail-fast') {
     throwInputErrors([inputError('AMX4001', `Unsupported validation mode '${safeText(String(mode))}'`, { file: entryFile })]);
@@ -202,7 +205,7 @@ export async function loadInputValues(
         continue;
       }
 
-      const validated = validateInputText(text, extension.slice(1) as InputTextFormat, declaration, types, mode, { file: entryFile, dataFile: filePath }, registry);
+      const validated = validateInputText(text, extension.slice(1) as InputTextFormat, declaration, types, mode, { file: entryFile, dataFile: filePath }, registry, enums);
       diagnostics.push(...validated.diagnostics);
       if (validated.diagnostics.length > 0 && mode === 'fail-fast') throw new StopValidation();
       values.set(declaration.name, validated.value);
@@ -226,11 +229,12 @@ function convertJson(
   context: Omit<AmxDiagnostic, 'code' | 'message'>,
   fieldSource?: SourceLocation,
   registry?: DimensionUnitRegistry,
-  internalDefault = false
+  internalDefault = false,
+  enums?: Map<string, EnumDeclarationNode>
 ): unknown {
   if (annotation.type === 'nullableType') {
     if (value === null) return null;
-    return convertJson(value, annotation.element!, pointer, declarationSource, types, environment, report, context, fieldSource, registry, internalDefault);
+    return convertJson(value, annotation.element!, pointer, declarationSource, types, environment, report, context, fieldSource, registry, internalDefault, enums);
   }
   if (value === null) {
     report(shapeDiagnostic('Null is not allowed for this input type', typeName(annotation), 'null', pointer, context, declarationSource, fieldSource));
@@ -241,7 +245,7 @@ function convertJson(
       report(shapeDiagnostic('Expected a JSON array', typeName(annotation), actualType(value), pointer, context, declarationSource, fieldSource));
       return [];
     }
-    return value.map((item, index) => convertJson(item, annotation.element!, `${pointer}/${index}`, declarationSource, types, environment, report, context, fieldSource, registry, internalDefault));
+    return value.map((item, index) => convertJson(item, annotation.element!, `${pointer}/${index}`, declarationSource, types, environment, report, context, fieldSource, registry, internalDefault, enums));
   }
   const name = annotation.name!;
   const dimension = registry?.dimensions.get(name);
@@ -251,6 +255,14 @@ function convertJson(
     return null;
   }
   if (dimension) return convertJsonMeasurement(value, dimension.vector, pointer, declarationSource, fieldSource, context, report, registry!);
+  const enumeration = enums?.get(name);
+  if (enumeration) {
+    const values = resolvedEnumValues(enumeration);
+    if (!values.includes(value as string | number)) {
+      report(shapeDiagnostic(`Value is not a member of enum '${name}'`, name, describe(value), pointer, context, declarationSource, fieldSource));
+    }
+    return value;
+  }
   if (name === 'Number' || name === 'String' || name === 'Boolean' || name === 'DateTime') {
     const valid = name === 'Number' ? typeof value === 'number' && Number.isFinite(value)
       : name === 'String' || name === 'DateTime' ? typeof value === 'string'
@@ -284,10 +296,10 @@ function convertJson(
     const fieldScope = fieldRegistry(field, registry);
     const propertyPointer = `${pointer}/${escapePointer(field.name)}`;
     if (Object.prototype.hasOwnProperty.call(object, field.name)) {
-      materialized[field.name] = convertJson(object[field.name], field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source, fieldScope, internalDefault);
+      materialized[field.name] = convertJson(object[field.name], field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source, fieldScope, internalDefault, enums);
     } else if (field.defaultExpression) {
       const value = evaluateExpression(field.defaultExpression, defaultsEnvironment(environment, fieldScope), context.file);
-      materialized[field.name] = convertJson(value, field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source, fieldScope, true);
+      materialized[field.name] = convertJson(value, field.annotation, propertyPointer, declarationSource, types, environment, report, context, field.source, fieldScope, true, enums);
     } else if (field.optional) {
       materialized[field.name] = null;
     } else {
@@ -305,14 +317,15 @@ function convertCsv(
   environment: Environment,
   report: (diagnostic: AmxDiagnostic) => void,
   context: Omit<AmxDiagnostic, 'code' | 'message'>,
-  registry?: DimensionUnitRegistry
+  registry?: DimensionUnitRegistry,
+  enums?: Map<string, EnumDeclarationNode>
 ): unknown[] {
   if (annotation.type !== 'listType' || annotation.element?.type !== 'namedType' || !types.has(annotation.element.name!)) {
     report(shapeDiagnostic('CSV input requires a list of one record type', 'RecordType[]', typeName(annotation), '', context, declarationSource));
     return [];
   }
   const recordType = types.get(annotation.element.name!)!;
-  const scalarFields = recordType.fields.every(field => isCsvScalar(field.annotation, fieldRegistry(field, registry)));
+  const scalarFields = recordType.fields.every(field => isCsvScalar(field.annotation, fieldRegistry(field, registry), enums));
   if (!scalarFields) {
     report(shapeDiagnostic('CSV records may contain only scalar fields', 'scalar-field RecordType[]', recordType.name, '', context, declarationSource));
     return [];
@@ -364,14 +377,14 @@ function convertCsv(
         if (field.defaultExpression) {
           const fieldScope = fieldRegistry(field, registry);
           const value = evaluateExpression(field.defaultExpression, defaultsEnvironment(environment, fieldScope), context.file);
-          materialized[field.name] = convertJson(value, field.annotation, propertyPath, context.declarationSource, types, environment, report, context, field.source, fieldScope, true);
+          materialized[field.name] = convertJson(value, field.annotation, propertyPath, context.declarationSource, types, environment, report, context, field.source, fieldScope, true, enums);
         }
         else if (field.optional) materialized[field.name] = null;
         continue;
       }
       const cell = row[column];
       if (!cell) continue;
-      materialized[field.name] = convertCsvCell(cell, field.annotation, propertyPath, recordNumber, column + 1, field.source, report, context, fieldRegistry(field, registry));
+      materialized[field.name] = convertCsvCell(cell, field.annotation, propertyPath, recordNumber, column + 1, field.source, report, context, fieldRegistry(field, registry), enums);
     }
     result.push(materialized);
   }
@@ -387,7 +400,8 @@ function convertCsvCell(
   fieldSource: SourceLocation | undefined,
   report: (diagnostic: AmxDiagnostic) => void,
   context: Omit<AmxDiagnostic, 'code' | 'message'>,
-  registry?: DimensionUnitRegistry
+  registry?: DimensionUnitRegistry,
+  enums?: Map<string, EnumDeclarationNode>
 ): unknown {
   const base = annotation.type === 'nullableType' ? annotation.element! : annotation;
   const nullable = annotation.type === 'nullableType';
@@ -398,11 +412,30 @@ function convertCsvCell(
     return null;
   }
   if (cell.value === '' && cell.quoted) {
+    if (base.type === 'namedType' && enums?.has(base.name!)) {
+      const value = '';
+      validateCsvEnumValue(value, base.name!, enums.get(base.name!)!, dataPath, location, fieldSource, report);
+      return value;
+    }
     if (base.type === 'namedType' && base.name === 'String') return '';
     report(shapeDiagnostic('Quoted empty CSV cell is valid only for String fields', typeName(annotation), 'empty String', dataPath, location, undefined, fieldSource));
     return '';
   }
   if (base.type !== 'namedType') return cell.value;
+  const enumeration = enums?.get(base.name!);
+  if (enumeration) {
+    const valueType = typeof resolvedEnumValues(enumeration)[0];
+    let value: string | number = cell.value;
+    if (valueType === 'number') {
+      if (!/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(cell.value) || !Number.isFinite(Number(cell.value))) {
+        report(shapeDiagnostic('Invalid finite numeric enum input', base.name!, cell.value, dataPath, location, undefined, fieldSource));
+        return cell.value;
+      }
+      value = Number(cell.value);
+    }
+    validateCsvEnumValue(value, base.name!, enumeration, dataPath, location, fieldSource, report);
+    return value;
+  }
   const dimension = registry?.dimensions.get(base.name!);
   if (dimension) {
     const match = cell.value.match(/^\s*([+-]?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)\s+(.+?)\s*$/);
@@ -579,12 +612,54 @@ function typeName(annotation: TypeReferenceNode): string {
   return annotation.type === 'listType' ? `${typeName(annotation.element!)}[]` : `${typeName(annotation.element!)}?`;
 }
 
-function isCsvScalar(annotation: TypeReferenceNode, registry?: DimensionUnitRegistry): boolean {
+function isCsvScalar(
+  annotation: TypeReferenceNode,
+  registry?: DimensionUnitRegistry,
+  enums?: Map<string, EnumDeclarationNode>
+): boolean {
   const base = annotation.type === 'nullableType' ? annotation.element! : annotation;
   return base.type === 'namedType' && (
     ['String', 'Number', 'Boolean', 'DateTime'].includes(base.name!)
     || !!registry?.dimensions.has(base.name!)
+    || !!enums?.has(base.name!)
   );
+}
+
+function inputEnvironment(
+  types: Map<string, TypeDeclarationNode>,
+  enums?: Map<string, EnumDeclarationNode>
+): Environment {
+  const environment = new Environment(types);
+  for (const [name, declaration] of enums ?? []) {
+    const values = resolvedEnumValues(declaration);
+    const members: Record<string, string | number> = {};
+    declaration.members.forEach((member, index) => { members[member.name] = values[index]; });
+    environment.enumDeclarations.set(name, declaration);
+    environment.enumValues.set(name, members);
+  }
+  return environment;
+}
+
+function resolvedEnumValues(declaration: EnumDeclarationNode): Array<string | number> {
+  return declaration.resolvedValues ?? declaration.members.map((member, index) => {
+    if (!member.value) return index + 1;
+    if (member.value.type === 'numberLiteral' || member.value.type === 'stringLiteral') return member.value.value;
+    return NaN;
+  });
+}
+
+function validateCsvEnumValue(
+  value: string | number,
+  name: string,
+  declaration: EnumDeclarationNode,
+  dataPath: string,
+  context: Omit<AmxDiagnostic, 'code' | 'message'>,
+  fieldSource: SourceLocation | undefined,
+  report: (diagnostic: AmxDiagnostic) => void
+): void {
+  if (!resolvedEnumValues(declaration).includes(value)) {
+    report(shapeDiagnostic(`Value is not a member of enum '${name}'`, name, String(value), dataPath, context, undefined, fieldSource));
+  }
 }
 
 function isDateTime(value: string): boolean {

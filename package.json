@@ -7,6 +7,13 @@
   "bin": {
     "openamx": "./dist/cli.js"
   },
+  "exports": {
+    "./transpiler-runtime": {
+      "types": "./dist/transpilerRuntime.d.ts",
+      "import": "./dist/transpilerRuntime.js"
+    },
+    "./*": "./*"
+  },
   "scripts": {
     "build": "bun run scripts/build-diagram-runtime.ts && tsc",
     "test": "bun test",

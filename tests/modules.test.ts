@@ -9,6 +9,19 @@ import { basename, join, relative, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { loadEntryModule } from "../src/runtime/moduleLoader";
 import { AmxError } from "../src/diagnostics/errors";
+import {
+  AMXInputError,
+  amxAttach,
+  amxChartView,
+  amxConvert,
+  amxDiagramView,
+  amxEqual,
+  amxPhysicalValue,
+  amxTableView,
+  requireAMXEnum,
+  requireAMXMeasurement,
+  requireAMXNumber
+} from "../src/transpilerRuntime";
 
 const tmpDirs: string[] = [];
 const tmpRootFiles: string[] = [];
@@ -41,6 +54,53 @@ afterEach(async () => {
     try { await rm(file, { force: true }); } catch {}
   }
   tmpRootFiles.length = 0;
+});
+
+describe("S122 transpiler runtime boundary", () => {
+  it("provides typed scalar and enum input checks with source-path errors", () => {
+    expect(requireAMXNumber(6, "amount")).toBe(6);
+    expect(requireAMXEnum("ready", "Status", ["ready", "failed"], "status")).toBe("ready");
+    expect(() => requireAMXNumber(Number.POSITIVE_INFINITY, "amount")).toThrow(AMXInputError);
+    expect(() => requireAMXEnum("unknown", "Status", ["ready", "failed"], "status")).toThrow(AMXInputError);
+  });
+
+  it("validates measurement shape and preserves conversion and physical equality", () => {
+    const lengthVector = { length: 1 };
+    const meter = { identity: "length", name: "meter", scale: 1, offset: 0, vector: lengthVector } as const;
+    const kilometer = { identity: "length", name: "kilometer", scale: 1000, offset: 0, vector: lengthVector } as const;
+    const units = { meter, kilometer };
+    const distance = requireAMXMeasurement({ value: 1, unit: "kilometer" }, "Length", lengthVector, units, "distance");
+    const converted = amxConvert(distance, meter);
+
+    expect(converted.value).toBe(1000);
+    expect(amxPhysicalValue(distance)).toBe(1000);
+    expect(amxEqual(distance, amxAttach(1000, meter))).toBe(true);
+    expect(() => requireAMXMeasurement(1, "Length", lengthVector, units, "distance")).toThrow(AMXInputError);
+  });
+
+  it("constructs distinct frozen table, chart, and declaration-time diagram DTOs", () => {
+    const table = amxTableView("records", [{ field: "id", label: "ID" }], [["A-1"]]);
+    const chart = amxChartView({
+      name: "sample",
+      chartKind: "column",
+      title: "Sample",
+      description: "Sample values",
+      data: [2, 4],
+      showTable: true
+    });
+    const diagram = amxDiagramView({
+      name: "empty",
+      title: "Empty",
+      description: "No authored elements",
+      canvas: { width: 10, height: 10, coordinates: "bottom-left-y-up" },
+      timeline: { variable: "t", from: 0, to: 1, duration: 1 },
+      initialFrame: { time: 0, elements: [] }
+    });
+
+    expect([table.kind, chart.kind, diagram.kind]).toEqual(["table", "chart", "diagram"]);
+    expect(Object.isFrozen(table.rows[0])).toBe(true);
+    expect(Object.isFrozen(diagram.initialFrame)).toBe(true);
+  });
 });
 
 async function expectAmxError(promise: Promise<unknown>, code: string): Promise<AmxError> {
@@ -206,6 +266,39 @@ describe("Sprint 015 modules, imports, and exports", () => {
     ].join('\n'));
     const { env } = await loadEntryModule(entry);
     expect(env.toObject().active).toBe(2);
+  });
+
+  it("validates file-backed input values against an imported enum", async () => {
+    const dir = await makeDir();
+    await write(dir, "library.amx", [
+      '```amx',
+      'export enum Status = {',
+      '  READY = "ready",',
+      '  FAILED = "failed"',
+      '}',
+      'export type Row {',
+      '  status: Status',
+      '}',
+      '```',
+      ''
+    ].join('\n'));
+    const entry = await write(dir, "entry.amx", [
+      '```amx',
+      'import { Status, Row } from "./library.amx"',
+      'input status: Status',
+      'input rows: Row[]',
+      '```',
+      ''
+    ].join('\n'));
+    const validInput = await write(dir, "status.json", '"ready"');
+    const rowsInput = await write(dir, "rows.json", '[{"status":"failed"}]');
+    const { env } = await loadEntryModule(entry, { inputMappings: [`status=${validInput}`, `rows=${rowsInput}`] });
+    expect(env.toObject().status).toBe('ready');
+    expect(env.toObject().rows).toEqual([{ status: 'failed' }]);
+
+    const invalidInput = await write(dir, "invalid-status.json", '"unknown"');
+    const error = await expectAmxError(loadEntryModule(entry, { inputMappings: [`status=${invalidInput}`, `rows=${rowsInput}`] }), "AMX4003");
+    expect(error.diagnostics?.[0]).toMatchObject({ inputName: 'status', expected: 'Status', actual: '"unknown"' });
   });
 
   it("rejects EN-I09 when an imported enum is not exported", async () => {

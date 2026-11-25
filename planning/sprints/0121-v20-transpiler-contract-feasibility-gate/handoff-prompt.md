@@ -34,8 +34,9 @@ Feasibility Gate.
 - Preserve the accepted product clarifications: raw frontmatter is passed in
   the module source envelope; `result.views` includes shown table/chart
   snapshots and distinct declaration-time diagram DTOs without adding `show`
-  for diagrams; enum input parity requires a separately authorized AMX runtime
-  prerequisite; and multi-file publication uses best-effort rollback with a
+  for diagrams; D121-16 enum type/input validation is implemented and
+  focused-tested (the public-helper oracle does not separately claim enum
+  parity); and multi-file publication uses best-effort rollback with a
   no-crash-atomicity residual.
 
 ## Task Contract
@@ -49,11 +50,9 @@ Feasibility Gate.
   behavior.
 - Reconcile every golden case to the parity matrix and every S121 master-plan
   bullet. Keep exact values and floating tolerances explicit.
-- The helper-boundary proof must use the actual public helper after the
-  separately gated S122 implementation and enum-input prerequisite. Obtain a
-  new explicit approval for exact sources, commands, tool versions, worktree,
-  output roots, preservation, retries, and cleanup before execution. The
-  2026-11-25 sequence decision does not authorize S122 or the probe.
+- The run-01 helper-boundary proof used the actual public subpath under the
+  separately approved minimal helper slice. Preserve its raw results and
+  limitations; do not infer full S122 or emitter acceptance from the probe.
 - Complete `builder-evidence.md` with baseline, exact commands and outputs,
   raw statuses, retries, limitations, residual owners, recommendation, and a
   separate owner-disposition field.

@@ -2,9 +2,11 @@
 
 ## Status
 
-Contract baseline accepted by the product owner on 2026-11-25. The installed
-toolchain and public helper package still require verification; the S121
-feasibility proof remains NOT RUN.
+The product owner accepted D121-01 through D121-18 on 2026-11-25. The
+authorized helper-boundary slice and enum checker/input prerequisite are
+implemented and focused-tested. Run-01 passed against the public helper
+subpath; final Sprint 121 disposition remains separately recorded in
+`builder-evidence.md`.
 
 ## Narrative and Source Fidelity
 
@@ -68,14 +70,9 @@ export function run(inputs: AMXRunInputs): AMXRunResult;
   entries. Do not add AMX `show` support for diagrams. It is data, never
   rendered HTML/PDF/DOCX.
 - Generated API names use an `AMX`-prefixed reserved namespace (accepted
-  `AMXRunInputs`, `AMXRunExports`, `AMXRunResult`). D121-14 proposes lowering
-  every AMX declaration to a deterministic, collision-checked internal
-  TypeScript identifier so source names cannot shadow the public wrapper/types;
-  original AMX names remain keys in exports and import bindings.
-- Source-facing AMX names are preserved only as explicit result keys and
-  module bindings; generated implementation identifiers are deterministically
-  mangled under accepted D121-14; AMX names are not promised as local
-  TypeScript identifiers.
+  `AMXRunInputs`, `AMXRunExports`, `AMXRunResult`). D121-14 lowers every AMX
+  declaration to a deterministic, collision-checked internal TypeScript
+  identifier; original AMX names remain keys in exports and import bindings.
 - Exported functions/types/enums may be TypeScript module exports when required
   by an AMX import, but are not serialized into the entry `exports` object.
 
@@ -90,127 +87,110 @@ export function run(inputs: AMXRunInputs): AMXRunResult;
   corresponding value-union type, preserving checked resolved values.
 - Dimension-typed runtime values use a branded/generic
   `AMXMeasurement<DimensionId>` rather than plain `number`. In generated
-  `AMXRunInputs`, the candidate external measurement shape is
+  `AMXRunInputs`, the external measurement shape is
   `AMXMeasurementInput<DimensionId> = { value: number; unit: string }`; the
   helper validates it and constructs the internal measurement. Unit
   descriptors carry dimension identity, scale, offset, and display-unit name.
 - Generated values avoid `any`. `unknown` is permitted only at runtime input
   validation boundaries, before conversion to a checked generated type.
-- View DTOs are public, renderer-independent, readonly data. Table
-  snapshots preserve the runtime's ordered data; measurement values use the
-  current snapshot display text and nested arrays/records are copied as data.
-  Candidate chart snapshots preserve chart kind, normalized numeric data,
-  labels/headings, measurement descriptors, and resolved `showTable`; they do
-  not contain renderer models, accessibility markup, or an extra rendered
-  table payload. Exact fields remain a contract decision.
-- Diagrams remain declaration-time emissions, not `show` snapshots. The
-  accepted D121-15 result union includes them as a distinct `diagram` DTO in
-  `result.views`, ordered alongside show snapshots by module and source/eval
-  order. This does not change AMX `show` semantics.
+- View DTOs are public, renderer-independent, readonly data. Table snapshots
+  preserve ordered columns and rows; measurement values use the current
+  snapshot display text and nested arrays/records are copied as data. Chart
+  snapshots preserve chart kind, normalized numeric data, labels/headings,
+  measurement descriptors, and resolved `showTable`; they do not contain
+  renderer models, accessibility markup, or a rendered table payload.
+- Diagrams remain declaration-time emissions, not `show` snapshots. Accepted
+  D121-15 places each in `result.views` as a distinct `diagram` DTO, ordered
+  alongside show snapshots by module and source/evaluation order. This does not
+  change AMX `show` semantics.
 - View DTOs must not expose `ChartViewModel`, ECharts options, renderer
   accessibility internals, live `Environment` objects, Maps/Sets, or private
-  diagram serialization envelopes. Table snapshots and chart normalization
-  must still match the current AMX runtime view-data contract.
+  diagram serialization envelopes.
 
 ## Runtime Helper Boundary
 
-Accepted package subpath: `openamx/transpiler-runtime`. The current package has
-no export map; S122 must add the public entry without breaking supported
-package/CLI entry points. Generated code must not import private implementation
-paths. This contract does not authorize S122 implementation.
+Accepted package subpath: `openamx/transpiler-runtime`. The package export map
+targets `dist/transpilerRuntime.js` and `dist/transpilerRuntime.d.ts`; a `./*`
+fallback preserves prior deep-subpath resolution, and the existing CLI `bin`
+is unchanged. Generated code must not import private implementation paths.
 
-The accepted public subpath should expose only the following categories:
+The approved, implemented probe-boundary slice exports:
 
-- Stable public types for AMX values, measurements, units, inputs, and shown
-  view DTOs.
-- Numeric/list semantics: 1-based indexing, bounds errors, range iteration,
-  append/insert/remove behavior, and AMX value formatting.
-- Measurement semantics: attach/convert, arithmetic/comparison, standard
-  library operations, unit identity, and finite/domain diagnostics.
-- Input validation from `unknown` to generated typed inputs, including nested
-  lists/records, optional/null fields, enum member values, and measurement
-  dimension compatibility. Enum parity depends on the separately authorized
-  AMX runtime validation prerequisite in D121-16.
-- Structured table/chart/diagram snapshot constructors, with no HTML/PDF/DOCX
-  renderer or filesystem access.
-- A narrow diagnostic/error type carrying source module and input path context.
+- `AMXInputError` with `AMX4003`, input path, expected type, and actual type.
+- `requireAMXNumber`, `requireAMXString`, `requireAMXBoolean`,
+  `requireAMXEnum`, `requireAMXList`, `requireAMXRecord`, and
+  `requireAMXMeasurement`.
+- `AMXUnitDescriptor`, `AMXMeasurement`, `amxAttach`, `amxConvert`,
+  `amxPhysicalValue`, and `amxEqual`.
+- Readonly `AMXTableView`, `AMXChartView`, `AMXDiagramView`, and
+  `AMXShownView`, plus `amxTableView`, `amxChartView`, and `amxDiagramView`.
 
 The public entry must not re-export parser, checker, evaluator, filesystem
-module loader, CLI, renderer, or unrelated engine internals. Generated imports
-must be stable across patch releases within the helper API's declared
-compatibility policy.
+module loader, CLI, renderer, or unrelated engine internals. This is the tested
+boundary slice, not full S122 completion. List mutation/range semantics,
+remaining standard-library/domain operations, additional view data, and full
+generated-type integration remain S122/S123 work.
 
-## Compiler and Module Compatibility Candidate
+## Compiler and Module Compatibility
 
-- Match the repository's present baseline: package ESM, ES2022 target, ESNext
-  modules, strict checking, and bundler resolution. The root lockfile resolves
-  TypeScript 5.9.3; this is the candidate compiler version, not proof of the
-  installed executable version at S121 execution.
-- Keep generated relative imports as `.ts` as specified by the V0.20 plan.
-  Use a strict fixture typecheck with `allowImportingTsExtensions` and
-  `noEmit`, matching ES2022/ESNext/bundler settings; execute with the approved
-  TypeScript-capable runtime (candidate: Bun, exact version to be recorded).
-  Do not imply that raw `.ts` specifiers execute under arbitrary Node/module
-  configurations. The root tsconfig does not currently set
-  `allowImportingTsExtensions`.
-- S121 must prove the full path: generated module imports the public helper
-  subpath, the fixture typechecks under the accepted configuration, and the
-  fixture executes to parity. A source-text compile or hand-copied helper is
-  not sufficient.
-- The package's existing lack of an `exports` map is a compatibility risk.
-  Before S122 changes it, enumerate currently supported root/CLI/package
-  entry points and preserve them intentionally.
+- Baseline: package ESM, ES2022 target, ESNext modules, strict checking, and
+  bundler resolution. The approved run recorded Bun 1.4.5 and TypeScript 5.9.3.
+- Keep generated relative imports as `.ts`. The strict fixture typecheck uses
+  `allowImportingTsExtensions` with `noEmit`; the root tsconfig does not
+  currently set that option. Do not imply that raw `.ts` specifiers execute
+  under arbitrary Node/module configurations.
+- Run-01 typechecked a separately authored fixture importing the public helper
+  subpath and relative `.ts` module, then executed it with Bun. This does not
+  prove arbitrary module-runner compatibility.
+- The root package baseline had no `exports` map. The added subpath plus
+  wildcard fallback preserves previous direct subpath access; no root API or
+  CLI `bin` change is part of this helper slice.
 
 ## Runtime Input Validation
 
 `run(inputs)` performs runtime validation even when the caller uses TypeScript
-types. The following D121-10 rules are accepted and grounded in
-`src/runtime/inputData.ts`, with enum parity gated by D121-16:
+types. D121-10 rules are grounded in `src/runtime/inputData.ts`; D121-16
+checker/runtime enum support is implemented and focused-tested.
 
 - The top-level value must be a non-null, non-array object containing every
   declared entry input and no unknown input keys. Imported modules cannot
   declare inputs. Missing or extra keys reject before any AMX statement runs.
 - Each value is recursively validated against its AMX type. `Number` must be
-  finite; `String` and `Boolean` must have their exact primitive types;
-  `DateTime` must be valid RFC 3339 text and remains a string. Nullable values
-  accept `null` only where the declared type is nullable.
-- A measurement input uses the existing external shape `{ value, unit }` with
-  exactly those two keys, a finite numeric value, and a unit string. Resolve
-  the unit against the module graph, require matching dimension identity and a
-  finite physical value, then construct the helper's internal measurement.
-  A raw number is not accepted for a measurement.
+  finite; `String` and `Boolean` must have exact primitive types; `DateTime`
+  must be valid RFC 3339 text and remains a string. Nullable values accept
+  `null` only where the declared type is nullable.
+- A measurement input uses the exact external shape `{ value, unit }`, a finite
+  numeric value, and a unit string. Resolve the unit against the module graph,
+  require matching dimension identity and finite physical value, then
+  construct the helper's internal measurement. A raw number is not accepted.
 - Record inputs reject unknown fields. Missing fields with defaults evaluate
   those defaults in declaration order; otherwise missing optional fields
   materialize as `null`, and missing required fields fail. Explicit `null`
-  remains distinct from an absent field. Lists preserve element order and
-  recursively apply these rules.
-- Enum annotations use the checked declaration's resolved string/number
-  member values. Reject any other value before AMX statements execute. The
-  current runtime lacks this path; the separately authorized D121-16 runtime
-  prerequisite must be implemented and accepted before parity is claimed.
-- An invalid input fails before any AMX statements execute and identifies the
-  input/property path plus expected type. It does not return partial exports
-  or views.
-- No prompt, file mapping, implicit JSON load, or CLI-only input behavior is
-  part of generated `run`.
+  remains distinct from an absent field. Lists preserve order and recurse.
+- Enum annotations use resolved string/number members. Reject nonmembers
+  before AMX statements execute. Focused JSON/CSV tests pass. Run-01's public
+  helper parity case uses Number input; enum-specific helper/oracle parity is
+  not separately claimed.
+- Invalid input returns no result object. `run` does not prompt, read files,
+  inspect environment, or use implicit inputs.
 
 ## S121 Feasibility Proof
 
-The isolated boundary fixture must demonstrate, at minimum:
+Run-01 passed the approved four-case boundary plus the D121-15 diagram case:
 
-1. An entry module importing an explicitly exported function/value from a
-   sibling generated module, with relative `.ts` import resolution.
-2. One measurement attach/conversion or operation that compares by value and
-   unit with AMX runtime output.
-3. One declared input supplied by the caller, plus a rejected invalid value.
-4. One `show` result represented by a public structured-view DTO and matched
-   against AMX runtime view data.
+1. Imported `twice` helper and relative `.ts` import: `doubled === 12`.
+2. `1 kilometer` converts to `1000 meter`; equality against `1000 meter` is
+   `true`. Unit text and normalized `Length` identity match exactly.
+3. Caller amount `6` returns `12`; generated string, missing, and positive-
+   infinity values reject at `amount`; AMX rejects the invalid JSON input with
+   `AMX4003` before evaluation.
+4. Chart `show` yields `[2, 4]` with `showTable: true`; the empty diagram
+   declaration yields a distinct ordered diagram DTO without `show` syntax.
+   Generated and reference exports/views match structurally.
 
-Record exact sources, tool versions, compile/run commands, raw output, parity
-assertions, package subpath used, and limitations in `builder-evidence.md`.
-This proof is a boundary feasibility result, not evidence that the full emitter
-is implemented. Under accepted D121-17 sequencing, run it against the actual
-S122 public helper after the enum-input prerequisite is in place, then return
-to S121 final closeout. No probe has been run or authorized; exact approval is
-still required for baseline, sources, commands, roots, preservation, retries,
-and cleanup.
+The reference-only oracle imports `loadEntryModule` to observe AMX exports and
+view emissions. The generated fixture imports only `openamx/transpiler-runtime`;
+no renderer internals or emitter implementation are used. See
+`builder-evidence.md` and `artifacts/probe-01/` for exact sources, commands,
+raw outputs, failures, hashes, and limitations. This is not full emitter,
+CLI/desktop, rendered report, native/platform, or release acceptance.

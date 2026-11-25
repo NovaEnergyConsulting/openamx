@@ -136,16 +136,18 @@ mapping discrepancy, not an accepted extension.
 
 ## Source-Observed Constraints and Owner Decisions
 
-- `DateTime` is a string in the current evaluator and input boundary; the input
   validator checks RFC 3339 text. Do not invent a runtime `AMXDateTime` object.
-- The checker registers only tables and charts as showable views. A diagram
   declaration creates a separate runtime emission immediately. Accepted
   D121-15 places that emission in `result.views` under a distinct discriminant
   without adding `show` behavior.
-- Enum type annotations resolve in the checker, but current input loading does
   not pass enum declarations to the value converter. D121-16 requires a
   separately authorized runtime prerequisite before AMX/generated parity is
   claimed; no product behavior changes in S121.
+- At baseline, ordinary type resolution rejected enum names, and input loading
+  did not pass enum declarations to the value converter. Amended D121-16 adds
+  enum names to named type resolution and validates resolved member values in
+  JSON/CSV inputs; implementation and focused tests are recorded in S121
+  Builder evidence.
 
 ## Reconciliation Checklist
 

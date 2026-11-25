@@ -1,0 +1,604 @@
+import { parseDocumentText } from "../parser/parseDocument";
+import { parseFrontMatter } from "../parser/parseFrontMatter";
+import { isExecutableBlockOffset } from "./highlighting";
+import { sourceOffset } from "./sourceRanges";
+import { findStringLiteralEnd } from "../parser/stringScanner";
+const v02Keywords = ["let", "for", "in", "to", "return", "match", "case", "default", "if", "then", "else", "and", "or", "not", "true", "false"];
+const v03Keywords = ["null", "type", "fn", "import", "from", "input", "export"];
+const v04Keywords = ["table", "chart", "show", "title", "description", "column", "category", "x", "y", "group", "labels", "series", "as"];
+const v09ListKeywords = ["add", "remove", "at"];
+const v09UnitKeywords = ["dimension", "unit"];
+const v12Keywords = ["enum", "extends", "override"];
+const v13Keywords = ["diagram"];
+const v14Keywords = ["is"];
+const standardFunctions = ["sum", "min", "max", "mean", "round", "abs", "sqrt", "pow"];
+const v14Functions = [
+    "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh", "ln", "log", "exp",
+    "len", "trim", "left", "right", "format"
+];
+const standardConstants = ["PI", "E"];
+const primitiveTypes = ["Number", "String", "Boolean", "DateTime"];
+const diagramProperties = ["title", "description", "width", "height"];
+const diagramElements = ["line", "rectangle", "circle", "text"];
+const elementProperties = {
+    line: ["x1", "y1", "x2", "y2", "stroke", "lineWidth", "arrow"],
+    rectangle: ["x", "y", "width", "height", "stroke", "fill", "lineWidth"],
+    circle: ["cx", "cy", "r", "stroke", "fill", "lineWidth"],
+    text: ["x", "y", "value", "fill"]
+};
+const arrowValues = ['"none"', '"start"', '"end"', '"both"'];
+function cursorInsideOpenAmxFence(text, cursorOffset) {
+    const frontMatter = parseFrontMatter(text);
+    if (frontMatter.error)
+        return false;
+    const bodyOffset = text.length - frontMatter.body.length;
+    if (cursorOffset < bodyOffset)
+        return false;
+    const relativeCursor = cursorOffset - bodyOffset;
+    const cursorLine = text.slice(bodyOffset, bodyOffset + relativeCursor).split(/\r?\n/).length - 1;
+    const lines = frontMatter.body.split(/\r?\n/);
+    let open;
+    for (let index = 0; index < cursorLine; index++) {
+        const line = lines[index] ?? "";
+        if (!open) {
+            const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+            if (match)
+                open = { marker: match[1], executable: match[1][0] === "`" && match[2].trim() === "amx" };
+        }
+        else {
+            const closing = line.match(/^ {0,3}(`+|~+)(\s*)$/);
+            if (closing && closing[1][0] === open.marker[0] && closing[1].length >= open.marker.length)
+                open = undefined;
+        }
+    }
+    const currentLine = lines[cursorLine] ?? "";
+    const currentCloser = currentLine.match(/^ {0,3}(`+|~+)(\s*)$/);
+    return !!open?.executable && !(currentCloser && currentCloser[1][0] === open.marker[0]
+        && currentCloser[1].length >= open.marker.length);
+}
+/** Parse the complete buffer when possible, otherwise retain only proven prior statements inside an exact AMX fence. */
+export function prepareEditorCompletion(text, cursorOffset) {
+    try {
+        const document = parseDocumentText(text);
+        if (!isExecutableBlockOffset(text, document, cursorOffset))
+            return undefined;
+        return { text, document };
+    }
+    catch {
+        if (!cursorInsideOpenAmxFence(text, cursorOffset))
+            return undefined;
+        const frontMatter = parseFrontMatter(text);
+        if (frontMatter.error)
+            return undefined;
+        const lineStart = text.lastIndexOf("\n", Math.max(0, cursorOffset - 1)) + 1;
+        const bodyOffset = text.length - frontMatter.body.length;
+        const cursorLine = text.slice(bodyOffset, bodyOffset + Math.max(0, cursorOffset - bodyOffset)).split(/\r?\n/).length - 1;
+        const lines = frontMatter.body.split(/\r?\n/);
+        let open;
+        for (let index = 0; index < cursorLine; index++) {
+            const match = (lines[index] ?? "").match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+            if (!open && match)
+                open = { marker: match[1], executable: match[1][0] === "`" && match[2].trim() === "amx" };
+            else if (open) {
+                const closing = (lines[index] ?? "").match(/^ {0,3}(`+|~+)(\s*)$/);
+                if (closing && closing[1][0] === open.marker[0] && closing[1].length >= open.marker.length)
+                    open = undefined;
+            }
+        }
+        if (!open?.executable)
+            return undefined;
+        const closer = `${open.marker}\n`;
+        const candidates = [
+            `${text.slice(0, cursorOffset)}${text.slice(0, cursorOffset).endsWith("\n") ? "" : "\n"}${closer}${text.slice(cursorOffset)}`,
+            `${text.slice(0, lineStart)}${text.slice(0, lineStart).endsWith("\n") ? "" : "\n"}${closer}`
+        ];
+        for (const candidate of candidates) {
+            try {
+                return { text: candidate, document: parseDocumentText(candidate) };
+            }
+            catch { /* Keep only parser-proven complete statements. */ }
+        }
+        return undefined;
+    }
+}
+function statementsOf(document) {
+    return document.nodes.flatMap(node => node.type === "executableCodeBlock" ? node.statements : []);
+}
+function statementEndOffset(text, statement) {
+    const start = sourceOffset(text, statement.source);
+    if (start === undefined)
+        return Number.MAX_SAFE_INTEGER;
+    let depth = 0;
+    for (let offset = start; offset < text.length; offset++) {
+        const character = text[offset];
+        if (character === '"' || character === "'") {
+            const end = findStringLiteralEnd(text, offset);
+            if (end === undefined)
+                break;
+            offset = end;
+            continue;
+        }
+        if (character === "{")
+            depth++;
+        else if (character === "}")
+            depth--;
+        else if (character === "\n" && depth <= 0)
+            return offset;
+    }
+    return text.length;
+}
+function expressionFunctionBodyBounds(text, fn) {
+    if (fn.body.kind !== "expression")
+        return undefined;
+    const start = sourceOffset(text, fn.source);
+    if (start === undefined)
+        return undefined;
+    const signature = text.slice(start).match(/^fn\s+[A-Za-z][A-Za-z0-9_]*\s*\([^)]*\)\s*:\s*[A-Za-z][A-Za-z0-9_]*(?:(?:\[\])|\?)*\s*=/);
+    if (!signature)
+        return undefined;
+    return { from: start + signature[0].length, to: statementEndOffset(text, fn) };
+}
+function blockBounds(text, source) {
+    const start = sourceOffset(text, source);
+    if (start === undefined)
+        return undefined;
+    let open = -1;
+    let depth = 0;
+    for (let offset = start; offset < text.length; offset++) {
+        if (text[offset] === '"' || text[offset] === "'") {
+            const end = findStringLiteralEnd(text, offset);
+            if (end === undefined)
+                return open < 0 ? undefined : { open, close: text.length };
+            offset = end;
+        }
+        else if (text[offset] === "{") {
+            if (open < 0)
+                open = offset;
+            depth++;
+        }
+        else if (text[offset] === "}" && open >= 0 && --depth === 0)
+            return { open, close: offset };
+    }
+    return open < 0 ? undefined : { open, close: text.length };
+}
+function diagramAt(text, parsed, cursorOffset) {
+    for (const diagram of statementsOf(parsed).filter((statement) => statement.type === "diagramDeclaration")) {
+        const bounds = blockBounds(text, diagram.source);
+        if (!bounds || cursorOffset <= bounds.open || cursorOffset > bounds.close)
+            continue;
+        const element = diagram.content.find((candidate) => {
+            if (candidate.type !== "diagramElement")
+                return false;
+            const elementBounds = blockBounds(text, candidate.source);
+            return !!elementBounds && cursorOffset > elementBounds.open && cursorOffset <= elementBounds.close;
+        });
+        return { diagram, element };
+    }
+    return undefined;
+}
+function diagramCompletionFacts(text, contextText, cursorOffset, parsed, visible) {
+    const active = diagramAt(text, parsed, cursorOffset);
+    if (!active)
+        return undefined;
+    const contextCursor = Math.max(0, Math.min(cursorOffset, contextText.length));
+    const lineStart = contextText.lastIndexOf("\n", Math.max(0, contextCursor - 1)) + 1;
+    const prefix = contextText.slice(lineStart, contextCursor);
+    const propertyValue = prefix.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*/);
+    if (propertyValue) {
+        if (active.element?.primitive === "line" && propertyValue[1] === "arrow") {
+            return arrowValues.map(label => ({ label, kind: "keyword" }));
+        }
+        const variables = new Set(visible.variables);
+        if (active.element && active.diagram.times.length === 1)
+            variables.add(active.diagram.times[0].name);
+        const fieldReceiver = prefix.match(/\b([A-Za-z][A-Za-z0-9_]*)\.\w*$/)?.[1];
+        const fields = fieldReceiver
+            ? visible.enums.get(fieldReceiver)?.members.map(member => member.name)
+                ?? visible.recordTypes.get(fieldReceiver)?.fields.map(field => field.name) ?? []
+            : [];
+        return [
+            ...standardFunctions.map(label => ({ label, kind: "function" })),
+            ...[...visible.functions].map(label => ({ label, kind: "function" })),
+            ...[...visible.types].map(label => ({ label, kind: "class" })),
+            ...[...variables].map(label => ({ label, kind: "variable" })),
+            ...[...visible.views].map(label => ({ label, kind: "reference" })),
+            ...fields.map(label => ({ label, kind: "field" }))
+        ];
+    }
+    const partialProperty = prefix.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)?$/);
+    if (!partialProperty)
+        return [];
+    const existing = active.element
+        ? active.element.properties.map(property => property.name)
+        : [...active.diagram.properties.map(property => property.name), ...(active.diagram.times.length ? ["time"] : [])];
+    const available = active.element
+        ? elementProperties[active.element.primitive] ?? []
+        : [...diagramProperties, "time", ...diagramElements];
+    return available.filter(name => !existing.includes(name)).map(label => ({
+        label,
+        kind: diagramElements.includes(label) || label === "time" ? "keyword" : "field"
+    }));
+}
+function loopBounds(text, loop) {
+    const start = sourceOffset(text, loop.source);
+    if (start === undefined)
+        return undefined;
+    const lineStart = text.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+    const lineEnd = text.indexOf("\n", start);
+    const line = text.slice(lineStart, lineEnd < 0 ? text.length : lineEnd);
+    const opening = line.lastIndexOf("{");
+    if (opening < 0 || line.slice(opening).trim() !== "{")
+        return undefined;
+    const open = lineStart + opening;
+    let depth = 0;
+    for (let offset = open; offset < text.length; offset++) {
+        const character = text[offset];
+        if (character === '"' || character === "'") {
+            const end = findStringLiteralEnd(text, offset);
+            if (end === undefined)
+                return undefined;
+            offset = end;
+        }
+        else if (character === "{")
+            depth++;
+        else if (character === "}" && --depth === 0)
+            return { open, close: offset };
+    }
+    return undefined;
+}
+function ifBranchBounds(text, node, alternate) {
+    const start = sourceOffset(text, node.source);
+    if (start === undefined)
+        return undefined;
+    const findOpen = (from) => {
+        let brackets = 0;
+        for (let offset = from; offset < text.length; offset++) {
+            const character = text[offset];
+            if (character === '"' || character === "'") {
+                const end = findStringLiteralEnd(text, offset);
+                if (end === undefined)
+                    return undefined;
+                offset = end;
+            }
+            else if (character === "(" || character === "[")
+                brackets++;
+            else if (character === ")" || character === "]")
+                brackets--;
+            else if (character === "{" && brackets === 0)
+                return offset;
+        }
+        return undefined;
+    };
+    const findClose = (open) => {
+        let depth = 0;
+        for (let offset = open; offset < text.length; offset++) {
+            const character = text[offset];
+            if (character === '"' || character === "'") {
+                const end = findStringLiteralEnd(text, offset);
+                if (end === undefined)
+                    return undefined;
+                offset = end;
+            }
+            else if (character === "{")
+                depth++;
+            else if (character === "}" && --depth === 0)
+                return offset;
+        }
+        return undefined;
+    };
+    const firstOpen = findOpen(start + 2);
+    if (firstOpen === undefined)
+        return undefined;
+    const firstClose = findClose(firstOpen);
+    if (firstClose === undefined)
+        return undefined;
+    if (!alternate)
+        return { open: firstOpen, close: firstClose };
+    let cursor = firstClose + 1;
+    while (/\s/.test(text[cursor] ?? ""))
+        cursor++;
+    if (!text.startsWith("else", cursor))
+        return undefined;
+    const secondOpen = findOpen(cursor + 4);
+    if (secondOpen === undefined)
+        return undefined;
+    const secondClose = findClose(secondOpen);
+    return secondClose === undefined ? undefined : { open: secondOpen, close: secondClose };
+}
+function insideIfBranch(text, node, cursorOffset, alternate) {
+    const bounds = ifBranchBounds(text, node, alternate);
+    return !!bounds && cursorOffset > bounds.open && cursorOffset < bounds.close;
+}
+function visibleSymbols(text, parsed, cursorOffset, analysis) {
+    const variables = new Set();
+    const functions = new Set();
+    const types = new Set(primitiveTypes);
+    const enums = new Map();
+    const views = new Set();
+    const recordTypes = new Map();
+    const localTypeDeclarations = new Map();
+    const localBindingTypes = new Map();
+    const activeIterators = new Set();
+    const collectStatements = (statements) => {
+        for (const statement of statements) {
+            const start = sourceOffset(text, statement.source);
+            if (start === undefined || start >= cursorOffset)
+                continue;
+            if (statement.type === "variableDeclaration") {
+                if (statementEndOffset(text, statement) <= cursorOffset) {
+                    variables.add(statement.name);
+                    const inferred = statement.annotation?.type === "namedType" ? statement.annotation.name
+                        : statement.expression.type === "recordConstructor" ? statement.expression.name : undefined;
+                    if (inferred)
+                        localBindingTypes.set(statement.name, inferred);
+                }
+                collectExpression(statement.expression);
+            }
+            else if (statement.type === "inputDeclaration") {
+                if (statementEndOffset(text, statement) <= cursorOffset) {
+                    variables.add(statement.name);
+                    if (statement.annotation.type === "namedType" && statement.annotation.name)
+                        localBindingTypes.set(statement.name, statement.annotation.name);
+                }
+            }
+            else if (statement.type === "typeDeclaration") {
+                if (statementEndOffset(text, statement) <= cursorOffset) {
+                    types.add(statement.name);
+                    localTypeDeclarations.set(statement.name, statement);
+                }
+            }
+            else if (statement.type === "enumDeclaration") {
+                if (statementEndOffset(text, statement) <= cursorOffset) {
+                    types.add(statement.name);
+                    enums.set(statement.name, statement);
+                }
+            }
+            else if (statement.type === "functionDeclaration") {
+                if (statementEndOffset(text, statement) <= cursorOffset)
+                    functions.add(statement.name);
+            }
+            else if (statement.type === "tableDeclaration" || statement.type === "chartDeclaration") {
+                if (statementEndOffset(text, statement) <= cursorOffset)
+                    views.add(statement.name);
+            }
+            else if (statement.type === "importDeclaration") {
+                if (statementEndOffset(text, statement) <= cursorOffset) {
+                    for (const item of statement.names) {
+                        if (analysis?.importedTypes.has(item.name))
+                            types.add(item.name);
+                        if (analysis?.importedEnums.has(item.name)) {
+                            types.add(item.name);
+                            enums.set(item.name, analysis.importedEnums.get(item.name));
+                        }
+                        if (analysis?.importedFunctions.has(item.name))
+                            functions.add(item.name);
+                        if (analysis?.importedBindings.has(item.name)) {
+                            variables.add(item.name);
+                            const type = analysis.importedBindings.get(item.name);
+                            if (type?.kind === "named")
+                                localBindingTypes.set(item.name, type.name);
+                        }
+                    }
+                }
+            }
+            else if (statement.type === "forStatement")
+                collectLoop(statement);
+            else if (statement.type === "bracedIfStatement") {
+                collectExpression(statement.test);
+                if (insideIfBranch(text, statement, cursorOffset, false))
+                    collectStatements(statement.consequent);
+                if (statement.alternate && insideIfBranch(text, statement, cursorOffset, true))
+                    collectStatements(statement.alternate);
+            }
+            else if (statement.type === "assignmentStatement" || statement.type === "compoundAssignmentStatement")
+                collectExpression(statement.expression);
+            else if ("expression" in statement && statement.expression)
+                collectExpression(statement.expression);
+        }
+    };
+    const collectLoop = (loop) => {
+        const bounds = loopBounds(text, loop);
+        if (bounds && cursorOffset > bounds.open && cursorOffset <= bounds.close)
+            activeIterators.add(loop.variable);
+        collectExpression(loop.iterable);
+        collectStatements(loop.body);
+    };
+    const collectExpression = (expression) => {
+        switch (expression.type) {
+            case "forExpression":
+                collectLoop(expression);
+                break;
+            case "stringInterpolation":
+                expression.parts.forEach(part => { if (typeof part !== "string")
+                    collectExpression(part); });
+                break;
+            case "binaryExpression":
+                collectExpression(expression.left);
+                collectExpression(expression.right);
+                break;
+            case "typeTestExpression":
+                collectExpression(expression.value);
+                break;
+            case "measurementAttachment":
+            case "measurementConversion":
+                collectExpression(expression.value);
+                break;
+            case "unaryExpression":
+                collectExpression(expression.argument);
+                break;
+            case "conditionalExpression":
+                collectExpression(expression.test);
+                collectExpression(expression.consequent);
+                collectExpression(expression.alternate);
+                break;
+            case "bracedIfExpression":
+                collectExpression(expression.test);
+                if (insideIfBranch(text, expression, cursorOffset, false))
+                    collectStatements(expression.consequent);
+                if (insideIfBranch(text, expression, cursorOffset, true))
+                    collectStatements(expression.alternate);
+                break;
+            case "matchExpression":
+                collectMatch(expression);
+                break;
+            case "rangeExpression":
+                collectRange(expression);
+                break;
+            case "functionCall":
+                expression.arguments.forEach(collectExpression);
+                break;
+            case "listLiteral":
+                expression.elements.forEach(collectExpression);
+                break;
+            case "listAccess":
+                collectExpression(expression.receiver);
+                collectExpression(expression.index);
+                break;
+            default: break;
+        }
+    };
+    const collectMatch = (expression) => {
+        collectExpression(expression.expression);
+        expression.cases.forEach(arm => collectExpression(arm.expression));
+        collectExpression(expression.defaultExpression);
+    };
+    const collectRange = (expression) => { collectExpression(expression.start); collectExpression(expression.end); };
+    const functionDeclarations = statementsOf(parsed).filter((statement) => statement.type === "functionDeclaration");
+    const activeFunction = functionDeclarations.find(statement => {
+        if (statement.body.kind === "expression") {
+            const bounds = expressionFunctionBodyBounds(text, statement);
+            return !!bounds && cursorOffset >= bounds.from && cursorOffset <= bounds.to;
+        }
+        const opening = sourceOffset(text, statement.body.openingSource);
+        const closing = sourceOffset(text, statement.body.closingSource);
+        return opening !== undefined && closing !== undefined && cursorOffset > opening && cursorOffset <= closing;
+    });
+    if (activeFunction) {
+        const functionStart = sourceOffset(text, activeFunction.source) ?? Number.MAX_SAFE_INTEGER;
+        const moduleDeclarations = statementsOf(parsed).filter(statement => {
+            const start = sourceOffset(text, statement.source);
+            return start !== undefined && start < functionStart && [
+                "functionDeclaration", "typeDeclaration", "enumDeclaration", "dimensionDeclaration", "unitDeclaration"
+            ].includes(statement.type);
+        });
+        collectStatements(moduleDeclarations);
+        for (const imported of statementsOf(parsed).filter((statement) => statement.type === "importDeclaration" && (sourceOffset(text, statement.source) ?? Number.MAX_SAFE_INTEGER) < functionStart)) {
+            for (const item of imported.names) {
+                if (analysis?.importedTypes.has(item.name))
+                    types.add(item.name);
+                if (analysis?.importedEnums.has(item.name)) {
+                    types.add(item.name);
+                    enums.set(item.name, analysis.importedEnums.get(item.name));
+                }
+                if (analysis?.importedFunctions.has(item.name))
+                    functions.add(item.name);
+            }
+        }
+        const namedType = (type) => {
+            if (!type)
+                return undefined;
+            if (type.type === "namedType")
+                return type.name;
+            return namedType(type.element);
+        };
+        let functionScope = new Map(activeFunction.parameters.map(parameter => [parameter.name, namedType(parameter.annotation)]));
+        const collectFunctionScope = (statements, scope) => {
+            for (const statement of statements) {
+                const start = sourceOffset(text, statement.source);
+                if (start === undefined || start >= cursorOffset)
+                    continue;
+                if (statement.type === "variableDeclaration") {
+                    if (statementEndOffset(text, statement) <= cursorOffset) {
+                        const inferred = namedType(statement.annotation)
+                            ?? (statement.expression.type === "recordConstructor" ? statement.expression.name : undefined);
+                        scope.set(statement.name, inferred);
+                    }
+                }
+                else if (statement.type === "bracedIfStatement") {
+                    if (insideIfBranch(text, statement, cursorOffset, false)) {
+                        return collectFunctionScope(statement.consequent, new Map(scope));
+                    }
+                    if (statement.alternate && insideIfBranch(text, statement, cursorOffset, true)) {
+                        return collectFunctionScope(statement.alternate, new Map(scope));
+                    }
+                }
+                else if (statement.type === "forStatement") {
+                    const bounds = loopBounds(text, statement);
+                    if (bounds && cursorOffset > bounds.open && cursorOffset <= bounds.close) {
+                        const loopScope = new Map(scope);
+                        loopScope.set(statement.variable, undefined);
+                        return collectFunctionScope(statement.body, loopScope);
+                    }
+                }
+            }
+            return scope;
+        };
+        if (activeFunction.body.kind === "statements") {
+            functionScope = collectFunctionScope(activeFunction.body.statements, functionScope);
+        }
+        variables.clear();
+        localBindingTypes.clear();
+        for (const [name, typeName] of functionScope) {
+            variables.add(name);
+            if (typeName)
+                localBindingTypes.set(name, typeName);
+        }
+    }
+    else {
+        for (const node of parsed.nodes) {
+            if (node.type === "executableCodeBlock" && node.source && (sourceOffset(text, node.source) ?? Number.MAX_SAFE_INTEGER) < cursorOffset) {
+                collectStatements(node.statements);
+            }
+        }
+    }
+    if (!activeFunction)
+        for (const iterator of activeIterators)
+            variables.add(iterator);
+    for (const [name, typeName] of localBindingTypes) {
+        const declaration = localTypeDeclarations.get(typeName) ?? analysis?.importedTypes.get(typeName);
+        if (declaration)
+            recordTypes.set(name, declaration);
+    }
+    if (analysis)
+        for (const [name, declaration] of analysis.importedTypes)
+            if (types.has(name))
+                localTypeDeclarations.set(name, declaration);
+    return { variables, functions, types, enums, views, recordTypes };
+}
+/** Return only candidates proven visible before the cursor in the parsed source order. */
+export function editorCompletionFacts(text, cursorOffset, parsed, analysis, contextText = text) {
+    const cursor = Math.max(0, Math.min(cursorOffset, text.length));
+    const visible = visibleSymbols(text, parsed, cursor, analysis);
+    const contextCursor = Math.max(0, Math.min(cursorOffset, contextText.length));
+    const lineStart = contextText.lastIndexOf("\n", Math.max(0, contextCursor - 1)) + 1;
+    const prefix = contextText.slice(lineStart, contextCursor);
+    const fieldReceiver = prefix.match(/\b([A-Za-z][A-Za-z0-9_]*)\.\w*$/)?.[1];
+    const fields = fieldReceiver
+        ? visible.enums.get(fieldReceiver)?.members.map(member => member.name)
+            ?? visible.recordTypes.get(fieldReceiver)?.fields.map(field => field.name) ?? []
+        : [];
+    const facts = [
+        ...[...v02Keywords, ...v03Keywords, ...v04Keywords, ...v09ListKeywords, ...v09UnitKeywords, ...v12Keywords, ...v13Keywords, ...v14Keywords].map(label => ({ label, kind: "keyword" })),
+        ...[...standardFunctions, ...v14Functions].map(label => ({ label, kind: "function" })),
+        ...standardConstants.map(label => ({ label, kind: "variable" })),
+        ...[...visible.functions].map(label => ({ label, kind: "function" })),
+        ...[...visible.types].map(label => ({ label, kind: "class" })),
+        ...[...visible.variables].map(label => ({ label, kind: "variable" })),
+        ...[...visible.views].map(label => ({ label, kind: "reference" })),
+        ...fields.map(label => ({ label, kind: "field" }))
+    ];
+    const diagramFacts = diagramCompletionFacts(text, contextText, cursor, parsed, visible);
+    if (diagramFacts)
+        return diagramFacts;
+    return facts;
+}
+export function executableBlockContentStart(text, node) {
+    if (!node.source)
+        return undefined;
+    const offset = sourceOffset(text, node.source);
+    if (offset === undefined)
+        return undefined;
+    const lineStart = text.lastIndexOf("\n", Math.max(0, offset - 1)) + 1;
+    return text.indexOf("\n", lineStart) + 1;
+}
+//# sourceMappingURL=completion.js.map

@@ -84,15 +84,19 @@ omitted `count` uses its default `2`; both exports match exactly. A missing
 required `id` or an undeclared record key rejects before evaluation. This case
 must follow the current input validator's field/default order.
 
-### GOLD-INPUT-ENUM-BLOCKER-01: Enum Runtime Prerequisite
+### GOLD-INPUT-ENUM-BLOCKER-01: Enum Input Validation (D121-16)
 
-Use an enum-typed `input` declaration accepted by the checker, then compare
-checker behavior with the current input converter. The checker resolves enum
-names, but the current loader supplies only record declarations to that
-converter. D121-16 accepts a separately authorized AMX runtime validation
-prerequisite before the helper probe; this source-audit case remains NOT RUN
-until that prerequisite exists. It is not authority to change product source
-in S121.
+`library.amx` exports a string enum `Status = { READY = "ready", FAILED =
+"failed" }` and an exported `Row` record whose `status` field is `Status`.
+`main.amx` imports both names and declares `input status: Status` and
+`input rows: Row[]`. The checker accepts enum names as type references.
+
+JSON `{ "status": "ready", "rows": [{ "status": "failed" }] }` is accepted
+and preserves those primitive values. Unknown members reject with AMX4003 at
+the corresponding input/record field path. CSV `status\nready\n` is accepted
+for a record-list enum field; an unknown CSV value rejects with AMX4003. The
+focused input/module tests pass; the run-01 public-helper oracle separately
+tests numeric caller input, not enum-helper parity.
 
 ### GOLD-VIEW-01: Shown Chart Snapshot
 
@@ -119,8 +123,28 @@ and `showTable: false`.
 Use the valid diagram declaration in `GOLD-AST-DIAGRAM-01`. Under accepted
 D121-15, its declaration-time emission becomes a distinct `diagram` DTO in
 `result.views`, ordered with table/chart show snapshots by module and
-source/evaluation order. Do not make `show diagram` a valid fixture. This
-contract case is accepted but remains NOT RUN until the helper/emitter exists.
+source/evaluation order. Do not make `show diagram` a valid fixture. The
+minimal empty-diagram DTO case passes in the helper-boundary probe; recursive
+diagram emission remains an unrun S123 emitter case.
+
+Minimal source for the DTO contract:
+
+````amx
+```amx
+diagram empty {
+  title: "Empty"
+  description: "No authored elements"
+  width: 10
+  height: 10
+  time t from 0 to 1 duration 1
+}
+```
+````
+
+Expected: one declaration-time `diagram` DTO with name `empty`, title
+`Empty`, description `No authored elements`, width/height `10`, timeline
+`{ variable: "t", from: 0, to: 1, duration: 1 }`, and an empty initial frame.
+It appears in `views` even though no `show` statement is present.
 
 ## Comment-Encoding Fixture
 

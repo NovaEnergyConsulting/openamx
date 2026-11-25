@@ -50,10 +50,10 @@ acceptance gates below.
   renderer-private models.
 - Source audit has identified three implementation dependencies: diagram
   declarations produce separate declaration-time emissions while `show`
-  accepts only tables/charts (resolved by D121-15); checker-accepted enum
-  inputs have no current input-conversion path (D121-16 runtime prerequisite);
-  and the proposed public helper subpath does not exist yet (D121-17 S122-first
-  sequence).
+  accepts only tables/charts (resolved by D121-15); the baseline checker and
+  input converter lacked enum support (D121-16 corrections are implemented
+  and focused-tested); and the public helper subpath remains a separate S122
+  delivery (D121-17 sequence).
 - `DateTime` is represented as RFC 3339 text and remains a string in the
   current runtime. Do not model it as an unverified `AMXDateTime` object.
 - Current toolchain facts to reverify at execution: root package is ESM;
@@ -144,19 +144,18 @@ acceptance gates below.
 - Comment preservation means source text remains inert and recognizable in
   generated comments. It never means evaluating Markdown interpolation.
 - D121-13 accepts raw source text per module and inert frontmatter comments.
-  Enum-input parity requires the separately authorized AMX runtime
-  prerequisite. The helper-boundary proof waits for the real S122 public
-  package and separate exact probe approval. D121-18 accepts best-effort
+  D121-16 enum type resolution and JSON/CSV validation are implemented and
+  focused-tested; public-helper parity is recorded in the probe evidence.
+  D121-17 requires the actual public package, and D121-18 accepts best-effort
   rollback; graph-wide crash atomicity is not guaranteed.
 - Runtime helper APIs are intentionally narrow and versioned. Generated
   modules may rely only on the accepted public subpath, never private engine
   paths or renderer implementation details.
 - `result.views` contains shown table/chart snapshots and declaration-time
   diagram DTOs under distinct discriminants; diagrams are not made showable.
-  Enum-input parity requires the separately authorized AMX runtime prerequisite
-  before S122/S121 proof. S122 may begin only after a dispositioned S121
-  helper/API checkpoint and separate authorization; S121 final closeout resumes
-  after the actual public helper is available.
+  The authorized helper slice and enum prerequisite are implemented; S122
+  completion remains separately gated. S121 final disposition remains pending
+  evidence review.
 - Best-effort multi-file rollback with exact per-path reporting is accepted;
   graph-wide crash atomicity is not guaranteed.
 - Raw evidence statuses are `PASS`, `FAIL`, `BLOCKED/UNAVAILABLE`, and

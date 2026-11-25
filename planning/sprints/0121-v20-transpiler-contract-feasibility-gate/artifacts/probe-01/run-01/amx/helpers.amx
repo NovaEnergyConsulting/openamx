@@ -1,0 +1,3 @@
+```amx
+export fn twice(value: Number): Number = value * 2
+```

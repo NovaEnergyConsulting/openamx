@@ -1,0 +1,2052 @@
+import { moduleError, staticError } from '../diagnostics/errors';
+import { physicalValue } from '../runtime/measurement';
+import { fieldRegistry, setDeclaringRegistry } from './declarationRegistry';
+const named = (name) => ({ kind: 'named', name });
+const list = (element) => ({ kind: 'list', element });
+const nullable = (element) => ({ kind: 'nullable', element });
+const primitives = new Set(['Number', 'String', 'Boolean', 'DateTime']);
+const mathematicalFunctions = new Set([
+    'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
+    'asinh', 'acosh', 'atanh', 'ln', 'log', 'exp'
+]);
+const signatures = {
+    sum: { args: ['list'], min: 1 }, min: { args: ['list'], min: 1 },
+    max: { args: ['list'], min: 1 }, mean: { args: ['list'], min: 1 },
+    round: { args: ['numeric', 'Number'], min: 1 }, abs: { args: ['numeric'], min: 1 },
+    sqrt: { args: ['numeric'], min: 1 }, pow: { args: ['numeric', 'Number'], min: 2 },
+    len: { args: ['value'], min: 1 }, trim: { args: ['String'], min: 1 },
+    left: { args: ['String', 'count'], min: 1 }, right: { args: ['String', 'count'], min: 1 },
+    format: { args: ['value', 'pattern', 'locale'], min: 2 },
+    ...Object.fromEntries([...mathematicalFunctions].map(name => [name, { args: ['math'], min: 1 }]))
+};
+function equal(left, right) {
+    if (left.kind !== right.kind)
+        return false;
+    if (left.kind === 'named')
+        return right.kind === 'named' && left.name === right.name;
+    if (left.kind === 'measurement')
+        return right.kind === 'measurement' && sameVector(left.vector, right.vector);
+    if (left.kind === 'null')
+        return true;
+    return (left.kind === 'list' || left.kind === 'nullable')
+        && (right.kind === 'list' || right.kind === 'nullable')
+        && equal(left.element, right.element);
+}
+function assignable(actual, expected) {
+    if (equal(actual, expected))
+        return true;
+    if (expected.kind === 'nullable')
+        return actual.kind === 'null' || assignable(actual, expected.element);
+    return actual.kind === 'list' && expected.kind === 'list' && assignable(actual.element, expected.element);
+}
+function common(left, right) {
+    if (assignable(left, right))
+        return right;
+    if (assignable(right, left))
+        return left;
+    return undefined;
+}
+function format(type) {
+    if (type.kind === 'named')
+        return type.name;
+    if (type.kind === 'measurement')
+        return `Measurement<${[...type.vector].map(([key, value]) => `${key}^${value}`).join(',') || '1'}>`;
+    if (type.kind === 'null')
+        return 'null';
+    return type.kind === 'list' ? `${format(type.element)}[]` : `${format(type.element)}?`;
+}
+function sameVector(left, right) {
+    return left.size === right.size && [...left].every(([identity, exponent]) => right.get(identity) === exponent);
+}
+function containsMeasurement(type) {
+    return type.kind === 'measurement'
+        || (type.kind === 'list' || type.kind === 'nullable') && containsMeasurement(type.element);
+}
+export function checkingActivated(_doc) {
+    return true;
+}
+const stdlibNames = new Set([
+    'sum', 'min', 'max', 'mean', 'round', 'abs', 'sqrt', 'pow',
+    ...mathematicalFunctions, 'PI', 'E', 'len', 'trim', 'left', 'right', 'format'
+]);
+function bodyContainsForExpression(expression) {
+    switch (expression.type) {
+        case 'forExpression': return true;
+        case 'binaryExpression': return bodyContainsForExpression(expression.left) || bodyContainsForExpression(expression.right);
+        case 'typeTestExpression': return bodyContainsForExpression(expression.value);
+        case 'stringInterpolation': return expression.parts.some(part => typeof part !== 'string' && bodyContainsForExpression(part));
+        case 'unaryExpression': return bodyContainsForExpression(expression.argument);
+        case 'conditionalExpression': return [expression.test, expression.consequent, expression.alternate].some(bodyContainsForExpression);
+        case 'bracedIfExpression': return bodyContainsForExpression(expression.test)
+            || bodyContainsForStatements(expression.consequent) || bodyContainsForStatements(expression.alternate);
+        case 'listLiteral': return expression.elements.some(bodyContainsForExpression);
+        case 'functionCall': return expression.arguments.some(bodyContainsForExpression);
+        case 'rangeExpression': return bodyContainsForExpression(expression.start) || bodyContainsForExpression(expression.end);
+        case 'matchExpression': return bodyContainsForExpression(expression.expression) || expression.cases.some(arm => bodyContainsForExpression(arm.expression)) || bodyContainsForExpression(expression.defaultExpression);
+        case 'recordConstructor': return expression.fields.some(field => bodyContainsForExpression(field.expression));
+        case 'fieldAccess': return bodyContainsForExpression(expression.receiver);
+        case 'listAccess': return bodyContainsForExpression(expression.receiver) || bodyContainsForExpression(expression.index);
+        default: return false;
+    }
+}
+function bodyContainsForStatements(statements) {
+    return statements.some(statement => {
+        switch (statement.type) {
+            case 'variableDeclaration': return bodyContainsForExpression(statement.expression);
+            case 'assignmentStatement':
+            case 'compoundAssignmentStatement': return bodyContainsForExpression(statement.expression);
+            case 'returnStatement': return bodyContainsForExpression(statement.expression);
+            case 'bracedIfStatement': return bodyContainsForExpression(statement.test)
+                || bodyContainsForStatements(statement.consequent)
+                || !!statement.alternate && bodyContainsForStatements(statement.alternate);
+            case 'forStatement': return bodyContainsForExpression(statement.iterable) || bodyContainsForStatements(statement.body);
+            case 'addStatement': return bodyContainsForExpression(statement.value)
+                || !!statement.index && bodyContainsForExpression(statement.index);
+            case 'removeStatement': return bodyContainsForExpression(statement.count)
+                || !!statement.index && bodyContainsForExpression(statement.index);
+            default: return false;
+        }
+    });
+}
+function expressionReferencesIdentifier(expression, name) {
+    switch (expression.type) {
+        case 'identifier': return expression.name === name;
+        case 'binaryExpression': return expressionReferencesIdentifier(expression.left, name) || expressionReferencesIdentifier(expression.right, name);
+        case 'typeTestExpression': return expressionReferencesIdentifier(expression.value, name);
+        case 'measurementAttachment':
+        case 'measurementConversion': return expressionReferencesIdentifier(expression.value, name);
+        case 'unaryExpression': return expressionReferencesIdentifier(expression.argument, name);
+        case 'conditionalExpression': return expressionReferencesIdentifier(expression.test, name)
+            || expressionReferencesIdentifier(expression.consequent, name)
+            || expressionReferencesIdentifier(expression.alternate, name);
+        case 'bracedIfExpression': return expressionReferencesIdentifier(expression.test, name)
+            || bodyReferencesIdentifier(expression.consequent, name)
+            || bodyReferencesIdentifier(expression.alternate, name);
+        case 'stringInterpolation': return expression.parts.some(part => typeof part !== 'string' && expressionReferencesIdentifier(part, name));
+        case 'matchExpression': return expressionReferencesIdentifier(expression.expression, name)
+            || expression.cases.some(item => expressionReferencesIdentifier(item.expression, name))
+            || expressionReferencesIdentifier(expression.defaultExpression, name);
+        case 'rangeExpression': return expressionReferencesIdentifier(expression.start, name) || expressionReferencesIdentifier(expression.end, name);
+        case 'functionCall': return expression.arguments.some(argument => expressionReferencesIdentifier(argument, name));
+        case 'listLiteral': return expression.elements.some(element => expressionReferencesIdentifier(element, name));
+        case 'forExpression': return expressionReferencesIdentifier(expression.iterable, name)
+            || bodyReferencesIdentifier(expression.body, name);
+        case 'recordConstructor': return expression.fields.some(field => expressionReferencesIdentifier(field.expression, name));
+        case 'fieldAccess': return expressionReferencesIdentifier(expression.receiver, name);
+        case 'listAccess': return expressionReferencesIdentifier(expression.receiver, name)
+            || expressionReferencesIdentifier(expression.index, name);
+        default: return false;
+    }
+}
+function identifierSource(expression, name) {
+    if (expression.type === 'identifier')
+        return expression.name === name ? expression.source : undefined;
+    switch (expression.type) {
+        case 'binaryExpression': return identifierSource(expression.left, name) ?? identifierSource(expression.right, name);
+        case 'typeTestExpression':
+        case 'measurementAttachment':
+        case 'measurementConversion':
+            return identifierSource(expression.value, name);
+        case 'unaryExpression': return identifierSource(expression.argument, name);
+        case 'conditionalExpression': return identifierSource(expression.test, name)
+            ?? identifierSource(expression.consequent, name) ?? identifierSource(expression.alternate, name);
+        case 'bracedIfExpression': return identifierSource(expression.test, name)
+            ?? bodyIdentifierSource(expression.consequent, name) ?? bodyIdentifierSource(expression.alternate, name);
+        case 'stringInterpolation':
+            return expression.parts.find((part) => typeof part !== 'string')
+                ? expression.parts.reduce((source, part) => source ?? (typeof part === 'string' ? undefined : identifierSource(part, name)), undefined)
+                : undefined;
+        case 'matchExpression': return identifierSource(expression.expression, name)
+            ?? expression.cases.reduce((source, item) => source ?? identifierSource(item.expression, name), undefined)
+            ?? identifierSource(expression.defaultExpression, name);
+        case 'rangeExpression': return identifierSource(expression.start, name) ?? identifierSource(expression.end, name);
+        case 'functionCall': return expression.arguments.reduce((source, argument) => source ?? identifierSource(argument, name), undefined);
+        case 'listLiteral': return expression.elements.reduce((source, item) => source ?? identifierSource(item, name), undefined);
+        case 'forExpression': return identifierSource(expression.iterable, name) ?? bodyIdentifierSource(expression.body, name);
+        case 'recordConstructor': return expression.fields.reduce((source, field) => source ?? identifierSource(field.expression, name), undefined);
+        case 'fieldAccess': return identifierSource(expression.receiver, name);
+        case 'listAccess': return identifierSource(expression.receiver, name) ?? identifierSource(expression.index, name);
+        default: return undefined;
+    }
+}
+function bodyIdentifierSource(statements, name) {
+    for (const statement of statements) {
+        let source;
+        switch (statement.type) {
+            case 'variableDeclaration':
+                source = identifierSource(statement.expression, name);
+                break;
+            case 'assignmentStatement':
+            case 'compoundAssignmentStatement':
+                source = identifierSource(statement.expression, name);
+                break;
+            case 'returnStatement':
+                source = identifierSource(statement.expression, name);
+                break;
+            case 'forStatement':
+                source = identifierSource(statement.iterable, name) ?? bodyIdentifierSource(statement.body, name);
+                break;
+            case 'bracedIfStatement':
+                source = identifierSource(statement.test, name)
+                    ?? bodyIdentifierSource(statement.consequent, name)
+                    ?? (statement.alternate ? bodyIdentifierSource(statement.alternate, name) : undefined);
+                break;
+            case 'addStatement':
+                source = identifierSource(statement.value, name)
+                    ?? (statement.index ? identifierSource(statement.index, name) : undefined);
+                break;
+            case 'removeStatement':
+                source = identifierSource(statement.count, name)
+                    ?? (statement.index ? identifierSource(statement.index, name) : undefined);
+                break;
+            default: source = undefined;
+        }
+        if (source)
+            return source;
+    }
+    return undefined;
+}
+function bodyReferencesIdentifier(statements, name) {
+    return statements.some(statement => {
+        switch (statement.type) {
+            case 'variableDeclaration': return expressionReferencesIdentifier(statement.expression, name);
+            case 'assignmentStatement':
+            case 'compoundAssignmentStatement': return expressionReferencesIdentifier(statement.expression, name);
+            case 'returnStatement': return expressionReferencesIdentifier(statement.expression, name);
+            case 'addStatement': return expressionReferencesIdentifier(statement.value, name)
+                || !!statement.index && expressionReferencesIdentifier(statement.index, name);
+            case 'removeStatement': return expressionReferencesIdentifier(statement.count, name)
+                || !!statement.index && expressionReferencesIdentifier(statement.index, name);
+            case 'forStatement': return expressionReferencesIdentifier(statement.iterable, name)
+                || bodyReferencesIdentifier(statement.body, name);
+            case 'bracedIfStatement': return expressionReferencesIdentifier(statement.test, name)
+                || bodyReferencesIdentifier(statement.consequent, name)
+                || !!statement.alternate && bodyReferencesIdentifier(statement.alternate, name);
+            default: return false;
+        }
+    });
+}
+function constantValue(expression) {
+    switch (expression.type) {
+        case 'numberLiteral': return Number.isFinite(expression.value) ? expression.value : undefined;
+        case 'stringLiteral':
+        case 'booleanLiteral': return expression.value;
+        case 'nullLiteral': return null;
+        case 'unaryExpression': {
+            const value = constantValue(expression.argument);
+            if (expression.operator === '-' && typeof value === 'number' && Number.isFinite(-value))
+                return -value;
+            if (expression.operator === 'not' && typeof value === 'boolean')
+                return !value;
+            return undefined;
+        }
+        case 'binaryExpression': {
+            const left = constantValue(expression.left);
+            const right = constantValue(expression.right);
+            if (left === undefined || right === undefined)
+                return undefined;
+            let result;
+            switch (expression.operator) {
+                case '+':
+                case '-':
+                case '*':
+                case '/':
+                case '%':
+                case '^':
+                    if (typeof left !== 'number' || typeof right !== 'number' || ((expression.operator === '/' || expression.operator === '%') && right === 0))
+                        return undefined;
+                    if (expression.operator === '+')
+                        result = left + right;
+                    else if (expression.operator === '-')
+                        result = left - right;
+                    else if (expression.operator === '*')
+                        result = left * right;
+                    else if (expression.operator === '/')
+                        result = left / right;
+                    else if (expression.operator === '%')
+                        result = left % right;
+                    else
+                        result = Math.pow(left, right);
+                    return typeof result === 'number' && Number.isFinite(result) ? result : undefined;
+                case '==': return left === right;
+                case '!=': return left !== right;
+                case '>':
+                case '>=':
+                case '<':
+                case '<=':
+                    if (typeof left !== 'number' || typeof right !== 'number')
+                        return undefined;
+                    if (expression.operator === '>')
+                        return left > right;
+                    if (expression.operator === '>=')
+                        return left >= right;
+                    if (expression.operator === '<')
+                        return left < right;
+                    return left <= right;
+                case 'and':
+                case 'or':
+                    if (typeof left !== 'boolean' || typeof right !== 'boolean')
+                        return undefined;
+                    return expression.operator === 'and' ? left && right : left || right;
+            }
+        }
+        default: return undefined;
+    }
+}
+function literalListLength(expression) {
+    if (expression.type === 'listLiteral')
+        return expression.elements.length;
+    if (expression.type !== 'rangeExpression')
+        return undefined;
+    const start = constantValue(expression.start);
+    const end = constantValue(expression.end);
+    if (typeof start !== 'number' || typeof end !== 'number'
+        || !Number.isSafeInteger(start) || !Number.isSafeInteger(end))
+        return undefined;
+    const length = Math.abs(end - start) + 1;
+    return Number.isSafeInteger(length) ? length : undefined;
+}
+export function checkDocument(doc, file, context) {
+    const types = new Map(context?.types ?? []);
+    const enums = new Map(context?.enums ?? []);
+    let bindings = new Map(context?.bindings ?? []);
+    const functions = new Map(context?.functions ?? []);
+    const dimensions = new Map(context?.dimensions ?? []);
+    const units = new Map(context?.units ?? []);
+    const baseUnits = context?.baseUnits ?? new Map();
+    const moduleRegistry = { dimensions, units, baseUnits };
+    const moduleIdentity = context?.moduleIdentity ?? file ?? '<memory>';
+    const immutableNames = new Set([...(context?.bindings?.keys() ?? []), ...(context?.functions?.keys() ?? []), ...(context?.types?.keys() ?? []), ...(context?.enums?.keys() ?? []), ...(context?.dimensions?.keys() ?? []), ...(context?.units?.keys() ?? [])]);
+    const inputNames = new Set();
+    const exportedTypes = new Map();
+    const exportedEnums = new Map();
+    const exportedFunctions = new Map();
+    const exportedBindings = new Map();
+    const exportedDimensions = new Map();
+    const exportedUnits = new Map();
+    const exportedNames = new Set();
+    const views = new Map();
+    const diagramNames = new Set();
+    const diagramElementNames = new Set();
+    let diagramCount = 0;
+    let diagramElementCount = 0;
+    let loopDepth = 0;
+    let allowListMutation = true;
+    const fail = (code, message, source, declarationSource) => staticError(code, message, source, file, declarationSource);
+    const failDeclaration = (message, source, declarationSource) => staticError('AMX3008', message, source, file, declarationSource);
+    function hasName(name) {
+        return primitives.has(name) || stdlibNames.has(name) || types.has(name) || enums.has(name) || functions.has(name)
+            || bindings.has(name) || views.has(name) || diagramNames.has(name) || diagramElementNames.has(name)
+            || dimensions.has(name) || units.has(name);
+    }
+    function normalizedVector(vector) {
+        return new Map([...vector.entries()].filter(([, exponent]) => exponent !== 0).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0));
+    }
+    function combineVectors(left, right, multiplier, source) {
+        const result = new Map(left);
+        for (const [identity, exponent] of right) {
+            const combined = (result.get(identity) ?? 0) + exponent * multiplier;
+            if (!Number.isSafeInteger(combined))
+                failDeclaration('Dimension exponent is outside the supported integer range', source);
+            if (combined === 0)
+                result.delete(identity);
+            else
+                result.set(identity, combined);
+        }
+        return normalizedVector(result);
+    }
+    function combineMeasurementVectors(left, right, multiplier, source) {
+        const result = new Map(left);
+        for (const [identity, exponent] of right) {
+            const combined = (result.get(identity) ?? 0) + exponent * multiplier;
+            if (!Number.isSafeInteger(combined))
+                fail('AMX3007', 'Measurement dimension exponent is outside the supported integer range', source);
+            if (combined === 0)
+                result.delete(identity);
+            else
+                result.set(identity, combined);
+        }
+        return normalizedVector(result);
+    }
+    function integerExponent(expression) {
+        if (expression.type === 'numberLiteral' && Number.isSafeInteger(expression.value))
+            return expression.value;
+        if (expression.type === 'unaryExpression' && expression.operator === '-' && expression.argument.type === 'numberLiteral'
+            && Number.isSafeInteger(-expression.argument.value))
+            return -expression.argument.value;
+        return undefined;
+    }
+    function resolveDimensionExpression(expression) {
+        if (expression.type === 'identifier') {
+            const dimension = dimensions.get(expression.name);
+            if (!dimension)
+                return failDeclaration(`Unknown or not-yet-declared dimension '${expression.name}'`, expression.source);
+            return dimension.vector;
+        }
+        if (expression.type === 'binaryExpression' && (expression.operator === '*' || expression.operator === '/')) {
+            return combineVectors(resolveDimensionExpression(expression.left), resolveDimensionExpression(expression.right), expression.operator === '*' ? 1 : -1, expression.source);
+        }
+        if (expression.type === 'binaryExpression' && expression.operator === '^') {
+            const exponent = integerExponent(expression.right);
+            if (exponent === undefined)
+                return failDeclaration('Dimension powers must be signed integer literals', expression.right.source ?? expression.source);
+            const base = resolveDimensionExpression(expression.left);
+            const result = new Map();
+            for (const [identity, value] of base) {
+                const powered = value * exponent;
+                if (!Number.isSafeInteger(powered))
+                    failDeclaration('Dimension exponent is outside the supported integer range', expression.source);
+                if (powered !== 0)
+                    result.set(identity, powered);
+            }
+            return normalizedVector(result);
+        }
+        return failDeclaration('Dimension expressions may use only visible dimensions, *, /, and integer powers', expression.source);
+    }
+    function validateUnitExpressionScalar(value, source) {
+        if (!Number.isFinite(value))
+            failDeclaration('Unit expression scalar must be finite', source);
+        return value;
+    }
+    function validateUnitScale(scale, source) {
+        if (!Number.isFinite(scale) || scale <= 0)
+            failDeclaration('Unit scale must be finite and greater than zero', source);
+        return scale;
+    }
+    function validateUnitOffset(offset, source) {
+        if (!Number.isFinite(offset))
+            failDeclaration('Unit offset must be finite', source);
+        return offset;
+    }
+    function scaledUnit(unit, factor, source) {
+        const scale = validateUnitScale(unit.scale * factor, source);
+        const offset = validateUnitOffset(unit.offset * factor, source);
+        return { kind: 'unit', vector: unit.vector, scale, offset };
+    }
+    function resolveUnitExpression(expression) {
+        const operatorSource = expression.type === 'binaryExpression' ? expression.operatorSource ?? expression.source : expression.source;
+        if (expression.type === 'numberLiteral') {
+            return { kind: 'scalar', value: validateUnitExpressionScalar(expression.value, expression.source) };
+        }
+        if (expression.type === 'identifier') {
+            if (expression.name === 'PI')
+                return { kind: 'scalar', value: Math.PI };
+            if (expression.name === 'E')
+                return { kind: 'scalar', value: Math.E };
+            const unit = units.get(expression.name);
+            if (!unit)
+                return failDeclaration(`Unknown or not-yet-declared unit '${expression.name}'`, expression.source);
+            return {
+                kind: 'unit',
+                vector: unit.vector,
+                scale: validateUnitScale(unit.scale, expression.source),
+                offset: validateUnitOffset(unit.offset, expression.source)
+            };
+        }
+        if (expression.type === 'unaryExpression') {
+            if (expression.operator !== '-')
+                return failDeclaration('Unit expressions may use only finite scalars, visible units, PI, E, +, -, *, /, and signed integer powers', expression.source);
+            const argument = resolveUnitExpression(expression.argument);
+            if (argument.kind !== 'scalar')
+                return failDeclaration('Unit declaration unary minus requires a dimensionless scalar', expression.source);
+            return { kind: 'scalar', value: validateUnitExpressionScalar(-argument.value, expression.source) };
+        }
+        if (expression.type === 'binaryExpression') {
+            const left = resolveUnitExpression(expression.left);
+            const right = resolveUnitExpression(expression.right);
+            if (expression.operator === '+' || expression.operator === '-') {
+                if (left.kind === 'scalar' && right.kind === 'scalar') {
+                    return {
+                        kind: 'scalar',
+                        value: validateUnitExpressionScalar(expression.operator === '+' ? left.value + right.value : left.value - right.value, operatorSource)
+                    };
+                }
+                if (left.kind === 'unit' && right.kind === 'unit') {
+                    return failDeclaration('Unit declaration addition and subtraction require one affine unit term and one dimensionless scalar', operatorSource);
+                }
+                if (left.kind === 'scalar' && right.kind === 'unit') {
+                    if (expression.operator === '-') {
+                        return failDeclaration('Unit declaration subtraction requires the unit term on the left', operatorSource);
+                    }
+                    return {
+                        kind: 'unit',
+                        vector: right.vector,
+                        scale: right.scale,
+                        offset: validateUnitOffset(right.offset + left.value, operatorSource)
+                    };
+                }
+                if (left.kind === 'unit' && right.kind === 'scalar') {
+                    return {
+                        kind: 'unit',
+                        vector: left.vector,
+                        scale: left.scale,
+                        offset: validateUnitOffset(expression.operator === '+' ? left.offset + right.value : left.offset - right.value, operatorSource)
+                    };
+                }
+                return failDeclaration('Unit declaration addition and subtraction require one affine unit term and one dimensionless scalar', operatorSource);
+            }
+            if (expression.operator === '*' || expression.operator === '/') {
+                const divide = expression.operator === '/';
+                if (left.kind === 'scalar' && right.kind === 'scalar') {
+                    if (divide && right.value === 0) {
+                        return failDeclaration('Unit expression scalar division requires a non-zero denominator', operatorSource);
+                    }
+                    return {
+                        kind: 'scalar',
+                        value: validateUnitExpressionScalar(divide ? left.value / right.value : left.value * right.value, operatorSource)
+                    };
+                }
+                if (left.kind === 'unit' && right.kind === 'scalar') {
+                    if (right.value <= 0)
+                        return failDeclaration('Unit scale must be finite and greater than zero', operatorSource);
+                    return scaledUnit(left, divide ? 1 / right.value : right.value, operatorSource);
+                }
+                if (left.kind === 'scalar' && right.kind === 'unit') {
+                    if (!divide)
+                        return scaledUnit(right, left.value, operatorSource);
+                    if (right.offset !== 0) {
+                        return failDeclaration('Affine units may not be multiplied, divided, or raised to non-identity powers in declarations', operatorSource);
+                    }
+                    return {
+                        kind: 'unit',
+                        vector: combineVectors(new Map(), right.vector, -1, operatorSource),
+                        scale: validateUnitScale(left.value / right.scale, operatorSource),
+                        offset: 0
+                    };
+                }
+                if (left.kind === 'unit' && right.kind === 'unit') {
+                    if (left.offset !== 0 || right.offset !== 0) {
+                        return failDeclaration('Affine units may not be multiplied, divided, or raised to non-identity powers in declarations', operatorSource);
+                    }
+                    return {
+                        kind: 'unit',
+                        vector: combineVectors(left.vector, right.vector, divide ? -1 : 1, operatorSource),
+                        scale: validateUnitScale(divide ? left.scale / right.scale : left.scale * right.scale, operatorSource),
+                        offset: 0
+                    };
+                }
+                return failDeclaration('Unit declaration multiplication and division require a supported scalar or affine unit combination', operatorSource);
+            }
+            if (expression.operator === '^') {
+                const exponent = integerExponent(expression.right);
+                if (exponent === undefined)
+                    return failDeclaration('Unit powers must be signed integer literals', expression.right.source ?? operatorSource);
+                if (left.kind === 'scalar') {
+                    return { kind: 'scalar', value: validateUnitExpressionScalar(Math.pow(left.value, exponent), operatorSource) };
+                }
+                if (exponent === 1)
+                    return left;
+                if (left.offset !== 0) {
+                    return failDeclaration('Affine units may not be multiplied, divided, or raised to non-identity powers in declarations', operatorSource);
+                }
+                const vector = new Map();
+                for (const [identity, value] of left.vector) {
+                    const powered = value * exponent;
+                    if (!Number.isSafeInteger(powered))
+                        failDeclaration('Dimension exponent is outside the supported integer range', operatorSource);
+                    if (powered !== 0)
+                        vector.set(identity, powered);
+                }
+                return {
+                    kind: 'unit',
+                    vector: normalizedVector(vector),
+                    scale: validateUnitScale(Math.pow(left.scale, exponent), operatorSource),
+                    offset: 0
+                };
+            }
+        }
+        return failDeclaration('Unit expressions may use only finite scalars, visible units, PI, E, +, -, *, /, and signed integer powers', expression.source);
+    }
+    function checkDimension(statement) {
+        if (loopDepth > 0)
+            failDeclaration('Dimension declarations may only occur at module scope', statement.source);
+        if (hasName(statement.name))
+            failDeclaration(`Dimension '${statement.name}' conflicts with another declaration`, statement.nameSource ?? statement.source);
+        const baseIdentity = statement.expression ? undefined : JSON.stringify([moduleIdentity, statement.name]);
+        const vector = statement.expression
+            ? resolveDimensionExpression(statement.expression)
+            : new Map([[baseIdentity, 1]]);
+        const metadata = {
+            name: statement.name,
+            moduleIdentity,
+            declarationName: statement.name,
+            ...(baseIdentity ? { baseIdentity } : {}),
+            vector: normalizedVector(new Map(vector)),
+            source: statement.nameSource ?? statement.source
+        };
+        dimensions.set(statement.name, metadata);
+        if (statement.exported) {
+            if (exportedNames.has(statement.name))
+                failDeclaration(`Duplicate export '${statement.name}'`, statement.nameSource ?? statement.source);
+            exportedNames.add(statement.name);
+            exportedDimensions.set(statement.name, metadata);
+        }
+    }
+    function checkUnit(statement) {
+        if (loopDepth > 0)
+            failDeclaration('Unit declarations may only occur at module scope', statement.source);
+        if (primitives.has(statement.name) || types.has(statement.name) || functions.has(statement.name)
+            || bindings.has(statement.name) || views.has(statement.name) || dimensions.has(statement.name) || units.has(statement.name)) {
+            failDeclaration(`Unit '${statement.name}' conflicts with another declaration`, statement.nameSource ?? statement.source);
+        }
+        let vector;
+        let scale;
+        let offset;
+        if (statement.dimension) {
+            const dimension = dimensions.get(statement.dimension);
+            if (!dimension)
+                failDeclaration(`Unknown or not-yet-declared dimension '${statement.dimension}'`, statement.dimensionSource ?? statement.source);
+            if (!dimension.baseIdentity || dimension.vector.size !== 1 || dimension.vector.get(dimension.baseIdentity) !== 1) {
+                failDeclaration(`Independent unit '${statement.name}' must refer to a base dimension`, statement.dimensionSource ?? statement.source, dimension.source);
+            }
+            const existing = baseUnits.get(dimension.baseIdentity);
+            if (existing)
+                failDeclaration(`Base dimension '${statement.dimension}' already has independent unit '${existing.name}'`, statement.dimensionSource ?? statement.source, existing.source);
+            vector = dimension.vector;
+            scale = 1;
+            offset = 0;
+        }
+        else if (statement.expression) {
+            const resolved = resolveUnitExpression(statement.expression);
+            if (resolved.kind === 'scalar')
+                return failDeclaration('A derived unit must reference at least one visible unit', statement.expression.source);
+            vector = resolved.vector;
+            scale = validateUnitScale(resolved.scale, statement.expression.source);
+            offset = validateUnitOffset(resolved.offset, statement.expression.source);
+        }
+        else {
+            return failDeclaration('Unit declaration requires a base dimension or a unit expression', statement.source);
+        }
+        const metadata = {
+            name: statement.name,
+            moduleIdentity,
+            declarationName: statement.name,
+            identity: JSON.stringify([moduleIdentity, statement.name]),
+            vector: normalizedVector(new Map(vector)),
+            scale,
+            offset,
+            source: statement.nameSource ?? statement.source
+        };
+        units.set(statement.name, metadata);
+        if (statement.dimension)
+            baseUnits.set([...vector.keys()][0], metadata);
+        if (statement.exported) {
+            if (exportedNames.has(statement.name))
+                failDeclaration(`Duplicate export '${statement.name}'`, statement.nameSource ?? statement.source);
+            exportedNames.add(statement.name);
+            exportedUnits.set(statement.name, metadata);
+        }
+    }
+    function reExport(statement) {
+        if (loopDepth > 0)
+            failDeclaration('Re-export declarations may only occur at module scope', statement.source);
+        for (const item of statement.names) {
+            if (exportedNames.has(item.name))
+                failDeclaration(`Duplicate export '${item.name}'`, item.source);
+            const dimension = context?.dimensions?.get(item.name);
+            const unit = context?.units?.get(item.name);
+            if (dimension)
+                exportedDimensions.set(item.name, dimension);
+            else if (unit)
+                exportedUnits.set(item.name, unit);
+            else
+                failDeclaration(`'${item.name}' is not an explicitly imported dimension or unit`, item.source);
+            exportedNames.add(item.name);
+        }
+    }
+    function resolve(ref, owner) {
+        if (ref.type === 'namedType') {
+            const scope = owner ? fieldRegistry(owner) : undefined;
+            const dimension = ref.name ? (scope?.dimensions ?? dimensions).get(ref.name) : undefined;
+            if (dimension)
+                return { kind: 'measurement', vector: dimension.vector };
+            if (!ref.name || (!primitives.has(ref.name) && !types.has(ref.name) && !enums.has(ref.name)))
+                fail('AMX3001', `Unknown type '${ref.name}'`, ref.source);
+            return named(ref.name);
+        }
+        return ref.type === 'listType' ? list(resolve(ref.element, owner)) : nullable(resolve(ref.element, owner));
+    }
+    function resolveIsTarget(ref) {
+        if (ref.type === 'namedType' && ref.name && enums.has(ref.name))
+            return named(ref.name);
+        if (ref.type === 'listType')
+            return list(resolveIsTarget(ref.element));
+        if (ref.type === 'nullableType')
+            return nullable(resolveIsTarget(ref.element));
+        return resolve(ref);
+    }
+    function requireType(actual, expected, source) {
+        if (!assignable(actual, expected)) {
+            const measurementMismatch = containsMeasurement(actual) || containsMeasurement(expected);
+            fail(measurementMismatch ? 'AMX3007' : 'AMX3002', `Expected ${format(expected)}, got ${format(actual)}`, source);
+        }
+    }
+    function requireOperatorType(actual, expected, source) {
+        if (!assignable(actual, expected))
+            fail('AMX3007', `Expected ${format(expected)}, got ${format(actual)}`, source);
+    }
+    function literalMeasurementValue(expression) {
+        if (expression.type === 'measurementAttachment') {
+            const value = constantValue(expression.value);
+            const unit = units.get(expression.unit);
+            return typeof value === 'number' && unit ? physicalValue(value, unit) : undefined;
+        }
+        if (expression.type === 'measurementConversion')
+            return literalMeasurementValue(expression.value);
+        if (expression.type === 'unaryExpression' && expression.operator === '-') {
+            const value = literalMeasurementValue(expression.argument) ?? constantValue(expression.argument);
+            return typeof value === 'number' ? -value : undefined;
+        }
+        if (expression.type === 'binaryExpression') {
+            const left = literalMeasurementValue(expression.left) ?? constantValue(expression.left);
+            const right = literalMeasurementValue(expression.right) ?? constantValue(expression.right);
+            if (typeof left !== 'number' || typeof right !== 'number')
+                return undefined;
+            let result;
+            switch (expression.operator) {
+                case '+':
+                    result = left + right;
+                    break;
+                case '-':
+                    result = left - right;
+                    break;
+                case '*':
+                    result = left * right;
+                    break;
+                case '/':
+                    if (right === 0)
+                        return undefined;
+                    result = left / right;
+                    break;
+                case '^':
+                    result = Math.pow(left, right);
+                    break;
+                default: return undefined;
+            }
+            return Number.isFinite(result) ? result : undefined;
+        }
+        if (expression.type === 'functionCall' && expression.callee === 'pow'
+            && expression.arguments.length === 2) {
+            const left = literalMeasurementValue(expression.arguments[0]) ?? constantValue(expression.arguments[0]);
+            const right = constantValue(expression.arguments[1]);
+            if (typeof left === 'number' && typeof right === 'number') {
+                const result = Math.pow(left, right);
+                return Number.isFinite(result) ? result : undefined;
+            }
+        }
+        return undefined;
+    }
+    function checkDateTime(value) {
+        const parts = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/);
+        if (!parts)
+            return false;
+        const [, year, month, day, hour, minute, second, offset] = parts;
+        const date = new Date(0);
+        date.setUTCFullYear(+year, +month - 1, +day);
+        if (date.getUTCFullYear() !== +year || date.getUTCMonth() !== +month - 1 || date.getUTCDate() !== +day || +hour > 23 || +minute > 59 || +second > 59)
+            return false;
+        return offset === 'Z' || (+offset.slice(1, 3) <= 23 && +offset.slice(4) <= 59);
+    }
+    function infer(expression, expected) {
+        switch (expression.type) {
+            case 'numberLiteral': return named('Number');
+            case 'booleanLiteral': return named('Boolean');
+            case 'stringLiteral':
+                if (expected?.kind === 'named' && expected.name === 'DateTime') {
+                    if (!checkDateTime(expression.value))
+                        fail('AMX3002', 'Invalid DateTime literal', expression.source);
+                    return expected;
+                }
+                if (expected?.kind === 'nullable' && expected.element.kind === 'named' && expected.element.name === 'DateTime') {
+                    if (!checkDateTime(expression.value))
+                        fail('AMX3002', 'Invalid DateTime literal', expression.source);
+                    return expected.element;
+                }
+                return named('String');
+            case 'stringInterpolation':
+                for (const part of expression.parts) {
+                    if (typeof part === 'string')
+                        continue;
+                    const type = infer(part);
+                    const stringifiable = (value) => value.kind === 'null'
+                        || value.kind === 'measurement'
+                        || (value.kind === 'named' && ['String', 'Number', 'Boolean'].includes(value.name))
+                        || (value.kind === 'nullable' && stringifiable(value.element));
+                    if (!stringifiable(type)) {
+                        fail('AMX3007', `Cannot interpolate a ${format(type)} value into a string`, part.source ?? expression.source);
+                    }
+                }
+                return named('String');
+            case 'nullLiteral': return { kind: 'null' };
+            case 'identifier': {
+                if (expression.name === 'PI' || expression.name === 'E')
+                    return named('Number');
+                const value = bindings.get(expression.name);
+                if (!value)
+                    fail('AMX3001', `Unknown identifier '${expression.name}'`, expression.source);
+                return value;
+            }
+            case 'measurementAttachment': {
+                const actual = infer(expression.value);
+                if (actual.kind !== 'named' || actual.name !== 'Number') {
+                    fail('AMX3007', 'Unit attachment requires a Number expression', expression.value.source ?? expression.source);
+                }
+                const unit = units.get(expression.unit);
+                if (!unit)
+                    failDeclaration(`Unknown or invisible unit '${expression.unit}'`, expression.unitSource ?? expression.source);
+                if (expression.value.type === 'numberLiteral' && !Number.isFinite(expression.value.value)) {
+                    fail('AMX3010', 'Measurement value must be finite', expression.source);
+                }
+                const value = constantValue(expression.value);
+                if (typeof value === 'number' && !Number.isFinite(physicalValue(value, unit))) {
+                    fail('AMX3010', 'Measurement physical value must be finite', expression.source);
+                }
+                return { kind: 'measurement', vector: unit.vector };
+            }
+            case 'measurementConversion': {
+                const actual = infer(expression.value);
+                const unit = units.get(expression.unit);
+                if (!unit)
+                    failDeclaration(`Unknown or invisible unit '${expression.unit}'`, expression.unitSource ?? expression.source);
+                if (actual.kind !== 'measurement' || !sameVector(actual.vector, unit.vector)) {
+                    fail('AMX3007', `Cannot convert ${format(actual)} to unit '${expression.unit}'`, expression.source);
+                }
+                return actual;
+            }
+            case 'listLiteral': {
+                const context = expected?.kind === 'nullable' ? expected.element : expected;
+                const elementType = context?.kind === 'list' ? context.element : undefined;
+                if (!expression.elements.length) {
+                    if (!elementType)
+                        fail('AMX3003', 'Empty list needs a list type', expression.source);
+                    return list(elementType);
+                }
+                if (elementType) {
+                    for (const item of expression.elements)
+                        requireType(infer(item, elementType), elementType, item.source);
+                    return list(elementType);
+                }
+                let element = infer(expression.elements[0], elementType);
+                if (element.kind === 'null')
+                    fail('AMX3003', 'Null list elements need a contextual element type', expression.elements[0].source);
+                for (const item of expression.elements.slice(1)) {
+                    const next = infer(item, elementType);
+                    const merged = common(element, next);
+                    if (!merged)
+                        fail(element.kind === 'measurement' || next.kind === 'measurement'
+                            ? 'AMX3007' : 'AMX3002', 'List elements have incompatible types', item.source);
+                    element = merged;
+                }
+                if (elementType)
+                    requireType(element, elementType, expression.source);
+                return list(elementType ?? element);
+            }
+            case 'recordConstructor': {
+                const declaration = types.get(expression.name);
+                if (!declaration)
+                    fail('AMX3001', `Unknown record type '${expression.name}'`, expression.source);
+                const seen = new Set();
+                for (const field of expression.fields) {
+                    if (seen.has(field.name))
+                        fail('AMX3005', `Duplicate field '${field.name}'`, field.source);
+                    seen.add(field.name);
+                    const declared = declaration.fields.find(item => item.name === field.name);
+                    if (!declared)
+                        fail('AMX3001', `Unknown field '${field.name}'`, field.source);
+                    const target = resolve(declared.annotation, declared);
+                    requireType(infer(field.expression, target), target, field.expression.source ?? field.source);
+                }
+                for (const field of declaration.fields) {
+                    if (!seen.has(field.name) && !field.optional && !field.defaultExpression)
+                        fail('AMX3002', `Missing required field '${field.name}'`, expression.source);
+                }
+                return named(expression.name);
+            }
+            case 'fieldAccess': {
+                if (expression.receiver.type === 'identifier') {
+                    const enumeration = enums.get(expression.receiver.name);
+                    if (enumeration) {
+                        const member = enumeration.members.find(item => item.name === expression.field);
+                        if (!member)
+                            fail('AMX3001', `Unknown enum member '${enumeration.name}.${expression.field}'`, expression.source);
+                        const resolvedValue = enumeration.resolvedValues?.[enumeration.members.indexOf(member)];
+                        return named(typeof resolvedValue === 'number' ? 'Number' : 'String');
+                    }
+                }
+                const receiver = infer(expression.receiver);
+                const declaration = receiver.kind === 'named' ? types.get(receiver.name) : undefined;
+                if (!declaration)
+                    fail('AMX3003', 'Field access requires a non-null record', expression.source);
+                const field = declaration.fields.find(item => item.name === expression.field);
+                if (!field)
+                    fail('AMX3001', `Unknown field '${expression.field}'`, expression.source);
+                return resolve(field.annotation, field);
+            }
+            case 'listAccess': {
+                const receiver = infer(expression.receiver);
+                if (receiver.kind !== 'list')
+                    return fail('AMX3002', `List access requires a non-null list, got ${format(receiver)}`, expression.source);
+                requireType(infer(expression.index), named('Number'), expression.index.source);
+                const index = constantValue(expression.index);
+                if (typeof index === 'number' && (!Number.isInteger(index) || index < 1)) {
+                    fail('AMX3009', `List index ${index} must be a positive integer`, expression.index.source ?? expression.source);
+                }
+                const length = literalListLength(expression.receiver);
+                if (length !== undefined && typeof index === 'number' && index > length) {
+                    fail('AMX3009', `List index ${index} is out of bounds for length ${length}; expected 1..${length}`, expression.index.source ?? expression.source);
+                }
+                return receiver.element;
+            }
+            case 'typeTestExpression':
+                infer(expression.value);
+                resolveIsTarget(expression.target);
+                return named('Boolean');
+            case 'binaryExpression': {
+                const left = infer(expression.left);
+                const right = infer(expression.right, left.kind === 'named' && left.name === 'DateTime' ? left : undefined);
+                if (['and', 'or'].includes(expression.operator)) {
+                    requireOperatorType(left, named('Boolean'), expression.left.source);
+                    requireOperatorType(right, named('Boolean'), expression.right.source);
+                }
+                else if (['==', '!='].includes(expression.operator)) {
+                    const scalar = (type) => type.kind === 'measurement'
+                        || type.kind === 'named' && primitives.has(type.name)
+                        || type.kind === 'nullable' && scalar(type.element);
+                    const hasMeasurement = (type) => type.kind === 'measurement'
+                        || (type.kind === 'list' || type.kind === 'nullable') && hasMeasurement(type.element);
+                    if (!((scalar(left) && equal(left, right))
+                        || (left.kind === 'null' && right.kind === 'nullable')
+                        || (right.kind === 'null' && left.kind === 'nullable'))) {
+                        fail(hasMeasurement(left) || hasMeasurement(right) ? 'AMX3007' : 'AMX3003', 'Equality requires compatible scalar or measurement operands', expression.operatorSource ?? expression.source);
+                    }
+                }
+                else if (['>', '>=', '<', '<='].includes(expression.operator)) {
+                    if (left.kind === 'measurement' || right.kind === 'measurement') {
+                        if (left.kind !== 'measurement' || right.kind !== 'measurement' || !sameVector(left.vector, right.vector)) {
+                            fail('AMX3007', 'Measurement comparison requires compatible dimensions', expression.operatorSource ?? expression.source);
+                        }
+                    }
+                    else {
+                        requireOperatorType(left, named('Number'), expression.left.source);
+                        requireOperatorType(right, named('Number'), expression.right.source);
+                    }
+                }
+                else if (expression.operator === '+' || expression.operator === '-') {
+                    if (left.kind === 'measurement' || right.kind === 'measurement') {
+                        if (left.kind !== 'measurement' || right.kind !== 'measurement' || !sameVector(left.vector, right.vector)) {
+                            fail('AMX3007', 'Addition and subtraction require compatible measurements', expression.operatorSource ?? expression.source);
+                        }
+                        const leftValue = literalMeasurementValue(expression.left);
+                        const rightValue = literalMeasurementValue(expression.right);
+                        if (typeof leftValue === 'number' && typeof rightValue === 'number'
+                            && !Number.isFinite(expression.operator === '+' ? leftValue + rightValue : leftValue - rightValue)) {
+                            fail('AMX3010', 'Measurement arithmetic result must be finite', expression.operatorSource ?? expression.source);
+                        }
+                        return left;
+                    }
+                    requireOperatorType(left, named('Number'), expression.left.source);
+                    requireOperatorType(right, named('Number'), expression.right.source);
+                }
+                else if (expression.operator === '*' || expression.operator === '/') {
+                    if (left.kind === 'measurement' || right.kind === 'measurement') {
+                        const leftVector = left.kind === 'measurement' ? left.vector : new Map();
+                        const rightVector = right.kind === 'measurement' ? right.vector : new Map();
+                        if (left.kind !== 'measurement' && (left.kind !== 'named' || left.name !== 'Number')
+                            || right.kind !== 'measurement' && (right.kind !== 'named' || right.name !== 'Number')) {
+                            fail('AMX3007', 'Measurement multiplication and division accept only Number operands', expression.operatorSource ?? expression.source);
+                        }
+                        if (expression.operator === '/' && right.kind === 'named' && constantValue(expression.right) === 0) {
+                            fail('AMX3010', 'Measurement division by zero', expression.operatorSource ?? expression.source);
+                        }
+                        const denominator = literalMeasurementValue(expression.right) ?? constantValue(expression.right);
+                        if (expression.operator === '/' && denominator === 0)
+                            fail('AMX3010', 'Measurement division by zero', expression.operatorSource ?? expression.source);
+                        const leftValue = literalMeasurementValue(expression.left) ?? constantValue(expression.left);
+                        if (typeof leftValue === 'number' && typeof denominator === 'number') {
+                            const result = expression.operator === '*' ? leftValue * denominator : leftValue / denominator;
+                            if (!Number.isFinite(result))
+                                fail('AMX3010', 'Measurement arithmetic result must be finite', expression.operatorSource ?? expression.source);
+                        }
+                        const vector = combineMeasurementVectors(leftVector, rightVector, expression.operator === '*' ? 1 : -1, expression.operatorSource ?? expression.source);
+                        return vector.size ? { kind: 'measurement', vector } : named('Number');
+                    }
+                    requireOperatorType(left, named('Number'), expression.left.source);
+                    requireOperatorType(right, named('Number'), expression.right.source);
+                }
+                else if (expression.operator === '^') {
+                    if (left.kind === 'measurement') {
+                        if (right.kind !== 'named' || right.name !== 'Number') {
+                            fail('AMX3007', 'A measurement power requires a Number integer-literal exponent', expression.source);
+                        }
+                        const exponent = integerExponent(expression.right);
+                        if (exponent === undefined)
+                            fail('AMX3007', 'A dimensional power exponent must be a signed integer literal', expression.right.source);
+                        const vector = new Map();
+                        for (const [identity, power] of left.vector) {
+                            const scaled = power * exponent;
+                            if (!Number.isSafeInteger(scaled))
+                                fail('AMX3007', 'Measurement dimension exponent is outside the supported range', expression.operatorSource ?? expression.source);
+                            if (scaled)
+                                vector.set(identity, scaled);
+                        }
+                        const value = literalMeasurementValue(expression.left);
+                        if (value === 0 && exponent < 0)
+                            fail('AMX3010', 'Zero measurement cannot be raised to a negative power', expression.operatorSource ?? expression.source);
+                        if (typeof value === 'number' && !Number.isFinite(Math.pow(value, exponent))) {
+                            fail('AMX3010', 'Measurement power result must be finite', expression.operatorSource ?? expression.source);
+                        }
+                        return vector.size ? { kind: 'measurement', vector } : named('Number');
+                    }
+                    requireOperatorType(left, named('Number'), expression.left.source);
+                    requireOperatorType(right, named('Number'), expression.right.source);
+                }
+                else {
+                    if (left.kind === 'measurement' || right.kind === 'measurement') {
+                        fail('AMX3007', 'Remainder is not defined for measurements', expression.operatorSource ?? expression.source);
+                    }
+                    requireOperatorType(left, named('Number'), expression.left.source);
+                    requireOperatorType(right, named('Number'), expression.right.source);
+                }
+                return ['and', 'or', '==', '!=', '>', '>=', '<', '<='].includes(expression.operator) ? named('Boolean') : named('Number');
+            }
+            case 'unaryExpression': {
+                const actual = infer(expression.argument);
+                if (expression.operator === '-' && actual.kind === 'measurement')
+                    return actual;
+                requireOperatorType(actual, named(expression.operator === 'not' ? 'Boolean' : 'Number'), expression.argument.source);
+                return named(expression.operator === 'not' ? 'Boolean' : 'Number');
+            }
+            case 'conditionalExpression': {
+                requireType(infer(expression.test), named('Boolean'), expression.test.source);
+                const test = expression.test;
+                const checkedName = test.type === 'binaryExpression' && ['==', '!='].includes(test.operator)
+                    ? test.left.type === 'identifier' && test.right.type === 'nullLiteral' ? test.left.name
+                        : test.right.type === 'identifier' && test.left.type === 'nullLiteral' ? test.right.name : undefined
+                    : undefined;
+                const original = checkedName ? bindings.get(checkedName) : undefined;
+                const branch = (value, narrowed) => {
+                    if (checkedName && original?.kind === 'nullable' && narrowed)
+                        bindings.set(checkedName, original.element);
+                    try {
+                        return infer(value, expected);
+                    }
+                    finally {
+                        if (checkedName && original)
+                            bindings.set(checkedName, original);
+                    }
+                };
+                const nonNullInConsequent = test.type === 'binaryExpression' && test.operator === '!=';
+                const consequent = branch(expression.consequent, nonNullInConsequent);
+                const alternate = branch(expression.alternate, !nonNullInConsequent);
+                const result = common(consequent, alternate);
+                if (!result)
+                    fail(consequent.kind === 'measurement' || alternate.kind === 'measurement'
+                        ? 'AMX3007' : 'AMX3002', 'Conditional branches have incompatible types', expression.source);
+                return result;
+            }
+            case 'bracedIfExpression': {
+                requireType(infer(expression.test), named('Boolean'), expression.test.source);
+                const consequent = checkIfExpressionBranch(expression.consequent, expression.consequentSource, expected, expression.source);
+                const alternate = checkIfExpressionBranch(expression.alternate, expression.alternateSource, expected, expression.source);
+                const result = common(consequent, alternate);
+                if (!result)
+                    fail(consequent.kind === 'measurement' || alternate.kind === 'measurement'
+                        ? 'AMX3007' : 'AMX3002', 'Conditional branches have incompatible types', expression.source);
+                return result;
+            }
+            case 'rangeExpression':
+                requireType(infer(expression.start), named('Number'), expression.start.source);
+                requireType(infer(expression.end), named('Number'), expression.end.source);
+                return list(named('Number'));
+            case 'functionCall': {
+                const userFunction = functions.get(expression.callee);
+                if (userFunction) {
+                    if (expression.arguments.length !== userFunction.parameters.length)
+                        fail('AMX3004', `Invalid arity for '${expression.callee}'`, expression.source);
+                    expression.arguments.forEach((argument, index) => {
+                        const target = resolve(userFunction.parameters[index].annotation, userFunction);
+                        requireType(infer(argument, target), target, argument.source);
+                    });
+                    return resolve(userFunction.returnType, userFunction);
+                }
+                const signature = signatures[expression.callee];
+                if (!signature)
+                    fail('AMX3004', `Unknown function '${expression.callee}'`, expression.source);
+                if (expression.arguments.length < signature.min || expression.arguments.length > signature.args.length)
+                    fail('AMX3004', `Invalid arity for '${expression.callee}'`, expression.source);
+                if (expression.callee === 'len') {
+                    if (expression.arguments[0].type === 'listLiteral' && expression.arguments[0].elements.length === 0) {
+                        return named('Number');
+                    }
+                    const value = infer(expression.arguments[0]);
+                    if (!(value.kind === 'named' && value.name === 'String') && value.kind !== 'list') {
+                        fail('AMX3002', `len requires a String or list, got ${format(value)}`, expression.arguments[0].source);
+                    }
+                    return named('Number');
+                }
+                if (expression.callee === 'trim' || expression.callee === 'left' || expression.callee === 'right') {
+                    const value = infer(expression.arguments[0]);
+                    if (!(value.kind === 'named' && value.name === 'String')) {
+                        fail('AMX3002', `${expression.callee} requires a String, got ${format(value)}`, expression.arguments[0].source);
+                    }
+                    return named('String');
+                }
+                if (expression.callee === 'format') {
+                    const value = infer(expression.arguments[0]);
+                    if (!(value.kind === 'named' && value.name === 'Number') && value.kind !== 'measurement') {
+                        fail('AMX3002', `format expects a Number or Measurement, got ${format(value)}`, expression.arguments[0].source);
+                    }
+                    return named('String');
+                }
+                if (['sum', 'mean', 'min', 'max'].includes(expression.callee)) {
+                    const values = infer(expression.arguments[0]);
+                    if (values.kind !== 'list')
+                        return fail('AMX3002', `${expression.callee} requires a Number[] or measurement list`, expression.arguments[0].source);
+                    if (!(values.element.kind === 'measurement' || values.element.kind === 'named' && values.element.name === 'Number')) {
+                        fail('AMX3002', `${expression.callee} requires a homogeneous Number or measurement list`, expression.arguments[0].source);
+                    }
+                    return values.element;
+                }
+                const first = infer(expression.arguments[0]);
+                if (mathematicalFunctions.has(expression.callee)) {
+                    if (first.kind === 'measurement' && first.vector.size > 0) {
+                        fail('AMX3007', `'${expression.callee}' requires a Number or dimensionless Measurement`, expression.arguments[0].source);
+                    }
+                    if (!(first.kind === 'named' && first.name === 'Number')
+                        && !(first.kind === 'measurement' && first.vector.size === 0)) {
+                        fail('AMX3002', `Expected Number or dimensionless Measurement, got ${format(first)}`, expression.arguments[0].source);
+                    }
+                    return named('Number');
+                }
+                const numeric = (type) => type.kind === 'named' && type.name === 'Number' || type.kind === 'measurement';
+                if (!numeric(first))
+                    fail(containsMeasurement(first) ? 'AMX3007' : 'AMX3002', `${expression.callee} requires a Number or measurement`, expression.arguments[0].source);
+                if (expression.callee === 'round' && expression.arguments.length > 1) {
+                    requireType(infer(expression.arguments[1]), named('Number'), expression.arguments[1].source);
+                }
+                if (expression.callee === 'sqrt' && first.kind === 'measurement') {
+                    const vector = new Map();
+                    for (const [identity, exponent] of first.vector) {
+                        if (exponent % 2 !== 0)
+                            fail('AMX3007', 'sqrt requires even measurement dimension exponents', expression.source);
+                        vector.set(identity, exponent / 2);
+                    }
+                    const literal = literalMeasurementValue(expression.arguments[0]);
+                    if (typeof literal === 'number' && literal < 0) {
+                        fail('AMX3010', 'sqrt of a negative measurement value', expression.source);
+                    }
+                    return vector.size ? { kind: 'measurement', vector } : named('Number');
+                }
+                if (expression.callee === 'pow' && expression.arguments.length > 1) {
+                    const exponentType = infer(expression.arguments[1]);
+                    if (first.kind === 'measurement')
+                        requireOperatorType(exponentType, named('Number'), expression.arguments[1].source);
+                    else
+                        requireType(exponentType, named('Number'), expression.arguments[1].source);
+                    if (first.kind === 'measurement') {
+                        const exponent = integerExponent(expression.arguments[1]);
+                        if (exponent === undefined)
+                            fail('AMX3007', 'A dimensional pow exponent must be a signed integer literal', expression.arguments[1].source);
+                        const vector = new Map();
+                        for (const [identity, power] of first.vector) {
+                            const scaled = power * exponent;
+                            if (!Number.isSafeInteger(scaled))
+                                fail('AMX3007', 'Measurement dimension exponent is outside the supported range', expression.source);
+                            if (scaled)
+                                vector.set(identity, scaled);
+                        }
+                        if (exponent < 0 && literalMeasurementValue(expression.arguments[0]) === 0) {
+                            fail('AMX3010', 'Zero measurement cannot be raised to a negative power', expression.source);
+                        }
+                        const physicalBase = literalMeasurementValue(expression.arguments[0]);
+                        if (typeof physicalBase === 'number' && !Number.isFinite(Math.pow(physicalBase, exponent))) {
+                            fail('AMX3010', 'Measurement power result must be finite', expression.source);
+                        }
+                        return vector.size ? { kind: 'measurement', vector } : named('Number');
+                    }
+                }
+                return first;
+            }
+            case 'matchExpression': {
+                const scrutinee = infer(expression.expression);
+                if (scrutinee.kind !== 'named' || !['Number', 'String', 'Boolean'].includes(scrutinee.name))
+                    fail('AMX3003', 'Match needs a non-null scalar', expression.expression.source);
+                let result;
+                const arms = [...expression.cases.map(arm => ({ ...arm, isCase: true })),
+                    { expression: expression.defaultExpression, source: expression.defaultSource, isCase: false }]
+                    .sort((left, right) => (left.source?.line ?? 0) - (right.source?.line ?? 0) || (left.source?.column ?? 0) - (right.source?.column ?? 0));
+                for (const arm of arms) {
+                    if (arm.isCase && 'value' in arm && !equal(infer(arm.value), scrutinee))
+                        fail('AMX3002', 'Match case type differs from scrutinee', arm.source);
+                    const next = infer(arm.expression, expected);
+                    const merged = result ? common(result, next) : next;
+                    if (!merged)
+                        fail('AMX3002', 'Match arms have incompatible types', arm.source);
+                    result = merged;
+                }
+                return result;
+            }
+            case 'forExpression': return checkLoop(expression.variable, expression.iterable, expression.body, expression.source, expected, false);
+        }
+    }
+    function checkLoop(variable, iterable, body, source, expected, statementForm = true) {
+        const target = infer(iterable);
+        if (target.kind !== 'list')
+            fail(target.kind === 'measurement' ? 'AMX3007' : 'AMX3003', 'For loop needs a list or range', iterable.source ?? source);
+        const prior = bindings.get(variable);
+        const existing = new Set(bindings.keys());
+        bindings.set(variable, target.element);
+        let returned;
+        const previousMutationPermission = allowListMutation;
+        allowListMutation = statementForm;
+        loopDepth++;
+        try {
+            for (const statement of body) {
+                if (statement.type === 'returnStatement')
+                    returned = infer(statement.expression, expected?.kind === 'list' ? expected.element : undefined);
+                else
+                    checkStatement(statement);
+            }
+        }
+        finally {
+            loopDepth--;
+            allowListMutation = previousMutationPermission;
+            for (const name of bindings.keys())
+                if (!existing.has(name))
+                    bindings.delete(name);
+            if (prior)
+                bindings.set(variable, prior);
+            else
+                bindings.delete(variable);
+        }
+        return list(returned ?? named('Number'));
+    }
+    function checkBranchScope(statements, check) {
+        const original = bindings;
+        bindings = new Map(original);
+        try {
+            for (const statement of statements)
+                checkStatement(statement);
+            check();
+        }
+        finally {
+            bindings = original;
+        }
+    }
+    function checkIfExpressionBranch(statements, closingSource, expected, expressionSource) {
+        let result;
+        let hasFallthrough = true;
+        const collect = (type, source) => {
+            if (!result)
+                result = type;
+            else {
+                const merged = common(result, type);
+                if (!merged)
+                    fail('AMX3002', 'Conditional branches have incompatible types', expressionSource ?? source);
+                result = merged;
+            }
+        };
+        const walk = (body) => {
+            let terminates = false;
+            const original = bindings;
+            bindings = new Map(original);
+            try {
+                for (const statement of body) {
+                    if (statement.type === 'returnStatement') {
+                        collect(infer(statement.expression, expected), statement.source);
+                        terminates = true;
+                    }
+                    else if (statement.type === 'bracedIfStatement') {
+                        requireType(infer(statement.test), named('Boolean'), statement.test.source);
+                        const consequentReturns = walk(statement.consequent);
+                        const alternateReturns = statement.alternate ? walk(statement.alternate) : false;
+                        if (consequentReturns && alternateReturns)
+                            terminates = true;
+                    }
+                    else {
+                        checkStatement(statement);
+                    }
+                }
+            }
+            finally {
+                bindings = original;
+            }
+            return terminates;
+        };
+        hasFallthrough = !walk(statements);
+        if (hasFallthrough || !result)
+            fail('AMX3021', 'Every possible path in an if expression must return a value', closingSource ?? expressionSource);
+        return result;
+    }
+    function checkFunctionSequence(statements, returnType) {
+        let canFallThrough = true;
+        for (const statement of statements) {
+            const statementCanFallThrough = checkFunctionStatement(statement, returnType);
+            if (canFallThrough)
+                canFallThrough = statementCanFallThrough;
+        }
+        return canFallThrough;
+    }
+    function checkFunctionScopedSequence(statements, returnType) {
+        const original = bindings;
+        bindings = new Map(original);
+        try {
+            return checkFunctionSequence(statements, returnType);
+        }
+        finally {
+            bindings = original;
+        }
+    }
+    function checkFunctionStatement(statement, returnType) {
+        switch (statement.type) {
+            case 'returnStatement': {
+                const actual = infer(statement.expression, returnType);
+                requireType(actual, returnType, statement.expression.source ?? statement.source);
+                return false;
+            }
+            case 'bracedIfStatement': {
+                requireType(infer(statement.test), named('Boolean'), statement.test.source);
+                const consequentCanFallThrough = checkFunctionScopedSequence(statement.consequent, returnType);
+                if (!statement.alternate)
+                    return true;
+                const alternateCanFallThrough = checkFunctionScopedSequence(statement.alternate, returnType);
+                return consequentCanFallThrough || alternateCanFallThrough;
+            }
+            case 'forStatement': {
+                const iterable = infer(statement.iterable);
+                if (iterable.kind !== 'list')
+                    fail(iterable.kind === 'measurement' ? 'AMX3007' : 'AMX3003', 'For loop needs a list or range', statement.iterable.source ?? statement.source);
+                const original = bindings;
+                bindings = new Map(original);
+                bindings.set(statement.variable, iterable.element);
+                try {
+                    checkFunctionSequence(statement.body, returnType);
+                }
+                finally {
+                    bindings = original;
+                }
+                return true;
+            }
+            default:
+                checkStatement(statement);
+                return true;
+        }
+    }
+    function checkDefault(expression, target) {
+        if (expression.type === 'listLiteral') {
+            for (const item of expression.elements)
+                checkDefault(item, target.kind === 'list' ? target.element : target);
+        }
+        else if (expression.type === 'recordConstructor') {
+            for (const field of expression.fields) {
+                const declaration = types.get(expression.name);
+                const declared = declaration?.fields.find(item => item.name === field.name);
+                if (declared)
+                    checkDefault(field.expression, resolve(declared.annotation, declared));
+            }
+        }
+        else if (!(expression.type === 'unaryExpression' && expression.operator === '-'
+            && (expression.argument.type === 'numberLiteral'
+                || expression.argument.type === 'measurementAttachment' && expression.argument.value.type === 'numberLiteral'))
+            && !['numberLiteral', 'stringLiteral', 'booleanLiteral', 'nullLiteral'].includes(expression.type)
+            && !(expression.type === 'measurementAttachment' && expression.value.type === 'numberLiteral')) {
+            fail('AMX3005', 'Record default must be a literal', expression.source);
+        }
+        requireType(infer(expression, target), target, expression.source);
+    }
+    function checkViewName(name, source, exported = false) {
+        if (loopDepth > 0)
+            fail('AMX3005', 'Visualizations may only be declared at module top level', source);
+        if (exported)
+            fail('AMX3005', 'Visualizations cannot be exported', source);
+        if (primitives.has(name) || stdlibNames.has(name) || types.has(name) || functions.has(name) || bindings.has(name) || views.has(name)) {
+            fail('AMX3005', `Visualization '${name}' conflicts with another declaration`, source);
+        }
+        if (context?.isEntryModule === false)
+            fail('AMX3005', 'Visualizations may only be declared in the entry module', source);
+    }
+    function optionsOf(view, type) {
+        return view.options.filter((option) => option.type === type);
+    }
+    function oneOption(view, type, description, required) {
+        const found = optionsOf(view, type);
+        if (found.length > 1)
+            fail('AMX3005', `Repeated ${description} option`, found[1].source);
+        if (required && found.length === 0)
+            fail('AMX3003', `Missing ${description} option`, view.source);
+        return found[0];
+    }
+    function viewListElement(name, source) {
+        const valueType = bindings.get(name);
+        if (!valueType)
+            return fail('AMX3001', `Unknown visualization binding '${name}'`, source);
+        if (valueType.kind !== 'list')
+            return fail('AMX3002', `Visualization binding '${name}' must be a list`, source);
+        const element = valueType.element;
+        if ((element.kind === 'named' && element.name === 'Number')
+            || element.kind === 'measurement'
+            || (element.kind === 'nullable' && (element.element.kind === 'measurement'
+                || element.element.kind === 'named' && element.element.name === 'Number')))
+            return { kind: 'numbers' };
+        if (element.kind === 'named' && types.has(element.name))
+            return { kind: 'records', name: element.name };
+        return fail('AMX3002', `Unsupported visualization list element type '${format(element)}'`, source);
+    }
+    function viewField(recordName, fieldName, source) {
+        const declaration = types.get(recordName);
+        const field = declaration.fields.find(item => item.name === fieldName);
+        if (!field)
+            fail('AMX3001', `Unknown field '${fieldName}' on '${recordName}'`, source);
+        return resolve(field.annotation, field);
+    }
+    function isScalar(type) {
+        if (type.kind === 'named')
+            return primitives.has(type.name);
+        if (type.kind === 'measurement')
+            return true;
+        return type.kind === 'nullable' && (type.element.kind === 'measurement'
+            || type.element.kind === 'named' && primitives.has(type.element.name));
+    }
+    function isNumber(type) {
+        return (type.kind === 'named' && type.name === 'Number')
+            || type.kind === 'measurement'
+            || (type.kind === 'nullable' && (type.element.kind === 'measurement'
+                || type.element.kind === 'named' && type.element.name === 'Number'));
+    }
+    function isCategory(type) {
+        return type.kind === 'named' && primitives.has(type.name);
+    }
+    function chartFieldOption(view, role, required) {
+        const found = optionsOf(view, 'chartFieldOption').filter(option => option.role === role);
+        if (found.length > 1)
+            fail('AMX3005', `Repeated '${role}' option`, found[1].source);
+        if (required && found.length === 0)
+            fail('AMX3003', `Missing '${role}' option`, view.source);
+        return found[0];
+    }
+    function checkTable(view) {
+        checkViewName(view.name, view.source, view.exported);
+        oneOption(view, 'viewTitleOption', 'title', true);
+        const columns = optionsOf(view, 'tableColumnOption');
+        if (columns.length === 0)
+            fail('AMX3003', 'Table requires at least one column', view.source);
+        const allowed = new Set(['viewTitleOption', 'tableColumnOption']);
+        const unsupported = view.options.find(option => !allowed.has(option.type));
+        if (unsupported)
+            fail('AMX3003', 'Option is not valid for a table', unsupported.source);
+        const input = viewListElement(view.binding, view.bindingSource);
+        if (input.kind !== 'records')
+            return fail('AMX3002', 'Tables require a list of records', view.bindingSource);
+        const fields = new Set();
+        for (const column of columns) {
+            if (fields.has(column.field))
+                fail('AMX3005', `Repeated table field '${column.field}'`, column.fieldSource);
+            fields.add(column.field);
+            const fieldType = viewField(input.name, column.field, column.fieldSource);
+            if (!isScalar(fieldType))
+                fail('AMX3002', `Table column '${column.field}' must have a scalar field type`, column.fieldSource);
+        }
+        views.set(view.name, view);
+    }
+    function checkChart(view) {
+        checkViewName(view.name, view.source, view.exported);
+        oneOption(view, 'viewTitleOption', 'title', true);
+        oneOption(view, 'viewDescriptionOption', 'description', true);
+        const showTable = oneOption(view, 'chartShowTableOption', "'showTable'", false);
+        const allowed = new Set(['viewTitleOption', 'viewDescriptionOption', 'chartFieldOption', 'chartSeriesOption', 'chartShowTableOption']);
+        const unsupported = view.options.find(option => !allowed.has(option.type));
+        if (unsupported)
+            fail('AMX3003', 'Option is not valid for a chart', unsupported.source);
+        if (showTable) {
+            const actual = infer(showTable.expression);
+            if (!equal(actual, named('Boolean')))
+                fail('AMX3002', `Expected Boolean, got ${format(actual)}`, showTable.expression.source);
+        }
+        const input = viewListElement(view.binding, view.bindingSource);
+        const fields = optionsOf(view, 'chartFieldOption');
+        const series = optionsOf(view, 'chartSeriesOption');
+        const seenRoles = new Set();
+        for (const field of fields) {
+            if (seenRoles.has(field.role))
+                fail('AMX3005', `Repeated '${field.role}' option`, field.source);
+            seenRoles.add(field.role);
+        }
+        if (input.kind === 'numbers') {
+            if (view.kind === 'scatter')
+                fail('AMX3002', 'Scatter charts require a list of records', view.bindingSource);
+            if (fields.some(field => field.role !== 'labels'))
+                fail('AMX3003', `Field options are not valid for ${view.kind} charts with scalar-list data`, fields.find(field => field.role !== 'labels')?.source);
+            if (series.length !== 1 || series[0].field)
+                fail('AMX3003', `${view.kind} charts with Number[] data require exactly one scalar series label`, series[1]?.source ?? view.source);
+            const labels = chartFieldOption(view, 'labels', false);
+            if (labels) {
+                const labelType = bindings.get(labels.field);
+                if (!labelType)
+                    fail('AMX3001', `Unknown labels binding '${labels.field}'`, labels.fieldSource);
+                if (labelType.kind !== 'list' || labelType.element.kind !== 'named' || labelType.element.name !== 'String') {
+                    fail('AMX3002', 'Chart labels must bind a String[] value', labels.fieldSource);
+                }
+            }
+            views.set(view.name, view);
+            return;
+        }
+        if (view.kind === 'scatter') {
+            const x = chartFieldOption(view, 'x', true);
+            const y = chartFieldOption(view, 'y', true);
+            const group = chartFieldOption(view, 'group', false);
+            if (fields.some(field => field.role === 'category' || field.role === 'labels'))
+                fail('AMX3003', 'Scatter charts do not accept category or labels', fields.find(field => field.role === 'category' || field.role === 'labels')?.source);
+            if (series.length)
+                fail('AMX3003', 'Scatter charts do not accept series options', series[0].source);
+            for (const axis of [x, y])
+                if (!isNumber(viewField(input.name, axis.field, axis.fieldSource)))
+                    fail('AMX3002', `Scatter axis '${axis.role}' must bind a Number field`, axis.fieldSource);
+            if (group && viewField(input.name, group.field, group.fieldSource).kind !== 'named')
+                fail('AMX3002', 'Scatter group must bind a non-null String field', group.fieldSource);
+            if (group && !equal(viewField(input.name, group.field, group.fieldSource), named('String')))
+                fail('AMX3002', 'Scatter group must bind a non-null String field', group.fieldSource);
+            views.set(view.name, view);
+            return;
+        }
+        const requiredRole = view.kind === 'line' ? 'x' : 'category';
+        const forbidden = fields.find(field => field.role !== requiredRole);
+        if (forbidden)
+            fail('AMX3003', `Option '${forbidden.role}' is not valid for ${view.kind} charts`, forbidden.source);
+        if (input.kind === 'records') {
+            const role = chartFieldOption(view, requiredRole, true);
+            const roleType = viewField(input.name, role.field, role.fieldSource);
+            if (view.kind === 'line') {
+                if (!(isNumber(roleType) || equal(roleType, named('DateTime'))))
+                    fail('AMX3002', 'Line chart x must bind a Number, measurement, or DateTime field', role.fieldSource);
+            }
+            else if (!isCategory(roleType)) {
+                fail('AMX3002', 'Bar/column category must bind a non-null scalar field', role.fieldSource);
+            }
+            if (series.length === 0 || series.some(item => !item.field))
+                fail('AMX3003', `${view.kind} charts with record data require field series`, view.source);
+            const seenSeries = new Set();
+            for (const item of series) {
+                if (seenSeries.has(item.field))
+                    fail('AMX3005', `Repeated chart series field '${item.field}'`, item.fieldSource);
+                seenSeries.add(item.field);
+                if (!isNumber(viewField(input.name, item.field, item.fieldSource)))
+                    fail('AMX3002', 'Chart series must bind a Number field', item.fieldSource);
+            }
+            views.set(view.name, view);
+            return;
+        }
+        fail('AMX3003', `Unsupported ${view.kind} chart data shape`, view.bindingSource);
+    }
+    function checkDiagram(diagram) {
+        if (hasName(diagram.name))
+            fail('AMX3005', `Duplicate declaration '${diagram.name}'`, diagram.nameSource ?? diagram.source);
+        diagramNames.add(diagram.name);
+        diagramCount++;
+        if (diagramCount > 16) {
+            fail('AMXD012', 'A single report can have up to 16 diagrams maximum.', diagram.source);
+        }
+        const diagramProperties = new Map();
+        const diagramPropertyNames = new Set(['title', 'description', 'width', 'height']);
+        for (const property of diagram.properties) {
+            if (!diagramPropertyNames.has(property.name))
+                fail('AMXD002', 'Unknown diagram property', property.nameSource ?? property.source);
+            if (diagramProperties.has(property.name))
+                fail('AMX3005', `Repeated diagram property '${property.name}'`, property.nameSource ?? property.source);
+            diagramProperties.set(property.name, property);
+        }
+        const requiredDiagramProperty = (name) => {
+            const property = diagramProperties.get(name);
+            if (!property)
+                fail('AMXD001', `Missing required field: ${name}`, diagram.source);
+            return property;
+        };
+        const title = requiredDiagramProperty('title');
+        const description = requiredDiagramProperty('description');
+        const width = requiredDiagramProperty('width');
+        const height = requiredDiagramProperty('height');
+        if (title.expression.type !== 'stringLiteral') {
+            requireType(infer(title.expression), named('String'), title.valueSource ?? title.source);
+            return fail('AMXD001', 'Missing required field: title', diagram.source);
+        }
+        if (description.expression.type !== 'stringLiteral') {
+            requireType(infer(description.expression), named('String'), description.valueSource ?? description.source);
+            return fail('AMXD001', 'Missing required field: description', diagram.source);
+        }
+        if (!title.expression.value.trim())
+            fail('AMXD001', 'Missing required field: title', diagram.source);
+        if (!description.expression.value.trim())
+            fail('AMXD001', 'Missing required field: description', diagram.source);
+        requireType(infer(width.expression), named('Number'), width.valueSource ?? width.source);
+        requireType(infer(height.expression), named('Number'), height.valueSource ?? height.source);
+        if (diagram.times.length === 0)
+            fail('AMXD001', 'Missing required field: time', diagram.source);
+        if (diagram.times.length > 1) {
+            fail('AMX3005', 'Repeated diagram time declaration', diagram.times[1].source ?? diagram.source);
+        }
+        const time = diagram.times[0];
+        requireType(infer(time.from), named('Number'), time.fromSource ?? time.source);
+        requireType(infer(time.to), named('Number'), time.toSource ?? time.source);
+        requireType(infer(time.duration), named('Number'), time.durationSource ?? time.source);
+        const outerBindings = bindings;
+        const localBindings = new Map(bindings);
+        localBindings.set(time.name, named('Number'));
+        bindings = localBindings;
+        try {
+            function checkDiagramContent(content) {
+                for (const node of content) {
+                    if (node.type === 'diagramElement') {
+                        checkDiagramElement(node);
+                        continue;
+                    }
+                    if (node.type === 'diagramForBlock') {
+                        if (node.variable === time.name) {
+                            fail('AMXD6001', `Variable [${time.name}] is already used to control the diagrams timeline. Use a different variable name.`, node.variableSource ?? node.source);
+                        }
+                        if (expressionReferencesIdentifier(node.iterable, time.name)) {
+                            fail('AMXD6001', `Variable [${time.name}] is already used to control the diagrams timeline. Use a different variable name.`, identifierSource(node.iterable, time.name) ?? node.iterableSource ?? node.source);
+                        }
+                        const iterable = infer(node.iterable);
+                        if (iterable.kind !== 'list') {
+                            fail(iterable.kind === 'measurement' ? 'AMX3007' : 'AMX3003', 'For loop needs a list or range', node.iterableSource ?? node.source);
+                        }
+                        const outerBindings = bindings;
+                        bindings = new Map(outerBindings);
+                        bindings.set(node.variable, iterable.element);
+                        try {
+                            checkDiagramContent(node.content);
+                        }
+                        finally {
+                            bindings = outerBindings;
+                        }
+                        continue;
+                    }
+                    if (expressionReferencesIdentifier(node.test, time.name)) {
+                        fail('AMXD6001', `Variable [${time.name}] is already used to control the diagrams timeline. Use a different variable name.`, identifierSource(node.test, time.name) ?? node.testSource ?? node.source);
+                    }
+                    requireType(infer(node.test), named('Boolean'), node.testSource ?? node.source);
+                    checkDiagramContent(node.consequent);
+                    if (node.alternate)
+                        checkDiagramContent(node.alternate);
+                }
+            }
+            function checkDiagramElement(element) {
+                diagramElementCount++;
+                if (diagramElementCount > 512) {
+                    fail('AMXD013', 'A single report can have up to 512 elements maximum.', element.source);
+                }
+                if (hasName(element.name))
+                    fail('AMX3005', `Duplicate declaration '${element.name}'`, element.nameSource ?? element.source);
+                diagramElementNames.add(element.name);
+                const requirements = {
+                    line: { required: ['x1', 'y1', 'x2', 'y2', 'stroke', 'lineWidth'], optional: ['arrow'], numberProperties: ['x1', 'y1', 'x2', 'y2'], stringProperties: [] },
+                    rectangle: { required: ['x', 'y', 'width', 'height', 'stroke', 'lineWidth'], optional: ['fill'], numberProperties: ['x', 'y', 'width', 'height'], stringProperties: [] },
+                    circle: { required: ['cx', 'cy', 'r', 'stroke', 'lineWidth'], optional: ['fill'], numberProperties: ['cx', 'cy', 'r'], stringProperties: [] },
+                    text: { required: ['x', 'y', 'value', 'fill'], optional: [], numberProperties: ['x', 'y'], stringProperties: ['value'] }
+                };
+                const requirement = requirements[element.primitive];
+                if (!requirement)
+                    fail('AMXD002', 'Unknown diagram property', element.source);
+                const allowed = new Set([...requirement.required, ...requirement.optional]);
+                const elementProperties = new Map();
+                for (const property of element.properties) {
+                    if (!allowed.has(property.name))
+                        fail('AMXD002', 'Unknown diagram property', property.nameSource ?? property.source);
+                    if (elementProperties.has(property.name))
+                        fail('AMX3005', `Repeated diagram property '${property.name}'`, property.nameSource ?? property.source);
+                    elementProperties.set(property.name, property);
+                }
+                for (const name of requirement.required) {
+                    if (!elementProperties.has(name))
+                        fail('AMXD001', `Missing required field: ${name}`, element.source);
+                }
+                for (const property of element.properties) {
+                    if ((property.name === 'stroke' || property.name === 'fill' || property.name === 'lineWidth' || property.name === 'arrow')
+                        && expressionReferencesIdentifier(property.expression, time.name)) {
+                        fail('AMXD006', 'Inconsistent time style', property.valueSource ?? property.source);
+                    }
+                    if (requirement.numberProperties.includes(property.name)) {
+                        requireType(infer(property.expression), named('Number'), property.valueSource ?? property.source);
+                    }
+                    else if (requirement.stringProperties.includes(property.name)) {
+                        requireType(infer(property.expression), named('String'), property.valueSource ?? property.source);
+                    }
+                    else if (property.name === 'stroke' || property.name === 'fill') {
+                        if (property.expression.type !== 'stringLiteral'
+                            || !(property.expression.value === 'none' || /^#[0-9a-fA-F]{6}$/.test(property.expression.value))) {
+                            fail('AMXD015', 'Invalid diagram style specified', property.valueSource ?? property.source);
+                        }
+                    }
+                    else if (property.name === 'lineWidth') {
+                        if (property.expression.type !== 'numberLiteral' || !Number.isFinite(property.expression.value) || property.expression.value <= 0) {
+                            fail('AMXD015', 'Invalid diagram style specified', property.valueSource ?? property.source);
+                        }
+                    }
+                    else if (property.name === 'arrow') {
+                        if (property.expression.type !== 'stringLiteral'
+                            || !['none', 'start', 'end', 'both'].includes(property.expression.value)) {
+                            fail('AMXD007', 'Unsupported arrow literal', property.valueSource ?? property.source);
+                        }
+                    }
+                }
+            }
+            checkDiagramContent(diagram.content);
+        }
+        finally {
+            bindings = outerBindings;
+        }
+    }
+    function checkStatement(statement) {
+        switch (statement.type) {
+            case 'importDeclaration':
+                return;
+            case 'exportNamesDeclaration':
+                reExport(statement);
+                return;
+            case 'dimensionDeclaration':
+                checkDimension(statement);
+                return;
+            case 'unitDeclaration':
+                checkUnit(statement);
+                return;
+            case 'inputDeclaration': {
+                if (hasName(statement.name)) {
+                    fail('AMX3005', `Input '${statement.name}' collides with another declaration`, statement.source);
+                }
+                bindings.set(statement.name, resolve(statement.annotation));
+                immutableNames.add(statement.name);
+                inputNames.add(statement.name);
+                return;
+            }
+            case 'typeDeclaration': {
+                if (hasName(statement.name))
+                    fail('AMX3005', `Duplicate type '${statement.name}'`, statement.source);
+                setDeclaringRegistry(statement, moduleRegistry);
+                const declaredFields = statement.declaredFields ?? statement.fields;
+                statement.declaredFields = declaredFields;
+                const inheritedFields = [];
+                const inheritedPositions = new Map();
+                const inheritedParents = new Map();
+                for (const parent of statement.parents ?? []) {
+                    const parentDeclaration = types.get(parent.name);
+                    if (!parentDeclaration)
+                        return fail('AMX3001', `Unknown type '${parent.name}'`, parent.source);
+                    for (const field of parentDeclaration.fields) {
+                        const previous = inheritedParents.get(field.name);
+                        if (previous && !declaredFields.some(candidate => candidate.name === field.name && candidate.override)) {
+                            fail('AMX3011', `Parent ${previous.name} and Parent ${parent.name} have the same property: '${field.name}'`, field.source, previous.field.source);
+                        }
+                        if (!previous)
+                            inheritedParents.set(field.name, { name: parent.name, field });
+                        if (!inheritedPositions.has(field.name)) {
+                            inheritedPositions.set(field.name, inheritedFields.length);
+                            inheritedFields.push(field);
+                        }
+                    }
+                }
+                const fields = new Set();
+                for (const field of declaredFields) {
+                    if (fields.has(field.name))
+                        fail('AMX3005', `Duplicate field '${field.name}'`, field.source);
+                    fields.add(field.name);
+                    const inherited = inheritedParents.get(field.name);
+                    if (inherited && !field.override) {
+                        fail('AMX3012', `This type declared '${field.name}' which is also declared by "${inherited.name}", use the override keyword to declare this property.`, field.source, inherited.field.source);
+                    }
+                    if (!inherited && field.override) {
+                        fail('AMX3013', `No inherited type includes "${field.name}", override is not necessary`, field.source);
+                    }
+                    setDeclaringRegistry(field, moduleRegistry);
+                    const target = resolve(field.annotation, field);
+                    if (field.optional && !field.defaultExpression && target.kind !== 'nullable')
+                        fail('AMX3005', `Optional field '${field.name}' needs a nullable type or default`, field.source);
+                }
+                const effectiveFields = [...inheritedFields];
+                for (const field of declaredFields) {
+                    const inheritedPosition = inheritedPositions.get(field.name);
+                    if (inheritedPosition === undefined) {
+                        effectiveFields.push(field);
+                    }
+                    else {
+                        effectiveFields[inheritedPosition] = field;
+                    }
+                }
+                statement.fields = effectiveFields;
+                types.set(statement.name, statement);
+                for (const field of declaredFields)
+                    if (field.defaultExpression)
+                        checkDefault(field.defaultExpression, resolve(field.annotation, field));
+                if (statement.exported)
+                    exportedTypes.set(statement.name, statement);
+                return;
+            }
+            case 'enumDeclaration': {
+                if (hasName(statement.name))
+                    fail('AMX3005', `Duplicate declaration '${statement.name}'`, statement.nameSource ?? statement.source);
+                if (statement.members.length === 0) {
+                    fail('AMX3015', 'Enums need at least one value', statement.closingSource ?? statement.source);
+                }
+                const memberNames = new Set();
+                for (const member of statement.members) {
+                    if (memberNames.has(member.name))
+                        fail('AMX3016', 'Enum members names have to be unique', member.nameSource ?? statement.source);
+                    memberNames.add(member.name);
+                }
+                const hasExplicitValue = statement.members.some(member => member.value !== undefined);
+                if (!hasExplicitValue) {
+                    statement.resolvedValues = statement.members.map((_, index) => index + 1);
+                }
+                else {
+                    const missing = statement.members.find(member => member.value === undefined);
+                    if (missing)
+                        fail('AMX3019', 'All members should have explicitly assigned values', missing.nameSource ?? statement.source);
+                    const values = [];
+                    let valueType;
+                    for (const member of statement.members) {
+                        const value = member.value;
+                        let literal;
+                        let literalType;
+                        if (value.type === 'numberLiteral') {
+                            literal = value.value;
+                            literalType = 'Number';
+                        }
+                        else if (value.type === 'stringLiteral') {
+                            literal = value.value;
+                            literalType = 'String';
+                        }
+                        else {
+                            return fail('AMX3020', 'Only constant values can be assigned to enum members', member.valueSource ?? value.source ?? member.nameSource ?? statement.source);
+                        }
+                        if (valueType && valueType !== literalType) {
+                            fail('AMX3018', 'Enum members should all have the same value types, all Number or String', member.valueSource ?? value.source ?? member.nameSource ?? statement.source);
+                        }
+                        valueType = literalType;
+                        if (values.includes(literal)) {
+                            fail('AMX3017', 'All enum members must have unique values', member.valueSource ?? value.source ?? member.nameSource ?? statement.source);
+                        }
+                        values.push(literal);
+                    }
+                    statement.resolvedValues = values;
+                }
+                enums.set(statement.name, statement);
+                if (statement.exported)
+                    exportedEnums.set(statement.name, statement);
+                return;
+            }
+            case 'functionDeclaration': {
+                if (hasName(statement.name))
+                    fail('AMX3005', `Duplicate declaration '${statement.name}'`, statement.source);
+                if (stdlibNames.has(statement.name))
+                    fail('AMX3005', `Function '${statement.name}' cannot shadow a standard-library function`, statement.source);
+                setDeclaringRegistry(statement, moduleRegistry);
+                const paramNames = new Set();
+                const paramScope = new Map();
+                for (const parameter of statement.parameters) {
+                    if (paramNames.has(parameter.name))
+                        fail('AMX3005', `Duplicate parameter '${parameter.name}'`, parameter.source);
+                    paramNames.add(parameter.name);
+                    paramScope.set(parameter.name, resolve(parameter.annotation));
+                }
+                const returnType = resolve(statement.returnType);
+                const outerBindings = bindings;
+                bindings = paramScope;
+                try {
+                    if (statement.body.kind === 'expression') {
+                        if (bodyContainsForExpression(statement.body.expression))
+                            fail('AMX3003', 'Function bodies cannot contain a for expression', statement.body.expression.source ?? statement.source);
+                        const actual = infer(statement.body.expression, returnType);
+                        requireType(actual, returnType, statement.body.expression.source ?? statement.source);
+                    }
+                    else {
+                        if (bodyContainsForStatements(statement.body.statements)) {
+                            fail('AMX3003', 'Function bodies cannot contain a for expression', statement.body.source ?? statement.source);
+                        }
+                        if (checkFunctionSequence(statement.body.statements, returnType)) {
+                            fail('AMXF4001', 'Missing return value from function', statement.body.closingSource);
+                        }
+                    }
+                }
+                finally {
+                    bindings = outerBindings;
+                }
+                functions.set(statement.name, statement);
+                if (statement.exported)
+                    exportedFunctions.set(statement.name, statement);
+                return;
+            }
+            case 'variableDeclaration': {
+                if (types.has(statement.name) || enums.has(statement.name) || functions.has(statement.name) || views.has(statement.name) || dimensions.has(statement.name) || units.has(statement.name))
+                    fail('AMX3005', `Binding '${statement.name}' conflicts with another declaration`, statement.source);
+                if (inputNames.has(statement.name))
+                    fail('AMX3005', `Binding '${statement.name}' conflicts with an input`, statement.source);
+                if (immutableNames.has(statement.name))
+                    moduleError('AMX5002', `Cannot redeclare imported binding '${statement.name}'`, statement.source, file);
+                const target = statement.annotation ? resolve(statement.annotation) : bindings.get(statement.name);
+                const actual = infer(statement.expression, target);
+                if (!target && actual.kind === 'null')
+                    fail('AMX3002', 'Null needs a nullable type annotation', statement.expression.source);
+                if (target)
+                    requireType(actual, target, statement.expression.source ?? statement.source);
+                const finalType = target ?? actual;
+                bindings.set(statement.name, finalType);
+                if (statement.exported)
+                    exportedBindings.set(statement.name, finalType);
+                return;
+            }
+            case 'assignmentStatement':
+            case 'compoundAssignmentStatement': {
+                if (views.has(statement.name))
+                    fail('AMX3005', `Cannot assign to immutable visualization '${statement.name}'`, statement.source);
+                if (inputNames.has(statement.name))
+                    fail('AMX3005', `Cannot assign to immutable input '${statement.name}'`, statement.source);
+                if (immutableNames.has(statement.name))
+                    moduleError('AMX5002', `Cannot assign to imported binding '${statement.name}'`, statement.source, file);
+                const target = bindings.get(statement.name);
+                if (!target)
+                    fail('AMX3001', `Unknown identifier '${statement.name}'`, statement.source);
+                if (statement.type === 'compoundAssignmentStatement')
+                    requireType(target, named('Number'), statement.source);
+                requireType(infer(statement.expression, target), target, statement.expression.source ?? statement.source);
+                return;
+            }
+            case 'addStatement':
+            case 'removeStatement': {
+                if (!allowListMutation)
+                    fail('AMX3003', 'List mutations are not allowed in expression-form loops', statement.source);
+                const target = bindings.get(statement.name);
+                if (!target)
+                    return fail('AMX3001', `Unknown identifier '${statement.name}'`, statement.targetSource ?? statement.source);
+                if (target.kind !== 'list')
+                    return fail('AMX3002', `Mutation target '${statement.name}' must be a list`, statement.targetSource ?? statement.source);
+                if (statement.type === 'addStatement') {
+                    requireType(infer(statement.value, target.element), target.element, statement.value.source ?? statement.source);
+                    if (statement.index) {
+                        requireType(infer(statement.index), named('Number'), statement.index.source);
+                        const index = constantValue(statement.index);
+                        if (typeof index === 'number' && (!Number.isInteger(index) || index < 1)) {
+                            fail('AMX3009', `Insertion position ${index} must be a positive integer`, statement.index.source);
+                        }
+                    }
+                }
+                else {
+                    requireType(infer(statement.count), named('Number'), statement.count.source);
+                    const count = constantValue(statement.count);
+                    if (typeof count === 'number' && (!Number.isInteger(count) || count < 1)) {
+                        fail('AMX3009', `Removal count ${count} must be a positive integer`, statement.count.source);
+                    }
+                    if (statement.index) {
+                        requireType(infer(statement.index), named('Number'), statement.index.source);
+                        const index = constantValue(statement.index);
+                        if (typeof index === 'number' && (!Number.isInteger(index) || index < 1)) {
+                            fail('AMX3009', `Removal position ${index} must be a positive integer`, statement.index.source);
+                        }
+                    }
+                }
+                return;
+            }
+            case 'tableDeclaration':
+                checkTable(statement);
+                return;
+            case 'chartDeclaration':
+                checkChart(statement);
+                return;
+            case 'diagramDeclaration':
+                checkDiagram(statement);
+                return;
+            case 'showStatement':
+                if (loopDepth > 0)
+                    fail('AMX3005', 'Show statements may only occur at module top level', statement.source);
+                if (context?.isEntryModule === false)
+                    fail('AMX3005', 'Show statements may only occur in the entry module', statement.source);
+                if (!views.has(statement.name))
+                    fail('AMX3001', `Unknown or not-yet-declared visualization '${statement.name}'`, statement.nameSource ?? statement.source);
+                return;
+            case 'forStatement':
+                checkLoop(statement.variable, statement.iterable, statement.body, statement.source, undefined, true);
+                return;
+            case 'bracedIfStatement': {
+                requireType(infer(statement.test), named('Boolean'), statement.test.source);
+                checkBranchScope(statement.consequent, () => { });
+                if (statement.alternate)
+                    checkBranchScope(statement.alternate, () => { });
+                return;
+            }
+            case 'returnStatement':
+                if (loopDepth > 0)
+                    infer(statement.expression);
+                else
+                    fail('AMX3003', 'Return outside expression loop', statement.source);
+        }
+    }
+    function checkInheritanceCycles() {
+        const declarations = doc.nodes.flatMap(node => node.type === 'executableCodeBlock' ? node.statements : [])
+            .filter((statement) => statement.type === 'typeDeclaration');
+        const declarationsByName = new Map();
+        const duplicateNames = new Set();
+        for (const declaration of declarations) {
+            if (declarationsByName.has(declaration.name))
+                duplicateNames.add(declaration.name);
+            else
+                declarationsByName.set(declaration.name, declaration);
+        }
+        for (const name of duplicateNames)
+            declarationsByName.delete(name);
+        const states = new Map();
+        const visit = (declaration) => {
+            states.set(declaration.name, 'visiting');
+            for (const parent of declaration.parents ?? []) {
+                const parentDeclaration = declarationsByName.get(parent.name);
+                if (!parentDeclaration)
+                    continue;
+                const state = states.get(parent.name);
+                if (state === 'visiting') {
+                    fail('AMX3014', 'The inherited type causes a circular dependency', parent.source, parentDeclaration.nameSource);
+                }
+                if (!state)
+                    visit(parentDeclaration);
+            }
+            states.set(declaration.name, 'visited');
+        };
+        for (const declaration of declarationsByName.values()) {
+            if (!states.has(declaration.name))
+                visit(declaration);
+        }
+    }
+    let sawNonImport = false;
+    let sawInput = false;
+    let sawOtherItem = false;
+    checkInheritanceCycles();
+    for (const node of doc.nodes) {
+        if (node.type !== 'executableCodeBlock')
+            continue;
+        for (const statement of node.statements) {
+            if (statement.type === 'importDeclaration') {
+                if (sawNonImport)
+                    fail('AMX3005', 'Import declarations must precede all other executable items', statement.source);
+            }
+            else if (statement.type === 'inputDeclaration') {
+                if (sawOtherItem)
+                    fail('AMX3005', 'Input declarations must precede other executable items', statement.source);
+                sawInput = true;
+                sawNonImport = true;
+            }
+            else {
+                sawOtherItem = true;
+                sawNonImport = true;
+            }
+            checkStatement(statement);
+        }
+    }
+    return {
+        exportedTypes,
+        exportedEnums,
+        exportedFunctions,
+        exportedBindings,
+        bindingTypes: new Map(bindings),
+        exportedDimensions,
+        exportedUnits,
+        dimensions,
+        units,
+        baseUnits: new Map(baseUnits)
+    };
+}
+//# sourceMappingURL=checkDocument.js.map

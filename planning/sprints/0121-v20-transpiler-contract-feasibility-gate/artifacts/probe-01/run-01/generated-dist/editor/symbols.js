@@ -1,0 +1,491 @@
+import { declarationNameRange, sourceOffset, sourceTokenRange } from "./sourceRanges";
+function statementsOf(document) {
+    return document.nodes.flatMap(node => node.type === "executableCodeBlock" ? node.statements : []);
+}
+function typeText(type) {
+    if (type.kind === "named")
+        return type.name;
+    if (type.kind === "measurement")
+        return "measurement";
+    if (type.kind === "null")
+        return "null";
+    return `${typeText(type.element)}${type.kind === "list" ? "[]" : "?"}`;
+}
+function declaration(text, file, statement) {
+    if (!("name" in statement))
+        return undefined;
+    const range = declarationNameRange(text, statement);
+    if (!range)
+        return undefined;
+    const kind = statement.type === "variableDeclaration" ? "binding" : statement.type.replace("Declaration", "");
+    const detail = statement.type === "functionDeclaration"
+        ? `fn ${statement.name}(${statement.parameters.map(param => `${param.name}: ${param.annotation.name ?? param.annotation.type}`).join(", ")}): ${statement.returnType.name ?? statement.returnType.type}`
+        : statement.type === "variableDeclaration" || statement.type === "inputDeclaration"
+            ? `${kind} ${statement.name}${statement.annotation ? `: ${statement.annotation.name ?? statement.annotation.type}` : ""}`
+            : `${kind} ${statement.name}`;
+    return { ...range, file, name: statement.name, target: { file, ...range }, declaration: true, kind, detail };
+}
+function moduleRecord(analysis, file) {
+    return analysis?.modules?.get(file);
+}
+function enumMemberSource(text, source) {
+    const dot = source && sourceOffset(text, source);
+    if (dot === undefined || text[dot] !== ".")
+        return undefined;
+    const whitespace = text.slice(dot + 1).match(/^\s*/)?.[0].length ?? 0;
+    return { line: source.line, column: source.column + 1 + whitespace };
+}
+function loopVariableRange(text, loop) {
+    const start = sourceOffset(text, loop.source);
+    if (start === undefined)
+        return undefined;
+    const lineEnd = text.indexOf("\n", start);
+    const header = text.slice(start, lineEnd < 0 ? text.length : lineEnd).replace(/\r$/, "");
+    const match = header.match(/^for\s+([A-Za-z][A-Za-z0-9_]*)\s+in\b/);
+    if (!match || match[1] !== loop.variable)
+        return undefined;
+    const from = start + match[0].indexOf(loop.variable);
+    return { from, to: from + loop.variable.length };
+}
+/** Build identity-bearing symbol occurrences; uncertain parser spans and duplicate declarations have no target. */
+export function editorSymbolFacts(text, entryFile, entryDocument, analysis, moduleSources = new Map()) {
+    const documents = new Map();
+    if (analysis?.modules)
+        for (const [file, module] of analysis.modules)
+            documents.set(file, module.document);
+    documents.set(entryFile, entryDocument);
+    const result = [];
+    const enumMemberTargets = new Map();
+    for (const [file, document] of documents) {
+        const moduleText = file === entryFile ? text : moduleSources.get(file);
+        if (moduleText === undefined)
+            continue;
+        const statements = statementsOf(document);
+        const enumDeclarations = statements.filter((statement) => statement.type === "enumDeclaration");
+        for (const declarationNode of enumDeclarations) {
+            const nameCount = enumDeclarations.filter(item => item.name === declarationNode.name).length;
+            const memberCounts = new Map();
+            declarationNode.members.forEach(member => memberCounts.set(member.name, (memberCounts.get(member.name) ?? 0) + 1));
+            if (nameCount !== 1 || [...memberCounts.values()].some(count => count > 1))
+                continue;
+            for (const member of declarationNode.members) {
+                const range = sourceTokenRange(moduleText, member.nameSource, member.name);
+                if (!range)
+                    continue;
+                const parent = declaration(moduleText, file, declarationNode)?.target;
+                enumMemberTargets.set(`${file}\0${declarationNode.name}\0${member.name}`, {
+                    ...range,
+                    file,
+                    name: member.name,
+                    target: { file, ...range },
+                    parent,
+                    declaration: true,
+                    kind: "enumMember",
+                    detail: `enum member ${declarationNode.name}.${member.name}`
+                });
+            }
+        }
+    }
+    for (const [file, document] of documents) {
+        const moduleText = file === entryFile ? text : moduleSources.get(file);
+        if (moduleText === undefined)
+            continue;
+        const module = moduleRecord(analysis, file);
+        const statements = statementsOf(document);
+        const declarations = statements.filter(statement => "name" in statement && declarationNameRange(moduleText, statement));
+        const duplicates = new Set(declarations.filter((candidate, index) => declarations.some((other, otherIndex) => otherIndex !== index && "name" in other && "name" in candidate && other.name === candidate.name)).map(statement => "name" in statement ? statement.name : ""));
+        const visible = new Map();
+        const visibleEnums = new Map();
+        const add = (source, name, target) => {
+            if (!target)
+                return;
+            const range = sourceTokenRange(moduleText, source, name);
+            if (range)
+                result.push({ ...target, ...range, file, declaration: false });
+        };
+        const typeReference = (reference, scope) => {
+            if (reference.type === "namedType" && reference.name)
+                add(reference.source, reference.name, scope.get(reference.name));
+            else if (reference.element)
+                typeReference(reference.element, scope);
+        };
+        const expression = (node, scope = visible) => {
+            if (!analysis && statements.some(statement => statement.type === "importDeclaration"))
+                return;
+            switch (node.type) {
+                case "stringInterpolation":
+                    node.parts.forEach(part => { if (typeof part !== "string")
+                        expression(part, scope); });
+                    break;
+                case "identifier":
+                    add(node.source, node.name, scope.get(node.name));
+                    break;
+                case "functionCall":
+                    add(node.source, node.callee, scope.get(node.callee));
+                    node.arguments.forEach(argument => expression(argument, scope));
+                    break;
+                case "recordConstructor":
+                    add(node.source, node.name, scope.get(node.name));
+                    node.fields.forEach(field => expression(field.expression, scope));
+                    break;
+                case "binaryExpression":
+                    expression(node.left, scope);
+                    expression(node.right, scope);
+                    break;
+                case "typeTestExpression":
+                    expression(node.value, scope);
+                    typeReference(node.target, scope);
+                    break;
+                case "measurementAttachment":
+                case "measurementConversion":
+                    add(node.unitSource, node.unit, scope.get(node.unit));
+                    expression(node.value, scope);
+                    break;
+                case "unaryExpression":
+                    expression(node.argument, scope);
+                    break;
+                case "conditionalExpression":
+                    expression(node.test, scope);
+                    expression(node.consequent, scope);
+                    expression(node.alternate, scope);
+                    break;
+                case "listLiteral":
+                    node.elements.forEach(element => expression(element, scope));
+                    break;
+                case "rangeExpression":
+                    expression(node.start, scope);
+                    expression(node.end, scope);
+                    break;
+                case "matchExpression":
+                    expression(node.expression, scope);
+                    node.cases.forEach(arm => expression(arm.expression, scope));
+                    expression(node.defaultExpression, scope);
+                    break;
+                case "fieldAccess": {
+                    expression(node.receiver, scope);
+                    if (node.receiver.type === "identifier") {
+                        const visibleEnum = visibleEnums.get(node.receiver.name);
+                        const member = visibleEnum && enumMemberTargets.get(`${visibleEnum.file}\0${visibleEnum.declaration.name}\0${node.field}`);
+                        add(enumMemberSource(moduleText, node.source), node.field, member);
+                    }
+                    break;
+                }
+                case "listAccess":
+                    expression(node.receiver, scope);
+                    expression(node.index, scope);
+                    break;
+                case "forExpression":
+                    expression(node.iterable, scope);
+                    node.body.forEach(statement => nestedStatement(statement, scope));
+                    break;
+                case "bracedIfExpression":
+                    expression(node.test, scope);
+                    node.consequent.forEach(statement => nestedStatement(statement, scope));
+                    node.alternate.forEach(statement => nestedStatement(statement, scope));
+                    break;
+                default: break;
+            }
+        };
+        const nestedStatement = (statement, scope = visible) => {
+            if (statement.type === "variableDeclaration")
+                expression(statement.expression, scope);
+            else if (statement.type === "typeDeclaration") {
+                for (const parent of statement.parents ?? [])
+                    add(parent.source, parent.name, scope.get(parent.name));
+                for (const field of statement.fields)
+                    if (field.defaultExpression)
+                        expression(field.defaultExpression, scope);
+            }
+            else if (statement.type === "enumDeclaration") {
+                for (const member of statement.members)
+                    if (member.value)
+                        expression(member.value, scope);
+            }
+            else if (statement.type === "forStatement") {
+                expression(statement.iterable, scope);
+                statement.body.forEach(item => nestedStatement(item, scope));
+            }
+            else if (statement.type === "bracedIfStatement") {
+                expression(statement.test, scope);
+                statement.consequent.forEach(item => nestedStatement(item, scope));
+                statement.alternate?.forEach(item => nestedStatement(item, scope));
+            }
+            else if ("expression" in statement && statement.expression)
+                expression(statement.expression, scope);
+        };
+        for (const statement of statements) {
+            if (statement.type === "importDeclaration") {
+                for (const imported of statement.names) {
+                    const targetFile = module?.importTargets.get(imported.name);
+                    const targetModule = targetFile ? moduleRecord(analysis, targetFile) : undefined;
+                    let targetStatement = targetModule && statementsOf(targetModule.document).find(candidate => "name" in candidate && candidate.name === imported.name && "exported" in candidate && candidate.exported);
+                    let declarationFile = targetFile;
+                    const targetMetadata = targetModule?.checkResult.exportedDimensions.get(imported.name)
+                        ?? targetModule?.checkResult.exportedUnits.get(imported.name);
+                    if (!targetStatement && targetMetadata) {
+                        const originFile = targetMetadata.moduleIdentity;
+                        declarationFile = originFile;
+                        const originModule = moduleRecord(analysis, originFile);
+                        targetStatement = originModule && statementsOf(originModule.document).find(candidate => (candidate.type === "dimensionDeclaration" || candidate.type === "unitDeclaration")
+                            && candidate.name === targetMetadata.declarationName);
+                    }
+                    const targetText = declarationFile === entryFile ? text : declarationFile ? moduleSources.get(declarationFile) : undefined;
+                    const importedTarget = targetStatement && targetText !== undefined ? declaration(targetText, declarationFile, targetStatement) : undefined;
+                    if (importedTarget) {
+                        const importedOccurrence = { ...importedTarget, origin: declarationFile };
+                        visible.set(imported.name, importedOccurrence);
+                        if (targetStatement?.type === "enumDeclaration" && declarationFile) {
+                            visibleEnums.set(imported.name, { declaration: targetStatement, file: declarationFile });
+                        }
+                        add(imported.source, imported.name, importedOccurrence);
+                    }
+                }
+            }
+            else {
+                if (statement.type === "exportNamesDeclaration") {
+                    for (const item of statement.names)
+                        add(item.source, item.name, visible.get(item.name));
+                }
+                if (statement.type === "dimensionDeclaration" && statement.expression)
+                    expression(statement.expression);
+                if (statement.type === "unitDeclaration") {
+                    if (statement.dimension)
+                        add(statement.dimensionSource, statement.dimension, visible.get(statement.dimension));
+                    if (statement.expression)
+                        expression(statement.expression);
+                }
+                if (statement.type === "variableDeclaration")
+                    expression(statement.expression);
+                if (statement.type === "diagramDeclaration") {
+                    const diagram = declaration(moduleText, file, statement);
+                    const diagramParent = !duplicates.has(statement.name) ? diagram?.target : undefined;
+                    const diagramScope = new Map(visible);
+                    for (const property of statement.properties)
+                        expression(property.expression);
+                    for (const time of statement.times) {
+                        expression(time.from);
+                        expression(time.to);
+                        expression(time.duration);
+                        const range = sourceTokenRange(moduleText, time.nameSource, time.name);
+                        if (!range || !diagramParent)
+                            continue;
+                        const localTime = {
+                            ...range,
+                            file,
+                            name: time.name,
+                            target: { file, ...range },
+                            parent: diagramParent,
+                            declaration: true,
+                            kind: "diagramTime",
+                            detail: `time ${time.name}`
+                        };
+                        result.push(localTime);
+                        diagramScope.set(time.name, localTime);
+                    }
+                    const elementNames = new Set();
+                    for (const element of statement.content) {
+                        if (element.type !== "diagramElement")
+                            continue;
+                        const range = sourceTokenRange(moduleText, element.nameSource, element.name);
+                        if (range && diagramParent && !elementNames.has(element.name)) {
+                            elementNames.add(element.name);
+                            result.push({
+                                ...range,
+                                file,
+                                name: element.name,
+                                target: { file, ...range },
+                                parent: diagramParent,
+                                declaration: true,
+                                kind: "diagramElement",
+                                detail: `${element.primitive} ${element.name}`
+                            });
+                        }
+                        for (const property of element.properties)
+                            expression(property.expression, diagramScope);
+                    }
+                }
+                if (statement.type === "typeDeclaration") {
+                    for (const parent of statement.parents ?? [])
+                        add(parent.source, parent.name, visible.get(parent.name));
+                    for (const field of statement.fields) {
+                        if (field.annotation.type === "namedType" && field.annotation.name)
+                            add(field.annotation.source, field.annotation.name, visible.get(field.annotation.name));
+                        if (field.defaultExpression)
+                            expression(field.defaultExpression);
+                    }
+                }
+                if (statement.type === "enumDeclaration") {
+                    const memberFacts = statement.members.map(member => enumMemberTargets.get(`${file}\0${statement.name}\0${member.name}`)).filter((fact) => !!fact);
+                    result.push(...memberFacts);
+                    visibleEnums.set(statement.name, { declaration: statement, file });
+                    for (const member of statement.members)
+                        if (member.value)
+                            expression(member.value);
+                }
+                if (statement.type === "variableDeclaration" || statement.type === "inputDeclaration") {
+                    const annotation = statement.annotation;
+                    if (annotation?.type === "namedType" && annotation.name)
+                        add(annotation.source, annotation.name, visible.get(annotation.name));
+                }
+                if (statement.type === "showStatement")
+                    add(statement.nameSource, statement.name, visible.get(statement.name));
+                if (statement.type === "tableDeclaration" || statement.type === "chartDeclaration")
+                    add(statement.bindingSource, statement.binding, visible.get(statement.binding));
+                if (statement.type === "assignmentStatement" || statement.type === "compoundAssignmentStatement") {
+                    add(statement.source, statement.name, visible.get(statement.name));
+                    expression(statement.expression);
+                }
+                if (statement.type === "addStatement") {
+                    add(statement.targetSource, statement.name, visible.get(statement.name));
+                    expression(statement.value);
+                    if (statement.index)
+                        expression(statement.index);
+                }
+                if (statement.type === "removeStatement") {
+                    add(statement.targetSource, statement.name, visible.get(statement.name));
+                    expression(statement.count);
+                    if (statement.index)
+                        expression(statement.index);
+                }
+                if (statement.type === "forStatement") {
+                    expression(statement.iterable);
+                    statement.body.forEach(item => nestedStatement(item));
+                }
+                if (statement.type === "bracedIfStatement") {
+                    expression(statement.test);
+                    statement.consequent.forEach(item => nestedStatement(item));
+                    statement.alternate?.forEach(item => nestedStatement(item));
+                }
+                if (statement.type === "functionDeclaration") {
+                    const functionDeclaration = declaration(moduleText, file, statement);
+                    const functionParent = functionDeclaration && !duplicates.has(statement.name) ? functionDeclaration.target : undefined;
+                    const functionScope = new Map([...visible].filter(([, fact]) => !["binding", "input", "table", "chart", "diagram"].includes(fact.kind)));
+                    const declarationsInScope = new Set();
+                    for (const parameter of statement.parameters) {
+                        typeReference(parameter.annotation, visible);
+                        const range = sourceTokenRange(moduleText, parameter.source, parameter.name);
+                        if (!range || !functionParent)
+                            continue;
+                        const parameterFact = {
+                            ...range,
+                            file,
+                            name: parameter.name,
+                            target: { file, ...range },
+                            parent: functionParent,
+                            declaration: true,
+                            kind: "parameter",
+                            detail: `parameter ${parameter.name}: ${parameter.annotation.name ?? parameter.annotation.type}`
+                        };
+                        result.push(parameterFact);
+                        functionScope.set(parameter.name, parameterFact);
+                        declarationsInScope.add(parameter.name);
+                    }
+                    typeReference(statement.returnType, visible);
+                    const walkFunctionStatements = (items, scope, declared) => {
+                        for (const item of items) {
+                            if (item.type === "variableDeclaration") {
+                                expression(item.expression, scope);
+                                if (item.annotation)
+                                    typeReference(item.annotation, visible);
+                                const range = declarationNameRange(moduleText, item);
+                                if (!range)
+                                    continue;
+                                const existing = declared.has(item.name) ? scope.get(item.name) : undefined;
+                                if (existing) {
+                                    result.push({ ...existing, ...range, file, declaration: false });
+                                    continue;
+                                }
+                                if (!functionParent)
+                                    continue;
+                                const localFact = {
+                                    ...range,
+                                    file,
+                                    name: item.name,
+                                    target: { file, ...range },
+                                    parent: functionParent,
+                                    declaration: true,
+                                    kind: "binding",
+                                    detail: `variable ${item.name}${item.annotation ? `: ${item.annotation.name ?? item.annotation.type}` : ""}`
+                                };
+                                result.push(localFact);
+                                scope.set(item.name, localFact);
+                                declared.add(item.name);
+                            }
+                            else if (item.type === "assignmentStatement" || item.type === "compoundAssignmentStatement") {
+                                add(item.source, item.name, scope.get(item.name));
+                                expression(item.expression, scope);
+                            }
+                            else if (item.type === "addStatement") {
+                                add(item.targetSource, item.name, scope.get(item.name));
+                                expression(item.value, scope);
+                                if (item.index)
+                                    expression(item.index, scope);
+                            }
+                            else if (item.type === "removeStatement") {
+                                add(item.targetSource, item.name, scope.get(item.name));
+                                expression(item.count, scope);
+                                if (item.index)
+                                    expression(item.index, scope);
+                            }
+                            else if (item.type === "forStatement") {
+                                expression(item.iterable, scope);
+                                const loopScope = new Map(scope);
+                                const loopDeclared = new Set();
+                                const range = loopVariableRange(moduleText, item);
+                                if (range && functionParent) {
+                                    const iteratorFact = {
+                                        ...range,
+                                        file,
+                                        name: item.variable,
+                                        target: { file, ...range },
+                                        parent: functionParent,
+                                        declaration: true,
+                                        kind: "iterator",
+                                        detail: `loop variable ${item.variable}`
+                                    };
+                                    result.push(iteratorFact);
+                                    loopScope.set(item.variable, iteratorFact);
+                                    loopDeclared.add(item.variable);
+                                }
+                                walkFunctionStatements(item.body, loopScope, loopDeclared);
+                            }
+                            else if (item.type === "bracedIfStatement") {
+                                expression(item.test, scope);
+                                walkFunctionStatements(item.consequent, new Map(scope), new Set());
+                                if (item.alternate)
+                                    walkFunctionStatements(item.alternate, new Map(scope), new Set());
+                            }
+                            else if (item.type === "returnStatement")
+                                expression(item.expression, scope);
+                            else
+                                nestedStatement(item, scope);
+                        }
+                    };
+                    if (statement.body.kind === "expression")
+                        expression(statement.body.expression, functionScope);
+                    else
+                        walkFunctionStatements(statement.body.statements, functionScope, declarationsInScope);
+                }
+                const declared = declaration(moduleText, file, statement);
+                if (declared && "name" in statement && !duplicates.has(statement.name)) {
+                    if (statement.type === "variableDeclaration") {
+                        const inferred = module?.checkResult.bindingTypes.get(statement.name) ?? (file === entryFile ? analysis?.bindingTypes?.get(statement.name) : undefined);
+                        if (inferred)
+                            declared.detail = `variable ${statement.name}: ${typeText(inferred)}`;
+                    }
+                    if (statement.type !== "diagramDeclaration")
+                        visible.set(statement.name, declared);
+                    result.push(declared);
+                    if (statement.type === "typeDeclaration")
+                        for (const field of statement.fields) {
+                            const range = sourceTokenRange(moduleText, field.source, field.name);
+                            if (range)
+                                result.push({ ...range, file, name: field.name, target: { file, ...range }, parent: declared.target, declaration: true, kind: "field", detail: `field ${field.name}: ${field.annotation.name ?? field.annotation.type}` });
+                        }
+                }
+            }
+        }
+    }
+    return result;
+}
+//# sourceMappingURL=symbols.js.map

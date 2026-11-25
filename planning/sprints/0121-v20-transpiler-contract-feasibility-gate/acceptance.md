@@ -39,9 +39,9 @@ adds no product behavior and authorizes no release or package action.
   `result.views` combines table/chart `show` snapshots with declaration-time
   diagram emissions as distinct, ordered DTOs; this does not add `show` support
   for diagrams.
-- D121-16 requires enum-value input validation in the AMX runtime as a
-  separately authorized prerequisite before helper/parity execution. No S121
-  product change is authorized.
+- D121-16 checker type resolution and enum-value JSON/CSV validation are
+  implemented in the current worktree and pass focused input/module tests.
+  The helper probe records parity separately; no emitter behavior is claimed.
 - Unknown or newly added AST node kinds fail closed. No unsupported construct
   is silently omitted, approximated, or emitted as `any` without explicit
   contract disposition.
@@ -77,11 +77,11 @@ adds no product behavior and authorizes no release or package action.
 - The helper package subpath is stable, narrow, documented, versioned, and
   compatible with current package entry points. The existing absence of a
   root `exports` map is addressed without accidental deep-import breakage.
-- The S121 helper/API contract checkpoint is accepted for the S122 entry gate.
-  S122 still requires separate implementation authorization. Its real public
-  helper, plus the enum-input prerequisite, must exist before the exact
-  separately approved S121 probe; private imports and copied helpers are not
-  substitutes. S121 final closeout follows that probe.
+- The S121 helper/API contract checkpoint is accepted. The authorized helper
+  slice and enum prerequisite are implemented in this worktree; full S122
+  completion remains separately gated. The approved S121 probe used the real
+  public helper, with no private imports in generated fixture code. Final S121
+  disposition remains pending evidence review.
 
 ## Modules, Errors, and Destinations
 
@@ -107,9 +107,8 @@ adds no product behavior and authorizes no release or package action.
   for invalid documents.
 - The mandatory helper-boundary cases cover one imported module, one
   measurement, one caller-supplied input with invalid-input rejection, and one
-  shown structured view. Run them against the actual public helper after S122
-  and the enum-input prerequisite, using a separately approved exact plan;
-  string inspection is insufficient.
+  shown structured view. The separately approved run-01 probe exercised these
+  against the public helper; string inspection alone is insufficient.
 - Generated `run(inputs).exports` and `run(inputs).views` are compared with
   the AMX runtime for identical sources and inputs. Exact comparisons and
   floating tolerances are declared per field; first mismatch is source/case

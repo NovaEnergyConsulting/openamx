@@ -87,6 +87,37 @@ describe('Sprint 036 in-memory input validation', () => {
   });
 });
 
+describe('AMX enum input validation', () => {
+  it('validates JSON enum members recursively and applies enum defaults', () => {
+    const enumDocument = parseDocumentText('```amx\nexport enum Status = {\n  READY = "ready",\n  FAILED = "failed"\n}\n```\n');
+    const enums = checkDocument(enumDocument).exportedEnums;
+    const statements = parseStatements('type Row {\n  status: Status = Status.READY\n}\ninput rows: Row[]');
+    const declaration = statements.find((statement): statement is InputDeclarationNode => statement.type === 'inputDeclaration')!;
+    const types = new Map(statements.filter((statement): statement is TypeDeclarationNode => statement.type === 'typeDeclaration').map(type => [type.name, type]));
+
+    expect(validateInputText('[{"status":"ready"}]', 'json', declaration, types, 'aggregate', {}, undefined, enums))
+      .toEqual({ value: [{ status: 'ready' }], diagnostics: [] });
+    expect(validateInputText('[{"status":"unknown"}]', 'json', declaration, types, 'aggregate', {}, undefined, enums).diagnostics[0])
+      .toMatchObject({ code: 'AMX4003', dataPath: '/0/status', expected: 'Status' });
+    expect(validateInputText('[{}]', 'json', declaration, types, 'aggregate', {}, undefined, enums))
+      .toEqual({ value: [{ status: 'ready' }], diagnostics: [] });
+  });
+
+  it('validates CSV enum record fields using their resolved primitive values', () => {
+    const enumDocument = parseDocumentText('```amx\nexport enum Status = {\n  READY = "ready",\n  FAILED = "failed"\n}\n```\n');
+    const enums = checkDocument(enumDocument).exportedEnums;
+    const statements = parseStatements('type Row {\n  status: Status\n}\ninput rows: Row[]');
+    const declaration = statements.find((statement): statement is InputDeclarationNode => statement.type === 'inputDeclaration')!;
+    const types = new Map(statements.filter((statement): statement is TypeDeclarationNode => statement.type === 'typeDeclaration').map(type => [type.name, type]));
+
+    expect(describeInputSchema(declaration, types, undefined, enums).acceptedFormats).toEqual(['json', 'csv']);
+    expect(validateInputText('status\nready\n', 'csv', declaration, types, 'aggregate', {}, undefined, enums))
+      .toEqual({ value: [{ status: 'ready' }], diagnostics: [] });
+    expect(validateInputText('status\nunknown\n', 'csv', declaration, types, 'aggregate', {}, undefined, enums).diagnostics[0])
+      .toMatchObject({ code: 'AMX4003', dataPath: 'record[1].status', expected: 'Status' });
+  });
+});
+
 async function captureError(promise: Promise<unknown>): Promise<AmxError> {
   try {
     await promise;

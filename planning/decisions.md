@@ -8,15 +8,18 @@
 - D121-15 places shown table/chart snapshots and distinct declaration-time
   diagram DTOs in `result.views`, ordered by module and source/evaluation
   order. It does not add `show` support for diagrams.
-- D121-16 requires a separately authorized AMX runtime enum-input validation
-  prerequisite before helper/parity execution; S121 remains planning-only.
-- D121-17 approves the helper-first sequence: S122 may be separately
-  authorized after the S121 helper/API contract checkpoint; the actual S121
-  probe and final closeout follow once the public helper exists.
+- D121-16 was amended on 2026-11-25 to include enum names as named type
+  references plus exact resolved-member validation in recursive JSON and CSV
+  record inputs. The checker/runtime prerequisite was implemented under the
+  separately approved helper slice and its focused tests pass.
+- D121-17 approved the helper-first sequence. The approved minimal public
+  helper slice and run-01 S121 probe are complete; the probe matched exports
+  and ordered chart/diagram views against the reference AMX runtime.
 - D121-18 accepts best-effort graph rollback with per-path reporting and an
   explicit residual that multi-file publication is not crash-atomic.
-- These are contract decisions, not the final S121 sprint disposition. Probe
-  execution, S122/S123 implementation, release, and package/platform actions
+- The product owner ACCEPTED/CLOSED WITH RECORDED RESIDUALS Sprint 121 on
+  2026-11-25. This closes only the S121 contract/feasibility scope. Full S122
+  helper completion, S123 emitter work, release, and package/platform actions
   remain separately gated and unauthorized.
 
 ## V0.18 Sprint 114 and Version Closeout (2026-11-01)

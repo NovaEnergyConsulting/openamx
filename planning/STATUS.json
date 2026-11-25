@@ -1,5 +1,5 @@
 {
-  "phase": "blocked",
+  "phase": "completed",
   "sprint": "121",
-  "note": "S120 was ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-11-21; preserve raw VS Code 21/8, passing V0.19-specific rows, and native/platform BLOCKED/UNAVAILABLE. S121 contract checkpoint and D121-01..18 product decisions accepted on 2026-11-25; final feasibility evidence and closeout remain pending. S122 helper implementation requires separate authorization and the enum-input runtime prerequisite; the S121 probe requires the actual public helper and separate exact approval. S123 remains blocked. No implementation, release, package/version, deployment, or certification authority follows."
+  "note": "S120 remains ACCEPTED/CLOSED WITH RECORDED RESIDUALS; preserve raw VS Code 21/8, passing V0.19-specific rows, and native/platform BLOCKED/UNAVAILABLE. Sprint 121 was ACCEPTED/CLOSED WITH RECORDED RESIDUALS by the product owner on 2026-11-25 after the approved public-helper probe and focused enum-input validation passed. Multi-file publication remains best-effort and not crash-atomic; full emitter, CLI/desktop, rendered, native/platform, and release acceptance were not established. Full S122 helper completion and S123 emitter implementation remain independently gated."
 }

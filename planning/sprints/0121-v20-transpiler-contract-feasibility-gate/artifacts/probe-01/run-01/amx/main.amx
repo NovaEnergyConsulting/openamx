@@ -1,0 +1,32 @@
+# S121 helper-boundary probe
+
+```amx
+import { twice } from "./helpers.amx"
+input amount: Number
+
+dimension Length
+unit meter: Length
+unit kilometer = 1000 * meter
+
+export let doubled: Number = twice(amount)
+let distance: Length = 1 kilometer
+export let inMeters: Length = distance in meter
+export let sameDistance: Boolean = distance == 1000 meter
+
+let values: Number[] = [2, 4]
+chart sample = column(values) {
+  title: "Sample"
+  description: "Sample values"
+  showTable true
+  series "Value"
+}
+show sample
+
+diagram empty {
+  title: "Empty"
+  description: "No authored elements"
+  width: 10
+  height: 10
+  time t from 0 to 1 duration 1
+}
+```
