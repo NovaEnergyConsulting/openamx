@@ -14,15 +14,34 @@ Notation: **TS** means native TypeScript is behaviorally equivalent;
 implementation. All expression lowering uses checked types, bindings, module
 identity, and source order from the validated module graph.
 
+## Union Inventory at This Source Baseline
+
+| Union | Current leaf members | Mapping coverage |
+| --- | ---: | --- |
+| `DocumentNode` | 3 | `NarrativeNode`, `VariableDeclarationNode`, `ExecutableCodeBlockNode` |
+| `StatementNode` | 20 | All 20 statement forms below |
+| `ExpressionNode` | 14 | Shared expression forms below; this alias excludes null, match, range, and for expressions |
+| `V02ExpressionNode` | 21 | The 14 `ExpressionNode` forms plus `MatchExpressionNode`, `RangeExpressionNode`, `ForExpressionNode`, `NullLiteralNode`, `RecordConstructorNode`, `FieldAccessNode`, and `ListAccessNode` |
+| `TypeReferenceNode` | 3 | `namedType`, `listType`, and `nullableType` |
+| `FunctionBodyNode` | 2 | `expression` and `statements` |
+| `VisualizationOptionNode` | 6 | All six option node forms below |
+| `DiagramContentNode` | 3 | `DiagramElementNode`, `DiagramForBlockNode`, and `DiagramIfBlockNode` |
+
+`ExpressionNode` is an alias subset of `V02ExpressionNode`, not a second set
+of lowering rules. `MatchCaseNode.value` uses the already-mapped number,
+string, and Boolean literal forms. The counts are to be rechecked against
+`src/ast/types.ts` at the authorized execution baseline; a changed count is a
+mapping discrepancy, not an accepted extension.
+
 ## Document and Type Nodes
 
 | AST form | Candidate lowering | Required contract / fixture |
 | --- | --- | --- |
 | `NarrativeNode` | One inert TypeScript line comment per source line; never executable output. | Newline normalization, blank-line and comment-prefix encoding; `GOLD-COMMENT-01` |
-| `OpenAmxDocument.metadata` / raw frontmatter | Metadata values may inform generated document metadata only if required; preserving source spelling/comments requires original source text because the parser keeps only parsed YAML values. | Disposition D121-13 and fixture `GOLD-FRONTMATTER-01`; no source-fidelity claim from metadata alone. |
+| `OpenAmxDocument.metadata` / raw frontmatter | Candidate: carry original source text in a per-module source envelope and emit the raw frontmatter prefix as inert comments before body nodes. Parsed metadata is not a source-fidelity substitute. | D121-13 owner disposition and fixture `GOLD-FRONTMATTER-01`; no source-fidelity claim from metadata alone. |
 | `VariableDeclarationNode` | Typed `const` for immutable `let`; only use `let` where AMX mutation/reassignment semantics require it. Preserve `exported`. | Initialization order and binding mutability; `GOLD-AST-BINDING-01` |
 | `ExecutableCodeBlockNode` | Lower all contained statements in document order; retain block/source identity only for diagnostics, not runtime behavior. | Cross-fence shared environment and order; `GOLD-AST-DOC-01` |
-| `TypeReferenceNode: namedType` | `Number -> number`, `String -> string`, `Boolean -> boolean`, `DateTime -> AMXDateTime`; records/enums resolve to generated declarations; dimensions resolve to branded `AMXMeasurement<DimensionId>`. | Type namespace/name collisions and DateTime representation; `GOLD-AST-TYPE-01` |
+| `TypeReferenceNode: namedType` | `Number -> number`, `String -> string`, `Boolean -> boolean`, `DateTime -> string`; records/enums resolve to generated declarations; dimensions resolve to branded `AMXMeasurement<DimensionId>`. | DateTime keeps the runtime's RFC 3339 string representation; dimension identity and type-name collisions; `GOLD-AST-TYPE-01` |
 | `TypeReferenceNode: listType` | Mutable AMX list type with element type; generated public signatures may be readonly only where no mutation can escape. | Runtime helper/list representation; `GOLD-AST-LIST-01` |
 | `TypeReferenceNode: nullableType` | `T | null`; preserve nested nullable/list structure. | Null assignability and generated input checks; `GOLD-AST-TYPE-01` |
 | `TypeDeclarationNode` | Generated record interface; preserve parent interfaces and optional fields. Use resolved declared fields without duplicating inherited members. | Inheritance, override/default, structural compatibility; `GOLD-AST-TYPE-01` |
@@ -54,13 +73,13 @@ identity, and source order from the validated module graph.
 | `ReturnStatementNode` | Native return of the lowered expression. | Checker-approved reachability/result; `GOLD-AST-FUNCTION-01` |
 | `TableDeclarationNode` | Build renderer-independent table declaration/data through helper; do not render markup. | Field/column order, labels, nulls; `GOLD-AST-TABLE-01` |
 | `ChartDeclarationNode` | Build structured chart view data through helper; evaluate `showTable` at AMX snapshot timing and preserve resolved value. | Chart kind, data, units, selected table data; `GOLD-AST-CHART-01` |
-| `DiagramDeclarationNode` | Build structured scene/timeline data through helper, retaining recursive content, bindings, and deterministic order. | Diagram controls and serialization-safe DTO; `GOLD-AST-DIAGRAM-01` |
+| `DiagramDeclarationNode` | Build structured scene/timeline data through helper, retaining recursive content, bindings, and deterministic order. Whether this declaration-time emission belongs in `run().views` is blocked by D121-15. | Diagram controls and serialization-safe DTO; `GOLD-AST-DIAGRAM-01`; D121-15 |
 | `DiagramElementNode` | Typed primitive descriptor passed to the diagram builder. | Supported primitive/property validation; `GOLD-AST-DIAGRAM-01` |
 | `DiagramForBlockNode` | Helper-backed ordered expansion with scoped iterator binding. | Same expansion/frame semantics as AMX runtime; `GOLD-AST-DIAGRAM-01` |
 | `DiagramIfBlockNode` | Evaluate condition once and preserve selected branch/order. | Alternate/empty branch semantics; `GOLD-AST-DIAGRAM-01` |
 | `DiagramPropertyNode` | Typed property value in stable declaration order. | Value type and source diagnostics; `GOLD-AST-DIAGRAM-01` |
 | `DiagramTimeNode` | Typed timeline descriptor with unit-aware bounds/duration. | Measurement values and exact frame semantics; `GOLD-AST-DIAGRAM-01` |
-| `ShowStatementNode` | Capture the referenced table/chart/diagram as a structured snapshot appended to `views` in source order. | Repeated show and intervening mutation behavior; `GOLD-VIEW-01` |
+| `ShowStatementNode` | Capture a referenced table/chart as a structured snapshot appended to `views` in source order. Current checker showability excludes diagrams; D121-15 blocks the result contract for declaration-time diagram emissions. | Repeated show and intervening mutation behavior; `GOLD-VIEW-01`; D121-15 |
 | `VisualizationOptionNode` | Type-specific field/series/title/description helper data; reject invalid option-kind combinations before emission. | Stable option order and checked fields; `GOLD-AST-TABLE-01` and `GOLD-AST-CHART-01` |
 | `ViewTitleOptionNode` | Store the literal title in the corresponding structured view declaration. | Default title and source order; `GOLD-AST-TABLE-01` and `GOLD-AST-CHART-01` |
 | `ViewDescriptionOptionNode` | Store the literal description in the corresponding structured view declaration. | Default description and source order; `GOLD-AST-TABLE-01` and `GOLD-AST-CHART-01` |
@@ -112,6 +131,19 @@ identity, and source order from the validated module graph.
 - `result.views` includes structured data selected by `show` only. Rendered
   ECharts options, HTML, PDF, DOCX, and renderer accessibility markup are not
   part of the generated runtime contract.
+
+## Source-Observed Contract Blockers
+
+- `DateTime` is a string in the current evaluator and input boundary; the input
+  validator checks RFC 3339 text. Do not invent a runtime `AMXDateTime` object.
+- The checker registers only tables and charts as showable views. A diagram
+  declaration creates a separate runtime diagram emission immediately. The
+  master-plan `{ exports, views }` wording does not settle whether this
+  declaration-time data belongs in `views`; D121-15 requires product-owner
+  disposition before its row can be finalized.
+- Enum type annotations resolve in the checker, but current input loading does
+  not pass enum declarations to the value converter. D121-16 blocks a claim
+  that enum inputs already have a compatible runtime validation contract.
 
 ## Reconciliation Checklist
 

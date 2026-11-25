@@ -33,19 +33,40 @@ disposition; CLI/desktop implementation remains assigned to later sprints.
 - Candidate CLI shape: `openamx transpile <entry.amx> --out-dir <directory>`.
   Require an explicit destination. Any optional import-root flag must match
   the loader's containment semantics and be settled during S121.
+- CLI overwrite is opt-in through an explicit `--overwrite` flag; without it,
+  any existing graph target is a refusal. Desktop selects an output directory
+  for the complete graph and confirms the complete set of existing target
+  files before publication. Do not treat the current single-file destination
+  selection as an already implemented graph-directory workflow.
 - Precompute all output paths and detect duplicate/normalized/case-folded
   collisions before writing. Include Windows case-insensitive collisions in
   tests even when the active host is case-sensitive.
 - Default behavior refuses any existing destination file and writes nothing.
-  CLI replacement requires an explicit `--overwrite` confirmation in
-  noninteractive use; interactive execution may prompt. Desktop export uses
-  the existing destination picker, confirmation, and cancellation patterns.
+  Desktop graph confirmation is one decision for the complete set of conflicts;
+  cancelling destination selection or confirmation leaves existing destination
+  contents unchanged and creates no generated target files.
 - Validate the whole graph before output. Parse/type/collision/cancel failures
   must not leave new `.ts` files that look like a successful graph. Stage the
   complete graph before publishing; define and test rollback/preservation if
   final filesystem publication fails.
 - Never overwrite unrelated files in the output directory. Only replace files
   whose exact generated destination is part of the confirmed graph.
+
+## Candidate Publication-Failure Contract
+
+- Complete parsing, typechecking, module validation, path mapping, collision
+  checks, and overwrite confirmation before creating staged output.
+- Stage every generated module on the destination filesystem. Publish the
+  graph only after all staged files are complete. Preserve backups for existing
+  graph-owned targets until publication succeeds; do not touch unrelated files.
+- If a publish operation fails, attempt to restore replaced targets and remove
+  newly published targets. Return failure with a per-path record of staged,
+  published, restored, and unrecovered files; never return a success-shaped
+  entry path.
+- This protocol does not claim crash-atomic multi-file replacement. A process
+  or host failure during sequential renames can expose an incomplete graph;
+  rollback itself can also fail. D121-18 blocks acceptance until the product
+  owner accepts this residual or chooses a stronger platform-bounded contract.
 
 ## Diagnostics
 
@@ -93,6 +114,9 @@ disposition; CLI/desktop implementation remains assigned to later sprints.
   destination, and cycle rejection.
 - Existing target file with default refusal, explicit overwrite, cancellation,
   and preservation of unrelated output files.
+- Injected failure during multi-file publication, verifying rollback and exact
+  per-path failure reporting; document any filesystem limitation instead of
+  claiming graph-wide atomicity.
 - Windows case-fold collisions, separator normalization, and symlink/canonical
   path behavior where the test host supports them.
 - Parse/type failure after a valid earlier module; assert no partial graph.

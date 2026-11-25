@@ -54,8 +54,12 @@ separately dispositioned. Confirmed V0.20 requirements remain fixed.
 | D121-10 | Runtime input validation | Revalidate caller values at runtime against declared AMX types and unit dimensions; errors identify input path and expected type. Decide unknown-key and enum/record edge behavior from current validation semantics. | S121/S122 |
 | D121-11 | Numeric parity | Preserve JavaScript Number evaluation order; compare floating results with explicit tolerances only where exact equality is not a language guarantee. | S121 contract gate |
 | D121-12 | Diagnostic identity | Preserve existing parser/checker diagnostics; allocate any new transpile/output code through the project owner. Do not invent stable codes in the package. | Lead Developer allocator |
-| D121-13 | Frontmatter fidelity | Current parsing retains parsed metadata but not raw YAML/frontmatter text. Decide whether the core API carries source text or whether the preservation boundary is narrowed; do not claim fidelity while source bytes are unavailable. | S121 contract gate |
+| D121-13 | Frontmatter fidelity | Candidate: carry the original source text alongside each parsed module and emit the raw frontmatter prefix as inert comments before body nodes. Do not serialize parsed metadata as a substitute or narrow preservation. | S121 contract gate |
 | D121-14 | Generated-name isolation | Mangle all AMX declarations to deterministic collision-checked internal TypeScript names; reserve stable top-level `run` and `AMXRun*` API names. Preserve original names as object keys and module-visible AMX exports. | S121 contract gate |
+| D121-15 | Diagram result semantics | The checker permits `show` only for table/chart declarations; runtime diagrams are emitted when declared into a separate `diagramEmissions` collection. This conflicts with a `{ exports, views }` result described as shown report/diagram data. Do not infer whether diagrams belong in `views`, a separate result field, or a show operation. | Product owner |
+| D121-16 | Enum input validation | The checker resolves enum annotations, but the existing input loader passes record declarations only and the JSON converter treats an enum name as an unknown record type. Decide whether enum inputs are a blocking unsupported case or require a separately scoped runtime-semantic change. | Product owner |
+| D121-17 | Helper-boundary probe prerequisite | `openamx/transpiler-runtime` does not exist, the root package has no export map, and `src/index.ts` is a placeholder. A probe cannot exercise the proposed public helper boundary without a separately approved isolated helper prototype or an implementation-sequence decision; private engine imports and hand-copied helper behavior are not acceptable substitutes. | Product owner |
+| D121-18 | Multi-file publication failure | Existing CLI/desktop writers atomically replace one file, not a module graph. Candidate staging and rollback are described in `module-graph-and-diagnostics.md`; decide whether best-effort rollback with explicit per-path failure reporting is acceptable or stronger graph-level atomicity is required. | Product owner |
 
 ## Source-Grounded Constraints
 
@@ -74,11 +78,24 @@ separately dispositioned. Confirmed V0.20 requirements remain fixed.
 - `src/runtime/measurement.ts` centralizes affine conversion and measurement
   value semantics. Generated code must call accepted public helpers rather
   than reproducing those rules independently.
+- `DateTime` values are represented as strings; `src/runtime/inputData.ts`
+  validates the RFC 3339 form and the typed-record example documents that the
+  supplied text is retained. The candidate `AMXDateTime` object mapping is not
+  source-grounded.
+- `checkDocument.ts` stores showable declarations in a
+  `Map<string, TableDeclarationNode | ChartDeclarationNode>` and validates
+  `show` against that map. `evaluateExpression.ts` appends those snapshots to
+  `viewEmissions`; diagram declarations instead create `DiagramSceneModel`
+  values in `diagramEmissions`. D121-15 is blocking.
+- `checkDocument.ts` resolves enum names as named types, while
+  `moduleLoader.ts` passes only record declarations into `loadInputValues`;
+  `inputData.ts` has no enum conversion path. D121-16 is blocking.
 - `src/runtime/moduleLoader.ts` canonicalizes imports, enforces import-root
   containment, detects cycles, and evaluates dependencies before importers.
   Transpilation must preserve those rules without executing generated output.
 - The root package has no export map today. Adding a helper subpath must not
-  accidentally hide existing supported entry points or CLI behavior.
+  accidentally hide existing supported entry points or CLI behavior. The
+  proposed helper package path is not available at this baseline; see D121-17.
 
 ## Required Sprint Artifacts
 

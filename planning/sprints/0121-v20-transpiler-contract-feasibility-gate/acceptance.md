@@ -24,6 +24,9 @@ adds no product behavior and authorizes no release or package action.
   `V02ExpressionNode`, `ExpressionNode`, `TypeReferenceNode`, visualization
   options, and recursive diagram content appears exactly once in
   `ast-typescript-mapping.md` or is explicitly shared by a documented alias.
+  The source-baseline counts are 3 document, 20 statement, 14 expression,
+  21 V02 expression, 3 type-reference, 2 function-body, 6 visualization
+  option, and 3 recursive diagram-content members.
 - Every mapping row specifies emitted TypeScript/helper behavior, checked
   type/context needed, and a stable golden fixture ID or a blocking question.
 - Lists preserve 1-based AMX indexing, mutation, insertion/removal, and
@@ -31,8 +34,13 @@ adds no product behavior and authorizes no release or package action.
   comparisons, display units, and accepted aggregate/builtin behavior.
 - Imports/exports preserve visibility, source ordering, entry-only inputs,
   module identities, cycle/containment checks, and explicit export semantics.
-- Tables, charts, and recursive diagrams produce renderer-independent data;
-  only executed `show` statements add snapshots to `result.views`.
+- Tables, charts, and recursive diagrams produce renderer-independent data.
+  The source baseline permits `show` only for tables/charts and emits diagrams
+  at declaration time into a separate collection; D121-15 blocks acceptance
+  until the product owner resolves how that behavior maps to `result.views`.
+- D121-16 is dispositioned: checker-accepted enum input annotations currently
+  lack a corresponding runtime input-conversion path. No new enum input
+  semantics may be inferred by the Builder.
 - Unknown or newly added AST node kinds fail closed. No unsupported construct
   is silently omitted, approximated, or emitted as `any` without explicit
   contract disposition.
@@ -52,6 +60,9 @@ adds no product behavior and authorizes no release or package action.
 - Generated declarations cover all supported primitives, nullability,
   lists, records/inheritance, enums, functions, dimensions/units, inputs, and
   view data with useful types and no unbounded `any` escape hatch.
+- `DateTime` maps to its current string representation with RFC 3339 runtime
+  validation; generated input validation rejects unknown keys and preserves
+  current nested-record default, optional, and nullable behavior.
 - AMX source names are deterministically mangled into collision-checked
   internal identifiers; stable public `run` and `AMXRun*` names cannot shadow
   user declarations, and original AMX names remain visible in result keys and
@@ -65,6 +76,9 @@ adds no product behavior and authorizes no release or package action.
 - The helper package subpath is stable, narrow, documented, versioned, and
   compatible with current package entry points. The existing absence of a
   root `exports` map is addressed without accidental deep-import breakage.
+- D121-17 is dispositioned before the feasibility probe: the proposed helper
+  subpath is absent at this baseline, so a probe must not substitute private
+  engine imports or hand-copied helper behavior.
 
 ## Modules, Errors, and Destinations
 
@@ -76,6 +90,9 @@ adds no product behavior and authorizes no release or package action.
 - Existing files are never silently overwritten. Confirmation/explicit
   overwrite and cancellation behavior is defined for CLI and desktop use; a
   rejected/cancelled graph write leaves no partial success-shaped output.
+- D121-18 is dispositioned: multi-file publication failure has a tested
+  rollback/reporting contract or an explicitly accepted filesystem residual;
+  graph-wide crash atomicity is not claimed without evidence.
 - Parse/type errors retain source path and range and block emission. Emitter
   and destination diagnostics have an allocated identity or are clearly
   marked pending allocation; no invented stable code is claimed.
@@ -98,6 +115,11 @@ adds no product behavior and authorizes no release or package action.
   recorded and resolved.
 - `D121-13` is dispositioned; S123 has an unambiguous source-text input for
   every required comment, including any frontmatter in scope.
+- D121-15, D121-16, and D121-17 have explicit product-owner dispositions;
+  unresolved diagram or enum-input semantics block acceptance rather than
+  being treated as Builder implementation details.
+- D121-18 has a separate owner disposition for the documented multi-file
+  publication-failure behavior.
 - Probe evidence is isolated and does not change tracked product sources,
   tests, package manifests, generated output, or previous sprint artifacts.
 
