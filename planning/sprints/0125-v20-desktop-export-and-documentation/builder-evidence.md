@@ -16,7 +16,12 @@ gates pass. The full desktop `bun run test` remains FAIL on an unrelated,
 timing-sensitive report-export RPC poll; native WebView/cross-platform
 acceptance is unavailable. See raw rows below.
 
-**Separate Product Owner disposition:** PENDING.
+**Separate Product Owner disposition:** ACCEPTED/CLOSED WITH RECORDED
+RESIDUALS on 2026-11-27, recorded by Carlos Gamez. The disposition accepts only the authorized S125
+desktop graph export and additive documentation/example scope. It does not
+upgrade any raw failure, blocked/unavailable row, G123 status, or G124 NOT RUN
+status, and grants no S126, release, package/version, publication, deployment,
+distribution, certification, native WebView, or cross-platform authority.
 
 ## Entry and Baseline
 
@@ -27,6 +32,7 @@ acceptance is unavailable. See raw rows below.
 | S123 disposition/residuals | Accepted/closed with recorded residuals on 2026-11-26; preserve `S123-RETRY-STOP-01` raw FAIL and every G123 status below. | PASS |
 | S124 disposition/residuals | Accepted/closed with recorded residuals on 2026-11-26; preserve `S124-RETRY-STOP-01` raw FAIL, G124 cancellation/crash NOT RUN, and D121-18. | PASS |
 | Baseline/worktree | Clean `feat/create-V0.20.0`, commit `778504b50c1d8e8cf183e6920f95ad7b047f6069`, 2026-11-26. Windows PowerShell 5.1.26100.9818; Bun 1.4.5; TypeScript 5.9.3; Git 2.56.1.windows.1; Node.js 24.13.1; package 0.19.0; lock `bun.lock`. | PASS |
+| S125 implementation commit | `5869c2d09ec9f98847a33a0ab3760c51525f929c`, parent `778504b50c1d8e8cf183e6920f95ad7b047f6069`; authored/committed by Carlos Gamez on 2026-11-27. No package/version/release changes. | PASS |
 | S125 authorization | Product Owner approved exact scope/allowlist, API extensions, 100-module/32,000,000-byte payload limit, existing-directory selection, exact graph conflict prompt, commands, Windows Vite/native route classification, artifact root, `dist` preservation, no retry cap, and cleanup. | PASS |
 | Root `dist` and renderer preservation | Original root `dist`: 196 files / 1,661,955 bytes; baseline manifest SHA-256 `B32F176F487EBF3327C9FF757DC7AFBA1F15AD56F96DDF67A13564A32A80E22B`. Restored with zero path/length/hash differences. Renderer restored to `582919DC1148DDA3B803C2901BBB676501D3AF38091719349C80FBBFB43C6116`. | PASS |
 | Desktop generated output preservation | `desktop-app/dist`: 75 files / 33,519,303 bytes; baseline manifest SHA-256 `CA75539D034351E7D2128BB901E1A78728A32EF8BC461EBB15103E4A922B53B7`; final manifest comparison has zero differences. `desktop-app/artifacts/` and `desktop-app/test-results/` were not cleaned. | PASS |
@@ -227,7 +233,9 @@ best-effort/non-crash-atomic; D122-15 remains enum-default no-parity.
   export and additive docs/example scope; cite the full desktop suite failure,
   Measurement probe residual, native-unavailable status, and carried S121-S124
   rows.
-- **Product Owner disposition:** PENDING; record separately with date/scope.
+- **Product Owner disposition:** ACCEPTED/CLOSED WITH RECORDED RESIDUALS by
+  Carlos Gamez on 2026-11-27 for S125 scope only. All raw failures and carried
+  residuals remain as listed above.
 - **S126 readiness:** PENDING on S125 accepted scope and separate S126
   integrated acceptance authorization.
 - **Release/package/platform authority:** NONE.
