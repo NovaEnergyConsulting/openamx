@@ -1,38 +1,24 @@
 # Sprint 123 Blueprint: V0.20 Core Document and AST Emitter
 
-## Approach
+## Closeout/Replan Approach
 
-1. Verify the S122 accepted disposition, its D122-15 enum-default residual,
-   and the exact built helper signatures. Verify S121 final feasibility
-   closeout is accepted; until then S123 execution remains BLOCKED.
-2. Record the approved baseline, worktree, output roots, and exact changed
-   files. Preserve existing `dist`, generated renderer assets, S121/S122
-   artifacts, and user changes.
-3. Resolve D123-01 input boundary, D123-02 graph boundary, and D123-03 meaning
-   of public `src/index.ts` exposure before implementation. Keep the emitter
-   side-effect-free and separate from S124 filesystem/CLI work.
-4. Audit the S121 AST inventory against current `src/ast/types.ts`; reconcile
-   every discriminant and accepted helper API. Fail closed for any node added
-   since S121 until a new mapped case is dispositioned.
-5. Implement a source-envelope-preserving module emitter. Carry original
-   module source text and parsed AST together; emit frontmatter and narrative
-   comments safely; lower AMX fences in document order.
-6. Lower all expressions/statements/types and views to typed TypeScript.
-   Use `openamx/transpiler-runtime` only for semantic differences and runtime
-   input/data/view behavior. Record per-node helper mapping in
-   `ast-lowering-contract.md`.
-7. Generate the typed entry wrapper and result views. Emit table/chart
-   snapshots for `show`, declaration-time `structured-v2` diagram DTOs, and
-   explicit exports only.
-8. Add exact golden fixtures and reference-runtime parity tests. Strictly
-   compile and execute generated TS; compare values, errors, exports and view
-   order with the AMX oracle. Keep D122-15 out of AMX parity assertions.
-9. Verify parse/type errors reject emission, source diagnostics retain module
-   and location, and deterministic output hashes do not depend on checkout
-   path/time/locale.
-10. Complete verification and Builder evidence with raw outcomes, first
-    failures/retries, generated artifacts, preservation audit, residuals and
-    recommendation. Submit for separate product-owner disposition.
+1. Preserve the committed implementation baseline and all `run-01` evidence.
+   Do not rewrite raw failures or generated artifacts.
+2. Obtain a separate Product Owner disposition for `S123-RETRY-STOP-01` and
+   approval of the closeout-only verification plan before running commands.
+3. Reconcile every current AST discriminant and `G123-*` row to an actual test,
+   parity result, or explicit `BLOCKED/UNAVAILABLE` status. Keep incomplete
+   rows visible; do not infer acceptance from the broad parity fixture.
+4. Audit generated imports against the committed S122 public declarations and
+   verify that only `openamx/transpiler-runtime` is imported by generated code.
+5. Run the exact approved closeout suite, root typecheck, strict generated
+   compile, oracle, build and preservation check. Store new run output under a
+   fresh `artifacts/run-02/`; preserve `run-01/` unchanged.
+6. If a closeout check fails, follow only the newly approved retry cap and
+   stop immediately at the cap. Any additional implementation scope or file
+   path requires a separate disposition.
+7. Complete Builder evidence and submit a recommendation for separate Product
+   Owner disposition. S124/S125 remain separately gated.
 
 ## Decision Register
 
@@ -42,19 +28,19 @@ accepted S121/S122 decisions.
 
 | ID | Topic | Approved disposition | Scope owner |
 | --- | --- | --- | --- |
-| D123-01 | Emitter API input | Candidate pure API consumes an entry and complete pre-resolved in-memory source graph `{ entryModuleId, modules }`, where each module carries original source, canonical identity, output-relative path, and resolved import mapping. It returns the complete generated module graph or diagnostics. No AST/checker internal type leaks through the public signature. | S123 contract gate |
-| D123-02 | Module boundary | S123 parses/checks and emits the supplied graph in dependency-first order. It may validate graph IDs/import mapping/cycles in memory, but performs no filesystem discovery, containment checks, output writes or rollback. S124 owns filesystem graph resolution and CLI. | S123/S124 |
-| D123-03 | Public API exposure | `src/index.ts` exports the agreed typed transpile function/types. Decide whether this is an in-repository core API or requires a `.` package export; do not change `package.json` without separate owner approval. | Product owner / S123 |
-| D123-04 | Source representation | The public/internal boundary carries original source per module with parsed document. Use accepted S121 normalized comment encoder for frontmatter and narrative; never reconstruct source from `metadata` or node text. | S123 contract gate |
-| D123-05 | Checked type context | Emitter receives a minimal immutable semantic context derived from `checkDocument`/S121 module graph. No direct import of checker runtime APIs in generated output; internal adapter may use checker result. | S123 contract gate |
-| D123-06 | Operator lowering | Use `amxBinary`/`amxUnary` for all operations where behavior differs; native syntax only when exact equivalence is proven. Preserve eager, left-to-right logical operands. | S123 contract gate |
-| D123-07 | Views | Use S122 DTO constructors; table/chart snapshots occur only on `show`; diagrams use `structured-v2` constructor at declaration time, never AMX `show`. | S123 contract gate |
-| D123-08 | Identifier mangling | Stable reversible name mapping; collision-check locals, imports, generated API names and helper aliases. Keep source AMX names in `exports` object keys. | S123 contract gate |
-| D123-09 | Invalid enum defaults | Lower only checker-accepted defaults and validate their runtime descriptors; preserve D122-15 no-parity residual for enum-valued defaults unavailable in AMX source. | S123 contract gate |
-| D123-10 | Diagnostic shape | Preserve parser/typechecker errors; return or throw the accepted source-oriented diagnostic contract without invented codes. Any emitter-specific stable ID needs allocation. | Lead Developer allocator |
-| D123-11 | No partial module code | API returns no code on parse/type/lowering failure; do not claim graph-wide atomic output, which belongs to S124 and retains D121-18 residual. | S123 contract gate |
-| D123-12 | Generated code reproducibility | LF output, deterministic imports/names/property order; no absolute source roots, time, locale or random IDs. | S123 contract gate |
-| D123-13 | Per-run module lifecycle | Each generated module exposes a typed initializer called once per `run(inputs)` in dependency order, returning module exports and appending its view events to shared per-run state. No mutable module binding lives at ESM top level. | S123 contract gate |
+| D123-01 | Emitter API input | Accepted pure API consumes an entry and complete pre-resolved in-memory source graph `{ entryModuleId, modules }`, where each module carries original source, identity, output-relative path, and resolved import mapping. It returns the complete generated module graph or diagnostics. No AST/checker internal type leaks through the public signature. | S123 |
+| D123-02 | Module boundary | Accepted: parse/check/emit the supplied graph in dependency-first order; validate graph identity, mappings, cycles and reachability in memory only. S124 owns filesystem discovery/containment/publication/CLI. | S123/S124 |
+| D123-03 | Public API exposure | Export the typed transpile function/types through `src/index.ts` only. Do not add a package-root `.` export, alter `package.json` exports, or change the version. | S123 |
+| D123-04 | Source representation | Accepted: carry original source per module; preserve raw frontmatter/comments without reconstructing from metadata or AST text. | S123 |
+| D123-05 | Checked type context | Accepted: derive internal semantic context from `checkDocument`; expose no checker/AST internals in generated imports or public signature. | S123 |
+| D123-06 | Operator lowering | Accepted: use S122 helpers when native semantics differ; preserve eager left-to-right logical operand evaluation. | S123 |
+| D123-07 | Views | Accepted: S122 DTO constructors; table/chart snapshots at `show`; structured-v2 diagrams at declaration time, not AMX-showable. | S123 |
+| D123-08 | Identifier mangling | Accepted: deterministic injective mangling; collision-check generated names; preserve original AMX export keys. | S123 |
+| D123-09 | Invalid enum defaults | Accepted: preserve D122-15 no-parity for enum-valued defaults current AMX cannot express. | S123 |
+| D123-10 | Diagnostic shape | Accepted: preserve parser/checker diagnostic identities and source fields; allocate no new codes. | S123 |
+| D123-11 | No partial module code | Accepted: return no modules on parse/type/lowering failure; no graph-publication atomicity claim. D121-18 remains with S124/S125. | S123/S124/S125 |
+| D123-12 | Generated code reproducibility | Accepted: deterministic LF output/imports/names/property order; no absolute roots, time, locale, or random IDs. | S123 |
+| D123-13 | Per-run module lifecycle | Accepted: dependency-first initializers run once per invocation in shared per-run context; repeated `run(inputs)` calls use fresh mutable state. | S123 |
 
 ## Source-Grounded Constraints
 
@@ -77,9 +63,9 @@ accepted S121/S122 decisions.
   `amxIterate`, `amxCopyListArgument`, measurement operations, and view
   constructors. Generated imports must use this subpath only.
 - S121 final feasibility closeout was accepted by the Product Owner on
-   2026-11-25 and is recorded in canonical planning state and S121 Builder
-   evidence. S123 implementation must not begin until applicable D123 decisions
-   and the exact execution plan are separately approved.
+   2026-11-25; D123-01 through D123-13 were approved on 2026-11-26. S123
+   implementation is committed. Closeout remains paused for the retry/stop
+   breach disposition and renewed verification authorization.
 
 ## Required Sprint Artifacts
 

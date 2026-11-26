@@ -2,11 +2,16 @@
 
 ## Document Status
 
-Architect-prepared Sprint 123 package. It defines candidate emitter contracts
-under the accepted V0.20 decisions and the completed S122 helper API. Sprint
-123 execution remains blocked until the exact execution authorization and
-applicable D123 dispositions are recorded. Preparing this package
-does not authorize implementation, release, publication, package/version
+Sprint 123 was accepted and closed with recorded residuals by the Product
+Owner on 2026-11-26. The implementation is committed at
+`257cf3f4d9395b8820a9e4e63e5f2abd310fd481`. D123-01 through D123-13 and the
+original implementation plan were approved. The Product Owner accepted the
+retry/stop-protocol breach as a named process residual. Run-03 verification
+passed its approved focused, typecheck, build, generated compile, oracle,
+diff-check, and preservation gates. Some G123 coverage remains
+`BLOCKED/UNAVAILABLE` or `NOT RUN` and is recorded as accepted residuals in
+the parity matrix and Builder evidence; this closeout does not upgrade those
+raw statuses. This package authorizes no release, publication, package/version
 changes, deployment, or platform certification.
 
 ## Goal
@@ -30,8 +35,9 @@ work to this sprint.
   checker/runtime semantics or claim enum-default AMX parity.
 - S121 product-owner disposition: ACCEPTED/CLOSED WITH RECORDED RESIDUALS for
   the final feasibility closeout on 2026-11-25. The recorded S121 probe and
-  D121-18 residual remain unchanged. S123 execution still requires a separate
-  exact execution authorization and applicable D123 dispositions.
+  D121-18 residual remain unchanged. The S123 implementation plan was later
+  separately approved; the current closeout replan gate is described in
+  `verification-plan.md`.
 - D121-18 residual: multi-file publication rollback is best-effort and not
   crash-atomic; it belongs to S124/S125. S123 performs no graph publication.
 - S122 helper source/API: `src/transpilerRuntime.ts` and

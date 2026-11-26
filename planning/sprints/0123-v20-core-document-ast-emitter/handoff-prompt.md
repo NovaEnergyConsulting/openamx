@@ -19,9 +19,18 @@ You are the Builder for OpenAMX Sprint 123: Core Document and AST Emitter.
   D122-15 no-parity for enum-valued defaults current AMX cannot express, and
   the accepted retry/stop-protocol process residual.
 - S121 final feasibility closeout was accepted by the Product Owner on
-  2026-11-25 with recorded residuals. Do not begin S123 implementation until
-  applicable D123 decisions and the exact S123 execution plan are separately
-  approved.
+  2026-11-25 with recorded residuals. D123-01 through D123-13 and the original
+  S123 implementation plan were subsequently approved; the implementation is
+  committed at `257cf3f4d9395b8820a9e4e63e5f2abd310fd481`.
+- Post-implementation, if the approved retry/stop cap is exceeded, preserve
+  each raw result and stop. A fresh closeout/replan requires separate Product
+  Owner disposition and exact authorization; do not treat an S122 process
+  residual as blanket approval for an S123 protocol breach.
+- Current handoff: the Product Owner accepted and closed S123 with recorded
+  residuals on 2026-11-26 after the approved run-03 tranche. Preserve the raw
+  G123 blockers, compile failures, and accepted process residual in the
+  evidence; do not infer missing coverage or reopen implementation without new
+  authorization.
 - This package is planning, not execution authority. Obtain exact approval for
   baseline/worktree, source/test files, commands, generated fixtures/oracle,
   output roots, build and `dist` preservation, retries/stop protocol, and
@@ -69,7 +78,6 @@ You are the Builder for OpenAMX Sprint 123: Core Document and AST Emitter.
 
 ## Completion
 
-Meet `acceptance.md`, reconcile the full AST and master-plan matrix, and submit
-an evidence-based Builder recommendation for separate Product Owner
-disposition. S124 graph/CLI and S125 desktop/documentation remain separately
-gated.
+S123 is accepted and closed with recorded residuals. The parity matrix and
+Builder evidence preserve the remaining coverage gaps and raw failures.
+S124 graph/CLI and S125 desktop/documentation remain separately gated.

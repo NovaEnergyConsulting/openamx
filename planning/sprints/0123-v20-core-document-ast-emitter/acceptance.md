@@ -1,5 +1,9 @@
 # Sprint 123 Acceptance Criteria
 
+The Product Owner accepted and closed Sprint 123 with recorded residuals on
+2026-11-26. This closeout records the accepted disposition; it does not assert
+that every criterion or G123 row passed.
+
 Sprint 123 is complete only when the core emitter covers every supported
 checked AST family, emits safe source-ordered TypeScript, uses the accepted
 S122 helper API, and passes focused compile/execute parity checks. Recursive
@@ -10,8 +14,9 @@ separate scope.
 
 - Sprint 121 final feasibility closeout was separately ACCEPTED/CLOSED WITH
   RECORDED RESIDUALS by the Product Owner on 2026-11-25. Preserve its raw
-  statuses and D121-18 residual. S123 execution remains BLOCKED until the
-  exact execution plan and applicable D123 decisions are approved.
+  statuses and D121-18 residual. The original S123 execution plan and D123
+  decisions were subsequently approved; the current closeout gate is recorded
+  below.
 - Sprint 122 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-11-25. Keep
   D122-15 enum-default no-parity and retry/stop-protocol residual visible.
 - Exact S123 baseline, worktree, source/test/evidence paths, commands,
@@ -20,6 +25,21 @@ separate scope.
 - V0.20 master plan and accepted S121/S122 decisions are behavior authority.
   Any unresolved D123 item is dispositioned before the corresponding code/API
   is made caller-visible.
+
+## Current Closeout Gate
+
+- S123 was accepted and closed with recorded residuals by the Product Owner
+  on 2026-11-26.
+- The Product Owner accepted the S123 retry-cap breach as a named process
+  residual on 2026-11-26; its raw status remains `FAIL` and is not an S122
+  residual.
+- The approved run-03 tranche passed its focused suite (267/0, 1,302
+  assertions), root typecheck, build, strict generated compile, AMX oracle,
+  `git diff --check`, and `dist`/renderer preservation checks.
+- G123 rows that lack complete direct evidence remain
+  `BLOCKED/UNAVAILABLE` or `NOT RUN` in the parity matrix and are accepted
+  residuals, not implied passes. D122-15 and the S123 retry/stop residual
+  remain unchanged.
 
 ## Core API and Input Boundary
 

@@ -1,0 +1,93 @@
+{
+  "exports": {
+    "distanceMeters": 1.5,
+    "converted": {
+      "__amxMeasurement": true,
+      "value": 150,
+      "unit": {
+        "scale": 0.01,
+        "offset": 0,
+        "vector": { "[\"units.ts\",\"Length\"]": 1 },
+        "factors": [
+          { "identity": "[\"units.ts\",\"centimeter\"]", "name": "centimeter", "exponent": 1 }
+        ],
+        "text": "centimeter"
+      }
+    },
+    "result": 23.5,
+    "summary": "Total 14",
+    "readyExport": true,
+    "distanceMetersAgain": 1.5
+  },
+  "views": [
+    {
+      "kind": "table",
+      "name": "data",
+      "title": "Rows",
+      "description": "",
+      "columns": [
+        { "field": "label", "label": "Label" },
+        { "field": "value", "label": "Value" }
+      ],
+      "rows": [["A", "1 meter"], ["B", "200 centimeter"]]
+    },
+    {
+      "kind": "table",
+      "name": "data",
+      "title": "Rows",
+      "description": "",
+      "columns": [
+        { "field": "label", "label": "Label" },
+        { "field": "value", "label": "Value" }
+      ],
+      "rows": [["A", "1 meter"], ["C", "3 meter"], ["B", "200 centimeter"]]
+    },
+    {
+      "kind": "diagram",
+      "schema": "structured-v2",
+      "name": "scene",
+      "title": "Scene",
+      "description": "Initial frame",
+      "canvas": { "width": 100, "height": 50, "coordinates": "bottom-left-y-up" },
+      "timeline": { "variable": "t", "from": 0, "to": 1, "duration": 1 },
+      "initialFrame": {
+        "time": 0,
+        "elements": [
+          { "primitive": "circle", "name": "point", "cx": 40, "cy": 0, "r": 2, "stroke": "#263238", "lineWidth": 1 },
+          { "primitive": "circle", "name": "point", "cx": 90, "cy": 0, "r": 2, "stroke": "#263238", "lineWidth": 1 }
+        ]
+      }
+    },
+    {
+      "kind": "chart",
+      "name": "trend",
+      "chartKind": "column",
+      "title": "Trend",
+      "description": "Values",
+      "data": [
+        { "label": "A", "value": 1 },
+        { "label": "C", "value": 3 },
+        { "label": "B", "value": 2 }
+      ],
+      "headings": ["label", "Load (meter)"],
+      "measurementDescriptors": [
+        {
+          "role": "series",
+          "field": "value",
+          "label": "Load",
+          "unit": {
+            "text": "meter",
+            "scale": 1,
+            "vector": { "[\"units.ts\",\"Length\"]": 1 },
+            "factors": [
+              { "identity": "[\"units.ts\",\"meter\"]", "name": "meter", "exponent": 1 }
+            ]
+          }
+        }
+      ],
+      "showTable": true
+    }
+  ],
+  "generatedInputCode": "AMX4003",
+  "amxInputCode": "AMX4003"
+}

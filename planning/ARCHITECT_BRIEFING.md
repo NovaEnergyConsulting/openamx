@@ -1,4 +1,14 @@
-# ARCHITECT BRIEFING — V0.20 Sprint 122 Closeout (2026-11-25)
+# ARCHITECT BRIEFING — V0.20 Sprint 123 Closeout (2026-11-26)
+
+## Current S123 State
+S123 implementation is committed at `257cf3f4d9395b8820a9e4e63e5f2abd310fd481`.
+D123-01 through D123-13 were approved. The Product Owner accepted and closed
+S123 with recorded residuals on 2026-11-26, including the previously accepted
+retry-cap process breach. Run-03 passed 267 focused tests, root typecheck,
+build, strict generated fixture compilation, AMX oracle, `git diff --check`,
+and exact `dist`/renderer restoration. The parity matrix retains G123 rows
+that remain `BLOCKED/UNAVAILABLE` or `NOT RUN`; those statuses were not
+upgraded by the closeout.
 
 ## Where things stand
 S121 was ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-11-25. Its approved
@@ -18,28 +28,37 @@ changed. The retry-cap/stop-protocol deviation is also accepted as a recorded
 process residual.
 
 ## Executive summary
-**Business outcome**: Complete the approved public runtime helper/type surface and verify it through a separately authored strict consumer of the built package.
+**Business outcome**: Deliver the S123 core document/AST emitter and close
+the sprint with explicit G123 coverage residuals.
 
-**Current focus**: Disposition applicable D123 decisions and obtain exact S123 execution authorization before implementation or test execution.
+**Current focus**: S123 is closed. Any additional G123 coverage requires a
+separate scope decision; S124/S125 and release work remain gated.
 
-**What is proven**: Focused tests passed 206/0 with 1,107 assertions; root no-emit typecheck, isolated package build, strict consumer compile, AMX output/error/view oracle, package-boundary audit, `git diff --check`, and root `dist` hash preservation passed. Imported string/numeric enum JSON/CSV cases and legacy diagram type compatibility are covered.
+**What is proven**: Run-03 passed the 267-test focused suite with 1,302
+assertions, root typecheck, build, strict generated compile, expanded AMX
+oracle, diff check, and baseline preservation.
 
-**What is not proven/live**: No AMX parity claim is made for enum-valued record defaults, which current AMX rejects. S123 emitter work, release, and platform qualification remain gated; S123 has no execution authorization yet.
+**What remains residual**: Several G123 AST, input, builtin, affine, view,
+and rejection cases remain incomplete or unrun. D122-15 enum-default no-parity
+and D121-18 non-crash-atomic rollback remain unchanged. Release and platform
+qualification are not included.
 
 ## Readiness signals
 
 | Signal | Status | Evidence |
 |---|---|---|
-| Focused root verification and dist preservation | passed | 206/0 tests, root typecheck, diff check, and identical 196-file root dist manifests. |
+| S123 closeout | accepted with recorded residuals | Run-03 focused suite 267/0; root typecheck/build, strict generated compile/oracle, and identical baseline manifests. |
 | S122 helper package and applicable fixtures | passed | External built-package consumer, AMX oracle, focused tests, declarations, and root `dist` preservation passed. |
 | Accepted S122 residuals | attention | D122-15 enum-default no-parity limitation and retry/stop-protocol deviation are recorded and accepted; no AMX semantic change was made. |
 | S121 final feasibility closeout | accepted | Product Owner accepted on 2026-11-25; raw probe results and D121-18 residual remain unchanged. |
-| S123 emitter implementation | attention | Requires disposition of applicable D123 decisions and approval of the exact execution plan. |
+| S123 implementation | closed | Commit `257cf3f`; retry breach remains raw process `FAIL` accepted as a named residual; incomplete G123 rows remain visible. |
 
 ## Recommended next Architect action
-**Do**: Disposition applicable D123 decisions and separately authorize the exact S123 execution plan.
+**Do**: Preserve S123's accepted residuals. Route any further G123 coverage or
+S124/S125 work through its own scope and authorization.
 **Owner**: Lead Developer / Product Owner.
-**Decision**: S122 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS. D122-15 and the retry/stop-protocol deviation are accepted; no AMX semantics or release authority follows.
+**Decision**: S123 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS. No AMX semantic
+change or release authority follows.
 
 ## Evidence
 - `bun test tests/modules.test.ts tests/evaluator.test.ts tests/measurements.test.ts tests/inputData.test.ts tests/measurementData.test.ts` — 206 passed, 0 failed, 1,107 assertions.

@@ -16,6 +16,7 @@ import {
 } from '../typechecker/checkDocument';
 import type { DimensionMetadata, UnitMetadata } from '../typechecker/dimensionTypes';
 import type { TranspileSourceModule } from './types';
+import { normalizeParserLineSeparators } from './source';
 
 export interface PreparedModule {
   readonly input: TranspileSourceModule;
@@ -83,7 +84,7 @@ function collectDocuments(input: readonly TranspileSourceModule[]): Map<string, 
 
     let document: OpenAmxDocument;
     try {
-      document = parseDocumentText(module.sourceText);
+      document = parseDocumentText(normalizeParserLineSeparators(module.sourceText));
     } catch (error) {
       if (error instanceof AmxError) {
         error.file ??= module.sourcePath;

@@ -21,8 +21,7 @@ import {
 import type { CheckedType } from '../typechecker/checkDocument';
 import { fieldRegistry } from '../typechecker/declarationRegistry';
 import type { DimensionUnitRegistry } from '../typechecker/dimensionTypes';
-import { parseFrontMatter } from '../parser/parseFrontMatter';
-import { safeNarrativeComments } from './source';
+import { rawFrontMatterComments, safeNarrativeComments } from './source';
 import type { PreparedModule } from './graph';
 
 export class LoweringFailure extends Error {
@@ -603,8 +602,8 @@ class ModuleEmitter {
     const externalExported = statement.exported ? 'export ' : '';
     const parents = (statement.parents ?? []).map(parent => this.name(parent.name));
     const extendsClause = parents.length ? ` extends ${parents.join(', ')}` : '';
-    const fields = statement.fields.map(field => `  ${quoteIdentifier(field.name)}${field.optional ? '?' : ''}: ${this.typeScriptReference(field.annotation, false, field)};`).join('\n');
-    const externalFields = statement.fields.map(field => `  ${quoteIdentifier(field.name)}${field.optional ? '?' : ''}: ${this.typeScriptReference(field.annotation, true, field)};`).join('\n');
+    const fields = statement.fields.map(field => `  ${quoteIdentifier(field.name)}: ${this.typeScriptReference(field.annotation, false, field)};`).join('\n');
+    const externalFields = statement.fields.map(field => `  ${quoteIdentifier(field.name)}${field.optional || field.defaultExpression ? '?' : ''}: ${this.typeScriptReference(field.annotation, true, field)};`).join('\n');
     return `${exported}interface ${this.name(statement.name)}${extendsClause} {\n${fields}\n}\n${externalExported}interface __AMXExternal_${this.name(statement.name)} {\n${externalFields}\n}`;
   }
 
@@ -694,9 +693,7 @@ class ModuleEmitter {
   emit(): string {
     const statements = moduleStatements(this.module);
     const code: string[] = [];
-    const frontMatter = parseFrontMatter(this.module.input.sourceText);
-    const frontMatterText = this.module.input.sourceText.slice(0, this.module.input.sourceText.length - frontMatter.body.length);
-    if (frontMatterText) code.push(...safeNarrativeComments(frontMatterText));
+    code.push(...rawFrontMatterComments(this.module.input.sourceText));
 
     const runtimeStatements: string[] = [];
     for (const node of this.module.document.nodes) {

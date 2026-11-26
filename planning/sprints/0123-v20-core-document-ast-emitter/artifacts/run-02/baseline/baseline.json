@@ -1,0 +1,31 @@
+﻿{
+    "Date":  "2026-11-26",
+    "Branch":  "feat/create-V0.20.0",
+    "Commit":  "257cf3f4d9395b8820a9e4e63e5f2abd310fd481",
+    "DirtyPaths":  [
+                       " M planning/ARCHITECT_BRIEFING.md",
+                       " M planning/STATUS.json",
+                       " M planning/decisions.md",
+                       " M planning/sprints/0123-v20-core-document-ast-emitter/acceptance.md",
+                       " M planning/sprints/0123-v20-core-document-ast-emitter/blueprint.md",
+                       " M planning/sprints/0123-v20-core-document-ast-emitter/builder-evidence.md",
+                       " M planning/sprints/0123-v20-core-document-ast-emitter/handoff-prompt.md",
+                       " M planning/sprints/0123-v20-core-document-ast-emitter/parity-matrix.md",
+                       " M planning/sprints/0123-v20-core-document-ast-emitter/requirements.md",
+                       " M planning/sprints/0123-v20-core-document-ast-emitter/verification-plan.md",
+                       " M planning/state.md",
+                       "?? planning/sprints/0123-v20-core-document-ast-emitter/artifacts/run-01/logs/",
+                       "?? planning/sprints/0123-v20-core-document-ast-emitter/artifacts/run-02/"
+                   ],
+    "PowerShell":  "5.1.26100.9818",
+    "Bun":  "1.4.5",
+    "TypeScript":  "Version 5.9.3",
+    "Git":  "git version 2.56.1.windows.1",
+    "PackageVersion":  "0.19.0",
+    "Lockfile":  "bun.lock",
+    "DistFiles":  196,
+    "DistBytes":  1661955,
+    "DistManifestSHA256":  "BC57785491D1E5D541207F4A5DCF5F0E6372844BB4C9B8870EA53D406E069E83",
+    "RendererPath":  "src/renderer/diagramBrowserRuntime.ts",
+    "RendererSHA256":  "582919DC1148DDA3B803C2901BBB676501D3AF38091719349C80FBBFB43C6116"
+}

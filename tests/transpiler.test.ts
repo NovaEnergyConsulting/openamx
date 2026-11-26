@@ -267,13 +267,22 @@ describe('transpiler source comments', () => {
     const typesSource = [
       '```amx', 'import { Length, meter, centimeter } from "./units.amx"',
       'export enum Status = {', '  READY = "ready"', '  FAILED = "failed"', '}',
-      'export type Row {', '  label: String', '  value: Length', '}',
-      'export type Payload {', '  distance: Length', '  status: Status', '}',
+      'export enum Priority = {', '  LOW = 1', '  HIGH = 2', '}',
+      'export type BaseRow {', '  label: String', '}',
+      'export type Row extends BaseRow {', '  override label: String', '  value: Length', '  rating: Number = 7', '  measuredAt: DateTime', '  note?: String?', '}',
+      'export type Payload {', '  distance: Length', '  status: Status', '  priority: Priority', '  observedAt: DateTime', '  locations: Row[]', '  labels: String?[]', '}',
+      'diagram importedScene {',
+      '  title: "Imported"', '  description: "Dependency frame"', '  width: 20', '  height: 10', '  time t from 0 to 1 duration 1',
+      '  line axis {', '    x1: 0', '    y1: 0', '    x2: 10', '    y2: 10', '    stroke: "#263238"', '    lineWidth: 1', '    arrow: "end"', '  }',
+      '  rectangle plate {', '    x: 1', '    y: 1', '    width: 4', '    height: 2', '    stroke: "#263238"', '    fill: "#ffffff"', '    lineWidth: 1', '  }',
+      '  circle hub {', '    cx: 5', '    cy: 5', '    r: 1', '    stroke: "#263238"', '    lineWidth: 1', '  }',
+      '  text caption {', '    x: 2', '    y: 2', '    value: "Dependency"', '    fill: "#263238"', '  }',
+      '}',
       '```', ''
     ].join('\n');
     const source = [
       '---', 'title: Calculation', '---', 'This stays literal: {{ 1 + 1 }}', '```amx',
-      'import { Payload, Row, Status } from "./types.amx"',
+      'import { Payload, Priority, Row, Status } from "./types.amx"',
       'import { Length, meter, centimeter } from "./units.amx"',
       'input payload: Payload',
       'fn square(value: Number): Number = value ^ 2',
@@ -288,18 +297,29 @@ describe('transpiler source comments', () => {
       'let ready: Boolean = payload.status is Status',
       'let total: Number = sum(values)',
       'let totalText: String = "Total ${total}"',
-      'let rows: Row[] = [Row { label = "A", value = 1 meter }, Row { label = "B", value = 200 centimeter }]',
+      'let rows: Row[] = [Row { label = "A", value = 1 meter, measuredAt = "2024-02-29T12:30:00Z" }, Row { label = "B", value = 200 centimeter, measuredAt = "2024-02-29T13:30:00Z" }]',
       'table data = table(rows) {', '  title: "Rows"', '  column label as "Label"', '  column value as "Value"', '}',
       'chart trend = column(rows) {', '  title: "Trend"', '  description: "Values"', '  category: label', '  series value as "Load"', '  showTable total > 0', '}',
-      'show data', 'add Row { label = "C", value = 3 meter } to rows at 2', 'show data',
+      'chart barTrend = bar(rows) {', '  title: "Bar"', '  description: "Ratings"', '  category: label', '  series rating as "Rating"', '}',
+      'chart lineTrend = line(rows) {', '  title: "Line"', '  description: "Timeline"', '  x: measuredAt', '  series rating as "Rating"', '}',
+      'chart scatterTrend = scatter(rows) {', '  title: "Scatter"', '  description: "Coordinates"', '  x: rating', '  y: rating', '  group: label', '}',
+      'let scalarValues: Number[] = [1, 2]',
+      'let scalarLabels: String[] = ["One", "Two"]',
+      'chart scalarTrend = bar(scalarValues) {', '  title: "Scalar"', '  description: "Labels"', '  labels: scalarLabels', '  series "Value"', '}',
+      'show data', 'add Row { label = "C", value = 3 meter, measuredAt = "2024-02-29T14:30:00Z" } to rows at 2', 'show data',
       'export let distanceMeters: Number = payload.distance / 1 meter',
       'export let converted: Length = payload.distance in centimeter',
       'export let result: Number = total + selected + distanceMeters + adjust(2)',
       'export let summary: String = totalText',
+      'export let observedAt: DateTime = payload.observedAt',
+      'export let firstLocationRating: Number = payload.locations[1].rating',
+      'export let firstLocationNote: String? = payload.locations[1].note',
+      'export let secondLabel: String? = payload.labels[2]',
       'diagram scene {', '  title: "Scene"', '  description: "Initial frame"', '  width: 100', '  height: 50', '  time t from 0 to 1 duration 1',
       '  for item in values {', '    if item > 2 {', '      circle point {', '        cx: item * 10', '        cy: t', '        r: 2', '        stroke: "#263238"', '        lineWidth: 1',
       '      }', '    }', '  }',
       '}', 'show trend',
+      'show barTrend', 'show lineTrend', 'show scatterTrend', 'show scalarTrend',
       'export let readyExport: Boolean = ready',
       'export let distanceMetersAgain: Number = distanceMeters',
       '```', ''
@@ -330,13 +350,26 @@ describe('transpiler source comments', () => {
     expect(typesCode).toContain('__AMXMeasurementInput<"Length">');
     expect(entryCode.split('\n').filter(line => line.includes('1 + 1')).every(line => line.trimStart().startsWith('//'))).toBe(true);
 
-    const fixtureDirectory = join(process.cwd(), 'planning', 'sprints', '0123-v20-core-document-ast-emitter', 'artifacts', 'run-01', 'fixtures');
+    const artifactRoot = process.env.OPENAMX_S123_ARTIFACT_ROOT
+      ? join(process.cwd(), process.env.OPENAMX_S123_ARTIFACT_ROOT)
+      : join(process.cwd(), 'planning', 'sprints', '0123-v20-core-document-ast-emitter', 'artifacts', 'run-01');
+    const fixtureDirectory = join(artifactRoot, 'fixtures');
     await mkdir(fixtureDirectory, { recursive: true });
     await Bun.write(join(fixtureDirectory, 'main.amx'), source);
     await Bun.write(join(fixtureDirectory, 'types.amx'), typesSource);
     await Bun.write(join(fixtureDirectory, 'units.amx'), unitsSource);
-    await Bun.write(join(fixtureDirectory, 'payload.json'), JSON.stringify({ distance: { value: 1.5, unit: 'meter' }, status: 'ready' }));
-    await Bun.write(join(fixtureDirectory, 'invalid-payload.json'), JSON.stringify({ distance: { value: 1.5, unit: 'meter' }, status: 'unknown' }));
+    await Bun.write(join(fixtureDirectory, 'payload.json'), JSON.stringify({
+      distance: { value: 1.5, unit: 'meter' }, status: 'ready', priority: 2,
+      observedAt: '2024-02-29T12:30:00Z',
+      locations: [{ label: 'Site A', value: { value: 500, unit: 'centimeter' }, measuredAt: '2024-02-29T12:30:00Z' }],
+      labels: ['First', null]
+    }));
+    await Bun.write(join(fixtureDirectory, 'invalid-payload.json'), JSON.stringify({
+      distance: { value: 1.5, unit: 'meter' }, status: 'unknown', priority: 2,
+      observedAt: '2024-02-29T12:30:00Z',
+      locations: [{ label: 'Site A', value: { value: 500, unit: 'centimeter' }, measuredAt: '2024-02-29T12:30:00Z' }],
+      labels: ['First', null]
+    }));
     for (const module of result.modules) {
       const target = join(fixtureDirectory, module.outputPath);
       await mkdir(dirname(target), { recursive: true });
@@ -350,31 +383,31 @@ describe('transpiler source comments', () => {
       "import { run } from './main.ts';",
       'const directory = dirname(fileURLToPath(import.meta.url));',
       'const amx = await loadEntryModule(join(directory, "main.amx"), { inputMappings: [`payload=${join(directory, "payload.json")}`] });',
-      'const payload = { payload: { distance: { value: 1.5, unit: "meter" }, status: "ready" } } as unknown as Parameters<typeof run>[0];',
+      'const payload = { payload: { distance: { value: 1.5, unit: "meter" }, status: "ready", priority: 2, observedAt: "2024-02-29T12:30:00Z", locations: [{ label: "Site A", value: { value: 500, unit: "centimeter" }, measuredAt: "2024-02-29T12:30:00Z" }], labels: ["First", null] } } as unknown as Parameters<typeof run>[0];',
       'const generated = run(payload);',
       'const replay = run(payload);',
       'if (replay.exports === generated.exports || replay.views === generated.views) throw new Error("Generated run state was reused");',
       'function normalizeVector(vector: unknown): unknown { if (!vector || typeof vector !== "object") return vector; return Object.fromEntries(Object.entries(vector).map(([identity, exponent]) => { let name = identity; try { const key = JSON.parse(identity) as unknown; if (Array.isArray(key) && typeof key[1] === "string") name = key[1]; } catch {} return [name, exponent]; })); }',
       'function normalize(value: unknown): unknown { if (Array.isArray(value)) return value.map(normalize); if (!value || typeof value !== "object") return value; const result: Record<string, unknown> = {}; for (const [key, item] of Object.entries(value)) { if (key === "vector") result[key] = normalizeVector(item); else if (key === "factors" && Array.isArray(item)) result[key] = item.map(factor => { const entry = factor as { name: string; exponent: number }; return { name: entry.name, exponent: entry.exponent }; }); else result[key] = normalize(item); } return result; }',
-      'deepStrictEqual(normalize(generated.exports), normalize({ result: amx.env.get("result"), readyExport: amx.env.get("readyExport"), distanceMeters: amx.env.get("distanceMeters"), converted: amx.env.get("converted"), summary: amx.env.get("summary"), distanceMetersAgain: amx.env.get("distanceMetersAgain") }));',
-      'const events: Array<{ documentNodeIndex: number; statementIndex: number; view: unknown }> = [];',
+      'deepStrictEqual(normalize(generated.exports), normalize({ result: amx.env.get("result"), readyExport: amx.env.get("readyExport"), distanceMeters: amx.env.get("distanceMeters"), converted: amx.env.get("converted"), summary: amx.env.get("summary"), observedAt: amx.env.get("observedAt"), firstLocationRating: amx.env.get("firstLocationRating"), firstLocationNote: amx.env.get("firstLocationNote"), secondLabel: amx.env.get("secondLabel"), distanceMetersAgain: amx.env.get("distanceMetersAgain") }));',
+      'const events: Array<{ moduleOrder: number; documentNodeIndex: number; statementIndex: number; view: unknown }> = [];',
       'for (const emission of amx.viewEmissions) {',
       '  if (emission.kind === "table") {',
       '    const columns = emission.declaration.options.filter(option => option.type === "tableColumnOption").map(option => ({ field: option.field, label: option.label }));',
       '    const title = emission.declaration.options.find(option => option.type === "viewTitleOption")?.value ?? emission.name;',
       '    const rows = emission.data.map(item => columns.map(column => (item as Record<string, unknown>)[column.field] ?? null));',
-      '    events.push({ documentNodeIndex: emission.documentNodeIndex, statementIndex: emission.statementIndex, view: { kind: "table", name: emission.name, title, description: "", columns, rows } });',
+      '    events.push({ moduleOrder: 1, documentNodeIndex: emission.documentNodeIndex, statementIndex: emission.statementIndex, view: { kind: "table", name: emission.name, title, description: "", columns, rows } });',
       '  } else {',
       '    const title = emission.declaration.options.find(option => option.type === "viewTitleOption")?.value ?? emission.name;',
       '    const description = emission.declaration.options.find(option => option.type === "viewDescriptionOption")?.value ?? "";',
-      '    events.push({ documentNodeIndex: emission.documentNodeIndex, statementIndex: emission.statementIndex, view: { kind: "chart", name: emission.name, chartKind: emission.declaration.kind, title, description, data: emission.data, ...(emission.labels === undefined ? {} : { labels: emission.labels }), ...(emission.headings === undefined ? {} : { headings: emission.headings }), ...(emission.measurementDescriptors?.length ? { measurementDescriptors: emission.measurementDescriptors } : {}), showTable: emission.showTable } });',
+      '    events.push({ moduleOrder: 1, documentNodeIndex: emission.documentNodeIndex, statementIndex: emission.statementIndex, view: { kind: "chart", name: emission.name, chartKind: emission.declaration.kind, title, description, data: emission.data, ...(emission.labels === undefined ? {} : { labels: emission.labels }), ...(emission.headings === undefined ? {} : { headings: emission.headings }), ...(emission.measurementDescriptors?.length ? { measurementDescriptors: emission.measurementDescriptors } : {}), showTable: emission.showTable } });',
       '  }',
       '}',
       'for (const { model } of amx.diagramEmissions) {',
       '  const elements = model.initialFrame.elements.map(element => { const { source, ...primitive } = element; return primitive; });',
-      '  events.push({ documentNodeIndex: model.documentNodeIndex, statementIndex: model.statementIndex, view: { kind: "diagram", schema: "structured-v2", name: model.name, title: model.title, description: model.description, canvas: model.canvas, timeline: model.timeline, initialFrame: { time: model.initialFrame.time, elements } } });',
+      '  events.push({ moduleOrder: model.file?.endsWith("types.amx") ? 0 : 1, documentNodeIndex: model.documentNodeIndex, statementIndex: model.statementIndex, view: { kind: "diagram", schema: "structured-v2", name: model.name, title: model.title, description: model.description, canvas: model.canvas, timeline: model.timeline, initialFrame: { time: model.initialFrame.time, elements } } });',
       '}',
-      'events.sort((left, right) => left.documentNodeIndex - right.documentNodeIndex || left.statementIndex - right.statementIndex);',
+      'events.sort((left, right) => left.moduleOrder - right.moduleOrder || left.documentNodeIndex - right.documentNodeIndex || left.statementIndex - right.statementIndex);',
       'deepStrictEqual(normalize(generated.views), normalize(events.map(event => event.view)));',
       'let generatedInputCode = ""; try { run({ payload: { distance: { value: 1.5, unit: "meter" }, status: "unknown" } } as unknown as Parameters<typeof run>[0]); } catch (error) { generatedInputCode = (error as { code?: string }).code ?? ""; }',
       'let amxInputCode = ""; try { await loadEntryModule(join(directory, "main.amx"), { inputMappings: [`payload=${join(directory, "invalid-payload.json")}`] }); } catch (error) { amxInputCode = (error as { code?: string }).code ?? ""; }',

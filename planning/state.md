@@ -1,5 +1,45 @@
 # Planning State
 
+## V0.20 Sprint 123 Product-Owner Closeout (2026-11-26)
+
+- The Product Owner accepted and closed S123 with recorded residuals on
+  2026-11-26. The implementation commit and accepted S123 scope remain
+  unchanged; the disposition does not turn incomplete G123 rows into PASS.
+- The approved run-03 tranche passed the six-file focused suite (267/0,
+  1,302 assertions), root typecheck, build, strict generated-fixture compile,
+  AMX oracle, `git diff --check`, and `dist`/renderer preservation. The
+  generated build was archived; root `dist` and the renderer were restored to
+  the run-03 baseline with zero differences.
+- Remaining G123 rows, two run-03 compile failures, the accepted
+  `S123-RETRY-STOP-01` process `FAIL`, D122-15 enum-default no-parity, and
+  D121-18 best-effort/non-crash-atomic rollback remain visible in sprint
+  evidence. No S124/S125/release or package/platform authority follows.
+
+## V0.20 Sprint 123 Closeout Replan Authorized (2026-11-26)
+
+- S123 implementation is committed at `257cf3f4d9395b8820a9e4e63e5f2abd310fd481`
+  on `feat/create-V0.20.0`; the worktree was clean when inspected. S121
+  closeout, S122 acceptance, and D123-01 through D123-13 are recorded.
+- The approved S123 retry cap was exceeded while repairing the chart-label
+  fixture: the initial line-chart attempt and retries 1 and 2 (record-backed
+  column and scatter) failed; retry 3 (scalar-list column) passed. The Builder
+  continued beyond the stop condition. This raw S123 process `FAIL` is not
+  covered by S122's accepted retry/stop residual.
+- The Product Owner accepted `S123-RETRY-STOP-01` as a named process residual
+  and approved the closeout-only `run-02` verification plan on 2026-11-26.
+  Authorization excludes source/test implementation edits and every expanded
+  product, release, CLI, desktop, renderer, or publication scope.
+- Preserve the generated-build and baseline artifacts under S123
+  `artifacts/run-01/`; root `dist` and renderer were restored hash-identically.
+  D121-18 and D122-15 remain unchanged.
+- Run-02 closeout verification completed: focused suite 265/0, root typecheck,
+  build, strict generated compile, oracle parity and preservation passed; one
+  pre-build strict compile failed because root `dist` had been restored before
+  the helper subpath was rebuilt and is preserved as a sequencing failure.
+  Run-03 was subsequently approved and completed; its scope, results, closeout
+  disposition and remaining G123 residuals are recorded above and in the S123
+  evidence files.
+
 ## V0.20 Sprint 121 Final Feasibility Closeout (2026-11-25)
 
 - The Product Owner separately ACCEPTED/CLOSED WITH RECORDED RESIDUALS the
@@ -8,8 +48,9 @@
   results or artifacts were changed.
 - D121-18 remains best-effort/non-crash-atomic and belongs to S124/S125.
   D122-15 and the accepted S122 retry/stop-protocol residual remain unchanged.
-- S123 implementation and test execution still require an exact approved
-  execution plan and disposition of applicable D123 decisions.
+- At the time of this S121 disposition, S123 remained separately gated. D123
+  decisions and an exact implementation plan were subsequently approved on
+  2026-11-26; current S123 closeout status is recorded above as replan required.
 
 ## V0.20 Sprint 122 Product-Owner Closeout (2026-11-25)
 

@@ -1,5 +1,48 @@
 # Planning Decisions
 
+## V0.20 Sprint 123 Product-Owner Closeout (2026-11-26)
+
+- The Product Owner accepted and closed S123 with recorded residuals on
+  2026-11-26. This disposition accepts the sprint at the verified scope; it
+  does not convert incomplete G123 coverage into PASS.
+- Run-03 completed the approved follow-up tranche. The focused six-file suite
+  passed 267/0 with 1,302 assertions; root typecheck, build, strict generated
+  compile, AMX oracle, `git diff --check`, and `dist`/renderer preservation
+  passed. The full row-level disposition is in the S123 parity matrix and
+  Builder evidence.
+- Preserve every remaining `BLOCKED/UNAVAILABLE` or `NOT RUN` G123 status,
+  the two archived run-03 compile failures, and the accepted
+  `S123-RETRY-STOP-01` process `FAIL`. Do not claim complete AST/builtin/
+  affine/input/view/error coverage based on this closeout.
+- D121-18, D122-15, package/version boundaries, and the S124/S125/release
+  exclusions remain unchanged. This closeout grants no release, publication,
+  deployment, package/version, or platform authority.
+
+## V0.20 Sprint 123 Replan Disposition and Closeout Authorization (2026-11-26)
+
+- The Product Owner accepted `S123-RETRY-STOP-01` as a named S123 process
+  residual. The raw sequence remains unchanged: initial line-chart labels
+  failure, retry 1 record-backed column labels failure, retry 2 scatter labels
+  failure, and retry 3 scalar-list column labels pass. The third retry exceeded
+  the approved cap by one; this is not merged with S122's accepted residual.
+- The Product Owner approved the closeout-only verification plan recorded in
+  S123 `verification-plan.md` against implementation baseline
+  `257cf3f4d9395b8820a9e4e63e5f2abd310fd481` on `feat/create-V0.20.0`.
+- Authorization covers only the exact S123 focused suite, root typecheck,
+  strict generated-fixture compile, AMX oracle, build and diff check listed in
+  that plan; output under the fresh S123 `artifacts/run-02/`; and backup/hash/
+  restore verification for root `dist` and the generated renderer source.
+- No further source or test implementation edits are authorized by this
+  replan. Any required product change, new test path, retry-cap extension, or
+  expanded command/surface requires separate Product Owner approval.
+- D121-18 remains best-effort/non-crash-atomic and is not changed or tested.
+  D122-15 no-parity, package-root/version boundaries, and S124/S125/release
+  exclusions remain unchanged.
+- The Product Owner also approved changing the existing focused test's
+  `OPENAMX_S123_ARTIFACT_ROOT` override and PowerShell command to direct all new
+  generated fixtures to `artifacts/run-02/fixtures`, preserving `run-01`.
+  This approved test-harness change does not alter product behavior.
+
 ## V0.20 Sprint 123 Product-Owner Decisions (2026-11-26)
 
 - D123-01: accept the typed `transpileDocument` facade over a complete
@@ -39,9 +82,10 @@
 - Preserve D121-18: multi-file publication rollback remains best-effort and
   not crash-atomic, owned by S124/S125. S122 D122-15 and the accepted
   retry/stop-protocol process residual remain unchanged.
-- This disposition satisfies the S121 prerequisite only. S123 still requires
-  a separately approved exact execution plan and disposition of applicable
-  D123 decisions before implementation or test execution.
+- This disposition satisfied the S121 prerequisite. D123-01 through D123-13
+  and the original S123 implementation plan were subsequently approved on
+  2026-11-26. S123 closeout is now paused pending separate disposition of its
+  retry/stop-protocol breach and approval of the revised closeout plan.
 
 ## V0.20 Sprint 122 Product-Owner Authorization and Contract Decisions (2026-11-25)
 

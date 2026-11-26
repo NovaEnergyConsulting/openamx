@@ -2,23 +2,24 @@
 
 ## Status and Evidence Rules
 
-Architect-prepared traceability matrix. Candidate rows are `NOT RUN` during
-preparation. Compare the same accepted AMX source, resolved module context,
-and input values in AMX runtime and generated TypeScript. Compare exports and
+Builder replan matrix as of 2026-11-26. Historical PASS evidence is identified
+in `builder-evidence.md`; it does not override the separate S123 retry/stop
+process `FAIL` or imply every `G123-*` row is complete. Compare accepted AMX
+source, resolved module context, and identical inputs. Compare exports and
 structured view DTOs only, never rendered report bytes.
 
 | Requirement ID | Required behavior | Fixture / contract | Evidence needed | Owner | Preparation status |
 | --- | --- | --- | --- | --- | --- |
-| V20-S123-01 | Add typed core transpiler module and source API through `src/index.ts`. | D123-01/03; `core-api-contract.md` | Strict API consumer compile, entry export audit, source/type signatures | S123 | CANDIDATE; NOT RUN |
-| V20-S123-02 | Preserve all non-AMX Markdown/frontmatter as safe comments and emit AMX fences in source order. | D123-04; G123-SOURCE-01, G123-FRONTMATTER-01, G123-COMMENT-ESCAPE-01 | Golden comments, Unicode terminators, inert interpolation, source-order check | S123 | CANDIDATE; NOT RUN |
-| V20-S123-03 | Lower the complete checked AST and use helpers for semantic differences. | `ast-lowering-contract.md`; G123-DECL-01, G123-TYPE-01, G123-NAME-01, G123-ENUM-01, G123-FUNCTION-01, G123-EXPORT-01, G123-LITERAL-01, G123-EXPR-01, G123-STRING-01, G123-OPERATOR-01, G123-CONTROL-01, G123-MATCH-01, G123-CALL-01, G123-MUTATION-01, G123-LOOP-01, G123-LIST-01, G123-BUILTIN-01, G123-MEASURE-01, G123-RECORD-01 | AST discriminant reconciliation, golden output, strict compile, helper import audit | S123 | CANDIDATE; NOT RUN |
-| V20-S123-04 | Generate typed caller inputs, explicit exports, and `run(inputs)` structured results. | D123-07/09; G123-INPUT-01, G123-EXPORT-01, G123-RUN-FRESH-01 | Valid/invalid input, export visibility, result types, fresh state | S123 | CANDIDATE; NOT RUN |
-| V20-S123-05 | Return shown table/chart snapshots plus declaration-time diagram DTOs. | D123-07; G123-VIEW-TABLE-01, G123-VIEW-CHART-01, G123-VIEW-SHOW-01, G123-VIEW-DIAGRAM-01, G123-VIEW-ORDER-01 | AMX DTO parity and event-order assertion | S123 | CANDIDATE; NOT RUN |
-| V20-S123-06 | Add focused emitter golden, parse/type rejection, and generated-source compile tests. | G123-REJECT-01; `verification-plan.md` | Exact raw test/typecheck results, invalid input has no code | S123 | CANDIDATE; NOT RUN |
-| V20-S123-07 | Preserve calculation/data parity for representative modules, inputs, measurements, lists, builtins and views. | G123-IMPORT-01, G123-INPUT-01, G123-LIST-01, G123-BUILTIN-01, G123-MEASURE-01, G123-VIEW-TABLE-01, G123-VIEW-CHART-01, G123-VIEW-DIAGRAM-01, G123-VIEW-ORDER-01 | AMX oracle versus compiled generated runtime with per-field tolerance | S123 | CANDIDATE; NOT RUN |
-| V20-S123-08 | Keep S124 graph/CLI and S125 desktop/docs scope separate. | D123-02; `requirements.md` | Changed-path audit proves no recursive loader, CLI, desktop, docs/example, renderer or graph writer | S123 | CANDIDATE; NOT RUN |
-| V20-S123-09 | Preserve D122-15 no-parity enum-default residual and D121-18 rollback residual. | S122/S121 closeout; `acceptance.md` | No unsupported enum-default parity assertion; no rollback claim/test | S123 | CANDIDATE; NOT RUN |
-| V20-S123-10 | Preserve deterministic output and source-oriented diagnostics. | D123-10/12; G123-REJECT-01, G123-DETERMINISM-01 | Repeated code hashes; original module and source line/column in diagnostics | S123 | CANDIDATE; NOT RUN |
+| V20-S123-01 | Add typed core transpiler module and source API through `src/index.ts`; do not infer package-root export. | D123-01/03; `core-api-contract.md` | Root typecheck; source export audit; no package export/version change | S123 | PASS; run-02 root typecheck and source-only API/export boundary |
+| V20-S123-02 | Preserve non-AMX Markdown/frontmatter as safe comments and emit fences in source order. | D123-04; G123-SOURCE-01, G123-FRONTMATTER-01, G123-COMMENT-ESCAPE-01 | Safe separator/comment goldens and source-order check | S123 | BLOCKED/UNAVAILABLE: mixed-ending raw-frontmatter, non-AMX-fence and between-fence order goldens incomplete |
+| V20-S123-03 | Lower the complete checked AST and use helpers for semantic differences. | `ast-lowering-contract.md`; statement/expression G123 rows | Unique discriminant map, one fixture per row, strict compile/helper audit | S123 | BLOCKED/UNAVAILABLE: map is split per discriminant, but several G123 lowering/parity cases remain untested |
+| V20-S123-04 | Generate typed caller inputs, explicit exports, and `run(inputs)` structured results. | D123-07/09; G123-INPUT-01, G123-EXPORT-01, G123-RUN-FRESH-01 | Measurement/enum/record input validation, explicit exports, fresh state | S123 | PASS for run-02 representative input, exports and fresh-run contract; G123 input-family gaps remain listed below |
+| V20-S123-05 | Return shown table/chart snapshots plus declaration-time diagram DTOs. | D123-07; G123-VIEW-* | AMX DTO parity and event-order assertion | S123 | PASS for run-02 table/chart/structured-v2 DTO and source-order parity; broader G123 families remain listed below |
+| V20-S123-06 | Add emitter golden, parse/type rejection, and generated-source compile tests. | G123-REJECT-01; `verification-plan.md` | Invalid parse/type/lowering has no code; strict generated compile | S123 | PASS for parse/type rejection and strict compile in run-02; unmapped-node lowering failure remains a G123 blocker |
+| V20-S123-07 | Preserve calculation/data parity for representative modules, inputs, measurements, lists, builtins and views. | G123-IMPORT-01, G123-INPUT-01, G123-LIST-01, G123-BUILTIN-01, G123-MEASURE-01, G123-VIEW-* | AMX oracle versus strict-compiled generated runtime | S123 | PASS for representative run-02 oracle; broader G123 families remain individually blocked below |
+| V20-S123-08 | Keep S124 graph/CLI and S125 desktop/docs scope separate. | D123-02; `requirements.md` | Changed-path audit excludes filesystem writer, CLI, desktop, docs/example, renderer, release | S123 | PASS (committed scope audit) |
+| V20-S123-09 | Preserve D122-15 no-parity enum-default residual and D121-18 rollback residual. | S122/S121 closeout; `acceptance.md` | Exclusion retained; no rollback test or atomicity claim | S123 | PASS (residuals preserved; no parity/rollback claim) |
+| V20-S123-10 | Preserve deterministic output and source-oriented diagnostics. | D123-10/12; G123-REJECT-01, G123-DETERMINISM-01 | Root-independent output, source file/line/column diagnostics | S123 | PASS for root-independent output and parser/checker source identity; broader generated-runtime diagnostic families remain listed below |
 
 ## Comparison Policy
 
@@ -38,8 +39,71 @@ structured view DTOs only, never rendered report bytes.
 
 ## Reconciliation
 
-Before owner disposition, audit all `G123-*` IDs for duplicates/missing tests,
-all current AST discriminants for exactly one lowering row, all master-plan
-bullets for coverage, and all public helper imports for exact S122 names. Any
-unsupported current AST node blocks S123 acceptance rather than silently
-deferring it to S124.
+Before owner disposition, reconcile every `G123-*` ID to a named test and raw
+status, audit all unique current AST discriminants against exactly one lowering
+row, map every S123 master-plan bullet, and compare generated imports against
+the final S122 public declaration. The unique AST map is present; its golden
+and parity coverage is not yet complete. Unsupported or untested rows stay
+`BLOCKED/UNAVAILABLE` or `NOT RUN`, never inferred PASS.
+
+## G123 Row Status
+
+This status table distinguishes direct coverage from partial family coverage.
+`BLOCKED/UNAVAILABLE` means the row has implementation evidence but does not
+yet satisfy its complete fixture/assertion contract.
+
+| G123 ID | Run-02 historical status | Evidence or blocker |
+| --- | --- | --- |
+| G123-SOURCE-01 | BLOCKED/UNAVAILABLE | Prose before an AMX fence and literal interpolation covered; between/after fences and non-AMX fences not covered. |
+| G123-FRONTMATTER-01 | BLOCKED/UNAVAILABLE | Basic YAML frontmatter covered; comments, noncanonical key order, and mixed CRLF/CR/LF frontmatter not covered. |
+| G123-COMMENT-ESCAPE-01 | BLOCKED/UNAVAILABLE | Blank lines, `*/`, `//#`, U+2028/U+2029 and literal interpolation are covered by encoder tests; full emitter non-ASCII case is absent. |
+| G123-REJECT-01 | BLOCKED/UNAVAILABLE | Parse/type failures return source diagnostics and no modules; unknown-lowering/missing-context failure is not directly golden-tested. |
+| G123-DECL-01 | BLOCKED/UNAVAILABLE | Initialized typed declarations and explicit exports covered; uninitialized declarations and multiple executable fences are not. |
+| G123-TYPE-01 | BLOCKED/UNAVAILABLE | Number/String/Boolean/enum/record/measurement types covered; DateTime, nullable/list combinations, inheritance, overrides and defaults are incomplete. |
+| G123-NAME-01 | BLOCKED/UNAVAILABLE | Wrapper-like identifiers and root-independent output covered; reserved-word and strict compile collision matrix is incomplete. |
+| G123-ENUM-01 | BLOCKED/UNAVAILABLE | String enum members/type test/input success+failure covered; numeric and imported enum variants remain incomplete. |
+| G123-FUNCTION-01 | BLOCKED/UNAVAILABLE | Expression and statement bodies, local/parameter mutation, imported function signatures exercised; capture/alias/fallthrough matrix remains incomplete. |
+| G123-EXPORT-01 | BLOCKED/UNAVAILABLE | Explicit entry values and imported type/function/value exports exercised; export-list/re-export behavior remains incomplete. |
+| G123-LITERAL-01 | BLOCKED/UNAVAILABLE | Number/string/Boolean literals exercised; null literal and full supported literal set not independently golden-tested. |
+| G123-EXPR-01 | BLOCKED/UNAVAILABLE | Representative precedence and expression results compared; complete operator/parenthesization matrix is absent. |
+| G123-STRING-01 | BLOCKED/UNAVAILABLE | Numeric interpolation covered; measurement/null/unsupported-value formatting/error positions remain untested. |
+| G123-OPERATOR-01 | BLOCKED/UNAVAILABLE | Power, arithmetic/comparison, and type test covered; eager logical evaluation and unary operator matrix not fully proven. |
+| G123-CONTROL-01 | BLOCKED/UNAVAILABLE | Match and diagram branches covered; braced-if expression/statement scope and lazy branches lack full matrix. |
+| G123-MATCH-01 | BLOCKED/UNAVAILABLE | First case/default exercised; later-case observable-call order and unselected branch non-evaluation not covered. |
+| G123-CALL-01 | BLOCKED/UNAVAILABLE | User functions and `sum` exercised; full builtin family and observable argument evaluation-order matrix absent. |
+| G123-MUTATION-01 | BLOCKED/UNAVAILABLE | Assignment, compound parameter update, add and immutable imported target codegen covered; remove and AMX1008 runtime parity incomplete. |
+| G123-LOOP-01 | BLOCKED/UNAVAILABLE | Ascending range/list iteration covered; descending/empty/nested scope cases incomplete. |
+| G123-LIST-01 | BLOCKED/UNAVAILABLE | Range, 1-based access, iteration and add exercised; remove, recursive argument copy and alias cases incomplete. |
+| G123-BUILTIN-01 | BLOCKED/UNAVAILABLE | `sum` and selected math operations exercised; full numeric/measurement/text builtin matrix absent. |
+| G123-MEASURE-01 | BLOCKED/UNAVAILABLE | Linear attach/convert/divide/chart normalization covered; affine operations, aggregates and rejected-operation matrix absent. |
+| G123-RECORD-01 | BLOCKED/UNAVAILABLE | Record construction/field access/nested measurement input covered; inheritance, defaults, optional/null and full field-order matrix incomplete. |
+| G123-IMPORT-01 | PASS | Resolved in-memory mapping emits relative `.ts` specifiers; generated three-module graph strict-compiles. |
+| G123-INPUT-01 | BLOCKED/UNAVAILABLE | Nested measurement and string-enum input valid/invalid covered; Number, DateTime, standalone list/record and full descriptor matrix incomplete. |
+| G123-VIEW-TABLE-01 | BLOCKED/UNAVAILABLE | Two detached snapshots and ordered columns covered; null/nested source record data matrix incomplete. |
+| G123-VIEW-CHART-01 | BLOCKED/UNAVAILABLE | Measurement column chart and show-time Boolean covered; bar/line/scatter and all option/label combinations incomplete. |
+| G123-VIEW-SHOW-01 | BLOCKED/UNAVAILABLE | Repeated table snapshots and intervening mutation covered; diagram is not between the two table shows as specified. |
+| G123-VIEW-DIAGRAM-01 | BLOCKED/UNAVAILABLE | Structured-v2 circle with nested loop/conditional covered; line/rectangle/text and full geometry/error cases incomplete. |
+| G123-VIEW-ORDER-01 | BLOCKED/UNAVAILABLE | Single-entry table/diagram/chart source order matched; imported-module view event ordering is not exercised. |
+| G123-RUN-FRESH-01 | BLOCKED/UNAVAILABLE | Same-input calls return distinct objects and equal values; different-input isolation and caller-result mutation cases remain untested. |
+| G123-DETERMINISM-01 | PASS | Same graph/output path emitted byte-identically across different absolute source roots. |
+
+## Run-03 Closeout Delta
+
+This delta records coverage added or verified in run-03 without rewriting
+run-02 history. Remaining blocked rows are accepted residuals at the
+2026-11-26 Product Owner closeout; acceptance does not upgrade their raw
+status.
+
+| G123 ID | Run-03 status | Evidence or remaining blocker |
+| --- | --- | --- |
+| G123-SOURCE-01 | PASS | Golden covers prose before/between/after AMX blocks, an inert non-AMX fence, literal interpolation, and source order. |
+| G123-FRONTMATTER-01 | PASS | Golden preserves raw comment/quoted frontmatter across mixed CRLF/CR/LF and ECMAScript separators. |
+| G123-COMMENT-ESCAPE-01 | BLOCKED/UNAVAILABLE | Comment terminators, `//#`, empty lines, interpolation, and line separators are covered; a full arbitrary non-ASCII emitter case remains absent. |
+| G123-TYPE-01 | PASS | Strict-compiled fixture and oracle add DateTime, nullable lists, inherited/overridden record fields, and defaults. |
+| G123-ENUM-01 | PASS | Imported string and numeric enums are used in typed inputs; valid and invalid string-enum input paths are compared. No local enum-binding parity claim is made. |
+| G123-RECORD-01 | BLOCKED/UNAVAILABLE | Run-03 adds inherited/defaulted/optional fields; the complete field-order matrix remains incomplete. |
+| G123-INPUT-01 | BLOCKED/UNAVAILABLE | Run-03 adds nested DateTime, nullable-list, and numeric-enum inputs; standalone Number/list/record descriptor families remain incomplete. |
+| G123-VIEW-CHART-01 | BLOCKED/UNAVAILABLE | Bar, column, line, scatter, and scalar chart fixtures now match; the complete option/label/measurement matrix remains incomplete. |
+| G123-VIEW-DIAGRAM-01 | BLOCKED/UNAVAILABLE | Line, rectangle, circle, and text primitives are compared; full geometry and diagnostic/error cases remain incomplete. |
+| G123-VIEW-ORDER-01 | PASS | Oracle compares an imported-module diagram before entry-module tables, diagrams, and charts. |
+| G123-RUN-FRESH-01 | BLOCKED/UNAVAILABLE | Same-input calls return distinct objects; differing-input isolation and caller-result mutation remain untested. |

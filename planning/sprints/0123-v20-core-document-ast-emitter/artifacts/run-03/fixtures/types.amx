@@ -1,0 +1,67 @@
+```amx
+import { Length, meter, centimeter } from "./units.amx"
+export enum Status = {
+  READY = "ready"
+  FAILED = "failed"
+}
+export enum Priority = {
+  LOW = 1
+  HIGH = 2
+}
+export type BaseRow {
+  label: String
+}
+export type Row extends BaseRow {
+  override label: String
+  value: Length
+  rating: Number = 7
+  measuredAt: DateTime
+  note?: String?
+}
+export type Payload {
+  distance: Length
+  status: Status
+  priority: Priority
+  observedAt: DateTime
+  locations: Row[]
+  labels: String?[]
+}
+diagram importedScene {
+  title: "Imported"
+  description: "Dependency frame"
+  width: 20
+  height: 10
+  time t from 0 to 1 duration 1
+  line axis {
+    x1: 0
+    y1: 0
+    x2: 10
+    y2: 10
+    stroke: "#263238"
+    lineWidth: 1
+    arrow: "end"
+  }
+  rectangle plate {
+    x: 1
+    y: 1
+    width: 4
+    height: 2
+    stroke: "#263238"
+    fill: "#ffffff"
+    lineWidth: 1
+  }
+  circle hub {
+    cx: 5
+    cy: 5
+    r: 1
+    stroke: "#263238"
+    lineWidth: 1
+  }
+  text caption {
+    x: 2
+    y: 2
+    value: "Dependency"
+    fill: "#263238"
+  }
+}
+```
