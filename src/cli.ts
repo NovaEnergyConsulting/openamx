@@ -20,6 +20,9 @@ import { preparePdfDestination, writePdfAtomically } from "./runtime/pdfDestinat
 import { prepareDocxReport, serializeDocxReport } from "./renderer/reportDocx";
 import { prepareDocxDestination, writeDocxAtomically } from "./runtime/docxDestination";
 import { prepareReport } from "./renderer/reportPreparation";
+import { transpileDocument, type TranspileDiagnostic } from "./transpiler";
+import { resolveTranspileGraph } from "./transpiler/filesystemGraph";
+import { TranspileOutputError, writeTranspiledGraph } from "./transpiler/outputWriter";
 
 const cli = cac("openamx");
 
@@ -51,6 +54,28 @@ function reportAmxError(error: AmxError): void {
     if (diagnostic.fieldSource) {
       console.error(`Field declaration: ${diagnostic.fieldSource.line}:${diagnostic.fieldSource.column}`);
     }
+  }
+  if (error instanceof TranspileOutputError) {
+    for (const state of error.pathStates) {
+      console.error(`Output ${state.outputPath}: ${state.state}${state.detail ? ` (${state.detail})` : ""}`);
+    }
+    if (error.retainedStagePath) {
+      console.error(`Staging retained: ${displayDiagnosticPath(error.retainedStagePath)}`);
+    }
+  }
+}
+
+function reportTranspileDiagnostics(diagnostics: readonly TranspileDiagnostic[]): void {
+  for (const diagnostic of diagnostics) {
+    const formatted = displayDiagnosticMessage({
+      code: diagnostic.code ?? "",
+      message: diagnostic.message,
+      file: diagnostic.file
+    });
+    console.error(diagnostic.code ? `${diagnostic.code}: ${formatted}` : formatted);
+    if (diagnostic.file) console.error(`File: ${displayDiagnosticPath(diagnostic.file)}`);
+    if (diagnostic.line !== undefined) console.error(`Line: ${diagnostic.line}`);
+    if (diagnostic.column !== undefined) console.error(`Column: ${diagnostic.column}`);
   }
 }
 
@@ -180,6 +205,37 @@ cli
         reportAmxError(err);
       } else {
         console.error("Error:", err.message);
+      }
+      process.exit(1);
+    }
+  });
+
+cli
+  .command("transpile <input>", "Transpile an .amx module graph to TypeScript")
+  .option("--out-dir <directory>", "Required output directory for the TypeScript module graph")
+  .option("--import-root <directory>", "Import root (default: entry file directory)")
+  .option("--overwrite", "Replace existing files owned by the generated graph")
+  .action((input: string, options: { outDir?: string; importRoot?: string; overwrite?: boolean }) => {
+    try {
+      if (!options.outDir) throw new AmxError({ code: "AMX6001", message: "Option --out-dir <directory> is required" });
+      const graph = resolveTranspileGraph(input, { importRoot: options.importRoot });
+      const result = transpileDocument(graph);
+      if (!result.ok) {
+        reportTranspileDiagnostics(result.diagnostics);
+        process.exit(1);
+      }
+      const written = writeTranspiledGraph(result, options.outDir, { overwrite: options.overwrite });
+      console.log(`Transpiled entry: ${written.entryPath}`);
+      console.log(`Modules (${written.outputPaths.length}):`);
+      for (const outputPath of written.outputPaths) console.log(`  ${outputPath}`);
+    } catch (error) {
+      if (error instanceof AmxError) {
+        reportAmxError(error);
+      } else {
+        reportAmxError(new AmxError({
+          code: "AMX6002",
+          message: `Transpilation failed: ${error instanceof Error ? error.message : String(error)}`
+        }));
       }
       process.exit(1);
     }

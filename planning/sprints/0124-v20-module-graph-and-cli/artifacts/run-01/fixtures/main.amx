@@ -1,0 +1,7 @@
+---
+title: S124 Graph Compile Fixture
+---
+```amx
+import { double } from "./lib/math.amx"
+export let result: Number = double(21)
+```

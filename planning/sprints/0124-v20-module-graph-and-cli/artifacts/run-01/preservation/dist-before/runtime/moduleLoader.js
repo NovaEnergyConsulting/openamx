@@ -1,0 +1,383 @@
+import * as path from 'path';
+import * as fs from 'fs';
+import { parseDocument, parseDocumentText } from '../parser/parseDocument';
+import { checkDocument } from '../typechecker/checkDocument';
+import { evaluateStatements } from './evaluateExpression';
+import { Environment } from './environment';
+import { AmxError, moduleError, staticError, throwInputErrors } from '../diagnostics/errors';
+import { describeInputSchema, loadInputValues, validateInputText } from './inputData';
+import { describeOutputSchemas, prepareOutputs } from './outputData';
+function flattenStatements(doc) {
+    const statements = [];
+    for (const node of doc.nodes) {
+        if (node.type === 'executableCodeBlock')
+            statements.push(...node.statements);
+    }
+    return statements;
+}
+function collectDiagramDeclarations(statements, output) {
+    for (const statement of statements) {
+        if (statement.type === 'diagramDeclaration')
+            output.push(statement);
+        else if (statement.type === 'forStatement')
+            collectDiagramDeclarations(statement.body, output);
+        else if (statement.type === 'bracedIfStatement') {
+            collectDiagramDeclarations(statement.consequent, output);
+            if (statement.alternate)
+                collectDiagramDeclarations(statement.alternate, output);
+        }
+    }
+}
+function reportDiagramDeclarations(doc) {
+    const declarations = [];
+    for (const node of doc.nodes) {
+        if (node.type === 'executableCodeBlock')
+            collectDiagramDeclarations(node.statements, declarations);
+    }
+    return declarations;
+}
+function* authoredDiagramElements(content) {
+    for (const node of content) {
+        if (node.type === 'diagramElement')
+            yield node;
+        else if (node.type === 'diagramForBlock')
+            yield* authoredDiagramElements(node.content);
+        else {
+            yield* authoredDiagramElements(node.consequent);
+            if (node.alternate)
+                yield* authoredDiagramElements(node.alternate);
+        }
+    }
+}
+function validateReportDiagramCaps(records) {
+    let diagramCount = 0;
+    let elementCount = 0;
+    for (const record of records) {
+        for (const declaration of reportDiagramDeclarations(record.doc)) {
+            diagramCount++;
+            if (diagramCount > 16) {
+                staticError('AMXD012', 'A single report can have up to 16 diagrams maximum.', declaration.source, record.canonicalPath);
+            }
+            for (const element of authoredDiagramElements(declaration.content)) {
+                elementCount++;
+                if (elementCount > 512) {
+                    staticError('AMXD013', 'A single report can have up to 512 elements maximum.', element.source, record.canonicalPath);
+                }
+            }
+        }
+    }
+}
+function validateImportPathSyntax(importNode, file) {
+    const importPath = importNode.path;
+    if (!(importPath.startsWith('./') || importPath.startsWith('../'))) {
+        moduleError('AMX5001', `Import path '${importPath}' must be relative and start with './' or '../'`, importNode.pathSource, file);
+    }
+    if (importPath.includes('\\')) {
+        moduleError('AMX5001', `Import path '${importPath}' must use '/' separators`, importNode.pathSource, file);
+    }
+    if (!importPath.endsWith('.amx')) {
+        moduleError('AMX5001', `Import path '${importPath}' must end with the exact lowercase '.amx' suffix`, importNode.pathSource, file);
+    }
+    if (path.isAbsolute(importPath)) {
+        moduleError('AMX5001', `Import path '${importPath}' must be relative`, importNode.pathSource, file);
+    }
+}
+function realpathOrFail(absolutePath, code, message, sourceFile) {
+    try {
+        return fs.realpathSync(absolutePath);
+    }
+    catch {
+        moduleError(code, message, undefined, sourceFile);
+    }
+}
+function isWithinDirectory(root, candidate) {
+    const relative = path.relative(root, candidate);
+    return relative !== '' && relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+}
+/**
+ * Resolve, check, and evaluate the complete module graph reachable from `entryPath`,
+ * returning the entry module's document and final evaluated environment.
+ */
+export async function loadEntryModule(entryPath, options = {}) {
+    const absoluteEntry = path.resolve(entryPath);
+    const realEntry = realpathOrFail(absoluteEntry, 'AMX5001', `Entry module '${entryPath}' could not be read`, entryPath);
+    const importRoot = options.importRoot === undefined
+        ? path.dirname(realEntry)
+        : realpathOrFail(path.resolve(options.importRoot), 'AMX5001', `Import root '${options.importRoot}' could not be read`, entryPath);
+    let importRootStats;
+    try {
+        importRootStats = fs.statSync(importRoot);
+    }
+    catch {
+        moduleError('AMX5001', `Import root '${options.importRoot ?? importRoot}' could not be read`, undefined, entryPath);
+    }
+    if (!importRootStats.isDirectory()) {
+        moduleError('AMX5001', 'Import root must be a directory', undefined, entryPath);
+    }
+    if (realEntry !== importRoot && !isWithinDirectory(importRoot, realEntry)) {
+        moduleError('AMX5001', `Entry module '${entryPath}' resolves outside the import root directory tree`, undefined, entryPath);
+    }
+    const rootDescription = options.importRoot === undefined ? 'entry directory tree' : 'import root directory tree';
+    if (options.sourceOverlay) {
+        if (options.sourceOverlay.size > 100) {
+            moduleError('AMX5001', 'Source overlay exceeds the 100-module limit', undefined, entryPath);
+        }
+        for (const overlayPath of options.sourceOverlay.keys()) {
+            if (!path.isAbsolute(overlayPath)) {
+                moduleError('AMX5001', 'Source overlay paths must be canonical absolute paths', undefined, entryPath);
+            }
+            const canonicalOverlayPath = realpathOrFail(overlayPath, 'AMX5001', 'Source overlay module could not be read', entryPath);
+            if (canonicalOverlayPath !== overlayPath || !isWithinDirectory(importRoot, canonicalOverlayPath)) {
+                moduleError('AMX5001', `Source overlay paths must be canonical and contained by the ${rootDescription}`, undefined, entryPath);
+            }
+        }
+    }
+    const resolved = new Map();
+    const visiting = [];
+    const evaluationOrder = [];
+    const baseUnits = new Map();
+    async function visit(canonicalPath, viaImportSource) {
+        const existing = resolved.get(canonicalPath);
+        if (existing)
+            return existing;
+        const cycleIndex = visiting.indexOf(canonicalPath);
+        if (cycleIndex !== -1) {
+            const cycle = [...visiting.slice(cycleIndex), canonicalPath].map(p => path.relative(importRoot, p) || path.basename(p));
+            moduleError('AMX5003', `Import cycle detected: ${cycle.join(' -> ')}`, viaImportSource?.pathSource, viaImportSource?.file);
+        }
+        visiting.push(canonicalPath);
+        let doc;
+        try {
+            const overlayText = options.sourceOverlay?.get(canonicalPath);
+            doc = canonicalPath === realEntry && options.entryText !== undefined
+                ? parseDocumentText(options.entryText)
+                : overlayText !== undefined
+                    ? parseDocumentText(overlayText)
+                    : await parseDocument(canonicalPath);
+        }
+        catch (error) {
+            if (error instanceof AmxError && (error.code === 'AMX3006' || error.code === 'AMX3008')) {
+                error.file ??= canonicalPath;
+                throw error;
+            }
+            const message = error instanceof Error ? error.message : String(error);
+            visiting.pop();
+            return moduleError('AMX5001', `Failed to parse module '${canonicalPath}': ${message}`, undefined, canonicalPath);
+        }
+        const statements = flattenStatements(doc);
+        const localNames = new Set();
+        for (const statement of statements) {
+            if (statement.type === 'typeDeclaration' || statement.type === 'enumDeclaration' || statement.type === 'functionDeclaration' || statement.type === 'variableDeclaration' || statement.type === 'inputDeclaration'
+                || statement.type === 'tableDeclaration' || statement.type === 'chartDeclaration'
+                || statement.type === 'dimensionDeclaration' || statement.type === 'unitDeclaration') {
+                localNames.add(statement.name);
+            }
+        }
+        if (canonicalPath !== realEntry) {
+            const input = statements.find(statement => statement.type === 'inputDeclaration');
+            if (input?.type === 'inputDeclaration') {
+                staticError('AMX3005', 'Inputs may only be declared in the entry module', input.source, canonicalPath);
+            }
+        }
+        let sawNonImport = false;
+        for (const statement of statements) {
+            if (statement.type === 'importDeclaration') {
+                if (sawNonImport)
+                    moduleError('AMX5001', 'Import declarations must precede all other executable items', statement.source, canonicalPath);
+            }
+            else {
+                sawNonImport = true;
+            }
+        }
+        const imports = statements.filter((s) => s.type === 'importDeclaration');
+        const localDimensionUnitNames = new Set(statements.flatMap(statement => statement.type === 'dimensionDeclaration' || statement.type === 'unitDeclaration' ? [statement.name] : []));
+        const importedTypes = new Map();
+        const importedEnums = new Map();
+        const importedEnumSources = new Map();
+        const importedFunctions = new Map();
+        const importedBindings = new Map();
+        const importedBindingSources = new Map();
+        const importedDimensions = new Map();
+        const importedUnits = new Map();
+        const importedNamesSeen = new Set();
+        const importedDimensionUnitNames = new Set();
+        for (const importNode of imports) {
+            validateImportPathSyntax(importNode, canonicalPath);
+            const importerDir = path.dirname(canonicalPath);
+            const targetAbsolute = path.resolve(importerDir, importNode.path);
+            const targetReal = realpathOrFail(targetAbsolute, 'AMX5001', `Module '${importNode.path}' could not be found`, canonicalPath);
+            if (!isWithinDirectory(importRoot, targetReal)) {
+                moduleError('AMX5001', `Module '${importNode.path}' resolves outside the ${rootDescription}`, importNode.pathSource, canonicalPath);
+            }
+            const dependency = await visit(targetReal, { pathSource: importNode.pathSource, file: canonicalPath });
+            for (const importedName of importNode.names) {
+                const isDimensionOrUnit = dependency.checkResult.exportedDimensions.has(importedName.name)
+                    || dependency.checkResult.exportedUnits.has(importedName.name);
+                if (importedNamesSeen.has(importedName.name)) {
+                    if (isDimensionOrUnit || importedDimensionUnitNames.has(importedName.name)) {
+                        staticError('AMX3008', `Duplicate import of dimension/unit '${importedName.name}'`, importedName.source, canonicalPath);
+                    }
+                    moduleError('AMX5002', `Duplicate import of '${importedName.name}'`, importedName.source, canonicalPath);
+                }
+                importedNamesSeen.add(importedName.name);
+                if (localNames.has(importedName.name)) {
+                    if (isDimensionOrUnit || localDimensionUnitNames.has(importedName.name)) {
+                        staticError('AMX3008', `Imported dimension/unit '${importedName.name}' collides with a local declaration`, importedName.source, canonicalPath);
+                    }
+                    moduleError('AMX5002', `Imported name '${importedName.name}' collides with a local declaration`, importedName.source, canonicalPath);
+                }
+                if (dependency.checkResult.exportedTypes.has(importedName.name)) {
+                    importedTypes.set(importedName.name, dependency.checkResult.exportedTypes.get(importedName.name));
+                }
+                else if (dependency.checkResult.exportedEnums.has(importedName.name)) {
+                    importedEnums.set(importedName.name, dependency.checkResult.exportedEnums.get(importedName.name));
+                    importedEnumSources.set(importedName.name, dependency.canonicalPath);
+                }
+                else if (dependency.checkResult.exportedFunctions.has(importedName.name)) {
+                    importedFunctions.set(importedName.name, dependency.checkResult.exportedFunctions.get(importedName.name));
+                }
+                else if (dependency.checkResult.exportedBindings.has(importedName.name)) {
+                    importedBindings.set(importedName.name, dependency.checkResult.exportedBindings.get(importedName.name));
+                    importedBindingSources.set(importedName.name, dependency.canonicalPath);
+                }
+                else if (dependency.checkResult.exportedDimensions.has(importedName.name)) {
+                    importedDimensions.set(importedName.name, dependency.checkResult.exportedDimensions.get(importedName.name));
+                    importedDimensionUnitNames.add(importedName.name);
+                }
+                else if (dependency.checkResult.exportedUnits.has(importedName.name)) {
+                    importedUnits.set(importedName.name, dependency.checkResult.exportedUnits.get(importedName.name));
+                    importedDimensionUnitNames.add(importedName.name);
+                }
+                else {
+                    moduleError('AMX5002', `Module '${importNode.path}' does not export '${importedName.name}'`, importedName.source, canonicalPath);
+                }
+            }
+        }
+        const checkResult = checkDocument(doc, canonicalPath, {
+            types: importedTypes,
+            enums: importedEnums,
+            functions: importedFunctions,
+            bindings: importedBindings,
+            dimensions: importedDimensions,
+            units: importedUnits,
+            baseUnits,
+            moduleIdentity: canonicalPath,
+            isEntryModule: canonicalPath === realEntry
+        });
+        visiting.pop();
+        const record = { canonicalPath, doc, checkResult, importedTypes, importedEnums, importedEnumSources, importedFunctions, importedBindings, importedBindingSources, importedDimensions, importedUnits };
+        resolved.set(canonicalPath, record);
+        evaluationOrder.push(canonicalPath);
+        return record;
+    }
+    await visit(realEntry, undefined);
+    validateReportDiagramCaps(evaluationOrder.map(canonicalPath => resolved.get(canonicalPath)));
+    const entryRecord = resolved.get(realEntry);
+    const registry = {
+        dimensions: entryRecord.checkResult.dimensions,
+        units: entryRecord.checkResult.units,
+        baseUnits: entryRecord.checkResult.baseUnits
+    };
+    const entryStatements = flattenStatements(entryRecord.doc);
+    const inputDeclarations = entryStatements.filter(statement => statement.type === 'inputDeclaration');
+    const entryTypes = new Map(entryRecord.importedTypes);
+    for (const statement of entryStatements) {
+        if (statement.type === 'typeDeclaration')
+            entryTypes.set(statement.name, statement);
+    }
+    const outputs = prepareOutputs(options.outputMappings, entryRecord.checkResult.exportedBindings, entryTypes, options.reservedOutputPath, registry);
+    const outputSchemas = options.inputInspection || options.outputInspection
+        ? describeOutputSchemas(entryRecord.checkResult.exportedBindings, entryTypes, registry)
+        : undefined;
+    if (options.inputInspection) {
+        const declaration = inputDeclarations.find(input => input.name === options.inputInspection.name);
+        if (!declaration) {
+            throwInputErrors([{
+                    code: 'AMX4001',
+                    message: `Unknown logical input '${options.inputInspection.name}'`,
+                    file: entryPath,
+                    inputName: options.inputInspection.name
+                }]);
+        }
+        const validation = validateInputText(options.inputInspection.text, options.inputInspection.format, declaration, entryTypes, options.validation ?? 'aggregate', { file: entryPath }, registry);
+        return {
+            doc: entryRecord.doc,
+            env: new Environment(entryTypes, new Map(), registry),
+            outputs,
+            viewEmissions: [],
+            diagramEmissions: [],
+            registry,
+            inputInspection: {
+                schema: describeInputSchema(declaration, entryTypes, registry),
+                valid: validation.diagnostics.length === 0,
+                diagnostics: validation.diagnostics,
+                outputs: outputSchemas ?? []
+            }
+        };
+    }
+    if (options.outputInspection) {
+        return {
+            doc: entryRecord.doc,
+            env: new Environment(entryTypes, new Map(), registry),
+            outputs,
+            viewEmissions: [],
+            diagramEmissions: [],
+            outputSchemas: outputSchemas ?? [],
+            registry
+        };
+    }
+    const inputValues = await loadInputValues(inputDeclarations, entryTypes, options.inputMappings, options.validation, entryPath, registry);
+    const evaluatedEnvironments = new Map();
+    for (const canonicalPath of evaluationOrder) {
+        const record = resolved.get(canonicalPath);
+        const env = new Environment(new Map(), new Map(), {
+            dimensions: record.checkResult.dimensions,
+            units: record.checkResult.units,
+            baseUnits: record.checkResult.baseUnits
+        });
+        env.validationMode = options.validation ?? 'aggregate';
+        for (const [name, typeDeclaration] of record.importedTypes)
+            env.recordTypes.set(name, typeDeclaration);
+        for (const [name, enumDeclaration] of record.importedEnums) {
+            const dependency = evaluatedEnvironments.get(record.importedEnumSources.get(name));
+            if (!dependency)
+                moduleError('AMX5002', `Imported enum '${name}' was not materialized`, enumDeclaration.source, canonicalPath);
+            env.enumDeclarations.set(name, enumDeclaration);
+            env.enumValues.set(name, dependency.enumValues.get(name));
+        }
+        for (const [name, functionDeclaration] of record.importedFunctions)
+            env.functions.set(name, functionDeclaration);
+        for (const [name, bindingType] of record.checkResult.bindingTypes)
+            env.bindingTypes.set(name, bindingType);
+        for (const [name, sourcePath] of record.importedBindingSources) {
+            const dependencyEnv = evaluatedEnvironments.get(sourcePath);
+            const value = dependencyEnv.get(name);
+            env.set(name, value);
+            env.markImmutable(value);
+        }
+        if (canonicalPath === realEntry) {
+            for (const [name, value] of inputValues)
+                env.set(name, value);
+        }
+        for (let nodeIndex = 0; nodeIndex < record.doc.nodes.length; nodeIndex++) {
+            const node = record.doc.nodes[nodeIndex];
+            if (node.type === 'executableCodeBlock') {
+                env.currentDocumentNodeIndex = nodeIndex;
+                evaluateStatements(node.statements, env, canonicalPath);
+            }
+        }
+        evaluatedEnvironments.set(canonicalPath, env);
+    }
+    const entryEnv = evaluatedEnvironments.get(realEntry);
+    const diagramEmissions = Object.freeze(evaluationOrder.flatMap(canonicalPath => evaluatedEnvironments.get(canonicalPath).diagramEmissions));
+    entryEnv.diagramEmissions.splice(0, entryEnv.diagramEmissions.length, ...diagramEmissions);
+    return {
+        doc: resolved.get(realEntry).doc,
+        env: entryEnv,
+        outputs,
+        viewEmissions: entryEnv.viewEmissions,
+        diagramEmissions,
+        registry
+    };
+}
+//# sourceMappingURL=moduleLoader.js.map
