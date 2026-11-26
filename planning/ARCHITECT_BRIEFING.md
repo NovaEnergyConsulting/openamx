@@ -6,6 +6,10 @@ public-helper boundary probe passed, but full helper coverage and direct enum
 helper parity remained for S122. The approved work now covers only the public
 runtime helper contract and an isolated external consumer proof.
 
+The Product Owner separately ACCEPTED/CLOSED WITH RECORDED RESIDUALS the
+S121 final feasibility closeout on 2026-11-25. The S121 probe and S122 helper
+evidence remain unchanged; D121-18 remains best-effort/non-crash-atomic.
+
 S122 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS by the product owner on
 2026-11-25. The public helper package and strict external consumer are verified
 against AMX for all applicable cases. D122-15 excludes parity for enum-valued
@@ -16,11 +20,11 @@ process residual.
 ## Executive summary
 **Business outcome**: Complete the approved public runtime helper/type surface and verify it through a separately authored strict consumer of the built package.
 
-**Current focus**: Prepare the separately gated S121 final feasibility closeout; S123 remains gated on that closeout and its own execution authorization.
+**Current focus**: Disposition applicable D123 decisions and obtain exact S123 execution authorization before implementation or test execution.
 
 **What is proven**: Focused tests passed 206/0 with 1,107 assertions; root no-emit typecheck, isolated package build, strict consumer compile, AMX output/error/view oracle, package-boundary audit, `git diff --check`, and root `dist` hash preservation passed. Imported string/numeric enum JSON/CSV cases and legacy diagram type compatibility are covered.
 
-**What is not proven/live**: No AMX parity claim is made for enum-valued record defaults, which current AMX rejects. Full S121 feasibility closeout, S123 emitter work, release, and platform qualification remain gated.
+**What is not proven/live**: No AMX parity claim is made for enum-valued record defaults, which current AMX rejects. S123 emitter work, release, and platform qualification remain gated; S123 has no execution authorization yet.
 
 ## Readiness signals
 
@@ -29,11 +33,11 @@ process residual.
 | Focused root verification and dist preservation | passed | 206/0 tests, root typecheck, diff check, and identical 196-file root dist manifests. |
 | S122 helper package and applicable fixtures | passed | External built-package consumer, AMX oracle, focused tests, declarations, and root `dist` preservation passed. |
 | Accepted S122 residuals | attention | D122-15 enum-default no-parity limitation and retry/stop-protocol deviation are recorded and accepted; no AMX semantic change was made. |
-| S121 final feasibility closeout | attention | Still separately gated; S121 raw probe results and D121-18 residual remain unchanged. |
-| S123 emitter implementation | attention | Requires S121 final feasibility closeout and separate execution authorization. |
+| S121 final feasibility closeout | accepted | Product Owner accepted on 2026-11-25; raw probe results and D121-18 residual remain unchanged. |
+| S123 emitter implementation | attention | Requires disposition of applicable D123 decisions and approval of the exact execution plan. |
 
 ## Recommended next Architect action
-**Do**: Prepare and separately authorize S121 final feasibility closeout; gate S123 afterward.
+**Do**: Disposition applicable D123 decisions and separately authorize the exact S123 execution plan.
 **Owner**: Lead Developer / Product Owner.
 **Decision**: S122 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS. D122-15 and the retry/stop-protocol deviation are accepted; no AMX semantics or release authority follows.
 

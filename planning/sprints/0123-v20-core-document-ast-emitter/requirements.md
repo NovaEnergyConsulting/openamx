@@ -4,8 +4,8 @@
 
 Architect-prepared Sprint 123 package. It defines candidate emitter contracts
 under the accepted V0.20 decisions and the completed S122 helper API. Sprint
-123 execution remains blocked until S121 final feasibility closeout and a
-separate exact execution authorization are recorded. Preparing this package
+123 execution remains blocked until the exact execution authorization and
+applicable D123 dispositions are recorded. Preparing this package
 does not authorize implementation, release, publication, package/version
 changes, deployment, or platform certification.
 
@@ -29,10 +29,9 @@ work to this sprint.
   and the accepted retry/stop-protocol process residual. Do not change AMX
   checker/runtime semantics or claim enum-default AMX parity.
 - S121 product-owner disposition: ACCEPTED/CLOSED WITH RECORDED RESIDUALS for
-  its contract/helper checkpoint on 2026-11-25. S121 final feasibility proof
-  and closeout are still pending after the helper package became available.
-  Verify that final closeout is separately accepted before S123 execution;
-  the S121 probe and D121-18 residual remain raw and unchanged.
+  the final feasibility closeout on 2026-11-25. The recorded S121 probe and
+  D121-18 residual remain unchanged. S123 execution still requires a separate
+  exact execution authorization and applicable D123 dispositions.
 - D121-18 residual: multi-file publication rollback is best-effort and not
   crash-atomic; it belongs to S124/S125. S123 performs no graph publication.
 - S122 helper source/API: `src/transpilerRuntime.ts` and

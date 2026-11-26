@@ -18,10 +18,10 @@ You are the Builder for OpenAMX Sprint 123: Core Document and AST Emitter.
 - S122 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-11-25. Preserve
   D122-15 no-parity for enum-valued defaults current AMX cannot express, and
   the accepted retry/stop-protocol process residual.
-- S121 helper/API checkpoint is accepted, but S121 final feasibility proof
-  and closeout are still pending in canonical records. Do not begin S123
-  implementation until the Product Owner separately accepts that final S121
-  closeout and approves the exact S123 execution plan.
+- S121 final feasibility closeout was accepted by the Product Owner on
+  2026-11-25 with recorded residuals. Do not begin S123 implementation until
+  applicable D123 decisions and the exact S123 execution plan are separately
+  approved.
 - This package is planning, not execution authority. Obtain exact approval for
   baseline/worktree, source/test files, commands, generated fixtures/oracle,
   output roots, build and `dist` preservation, retries/stop protocol, and

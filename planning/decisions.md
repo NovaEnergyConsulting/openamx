@@ -1,5 +1,18 @@
 # Planning Decisions
 
+## V0.20 Sprint 121 Final Feasibility Closeout (2026-11-25)
+
+- The Product Owner separately ACCEPTED/CLOSED WITH RECORDED RESIDUALS the
+  S121 final feasibility closeout on 2026-11-25. The approved S121 four-case
+  helper-boundary probe evidence and accepted S122 public helper package
+  evidence support the closeout; raw run results are unchanged.
+- Preserve D121-18: multi-file publication rollback remains best-effort and
+  not crash-atomic, owned by S124/S125. S122 D122-15 and the accepted
+  retry/stop-protocol process residual remain unchanged.
+- This disposition satisfies the S121 prerequisite only. S123 still requires
+  a separately approved exact execution plan and disposition of applicable
+  D123 decisions before implementation or test execution.
+
 ## V0.20 Sprint 122 Product-Owner Authorization and Contract Decisions (2026-11-25)
 
 - The product owner authorized S122 execution against clean baseline

@@ -8,10 +8,10 @@ separate scope.
 
 ## Entry Gate
 
-- Sprint 121 final feasibility proof and closeout are separately ACCEPTED/CLOSED
-  with raw statuses and D121-18 residual preserved. As of this package
-  preparation, S121 final closeout remains pending; S123 execution is therefore
-  BLOCKED until that disposition is recorded.
+- Sprint 121 final feasibility closeout was separately ACCEPTED/CLOSED WITH
+  RECORDED RESIDUALS by the Product Owner on 2026-11-25. Preserve its raw
+  statuses and D121-18 residual. S123 execution remains BLOCKED until the
+  exact execution plan and applicable D123 decisions are approved.
 - Sprint 122 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-11-25. Keep
   D122-15 enum-default no-parity and retry/stop-protocol residual visible.
 - Exact S123 baseline, worktree, source/test/evidence paths, commands,

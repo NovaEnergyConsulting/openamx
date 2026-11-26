@@ -2,10 +2,11 @@
 
 ## Status and Entry
 
-Architect-prepared contract proposal. Implementation is blocked until S121
-final feasibility closeout and separate S123 authorization. The emitted code
-must consume the accepted S122 helper API and preserve the S121 per-module
-source envelope.
+Architect-prepared contract proposal. S121 final feasibility closeout was
+accepted by the Product Owner on 2026-11-25. Implementation remains blocked
+until applicable D123 decisions and separate exact S123 authorization. The
+emitted code must consume the accepted S122 helper API and preserve the S121
+per-module source envelope.
 
 ## API Layers
 

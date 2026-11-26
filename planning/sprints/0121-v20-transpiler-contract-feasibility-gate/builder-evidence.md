@@ -112,9 +112,9 @@ Builder interpretation and owner disposition.
   implemented and proven for the four-case boundary only; full helper API
   semantics, list/builtin coverage, and a separate S122 acceptance remain
   pending.
-- **S123 readiness:** BLOCKED on S122 helper acceptance and S121 final
-  feasibility closeout; the S121 product-owner disposition is already
-  ACCEPTED/CLOSED WITH RECORDED RESIDUALS for its approved scope only.
+- **S123 readiness:** S121 final feasibility closeout and S122 helper
+  acceptance are confirmed. S123 remains BLOCKED pending disposition of
+  applicable D123 decisions and approval of its exact execution plan.
 - **Limitations:** One Windows/Bun host only. No full emitter, CLI/desktop,
   rendered report, native/platform, release, or multi-file publication-failure
   acceptance is claimed. The D121-18 rollback residual remains open for later
@@ -122,3 +122,18 @@ Builder interpretation and owner disposition.
 - **Release/package/platform authority:** NONE. Record `NONE`; no release,
   publication, package/version, deployment, distribution, or certification
   command is in S121 scope.
+
+## Final Feasibility Closeout Disposition (2026-11-25)
+
+- **Separate Product Owner disposition:** `ACCEPTED/CLOSED WITH RECORDED
+  RESIDUALS` for the S121 final feasibility closeout on 2026-11-25.
+- **Basis:** The approved four-case S121 helper-boundary probe remains PASS in
+  the recorded S121 evidence; accepted S122 public-helper evidence confirms
+  the built helper contract. This disposition does not alter raw S121/S122
+  outcomes or claim full emitter, graph, CLI, desktop, renderer, or release
+  acceptance.
+- **Carried residual:** D121-18 remains best-effort/non-crash-atomic and is
+  assigned to S124/S125. Preserve D122-15 no-parity and the accepted
+  retry/stop-protocol residual.
+- **S123 readiness:** The S121 prerequisite is accepted; exact S123 execution
+  authorization and applicable D123 dispositions are still required.

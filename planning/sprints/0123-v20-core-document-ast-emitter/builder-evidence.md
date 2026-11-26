@@ -2,9 +2,10 @@
 
 ## Status
 
-Architect-prepared evidence scaffold. S123 execution is BLOCKED until S121
-final feasibility closeout is separately accepted. No S123 implementation or
-verification has been authorized by preparing this file.
+Architect-prepared evidence scaffold. S121 final feasibility closeout was
+accepted by the Product Owner on 2026-11-25. S123 execution remains BLOCKED
+until applicable D123 decisions and the exact execution plan are approved. No
+S123 implementation or verification is authorized by preparing this file.
 
 **Builder recommendation:** PENDING.
 
@@ -14,7 +15,7 @@ verification has been authorized by preparing this file.
 
 | Evidence item | Required record | Raw status |
 | --- | --- | --- |
-| S121 final feasibility closeout | Verify separate accepted/closed disposition and the approved four-case helper probe against the real public package. Preserve raw S121 results and D121-18 residual. | BLOCKED/UNAVAILABLE until owner disposition |
+| S121 final feasibility closeout | Product Owner accepted/closed with recorded residuals on 2026-11-25; approved four-case probe evidence remains raw and D121-18 is preserved. | PASS |
 | S122 closeout | Verify ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-11-25; carry D122-15 enum-default no-parity and retry/stop-protocol residual. | NOT RUN |
 | Baseline/worktree | Branch, commit, dirty status, host/tool versions, package/lock state, generated output manifest. | NOT RUN |
 | S123 execution authorization | Exact files, commands, fixture/oracle sources, build/output roots, retries, preservation, cleanup. | NOT RUN |

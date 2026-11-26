@@ -2,10 +2,10 @@
 
 ## Status and Entry Gate
 
-Architect-prepared verification plan. S121 final feasibility closeout remains
-pending in canonical planning records; S123 implementation and execution are
-blocked until that disposition is separately accepted and exact S123 scope is
-authorized.
+Architect-prepared verification plan. S121 final feasibility closeout was
+accepted by the Product Owner on 2026-11-25. S123 implementation and execution
+remain blocked until applicable D123 decisions and the exact execution plan
+are separately approved.
 
 Before execution, separately approve baseline/worktree, changed paths, exact
 commands, build outputs, generated fixture/oracle roots, `dist` preservation,

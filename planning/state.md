@@ -1,5 +1,16 @@
 # Planning State
 
+## V0.20 Sprint 121 Final Feasibility Closeout (2026-11-25)
+
+- The Product Owner separately ACCEPTED/CLOSED WITH RECORDED RESIDUALS the
+  S121 final feasibility closeout on 2026-11-25, based on the recorded
+  helper-boundary probe and accepted S122 public helper evidence. No raw S121
+  results or artifacts were changed.
+- D121-18 remains best-effort/non-crash-atomic and belongs to S124/S125.
+  D122-15 and the accepted S122 retry/stop-protocol residual remain unchanged.
+- S123 implementation and test execution still require an exact approved
+  execution plan and disposition of applicable D123 decisions.
+
 ## V0.20 Sprint 122 Product-Owner Closeout (2026-11-25)
 
 - The product owner authorized exact S122 paths, commands, fixture/oracle,

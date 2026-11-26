@@ -75,9 +75,10 @@ accepted S121/S122 decisions remain authoritative.
   `amxIsType`, `amxGet1Based`, `amxRange`, `amxAdd1Based`, `amxRemove1Based`,
   `amxIterate`, `amxCopyListArgument`, measurement operations, and view
   constructors. Generated imports must use this subpath only.
-- S121 final feasibility is not yet closed in `state.md`, `STATUS.json`, or
-  current S121 Builder evidence. This package may be prepared, but S123
-  implementation must not begin until that disposition is recorded.
+- S121 final feasibility closeout was accepted by the Product Owner on
+   2026-11-25 and is recorded in canonical planning state and S121 Builder
+   evidence. S123 implementation must not begin until applicable D123 decisions
+   and the exact execution plan are separately approved.
 
 ## Required Sprint Artifacts
 
