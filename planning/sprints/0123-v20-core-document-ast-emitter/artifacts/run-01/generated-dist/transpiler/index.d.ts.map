@@ -1,0 +1,1 @@
+{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../src/transpiler/index.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAuB,mBAAmB,EAAE,eAAe,EAAoB,MAAM,SAAS,CAAC;AAI3G,YAAY,EACV,mBAAmB,EACnB,mBAAmB,EACnB,uBAAuB,EACvB,qBAAqB,EACrB,eAAe,EACf,gBAAgB,EACjB,MAAM,SAAS,CAAC;AAEjB,wBAAgB,iBAAiB,CAAC,KAAK,EAAE,mBAAmB,GAAG,eAAe,CA8B7E"}

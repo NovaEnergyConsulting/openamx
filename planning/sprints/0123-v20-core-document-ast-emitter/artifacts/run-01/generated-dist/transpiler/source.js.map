@@ -1,0 +1,1 @@
+{"version":3,"file":"source.js","sourceRoot":"","sources":["../../src/transpiler/source.ts"],"names":[],"mappings":"AAAA,MAAM,eAAe,GAAG,yBAAyB,CAAC;AAElD,MAAM,UAAU,qBAAqB,CAAC,MAAc;IAClD,OAAO,MAAM,CAAC,KAAK,CAAC,eAAe,CAAC,CAAC,GAAG,CAAC,IAAI,CAAC,EAAE,CAAC,MAAM,IAAI,EAAE,CAAC,CAAC;AACjE,CAAC"}

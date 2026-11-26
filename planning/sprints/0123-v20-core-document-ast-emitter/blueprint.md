@@ -36,10 +36,11 @@
 
 ## Decision Register
 
-Candidate decisions for review before S123 execution; confirmed V0.20 and
-accepted S121/S122 decisions remain authoritative.
+The Product Owner approved D123-01 through D123-13 on 2026-11-26. The
+dispositions below are authoritative alongside the confirmed V0.20 and
+accepted S121/S122 decisions.
 
-| ID | Topic | Candidate disposition | Blocking owner |
+| ID | Topic | Approved disposition | Scope owner |
 | --- | --- | --- | --- |
 | D123-01 | Emitter API input | Candidate pure API consumes an entry and complete pre-resolved in-memory source graph `{ entryModuleId, modules }`, where each module carries original source, canonical identity, output-relative path, and resolved import mapping. It returns the complete generated module graph or diagnostics. No AST/checker internal type leaks through the public signature. | S123 contract gate |
 | D123-02 | Module boundary | S123 parses/checks and emits the supplied graph in dependency-first order. It may validate graph IDs/import mapping/cycles in memory, but performs no filesystem discovery, containment checks, output writes or rollback. S124 owns filesystem graph resolution and CLI. | S123/S124 |

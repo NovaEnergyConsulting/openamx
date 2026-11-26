@@ -1,0 +1,10 @@
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadEntryModule } from '../../../../../../src/runtime/moduleLoader.ts';
+import { run } from './main.ts';
+const directory = dirname(fileURLToPath(import.meta.url));
+const amx = await loadEntryModule(join(directory, "main.amx"));
+const amxTotal = amx.env.get("total") as number;
+const generatedTotal = run({}).exports.total;
+if (generatedTotal !== amxTotal) throw new Error(`Parity mismatch: ${generatedTotal} !== ${amxTotal}`);
+console.log(JSON.stringify({ amxTotal, generatedTotal }));

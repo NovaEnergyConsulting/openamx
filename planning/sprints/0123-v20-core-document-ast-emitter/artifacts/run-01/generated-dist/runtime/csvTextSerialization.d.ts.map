@@ -1,0 +1,1 @@
+{"version":3,"file":"csvTextSerialization.d.ts","sourceRoot":"","sources":["../../src/runtime/csvTextSerialization.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,WAAW;IAC1B,KAAK,EAAE,MAAM,CAAC;IACd,MAAM,EAAE,OAAO,CAAC;CACjB;AAED,wBAAgB,gBAAgB,CAAC,IAAI,EAAE,SAAS,CAAC,SAAS,WAAW,EAAE,CAAC,EAAE,GAAG,MAAM,CAOlF"}

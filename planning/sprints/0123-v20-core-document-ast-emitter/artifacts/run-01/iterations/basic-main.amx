@@ -1,0 +1,8 @@
+---
+title: Calculation
+---
+This stays literal: {{ 1 + 1 }}
+```amx
+let amount: Number = 4
+export let total: Number = amount ^ 2
+```

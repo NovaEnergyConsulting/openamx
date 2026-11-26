@@ -1,5 +1,35 @@
 # Planning Decisions
 
+## V0.20 Sprint 123 Product-Owner Decisions (2026-11-26)
+
+- D123-01: accept the typed `transpileDocument` facade over a complete
+  pre-resolved in-memory graph carrying module identity, source identity,
+  output-relative path, original source text, and exact resolved-import
+  mappings. Public signatures expose no AST/checker internals.
+- D123-02: validate graph identity, mappings, reachability, and cycles in
+  memory; perform no filesystem discovery, containment check, or publication.
+  S124 owns those operations.
+- D123-03: expose the source API through `src/index.ts` only. Do not add a
+  package-root `.` export, alter package exports, or change the version.
+- D123-04/05: preserve each original source envelope, including raw
+  frontmatter, and keep checker adaptation internal.
+- D123-06/07: preserve eager left-to-right AMX operation evaluation through
+  S122 helpers; emit table/chart snapshots on `show` and structured-v2 diagram
+  DTOs at declaration time through S122 constructors.
+- D123-08: use deterministic, injective module/name mangling and reserve
+  generated wrapper/helper names; preserve original AMX export keys.
+- D123-09: preserve D122-15 no-parity for enum-valued record defaults that
+  current AMX cannot express.
+- D123-10/11: preserve parser/checker diagnostics and allocate no new
+  diagnostic codes; return no generated graph for parse, check, or lowering
+  failures. This is per API call, not filesystem publication atomicity.
+- D123-12/13: output is deterministic and independent of absolute roots; each
+  module initializes once per `run(inputs)` using shared per-run state in
+  dependency-first order, with fresh state on subsequent calls.
+- Approval grants no S124/S125, renderer, release, package-root, package
+  version, publication, deployment, or platform scope. D121-18 remains
+  best-effort/non-crash-atomic and is not modified or retested by S123.
+
 ## V0.20 Sprint 121 Final Feasibility Closeout (2026-11-25)
 
 - The Product Owner separately ACCEPTED/CLOSED WITH RECORDED RESIDUALS the

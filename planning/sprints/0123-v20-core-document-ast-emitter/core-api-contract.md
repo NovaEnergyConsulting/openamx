@@ -2,11 +2,10 @@
 
 ## Status and Entry
 
-Architect-prepared contract proposal. S121 final feasibility closeout was
-accepted by the Product Owner on 2026-11-25. Implementation remains blocked
-until applicable D123 decisions and separate exact S123 authorization. The
-emitted code must consume the accepted S122 helper API and preserve the S121
-per-module source envelope.
+S121 final feasibility closeout was accepted on 2026-11-25 and D123-01/03
+were approved on 2026-11-26. This contract specifies the source-level facade;
+it does not imply a package-root export. The emitted code consumes the
+accepted S122 helper API and preserves the S121 per-module source envelope.
 
 ## API Layers
 
@@ -58,7 +57,7 @@ export interface TranspiledModule {
 }
 
 export interface TranspileDiagnostic {
-  readonly code: string;
+  readonly code?: string;
   readonly message: string;
   readonly file?: string;
   readonly line?: number;

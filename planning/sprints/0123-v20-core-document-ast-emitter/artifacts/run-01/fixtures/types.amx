@@ -1,0 +1,15 @@
+```amx
+import { Length, meter, centimeter } from "./units.amx"
+export enum Status = {
+  READY = "ready"
+  FAILED = "failed"
+}
+export type Row {
+  label: String
+  value: Length
+}
+export type Payload {
+  distance: Length
+  status: Status
+}
+```

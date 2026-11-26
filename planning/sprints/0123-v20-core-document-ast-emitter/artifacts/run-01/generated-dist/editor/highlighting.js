@@ -1,0 +1,346 @@
+import { declarationNameRange, sourceOffset, sourceTokenRange } from "./sourceRanges";
+import { findStringLiteralEnd } from "../parser/stringScanner";
+function statementsOf(document) {
+    return document.nodes.flatMap(node => node.type === "executableCodeBlock" ? node.statements : []);
+}
+function sourceLocationAtOffset(text, offset) {
+    const before = text.slice(0, offset).split(/\r?\n/);
+    return { line: before.length, column: before.at(-1).length + 1 };
+}
+/** Return parser-proven tokens only; narrative and ordinary fences never enter the AST statement walk. */
+export function editorHighlightFacts(text, document) {
+    const facts = [];
+    const add = (source, token, kind) => {
+        const range = sourceTokenRange(text, source, token);
+        if (range)
+            facts.push({ ...range, kind });
+    };
+    const expression = (node) => {
+        switch (node.type) {
+            case "numberLiteral": {
+                const from = sourceOffset(text, node.source);
+                const raw = from === undefined ? undefined : text.slice(from).match(/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/)?.[0];
+                if (raw)
+                    add(node.source, raw, "literal");
+                break;
+            }
+            case "stringLiteral": {
+                const from = sourceOffset(text, node.source);
+                if (from !== undefined) {
+                    const quote = text[from];
+                    if (quote === '"' || quote === "'") {
+                        let escaped = false;
+                        for (let end = from + 1; end < text.length; end++) {
+                            if (escaped)
+                                escaped = false;
+                            else if (text[end] === "\\")
+                                escaped = true;
+                            else if (text[end] === quote) {
+                                facts.push({ from, to: end + 1, kind: "literal" });
+                                break;
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+            case "stringInterpolation": {
+                const from = sourceOffset(text, node.source);
+                if (from !== undefined) {
+                    const end = findStringLiteralEnd(text, from);
+                    if (end !== undefined)
+                        facts.push({ from, to: end + 1, kind: "literal" });
+                }
+                node.parts.forEach(part => { if (typeof part !== "string")
+                    expression(part); });
+                break;
+            }
+            case "booleanLiteral":
+                add(node.source, String(node.value), "keyword");
+                break;
+            case "nullLiteral":
+                add(node.source, "null", "keyword");
+                break;
+            case "identifier":
+                add(node.source, node.name, "reference");
+                break;
+            case "measurementAttachment":
+            case "measurementConversion":
+                expression(node.value);
+                add(node.unitSource, node.unit, "reference");
+                break;
+            case "functionCall":
+                add(node.source, node.callee, "reference");
+                node.arguments.forEach(expression);
+                break;
+            case "recordConstructor":
+                add(node.source, node.name, "reference");
+                node.fields.forEach(field => expression(field.expression));
+                break;
+            case "fieldAccess": {
+                expression(node.receiver);
+                const dot = sourceOffset(text, node.source);
+                if (dot !== undefined && text[dot] === ".") {
+                    const fieldStart = text.slice(dot + 1).match(/^\s*/)?.[0].length ?? 0;
+                    const fieldSource = node.source && { line: node.source.line, column: node.source.column + 1 + fieldStart };
+                    add(fieldSource, node.field, "field");
+                }
+                break;
+            }
+            case "listAccess":
+                expression(node.receiver);
+                expression(node.index);
+                break;
+            case "binaryExpression":
+                expression(node.left);
+                add(node.operatorSource, node.operator, "keyword");
+                expression(node.right);
+                break;
+            case "typeTestExpression":
+                expression(node.value);
+                add(node.operatorSource, "is", "keyword");
+                typeReference(node.target);
+                break;
+            case "unaryExpression":
+                expression(node.argument);
+                break;
+            case "conditionalExpression":
+                expression(node.test);
+                expression(node.consequent);
+                expression(node.alternate);
+                break;
+            case "bracedIfExpression":
+                add(node.source, "if", "keyword");
+                expression(node.test);
+                node.consequent.forEach(statement);
+                node.alternate.forEach(statement);
+                break;
+            case "forExpression":
+                expression(node.iterable);
+                node.body.forEach(statement);
+                break;
+            case "matchExpression":
+                add(node.source, "match", "keyword");
+                expression(node.expression);
+                node.cases.forEach(item => { add(item.source, "case", "keyword"); expression(item.expression); });
+                add(node.defaultSource, "default", "keyword");
+                expression(node.defaultExpression);
+                break;
+            case "rangeExpression":
+                expression(node.start);
+                expression(node.end);
+                break;
+            case "listLiteral":
+                node.elements.forEach(expression);
+                break;
+            default: break;
+        }
+    };
+    const typeReference = (node) => {
+        if (!node)
+            return;
+        if (node.type === "namedType" && node.name)
+            add(node.source, node.name, "type");
+        if (node.element)
+            typeReference(node.element);
+    };
+    const diagramContent = (content) => {
+        for (const item of content) {
+            if (item.type === "diagramElement") {
+                add(item.source, item.primitive, "keyword");
+                add(item.nameSource, item.name, "declaration");
+                for (const property of item.properties) {
+                    add(property.nameSource, property.name, "field");
+                    expression(property.expression);
+                }
+            }
+            else if (item.type === "diagramForBlock") {
+                add(item.source, "for", "keyword");
+                add(item.variableSource, item.variable, "declaration");
+                const variableOffset = sourceOffset(text, item.variableSource);
+                if (variableOffset !== undefined) {
+                    const afterVariable = variableOffset + item.variable.length;
+                    const inToken = text.slice(afterVariable).match(/^\s+in\b/)?.[0];
+                    if (inToken) {
+                        const from = afterVariable + inToken.length - 2;
+                        facts.push({ from, to: from + 2, kind: "keyword" });
+                    }
+                }
+                expression(item.iterable);
+                diagramContent(item.content);
+            }
+            else {
+                add(item.source, "if", "keyword");
+                expression(item.test);
+                diagramContent(item.consequent);
+                if (item.elseSource)
+                    add(item.elseSource, "else", "keyword");
+                if (item.alternate)
+                    diagramContent(item.alternate);
+            }
+        }
+    };
+    const loopVariable = (node) => {
+        const start = sourceOffset(text, node.source);
+        if (start === undefined)
+            return;
+        const lineEnd = text.indexOf("\n", start);
+        const header = text.slice(start, lineEnd < 0 ? text.length : lineEnd).replace(/\r$/, "");
+        const match = header.match(/^for\s+([A-Za-z][A-Za-z0-9_]*)\s+in\b/);
+        if (!match || match[1] !== node.variable)
+            return;
+        const from = start + match[0].indexOf(node.variable);
+        facts.push({ from, to: from + node.variable.length, kind: "declaration" });
+    };
+    const statement = (node) => {
+        const keyword = {
+            variableDeclaration: "let", typeDeclaration: "type", enumDeclaration: "enum", functionDeclaration: "fn",
+            dimensionDeclaration: "dimension", unitDeclaration: "unit",
+            inputDeclaration: "input", importDeclaration: "import", tableDeclaration: "table",
+            chartDeclaration: "chart", diagramDeclaration: "diagram", showStatement: "show", forStatement: "for",
+            assignmentStatement: "", compoundAssignmentStatement: "", bracedIfStatement: "if", returnStatement: "return",
+            addStatement: "add", removeStatement: "remove"
+        };
+        const word = keyword[node.type];
+        if (word)
+            add(node.source, word, "keyword");
+        const start = sourceOffset(text, node.source);
+        if (start !== undefined) {
+            const lineStart = text.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+            const prefix = text.slice(lineStart, start);
+            if (/\bexport\s+$/.test(prefix)) {
+                const exportStart = lineStart + prefix.lastIndexOf("export");
+                const exportSource = node.source && { line: node.source.line, column: exportStart - lineStart + 1 };
+                add(exportSource, "export", "keyword");
+            }
+        }
+        if ("name" in node) {
+            const range = declarationNameRange(text, node);
+            if (range)
+                facts.push({ ...range, kind: "declaration" });
+        }
+        if (node.type === "importDeclaration")
+            for (const item of node.names)
+                add(item.source, item.name, "reference");
+        if (node.type === "inputDeclaration")
+            typeReference(node.annotation);
+        if (node.type === "diagramDeclaration") {
+            for (const property of node.properties) {
+                add(property.nameSource, property.name, "field");
+                expression(property.expression);
+            }
+            for (const time of node.times) {
+                add(time.source, "time", "keyword");
+                add(time.nameSource, time.name, "declaration");
+                expression(time.from);
+                expression(time.to);
+                expression(time.duration);
+            }
+            diagramContent(node.content);
+        }
+        if (node.type === "typeDeclaration") {
+            const firstParent = node.parents?.[0];
+            const typeOffset = sourceOffset(text, node.source);
+            const parentOffset = sourceOffset(text, firstParent?.source);
+            if (typeOffset !== undefined && parentOffset !== undefined) {
+                const extendsOffset = text.slice(typeOffset, parentOffset).indexOf("extends");
+                if (extendsOffset >= 0)
+                    add(sourceLocationAtOffset(text, typeOffset + extendsOffset), "extends", "keyword");
+            }
+            for (const parent of node.parents ?? [])
+                add(parent.source, parent.name, "type");
+            for (const field of node.fields) {
+                if (field.override)
+                    add(field.overrideSource, "override", "keyword");
+                add(field.source, field.name, "field");
+                typeReference(field.annotation);
+            }
+        }
+        if (node.type === "enumDeclaration")
+            for (const member of node.members)
+                add(member.nameSource, member.name, "declaration");
+        if (node.type === "variableDeclaration") {
+            typeReference(node.annotation);
+            expression(node.expression);
+        }
+        else if (node.type === "functionDeclaration") {
+            node.parameters.forEach(param => {
+                const range = sourceTokenRange(text, param.source, param.name);
+                if (range)
+                    facts.push({ ...range, kind: "declaration" });
+                typeReference(param.annotation);
+            });
+            typeReference(node.returnType);
+            if (node.body.kind === "expression")
+                expression(node.body.expression);
+            else
+                node.body.statements.forEach(statement);
+        }
+        else if (node.type === "tableDeclaration" || node.type === "chartDeclaration") {
+            add(node.bindingSource, node.binding, "reference");
+            if (node.type === "chartDeclaration") {
+                for (const option of node.options) {
+                    if (option.type === "chartShowTableOption") {
+                        add(option.source, "showTable", "keyword");
+                        expression(option.expression);
+                    }
+                }
+            }
+        }
+        else if (node.type === "showStatement")
+            add(node.nameSource, node.name, "reference");
+        else if (node.type === "assignmentStatement" || node.type === "compoundAssignmentStatement") {
+            add(node.source, node.name, "reference");
+            expression(node.expression);
+        }
+        else if (node.type === "addStatement") {
+            add(node.targetSource, node.name, "reference");
+            expression(node.value);
+            if (node.index)
+                expression(node.index);
+        }
+        else if (node.type === "removeStatement") {
+            add(node.targetSource, node.name, "reference");
+            expression(node.count);
+            if (node.index)
+                expression(node.index);
+        }
+        else if (node.type === "forStatement") {
+            loopVariable(node);
+            expression(node.iterable);
+            node.body.forEach(statement);
+        }
+        else if (node.type === "bracedIfStatement") {
+            expression(node.test);
+            node.consequent.forEach(statement);
+            node.alternate?.forEach(statement);
+        }
+        else if (node.type === "returnStatement")
+            expression(node.expression);
+        else if ("expression" in node && node.expression)
+            expression(node.expression);
+    };
+    for (const node of document.nodes)
+        if (node.type === "executableCodeBlock")
+            node.statements.forEach(statement);
+    const unique = new Map();
+    for (const fact of facts)
+        unique.set(`${fact.from}:${fact.to}:${fact.kind}`, fact);
+    return [...unique.values()].sort((left, right) => left.from - right.from || left.to - right.to);
+}
+export function isExecutableBlockOffset(text, document, offset) {
+    return document.nodes.some(node => {
+        if (node.type !== "executableCodeBlock" || !node.source)
+            return false;
+        const source = sourceOffset(text, node.source);
+        if (source === undefined)
+            return false;
+        const lineStart = text.lastIndexOf("\n", Math.max(0, source - 1)) + 1;
+        const openingLineEnd = text.indexOf("\n", lineStart);
+        if (openingLineEnd < 0)
+            return false;
+        const contentStart = openingLineEnd + 1;
+        return offset >= contentStart && offset <= contentStart + node.content.length;
+    });
+}
+//# sourceMappingURL=highlighting.js.map

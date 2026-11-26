@@ -9,3 +9,13 @@
 
 // Placeholder export to ensure the module compiles
 export const OPENAMX_VERSION = "0.1.0" as const;
+
+export { transpileDocument } from './transpiler';
+export type {
+	TranspileDiagnostic,
+	TranspileGraphInput,
+	TranspileResolvedImport,
+	TranspileSourceModule,
+	TranspileResult,
+	TranspiledModule
+} from './transpiler';

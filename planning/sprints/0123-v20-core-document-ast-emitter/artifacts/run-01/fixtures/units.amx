@@ -1,0 +1,5 @@
+```amx
+export dimension Length
+export unit meter: Length
+export unit centimeter = 0.01 * meter
+```
