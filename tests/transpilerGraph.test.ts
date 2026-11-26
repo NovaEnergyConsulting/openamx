@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it } from 'bun:test';
+import { writeFileSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { resolveTranspileGraph } from '../src/transpiler/filesystemGraph';
-import { TranspileOutputError, writeTranspiledGraph } from '../src/transpiler/outputWriter';
+import { inspectTranspiledGraphWrite, TranspileOutputError, writeTranspiledGraph } from '../src/transpiler/outputWriter';
 import { transpileDocument } from '../src/transpiler';
 import type { TranspileResult } from '../src/transpiler/types';
 
@@ -60,6 +61,29 @@ describe('S124 filesystem graph resolution', () => {
     const transpiled = transpileDocument(graph);
     expect(transpiled).toMatchObject({ ok: true });
     if (transpiled.ok) expect(transpiled.modules.map(module => module.outputPath)).toEqual(['shared.ts', 'main.ts']);
+  });
+
+  it('uses captured entry and dependency overlays without writing source files', async () => {
+    const root = await createProject();
+    const diskEntry = '```amx\nimport { value } from "./lib.amx"\nexport let result: Number = value\n```\n';
+    const diskDependency = '```amx\nexport let value: Number = 1\n```\n';
+    const entry = await writeSource(root, 'main.amx', diskEntry);
+    const dependency = await writeSource(root, 'lib.amx', diskDependency);
+    const entryOverlay = diskEntry.replace('value\n```', 'value + 1\n```');
+    const dependencyOverlay = '```amx\nexport let value: Number = 41\n```\n';
+
+    const graph = resolveTranspileGraph(entry, {
+      entryText: entryOverlay,
+      sourceOverlay: new Map([[dependency, dependencyOverlay]])
+    });
+    const transpiled = transpileDocument(graph);
+
+    expect(graph.modules.find(module => module.outputPath === 'main.ts')?.sourceText).toBe(entryOverlay);
+    expect(graph.modules.find(module => module.outputPath === 'lib.ts')?.sourceText).toBe(dependencyOverlay);
+    expect(transpiled).toMatchObject({ ok: true });
+    if (transpiled.ok) expect(transpiled.modules.find(module => module.outputPath === 'lib.ts')?.code).toContain('41');
+    expect(await Bun.file(entry).text()).toBe(diskEntry);
+    expect(await Bun.file(dependency).text()).toBe(diskDependency);
   });
 
   it('maps a nested single-module entry under the default import root', async () => {
@@ -288,6 +312,55 @@ describe('S124 filesystem graph resolution', () => {
     expect(written.outputPaths).toEqual(['lib.ts', 'main.ts']);
     expect(await Bun.file(written.entryPath).text()).toContain('openamx/transpiler-runtime');
     expect(await Bun.file(join(output, 'unrelated.txt')).text()).toBe('untouched');
+  });
+
+  it('inspects exact graph conflicts and rejects target changes after approval', async () => {
+    const project = await createProject();
+    const entry = await writeSource(project, 'main.amx', '```amx\nimport { value } from "./lib.amx"\nexport let result: Number = value\n```\n');
+    await writeSource(project, 'lib.amx', '```amx\nexport let value: Number = 7\n```\n');
+    const output = join(await createProject(), 'generated');
+    await mkdir(output, { recursive: true });
+    await Bun.write(join(output, 'main.ts'), 'original entry');
+    await Bun.write(join(output, 'lib.ts'), 'original library');
+    await Bun.write(join(output, 'unrelated.txt'), 'untouched');
+    const result = transpileDocument(resolveTranspileGraph(entry));
+    if (!result.ok) throw new Error('Expected the graph to transpile');
+
+    const plan = inspectTranspiledGraphWrite(result, output);
+    expect(plan.targets.filter(target => target.exists).map(target => target.outputPath)).toEqual(['lib.ts', 'main.ts']);
+    writeFileSync(join(output, 'main.ts'), 'changed after approval');
+
+    expect(() => writeTranspiledGraph(result, output, { overwrite: true, expectedPlan: plan }))
+      .toThrow(expect.objectContaining({ code: 'AMX6001', message: expect.stringContaining('changed after overwrite approval') }));
+    expect(await Bun.file(join(output, 'main.ts')).text()).toBe('changed after approval');
+    expect(await Bun.file(join(output, 'lib.ts')).text()).toBe('original library');
+    expect(await Bun.file(join(output, 'unrelated.txt')).text()).toBe('untouched');
+  });
+
+  it('revalidates approved targets after staging and before publication', async () => {
+    const project = await createProject();
+    const entry = await writeSource(project, 'main.amx', '```amx\nimport { value } from "./lib.amx"\nexport let result: Number = value\n```\n');
+    await writeSource(project, 'lib.amx', '```amx\nexport let value: Number = 7\n```\n');
+    const output = join(await createProject(), 'generated');
+    await mkdir(output, { recursive: true });
+    await Bun.write(join(output, 'main.ts'), 'original entry');
+    await Bun.write(join(output, 'lib.ts'), 'original library');
+    await Bun.write(join(output, 'unrelated.txt'), 'untouched');
+    const result = transpileDocument(resolveTranspileGraph(entry));
+    if (!result.ok) throw new Error('Expected the graph to transpile');
+    const plan = inspectTranspiledGraphWrite(result, output);
+
+    expect(() => writeTranspiledGraph(result, output, {
+      overwrite: true,
+      expectedPlan: plan,
+      failureInjector: (phase, outputPath) => {
+        if (phase === 'stage' && outputPath === 'lib.ts') writeFileSync(join(output, 'main.ts'), 'changed during staging');
+      }
+    })).toThrow(expect.objectContaining({ code: 'AMX6001', message: expect.stringContaining('changed after overwrite approval') }));
+    expect(await Bun.file(join(output, 'main.ts')).text()).toBe('changed during staging');
+    expect(await Bun.file(join(output, 'lib.ts')).text()).toBe('original library');
+    expect(await Bun.file(join(output, 'unrelated.txt')).text()).toBe('untouched');
+    expect((await Array.fromAsync(new Bun.Glob('*').scan(output))).sort()).toEqual(['lib.ts', 'main.ts', 'unrelated.txt']);
   });
 
   it('rolls back earlier published files when a later publish fails', async () => {

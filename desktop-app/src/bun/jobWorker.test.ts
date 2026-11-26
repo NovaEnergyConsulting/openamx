@@ -1,9 +1,10 @@
 import { expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-import type { WorkerJobMessage, WorkerJobRequest } from "./jobProtocol";
+import { createTypeScriptGraphResult, isBoundedTypeScriptGraphResult, MAX_TRANSPILE_GRAPH_BYTES, MAX_TRANSPILE_MODULES, type WorkerJobMessage, type WorkerJobRequest } from "./jobProtocol";
 
 test("trusted worker runs AMX and returns bounded path-free progress and result", async () => {
 	const root = mkdtempSync(join(tmpdir(), "openamx-job-worker-"));
@@ -84,6 +85,110 @@ test("trusted worker resolves nested imports within the selected project root", 
 		worker.terminate();
 		rmSync(root, { recursive: true, force: true });
 	}
+});
+
+test("trusted worker transpires the active graph overlays without evaluating generated code", async () => {
+	const root = mkdtempSync(join(tmpdir(), "openamx-job-transpile-"));
+	const entryPath = join(root, "report.amx");
+	const dependencyPath = join(root, "library.amx");
+	const diskEntry = "```amx\nimport { value } from \"./library.amx\"\nexport let total: Number = value\n```\n";
+	const diskDependency = "```amx\nexport let value: Number = 1\n```\n";
+	const entryOverlay = "```amx\nimport { value } from \"./library.amx\"\nlet emptyValues: Number[] = []\nlet invalidAtRuntime: Number = min(emptyValues)\nexport let total: Number = value + 2\n```\n";
+	const dependencyOverlay = "```amx\nexport let value: Number = 40\n```\n";
+	writeFileSync(entryPath, diskEntry);
+	writeFileSync(dependencyPath, diskDependency);
+	const worker = new Worker(new URL("./jobWorker.ts", import.meta.url).href);
+	try {
+		const completed = new Promise<WorkerJobMessage>((resolve, reject) => {
+			worker.addEventListener("message", event => {
+				const message = event.data as WorkerJobMessage;
+				if (message.kind === "complete" || message.kind === "failed") resolve(message);
+			});
+			worker.addEventListener("error", event => reject(new Error(event.message)));
+		});
+		worker.postMessage({
+			kind: "start", jobId: 71, operation: "transpile", entryPath, entryText: entryOverlay,
+			projectRoot: root, sourceOverlay: [[dependencyPath, dependencyOverlay]], inputMappings: [], validation: "aggregate"
+		} satisfies WorkerJobRequest);
+		const message = await Promise.race([
+			completed,
+			new Promise<never>((_, reject) => setTimeout(() => reject(new Error("worker transpile job timed out")), 5000))
+		]);
+		if (message.kind === "failed") throw new Error(message.diagnostics[0]?.message ?? "Worker transpile job failed.");
+		expect(message.kind).toBe("complete");
+		if (message.kind !== "complete" || message.result.kind !== "typescript-graph") throw new Error("Expected a TypeScript graph result.");
+		expect(message.result.moduleCount).toBe(2);
+		expect(message.result.bytes).toBeGreaterThan(0);
+		expect(message.result.payloadBytes).toBeLessThanOrEqual(32_000_000);
+		expect(message.result.graph.modules.map(module => module.outputPath)).toEqual(["library.ts", "report.ts"]);
+		expect(message.result.graph.modules.find(module => module.outputPath === "library.ts")?.sourcePath).toBe(dependencyPath);
+		const entryCode = message.result.graph.modules.find(module => module.outputPath === "report.ts")?.code ?? "";
+		expect(entryCode).toContain("emptyValues");
+		expect(entryCode).toContain("min");
+		expect(readFileSync(entryPath, "utf8")).toBe(diskEntry);
+		expect(readFileSync(dependencyPath, "utf8")).toBe(diskDependency);
+	} finally {
+		worker.terminate();
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("worker graph payload validation enforces module and UTF-8 transfer limits", () => {
+	const module = { moduleId: "main.ts", sourcePath: "/project/main.amx", outputPath: "main.ts", code: "export const value = 1;" };
+	const graph = { ok: true as const, entryModuleId: "main.ts", modules: [module] };
+	const bounded = createTypeScriptGraphResult(graph);
+	expect(isBoundedTypeScriptGraphResult(bounded)).toBe(true);
+	expect(bounded.moduleCount).toBe(1);
+	expect(bounded.payloadBytes).toBeLessThanOrEqual(MAX_TRANSPILE_GRAPH_BYTES);
+	expect(bounded.payloadBytes).toBe(Buffer.byteLength(JSON.stringify(bounded), "utf8"));
+	expect(isBoundedTypeScriptGraphResult({ ...bounded, extra: true })).toBe(false);
+	expect(isBoundedTypeScriptGraphResult({ ...bounded, moduleCount: 2 })).toBe(false);
+	expect(() => createTypeScriptGraphResult({ ...graph, modules: Array.from({ length: MAX_TRANSPILE_MODULES + 1 }, (_, index) => ({
+		...module, moduleId: `module-${index}.ts`, outputPath: `module-${index}.ts`
+	})) })).toThrow("100-module limit");
+	expect(() => createTypeScriptGraphResult({ ...graph, modules: [{ ...module, code: "x".repeat(MAX_TRANSPILE_GRAPH_BYTES) }] }))
+		.toThrow("32000000-byte limit");
+});
+
+test("worker rejects malformed and operation-incompatible graph requests", async () => {
+	const runInvalidRequest = async (request: WorkerJobRequest) => {
+		const worker = new Worker(new URL("./jobWorker.ts", import.meta.url).href);
+		try {
+			const completed = new Promise<WorkerJobMessage>((resolve, reject) => {
+				worker.addEventListener("message", event => {
+					const message = event.data as WorkerJobMessage;
+					if (message.kind === "complete" || message.kind === "failed") resolve(message);
+				});
+				worker.addEventListener("error", event => reject(new Error(event.message)));
+			});
+			worker.postMessage(request);
+			return await Promise.race([
+				completed,
+				new Promise<never>((_, reject) => setTimeout(() => reject(new Error("invalid worker request timed out")), 5000))
+			]);
+		} finally {
+			worker.terminate();
+		}
+	};
+	const base = {
+		kind: "start" as const,
+		jobId: 72,
+		operation: "transpile" as const,
+		entryPath: join(tmpdir(), "missing-entry.amx"),
+		entryText: "```amx\n```\n",
+		projectRoot: tmpdir(),
+		sourceOverlay: [] as Array<[string, string]>,
+		inputMappings: [] as string[],
+		validation: "aggregate" as const
+	};
+	const incompatible = await runInvalidRequest({ ...base, dataOutput: { name: "result", format: "json" } });
+	expect(incompatible.kind).toBe("failed");
+	if (incompatible.kind !== "failed") throw new Error("Expected an operation-incompatible request to fail.");
+	expect(incompatible.diagnostics[0]?.message).toContain("valid only for an export-data job");
+	const malformed = await runInvalidRequest({ ...base, unexpectedField: true } as unknown as WorkerJobRequest);
+	expect(malformed.kind).toBe("failed");
+	if (malformed.kind !== "failed") throw new Error("Expected an extra-field request to fail.");
+	expect(malformed.diagnostics[0]?.message).toContain("unsupported field");
 });
 
 test("trusted worker serializes only explicitly exported compatible data bindings", async () => {

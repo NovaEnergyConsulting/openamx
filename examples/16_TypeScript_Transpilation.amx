@@ -1,0 +1,85 @@
+---
+title: TypeScript Graph Transpilation
+---
+
+# TypeScript Graph Transpilation
+
+This standalone example shows a computable document exported as a TypeScript
+module graph. The sentence `{{ asset.name }}` remains literal narrative in the
+generated source; transpilation does not evaluate Markdown interpolation.
+
+```typescript
+const note = "This fence is narrative, not executable AMX.";
+```
+
+## Calculation and views
+
+```amx
+import { Asset, FailureMode } from "./libraries/asset-management.amx"
+
+input asset: Asset
+
+type ExposurePoint {
+  label: String
+  score: Number
+}
+
+let points: ExposurePoint[] = [
+  ExposurePoint { label = "Base", score = asset.criticality },
+  ExposurePoint { label = "Escalated", score = asset.criticality * 2 }
+]
+let scores: Number[] = [asset.criticality, asset.criticality * 2]
+export let assetName: String = asset.name
+
+table exposureTable = table(points) {
+  title: "Exposure points"
+  column label as "Scenario"
+  column score as "Score"
+}
+
+chart exposureChart = bar(scores) {
+  title: "Exposure score"
+  description: "Base and escalated asset criticality"
+  series "Score"
+}
+
+show exposureTable
+show exposureChart
+
+diagram assetLabel {
+  title: "Asset label"
+  description: "The active asset name at declaration time"
+  width: 240
+  height: 80
+  time t from 0 to 1 duration 1
+  text name {
+    x: 12
+    y: 40
+    value: asset.name
+    fill: "#203040"
+  }
+}
+```
+
+With `examples/data/asset.json`, the explicit export is `North Pump 01`. The
+table and chart are snapshots from their `show`
+statements. The structured-v2 diagram DTO is included at declaration time;
+AMX does not use `show` for diagrams.
+
+## Transpile the graph
+
+From the repository root, the following command writes outside the source
+tree:
+
+```sh
+bun run src/cli.ts transpile examples/16_TypeScript_Transpilation.amx --out-dir ./typescript-output
+```
+
+The output contains the entry module and its imported asset-management module.
+Compile the generated ESM with TypeScript 5.9.3 or compatible settings and the
+`openamx/transpiler-runtime` helper subpath. This is calculation/data output,
+not HTML, PDF, or DOCX rendering.
+
+## Navigation
+
+[Asset management module](./libraries/asset-management.amx) | [V0.20 specification](../docs/language-spec-v0.20.md)

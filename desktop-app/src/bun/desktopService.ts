@@ -24,10 +24,11 @@ import { parseFrontMatter } from "../../../src/parser/parseFrontMatter";
 import { readConfiguration, readConfigurationRevision, updateConfiguration } from "./configuration";
 import { updateReportFrontmatter } from "./desktopSettings";
 	import { resolveDesktopInputs, validateDesktopDestination, validateDesktopMappings, writeDesktopData, writeDesktopHtml } from "./desktopWorkflow";
+import { inspectTranspiledGraphWrite, TranspileOutputError, writeTranspiledGraph } from "../../../src/transpiler/outputWriter";
 import { desktopWorkerUrl } from "./workerEntrypoint";
-import { createPingResponse, type ActiveDocumentRequestIdentity, type DesktopJobIdentity, type DesktopJobOperation, type DesktopJobResult, type DesktopJobSnapshot, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type DocumentKind, type OpenDocument, type ProjectCreationIntent, type ProjectFile, type ProjectFileKind, type RecoveryItem, type RunSummary, type TextAnalysis, type TextDiagnostic, type WorkbenchState, type RecentProject, type ReportSettingKey, type ReportSettingsSnapshot, type ReportSettingsValues, type TransitionAction } from "../shared/rpc";
+import { createPingResponse, type ActiveDocumentRequestIdentity, type DesktopGraphPreview, type DesktopJobIdentity, type DesktopJobOperation, type DesktopJobResult, type DesktopJobSnapshot, type DesktopOutputPathState, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type DocumentKind, type OpenDocument, type ProjectCreationIntent, type ProjectFile, type ProjectFileKind, type RecoveryItem, type RunSummary, type TextAnalysis, type TextDiagnostic, type WorkbenchState, type RecentProject, type ReportSettingKey, type ReportSettingsSnapshot, type ReportSettingsValues, type TransitionAction } from "../shared/rpc";
 import type { PreviewNavigationTarget } from "../../../src/renderer/renderHtml";
-import type { WorkerJobMessage, WorkerJobRequest, WorkerJobResult } from "./jobProtocol";
+import { isBoundedTypeScriptGraphResult, type WorkerJobMessage, type WorkerJobRequest, type WorkerJobResult } from "./jobProtocol";
 import { materializeDesktopGuide } from "./guideResources";
 
 const MAX_TEXT = 2_000_000;
@@ -292,6 +293,26 @@ interface ExportSelection {
 	snapshot: DestinationSnapshot;
 }
 
+interface GraphDestinationSnapshot {
+	path: string;
+	device: number;
+	inode: number;
+}
+
+interface GraphExportSelection {
+	id: string;
+	directory: string;
+	snapshot: GraphDestinationSnapshot;
+	identity: ActiveDocumentRequestIdentity;
+}
+
+interface RegisteredGraphOutput {
+	directory: string;
+	snapshot: GraphDestinationSnapshot;
+	entryRelativePath: string;
+	projectRoot: string;
+}
+
 interface ActiveJob extends DesktopJobSnapshot {
 	worker?: Worker;
 	documentPath: string;
@@ -307,6 +328,11 @@ interface ActiveJob extends DesktopJobSnapshot {
 	destinationSnapshot?: DestinationSnapshot;
 	previewTargets?: Map<string, PreviewNavigationTarget>;
 	previewToken?: string;
+	graphDestination?: string;
+	graphDestinationSnapshot?: GraphDestinationSnapshot;
+	graphDestinationSelectionId?: string;
+	graphPreview?: DesktopGraphPreview;
+	outputPathStates?: DesktopOutputPathState[];
 	workerResultReceived: boolean;
 }
 
@@ -318,10 +344,26 @@ export interface DesktopPicker {
 	choose(options: { directory: boolean; extension?: string; fileName?: string; root?: string }): Promise<string | undefined>;
 	confirmTransition?(operation: "project" | "quit"): Promise<TransitionAction>;
 	confirmOverwrite?(fileName: string): boolean | Promise<boolean>;
+	confirmGraphOverwrite?(directory: string, outputPaths: readonly string[]): boolean | Promise<boolean>;
 	confirmPreviewNavigation?(target: { kind: "external"; href: string } | { kind: "local"; path: string }): boolean | Promise<boolean>;
 	openExternal?(url: string): boolean | Promise<boolean>;
 	openPath?(path: string): boolean | Promise<boolean>;
 	revealPath?(path: string): boolean | Promise<boolean>;
+}
+
+function graphDestinationSnapshot(directory: string): GraphDestinationSnapshot {
+	if (typeof directory !== "string" || !directory || directory.length > 4096) throw new Error("Graph output directory is invalid.");
+	const absolute = resolve(directory);
+	const metadata = lstatSync(absolute);
+	if (metadata.isSymbolicLink() || !metadata.isDirectory()) throw new Error("Graph output must be an existing regular directory, not a symlink.");
+	const canonical = realpathSync(absolute);
+	if (canonical !== absolute) throw new Error("Graph output directory must use its canonical path.");
+	const directoryStat = statSync(canonical);
+	return { path: canonical, device: Number(directoryStat.dev), inode: Number(directoryStat.ino) };
+}
+
+function sameGraphDestination(left: GraphDestinationSnapshot, right: GraphDestinationSnapshot): boolean {
+	return left.path === right.path && left.device === right.device && left.inode === right.inode;
 }
 
 export function createDesktopService(
@@ -329,7 +371,8 @@ export function createDesktopService(
 	picker?: DesktopPicker,
 	sessionFile?: string,
 	workerFactory: (url: string) => Worker = url => new Worker(url),
-	guideResourceDirectory?: string
+	guideResourceDirectory?: string,
+	graphWriter: typeof writeTranspiledGraph = writeTranspiledGraph
 ): DesktopService {
 	let projectRoot = initialRoot && realpathSync(initialRoot);
 	let current: SessionDocument | undefined;
@@ -349,7 +392,8 @@ export function createDesktopService(
 	let latestPreviewJobId: number | undefined;
 	const jobs = new Map<number, ActiveJob>();
 	const exportSelections = new Map<string, ExportSelection>();
-	const exportedOutputs = new Map<string, { path: string; root: string; fileName: string }>();
+	const graphExportSelections = new Map<string, GraphExportSelection>();
+	const exportedOutputs = new Map<string, { path: string; root: string; fileName: string; graph?: RegisteredGraphOutput }>();
 	let recents: RecentProject[] = [];
 	const recoveryFile = sessionFile ? `${sessionFile}.recovery.json` : undefined;
 	let recovery: RecoverySnapshot | undefined;
@@ -545,6 +589,8 @@ export function createDesktopService(
 			cleanupPending: !!job.worker,
 			stage: job.stage,
 			result: job.result,
+			graphPreview: job.graphPreview,
+			outputPathStates: job.outputPathStates,
 			diagnostics: job.diagnostics.slice(0, 100)
 		};
 	}
@@ -581,7 +627,17 @@ export function createDesktopService(
 		job.status = "failed";
 		job.stage = undefined;
 		clearPreviewTargets(job);
-		job.diagnostics = diagnostics(error, job.diagnosticPath, job.privatePaths);
+		if (error instanceof TranspileOutputError) {
+			job.outputPathStates = error.pathStates.map(item => ({
+				outputPath: item.outputPath,
+				state: item.state,
+				...(item.detail ? { detail: error.retainedStagePath ? item.detail.replaceAll(error.retainedStagePath, "[staging]") : item.detail } : {})
+			}));
+			const message = error.retainedStagePath ? error.message.replaceAll(error.retainedStagePath, "[staging]") : error.message;
+			job.diagnostics = diagnostics(new AmxError({ code: error.code, message }), job.diagnosticPath, job.privatePaths);
+		} else {
+			job.diagnostics = diagnostics(error, job.diagnosticPath, job.privatePaths);
+		}
 	}
 
 	async function commitJobExport(job: ActiveJob, result: Extract<WorkerJobResult, { kind: "export" }>): Promise<void> {
@@ -631,6 +687,101 @@ export function createDesktopService(
 		}
 		job.status = "succeeded";
 		job.stage = undefined;
+	}
+
+	async function commitGraphExport(
+		job: ActiveJob,
+		graph: Extract<WorkerJobResult, { kind: "typescript-graph" }>['graph'],
+		bytes: number
+	): Promise<void> {
+		if (!job.graphDestination || !job.graphDestinationSnapshot || !job.graphDestinationSelectionId)
+			throw new Error("TypeScript graph job has no validated output directory.");
+		const graphDestination = job.graphDestination;
+		const selectedSnapshot = job.graphDestinationSnapshot;
+		const ensureCurrent = (): boolean => {
+			if (job.status !== "running") return false;
+			if (job.identity.jobId !== latestJobId || !jobIsCurrent(job)) {
+				if (job.status === "running") terminateJob(job, "superseded");
+				else failJob(job, new Error("TypeScript export became stale before publication; no output was written."));
+				return false;
+			}
+			refreshConflicts();
+			if (tabs.get(job.documentPath)?.conflict || job.sourcePaths.some(file => tabs.get(file)?.conflict))
+				throw new Error("Resolve active document or dependency disk conflicts before TypeScript export.");
+			if (!sameGraphDestination(graphDestinationSnapshot(graphDestination), selectedSnapshot))
+				throw new Error("Graph output directory changed after selection; no output was written.");
+			return true;
+		};
+
+		if (!ensureCurrent()) return;
+		job.stage = "preparing-output";
+		const plan = inspectTranspiledGraphWrite(graph, job.graphDestination);
+		const overwritePaths = plan.targets.filter(target => target.exists).map(target => target.outputPath);
+		const entry = graph.modules.find(module => module.moduleId === graph.entryModuleId);
+		if (!entry) throw new Error("The prepared TypeScript graph has no entry module.");
+		job.graphPreview = {
+			outputDirectoryName: basename(job.graphDestination),
+			entryOutputPath: entry.outputPath,
+			modulePaths: plan.targets.map(target => target.outputPath),
+			moduleCount: graph.modules.length,
+			bytes,
+			overwritePaths
+		};
+
+		if (overwritePaths.length) {
+			job.stage = "confirming-overwrite";
+			const approved = await picker?.confirmGraphOverwrite?.(job.graphDestination, overwritePaths) ?? false;
+			if (job.status !== "running") return;
+			if (!approved) {
+				terminateJob(job, "cancelled");
+				return;
+			}
+		}
+		if (!ensureCurrent()) return;
+
+		job.stage = "committing";
+		await new Promise(resolveDelay => setTimeout(resolveDelay, 75));
+		if (!ensureCurrent()) return;
+		job.status = "committing";
+		try {
+			const written = graphWriter(graph, job.graphDestination, {
+				overwrite: overwritePaths.length > 0,
+				expectedPlan: plan
+			});
+			if (written.outputPaths.length !== graph.modules.length) throw new Error("The graph writer did not publish every generated module.");
+			const outputId = job.graphDestinationSelectionId;
+			exportedOutputs.set(outputId, {
+				path: written.entryPath,
+				root: job.projectRoot,
+				fileName: basename(written.entryPath),
+				graph: {
+					directory: job.graphDestination,
+					snapshot: job.graphDestinationSnapshot,
+					entryRelativePath: entry.outputPath,
+					projectRoot: job.projectRoot
+				}
+			});
+			while (exportedOutputs.size > 50) exportedOutputs.delete(exportedOutputs.keys().next().value!);
+			job.result = {
+				kind: "typescript-graph",
+				outputId,
+				outputDirectoryName: basename(job.graphDestination),
+				entryFileName: basename(written.entryPath),
+				moduleCount: graph.modules.length,
+				bytes
+			};
+			job.status = "succeeded";
+			job.stage = undefined;
+		} catch (error) {
+			if (error instanceof TranspileOutputError) {
+				job.outputPathStates = error.pathStates.map(item => ({
+					outputPath: item.outputPath,
+					state: item.state,
+					...(item.detail ? { detail: item.detail } : {})
+				}));
+			}
+			throw error;
+		}
 	}
 
 	function recordExportResult(job: ActiveJob, path: string, bytes: number, name?: string): void {
@@ -702,6 +853,15 @@ export function createDesktopService(
 			job.stage = undefined;
 			return;
 		}
+		if (message.result.kind === "typescript-graph") {
+			if (!isBoundedTypeScriptGraphResult(message.result)) {
+				failJob(job, new Error("Worker returned a malformed or oversized TypeScript graph result."));
+				return;
+			}
+			job.stage = "preparing-output";
+			void commitGraphExport(job, message.result.graph, message.result.bytes).catch(error => failJob(job, error));
+			return;
+		}
 		job.stage = "prepared";
 		void commitJobExport(job, message.result).catch(error => failJob(job, error));
 	}
@@ -712,7 +872,8 @@ export function createDesktopService(
 		destination?: string,
 		inputInspection?: { name: string; format: "json" | "csv"; text: string },
 		dataOutput?: { name: string; format: "json" | "csv" },
-		destinationSelection?: ExportSelection
+		destinationSelection?: ExportSelection,
+		graphSelection?: GraphExportSelection
 	): DesktopRPCResponse<{ job: DesktopJobSnapshot }> {
 		let worker: Worker | undefined;
 		try {
@@ -742,7 +903,14 @@ export function createDesktopService(
 			}
 			const document = activeDocument;
 			if (!identityMatchesCurrent(identity)) return errorResult({ code: "DESKTOP_STALE", message: "The active document or settings changed before the job started." });
-			if (!["run", "preview", "html", "pdf", "docx", "export-data", "discover-outputs", "validate-data"].includes(operation)) throw new Error("Unsupported desktop job operation.");
+			if (!["run", "preview", "html", "pdf", "docx", "export-data", "discover-outputs", "validate-data", "transpile"].includes(operation)) throw new Error("Unsupported desktop job operation.");
+			if (operation === "transpile") {
+				if (!graphSelection || destinationSelection || inputInspection || dataOutput) throw new Error("TypeScript graph jobs require only a graph destination selection.");
+				if (!sameRequestIdentity(identity, graphSelection.identity) || !identityMatchesCurrent(identity)) throw new Error("The active document changed after graph destination selection.");
+				if (!sameGraphDestination(graphDestinationSnapshot(graphSelection.directory), graphSelection.snapshot)) throw new Error("Graph output directory changed after selection.");
+			} else if (graphSelection) {
+				throw new Error("A graph destination is valid only for a TypeScript graph job.");
+			}
 			if (operation === "preview") clearAllPreviewTargets();
 			if (operation === "validate-data") {
 				if (!jobInputInspection || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(jobInputInspection.name)
@@ -758,7 +926,7 @@ export function createDesktopService(
 				: operation === "export-data" ? `.${dataOutput!.format}` as ".json" | ".csv" : undefined;
 			if (extension && (!destination || extname(destination) !== extension)) throw new Error(`A ${extension} destination is required.`);
 			for (const job of jobs.values()) if (job.status === "running") terminateJob(job, "superseded");
-			const resolved = operation === "discover-outputs"
+			const resolved = operation === "discover-outputs" || operation === "transpile"
 				? { mappings: [], privatePaths: [], configuration: { inputs: [], diagnostics: [] } }
 				: resolveDesktopInputs(requireRoot(), entryDocument.text, activeInputMappings, activeValidation);
 			const sourceRevisions = [...moduleRevisions];
@@ -776,7 +944,9 @@ export function createDesktopService(
 				identity: { ...identity, jobId }, operation, status: "running", cleanupPending: false, stage: "starting", diagnostics: [],
 				documentPath: document.path, diagnosticPath: publicPath(document), projectRoot: requireRoot(), inputPaths: resolved.mappings.map(mapping => mapping.slice(mapping.indexOf("=") + 1)),
 				privatePaths: resolved.privatePaths, sourcePaths: sourceRevisions.map(source => source.path), sourceRevisions, destination, workerResultReceived: false,
-				destinationSelected: !!destinationSelection, destinationSelectionId: destinationSelection?.id, destinationSnapshot: destinationSelection?.snapshot
+				destinationSelected: !!destinationSelection, destinationSelectionId: destinationSelection?.id, destinationSnapshot: destinationSelection?.snapshot,
+				graphDestination: graphSelection?.directory, graphDestinationSnapshot: graphSelection?.snapshot,
+				graphDestinationSelectionId: graphSelection?.id
 			};
 			jobs.set(jobId, job);
 			if (resolved.configuration.diagnostics.length) {
@@ -803,7 +973,8 @@ export function createDesktopService(
 				...(operation === "pdf" ? { pdfDestinationPath: job.destination } : {}),
 				...(operation === "docx" ? { docxDestinationPath: job.destination } : {}),
 				...(operation === "html" ? { htmlDestinationPath: job.destination } : {}),
-				inputInspection: jobInputInspection, dataOutput
+				...(operation === "validate-data" ? { inputInspection: jobInputInspection } : {}),
+				...(operation === "export-data" ? { dataOutput } : {})
 			};
 			worker.postMessage(request);
 			return { ok: true, job: snapshotJob(job) };
@@ -1190,13 +1361,41 @@ export function createDesktopService(
 					return { ok: true, cancelled: false, selectionId: id, fileName };
 				} catch (error) { return errorResult<{ cancelled: boolean; selectionId?: string; fileName?: string }>(projectError(error instanceof Error ? error.message : String(error))); }
 			},
+			async pickGraphDestination(params: Record<string, never> = {}) {
+				try {
+					if (!params || typeof params !== "object" || Array.isArray(params) || Object.keys(params).length !== 0)
+						throw new Error("Graph destination request is malformed.");
+					const started = generation;
+					const { document } = requireActive();
+					if (document.kind !== "amx") throw new Error("TypeScript graph export requires an active AMX document.");
+					const identity = state().requestIdentity;
+					if (!identity) throw new Error("Graph export requires a current active-document identity.");
+					const selected = await picker?.choose({ directory: true, root: dirname(requireRoot()) });
+					if (!selected) return { ok: true, cancelled: true };
+					if (started !== generation || !tabs.has(document.path) || !identityMatchesCurrent(identity)) return { ok: true, cancelled: true };
+					const snapshot = graphDestinationSnapshot(selected);
+					if (within(requireRoot(), snapshot.path)) throw new Error("TypeScript graph output must be outside the AMX project root.");
+					const id = randomUUID();
+					graphExportSelections.set(id, { id, directory: snapshot.path, snapshot, identity });
+					while (graphExportSelections.size > 20) graphExportSelections.delete(graphExportSelections.keys().next().value!);
+					return { ok: true, cancelled: false, selectionId: id, directoryName: basename(snapshot.path) };
+				} catch (error) {
+					return errorResult<{ cancelled: boolean; selectionId?: string; directoryName?: string }>(projectError(error instanceof Error ? error.message : String(error)));
+				}
+			},
 			async openExportedOutput({ outputId, action }: { outputId: string; action: "open" | "reveal" }) {
 				const output = exportedOutputs.get(outputId);
 				if (!output || (action !== "open" && action !== "reveal")) return errorResult<Record<string, never>>(projectError("Exported output is no longer available."));
 				try {
+					if (output.graph) {
+						if (projectRoot !== output.graph.projectRoot || !sameGraphDestination(graphDestinationSnapshot(output.graph.directory), output.graph.snapshot)
+							|| !within(output.graph.directory, output.path) || lstatSync(output.path).isSymbolicLink() || !statSync(output.path).isFile()) {
+							throw new Error("Registered TypeScript output identity is stale.");
+						}
+					}
 					const opened = action === "open"
 						? await picker?.openPath?.(output.path)
-						: await picker?.revealPath?.(output.path);
+						: await picker?.revealPath?.(output.graph?.directory ?? output.path);
 					if (opened === false || opened === undefined) throw new Error("Native Open or Reveal is unavailable on this host.");
 					return { ok: true };
 				} catch {
@@ -1603,7 +1802,31 @@ export function createDesktopService(
 				if (enabled) for (const tab of allDocuments()) scheduleAutosave(tab);
 				return { ok: true, enabled: autosaveEnabled, delayMs: autosaveDelayMs };
 			},
-			async startJob({ operation, identity, selectionId, inputInspection, dataOutput }: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; selectionId?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string }; dataOutput?: { name: string; format: "json" | "csv" } }) {
+			async startJob(params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; selectionId?: string; graphSelectionId?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string }; dataOutput?: { name: string; format: "json" | "csv" } }) {
+				if (!params || typeof params !== "object" || Array.isArray(params))
+					return errorResult<{ job: DesktopJobSnapshot }>(projectError("Job request is malformed."));
+				const { operation, identity, selectionId, graphSelectionId, inputInspection, dataOutput } = params;
+				if (operation === "transpile") {
+					const expectedFields = ["graphSelectionId", "identity", "operation"];
+					if (Object.keys(params).sort().join(",") !== expectedFields.join(","))
+						return errorResult<{ job: DesktopJobSnapshot }>(projectError("TypeScript graph job request contains unsupported fields."));
+					if (!identity || typeof identity !== "object" || Array.isArray(identity)
+						|| Object.keys(identity).sort().join(",") !== "canonicalActiveUri,documentRevision,inputSettingsRevision,projectGeneration"
+						|| typeof identity.canonicalActiveUri !== "string" || identity.canonicalActiveUri.length > 8192
+						|| !Number.isSafeInteger(identity.projectGeneration) || !Number.isSafeInteger(identity.documentRevision)
+						|| !Number.isSafeInteger(identity.inputSettingsRevision) || typeof graphSelectionId !== "string" || graphSelectionId.length > 64)
+						return errorResult<{ job: DesktopJobSnapshot }>(projectError("TypeScript graph job identity is malformed."));
+					const selection = graphSelectionId ? graphExportSelections.get(graphSelectionId) : undefined;
+					if (!selection || selectionId || inputInspection || dataOutput)
+						return errorResult<{ job: DesktopJobSnapshot }>(projectError("Choose a graph output directory before starting TypeScript export."));
+					if (!sameRequestIdentity(identity, selection.identity) || !identityMatchesCurrent(identity)) {
+						graphExportSelections.delete(selection.id);
+						return errorResult<{ job: DesktopJobSnapshot }>({ code: "DESKTOP_STALE", message: "The active document changed after graph destination selection." });
+					}
+					graphExportSelections.delete(selection.id);
+					return beginJob(operation, identity, undefined, undefined, undefined, undefined, selection);
+				}
+				if (graphSelectionId) return errorResult<{ job: DesktopJobSnapshot }>(projectError("A graph destination is valid only for a TypeScript graph job."));
 				const exportExtension: ExportExtension | undefined = operation === "html" ? ".html" : operation === "pdf" ? ".pdf" : operation === "docx" ? ".docx"
 					: operation === "export-data" && dataOutput ? `.${dataOutput.format}` as ".json" | ".csv" : undefined;
 				if (exportExtension) {

@@ -2,30 +2,41 @@
 
 ## Status and Authorization
 
-Architect-prepared candidate workflow. It does not authorize implementation
-or execution. Obtain separate approval for exact baseline/worktree, changed
-paths, commands, desktop harness, native host availability, output/staging
-roots, destination/overwrite/failure-injection tests, retry cap, preservation,
-and cleanup before running checks.
+Product Owner authorized the exact S125 implementation and verification scope
+on 2026-11-26. The approved decisions, changed-path allowlist, output/payload
+limits, commands, artifact root, preservation, cleanup, and no-retry-cap policy
+are recorded in `builder-evidence.md`. This plan records S125 only; S126 and
+all release/platform tasks remain independently gated.
 
 ## Entry Reconciliation
 
-- Verify accepted S121-S124 closeouts in canonical state/decision records and
-  their Builder evidence.
-- Preserve S123-RETRY-STOP-01 and S124-RETRY-STOP-01 as raw process FAILs with
-  accepted residual dispositions.
-- Preserve incomplete S123 G123 statuses; preserve S124 cancellation and
-  crash-boundary NOT RUN; preserve D121-18, D122-15 and S122 retry residual.
-- Verify actual S124 writer/graph API, current S123 core API, package exports,
-  and active-buffer source overlay behavior at the authorized baseline.
+- S121/S122/S123/S124 accepted dispositions and residuals verified from
+  canonical state, decisions, parity matrices, and Builder evidence.
+- `S122-RETRY-LIMIT-DEVIATION`, `S123-RETRY-STOP-01`, and
+  `S124-RETRY-STOP-01` remain raw process FAILs with their accepted owner
+  dispositions; no raw row is upgraded.
+- Every G123 raw status is carried individually in Builder Evidence. G124
+  `PUBLISH-CANCEL` and `PUBLISH-CRASH-BOUNDARY` remain NOT RUN. D121-18 and
+  D122-15 remain unchanged.
+- Actual S123/S124 APIs were reconciled. S125's approved exact extensions are
+  `ResolveTranspileGraphOptions.entryText/sourceOverlay`,
+  `inspectTranspiledGraphWrite`, and writer `expectedPlan` revalidation; no
+  S124 CLI behavior was redesigned.
 
 ## Preservation and Baseline
 
-- Record branch/commit/dirty status, user changes, Windows/Bun/TypeScript/Git
-  versions, package version/lock, root `dist` manifest, renderer generated
-  source hash, desktop test output roots and existing UI/build artifacts.
-- Use approved isolated build/output roots. Preserve S121-S124 artifacts and
-  pre-existing desktop/Playwright outputs. Never clean shared directories.
+- Baseline: clean `feat/create-V0.20.0` at
+  `778504b50c1d8e8cf183e6920f95ad7b047f6069`; Windows PowerShell
+  5.1.26100.9818; Bun 1.4.5; TypeScript 5.9.3; vue-tsc 2.2.12; Git
+  2.56.1.windows.1; Node.js 24.13.1; package 0.19.0; lock `bun.lock`.
+- Root `dist` baseline was 196 files / 1,661,955 bytes; desktop `dist` was 75
+  files / 33,519,303 bytes. Generated renderer baseline SHA-256 is
+  `582919DC1148DDA3B803C2901BBB676501D3AF38091719349C80FBBFB43C6116`.
+- Use only `planning/sprints/0125-v20-desktop-export-and-documentation/artifacts/run-01/`
+  for new S125 artifacts. Preserve S121-S124 evidence and pre-existing
+  `desktop-app/dist`, `desktop-app/artifacts`, and `desktop-app/test-results`.
+  Final root/desktop dist manifests have zero differences; renderer is
+  hash-identical to baseline.
 - Graph output tests use unique temp projects and selected output roots. Record
   original target hashes and unrelated files before overwrite/failure tests.
 - Store new S125 logs, screenshots, example transpile graphs, generated compile
@@ -33,40 +44,46 @@ and cleanup before running checks.
 - No release/package-version/publication/deployment/installer/registry/
   certification workflow is run.
 
-## Candidate Focused Checks
-
-Run only the exact separately approved selection. Candidate commands:
+## Executed Focused Checks
 
 ```text
-root: bun test tests/transpilerGraph.test.ts tests/transpileCli.test.ts tests/examples.test.ts
-desktop-app: bun run typecheck
-desktop-app: bun run test
-desktop-app: bun run test:ui -- tests/ui/typescript-export.pw.ts --output=<approved S125 root>
-root: bunx tsc --noEmit
-root: bun run build
-git diff --check
+root: `bun test tests/transpilerGraph.test.ts tests/transpileCli.test.ts tests/examples.test.ts`
+root: `bunx tsc --noEmit`
+root: `bun run build` (generated dist archived, then baseline restored)
+root: `bun run src/cli.ts transpile examples/16_TypeScript_Transpilation.amx --out-dir planning/sprints/0125-v20-desktop-export-and-documentation/artifacts/run-01/example-16/generated-supported`
+root: `bunx tsc --noEmit --target ES2022 --module ESNext --moduleResolution bundler --strict --skipLibCheck --allowImportingTsExtensions --types bun planning/sprints/0125-v20-desktop-export-and-documentation/artifacts/run-01/example-16/oracle.ts planning/sprints/0125-v20-desktop-export-and-documentation/artifacts/run-01/example-16/generated-supported/16_TypeScript_Transpilation.ts`
+root: `bun run planning/sprints/0125-v20-desktop-export-and-documentation/artifacts/run-01/example-16/oracle.ts`
+desktop-app: `bun test src/bun/jobWorker.test.ts`
+desktop-app: `bun run tests/rpc-contract-check.ts`
+desktop-app: pinned `vue-tsc` 2.2.12 direct entrypoint with `desktop-app/tsconfig.json`
+desktop-app: `bun run test:ui -- tests/ui/typescript-export.pw.ts --output=../planning/sprints/0125-v20-desktop-export-and-documentation/artifacts/run-01/playwright`
+root: `git --no-pager diff --check`
 ```
 
-Use actual scripts/package names after read-only audit; commands above are
-candidates, not authorization. Run the existing RPC contract harness using
-its configured script and label Vite workflow-harness UI separately from
-native WebView evidence.
+The configured `bun run typecheck` wrapper blocked at Hutch's update prompt;
+the directly invoked pinned typechecker passed. The full desktop `bun run
+test` unit portion passed, but its unrelated report-export RPC poll repeatedly
+failed when `currentPdf` remained `running` beyond the existing polling
+window. The final focused S125 RPC suite passed independently. The final
+Playwright suite is Vite/browser-harness evidence only; native WebView and
+cross-platform routes are `BLOCKED/UNAVAILABLE`.
 
 ## Desktop Graph Workflow Evidence
 
-- RPC schema compatibility, worker request bounds, graph result bounds and
-  failure diagnostics.
+- RPC schema compatibility, worker request bounds, graph result exact-size
+  validation and failure diagnostics: PASS in worker/RPC suites.
 - Active source overlay includes unsaved entry and imported dependency text;
   no temporary source writes occur.
 - Job identity checks cover active URI/revision, project generation, input
-  settings revision, imported source revisions/disk hashes, cancellation,
-  supersession and destination change.
+  settings revision, imported source revisions/disk hashes, active/dependency
+  staleness, cancellation, supersession, malformed worker results, and output
+  destination mutation.
 - Directory picker cancellation, graph-wide overwrite/refusal, unrelated file
   preservation, changed destination after approval, safe output-root
   validation and exact module output paths.
-- S124 writer stage/publish/rollback injected failures; compare every original
-  target/unrelated-file hash and assert the S125 result reports exact
-  staged/published/restored/unrecovered states.
+- S124 writer stage/publish/rollback injected failures compare original
+  targets and unrelated files; S125 service reports staged/restored and
+  unrecovered states without success-shaped results.
 - Output IDs open/reveal only registered graph output; stale/unknown ID rejects.
 - Native desktop/WebView route is `BLOCKED/UNAVAILABLE` unless direct
   authorized native evidence exists. Do not equate Vite/UI harness pass with
@@ -74,8 +91,8 @@ native WebView evidence.
 
 ## Docs and Example Evidence
 
-- Validate all README/spec/example relative links; historical specs are
-  unchanged. Check S125 spec claims against accepted decisions and actual CLI/
+- Validate V0.20 README/spec/example links; historical specs are unchanged.
+  Cross-check contract statements against accepted decisions and actual CLI/
   helper APIs.
 - Run Example 16 through AMX parse/check/format/runtime, CLI transpile, strict
   generated TypeScript compile, and generated `run(inputs)` execution using
@@ -88,8 +105,8 @@ native WebView evidence.
 ## Raw Result Rules
 
 - Use only `PASS`, `FAIL`, `BLOCKED/UNAVAILABLE`, and `NOT RUN` for raw rows.
-- Preserve first failures, all retries and retry-cap stops. Follow the exact
-  approved cap; reaching it stops execution pending replan.
+- No retry cap was authorized. Preserve every first failure and rerun outcome;
+  do not suppress a failure because a later rerun passed.
 - Distinguish root/helper tests, RPC contract, desktop typecheck, Vite UI,
   native desktop, documentation, example transpile/compile/run, output safety,
   and preservation evidence.

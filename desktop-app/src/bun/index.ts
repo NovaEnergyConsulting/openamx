@@ -43,6 +43,15 @@ const service = createDesktopService(undefined, {
 		});
 		return response === 0;
 	},
+	async confirmGraphOverwrite(directory, outputPaths) {
+		const { response } = await Utils.showMessageBox({
+			type: "question", title: "Replace TypeScript graph files?",
+			message: `Replace ${outputPaths.length} existing generated file${outputPaths.length === 1 ? "" : "s"}?`,
+			detail: [`Output directory: ${directory}`, "", ...outputPaths].join("\n"),
+			buttons: ["Replace all", "Cancel"], defaultId: 1, cancelId: 1
+		});
+		return response === 0;
+	},
 	async confirmPreviewNavigation(target) {
 		const external = target.kind === "external";
 		const destination = external ? target.href : target.path;

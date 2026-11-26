@@ -8,6 +8,8 @@ import type { TranspileGraphInput, TranspileSourceModule } from './types';
 
 export interface ResolveTranspileGraphOptions {
   readonly importRoot?: string;
+  readonly entryText?: string;
+  readonly sourceOverlay?: ReadonlyMap<string, string>;
 }
 
 interface PendingImport {
@@ -233,15 +235,22 @@ export function resolveTranspileGraph(
     const sourcePath = canonicalPath;
     const outputPath = outputPathFor(canonicalRoot, canonicalPath, sourcePath);
     let sourceText: string;
-    try {
-      sourceText = readFileSync(canonicalPath, 'utf8');
-    } catch {
-      return moduleError(
-        'AMX5001',
-        viaImport ? `Module '${viaImport.declaration.path}' could not be read` : `Entry module '${entryPath}' could not be read`,
-        viaImport?.declaration.pathSource,
-        viaImport?.importingFile ?? sourcePath
-      );
+    const overlayText = canonicalPath === canonicalEntry && options.entryText !== undefined
+      ? options.entryText
+      : options.sourceOverlay?.get(canonicalPath);
+    if (overlayText !== undefined) {
+      sourceText = overlayText;
+    } else {
+      try {
+        sourceText = readFileSync(canonicalPath, 'utf8');
+      } catch {
+        return moduleError(
+          'AMX5001',
+          viaImport ? `Module '${viaImport.declaration.path}' could not be read` : `Entry module '${entryPath}' could not be read`,
+          viaImport?.declaration.pathSource,
+          viaImport?.importingFile ?? sourcePath
+        );
+      }
     }
 
     const statements = statementsOf(parseSource(sourceText, sourcePath));

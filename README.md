@@ -21,7 +21,8 @@ not certified risk models or industry standards.
   results as JSON or CSV.
 - **Build visual explanations.** Create tables, charts, and formula-driven 2D
   diagrams alongside the narrative.
-- **Use the latest language additions.** V0.19 lets charts omit their data table
+- **Use the latest language additions.** V0.20 adds AMX-to-TypeScript graph
+  transpilation for calculation and data workflows. V0.19 lets charts omit their data table
   with `showTable false` (the omitted default) and adds affine offset units for
   Celsius/Fahrenheit-style conversions. V0.18 adds diagram-local loops and
   conditionals, V0.16 adds statement-bodied functions, and V0.14 adds runtime
@@ -121,6 +122,7 @@ With the CLI installed, run a document, render it to HTML, or export a PDF:
 openamx run examples/01_First_Computable_Document.amx
 openamx render examples/01_First_Computable_Document.amx --out first-computable-document.html
 openamx export pdf examples/01_First_Computable_Document.amx --out first-computable-document.pdf
+openamx transpile examples/16_TypeScript_Transpilation.amx --out-dir ./typescript-output
 ```
 
 For documents that use external data, map each declared logical input
@@ -145,7 +147,9 @@ unified HTML/PDF/DOCX export workflow.
 - [Complete asset screening report](examples/12_Complete_Asset_Screening_Report.amx)
   is the guided destination; [route measurements](examples/13_Route_Measurement_Report.amx),
   the [battery-resistor circuit](examples/14_Battery_Resistor_Circuit.amx), and
-  [function bodies](examples/15_Function_Bodies.amx) are standalone references.
+  [function bodies](examples/15_Function_Bodies.amx) and
+  [TypeScript graph transpilation](examples/16_TypeScript_Transpilation.amx)
+  are standalone references.
 - V0.12 features: [records and enums](examples/04_Typed_Records_Enums_and_Modules.amx)
   and [expressions and decisions](examples/02_Expressions_and_Decisions.amx).
 - V0.13/V0.18 diagrams: [formula-driven diagrams](examples/08_Formula_Driven_Diagrams.amx)
@@ -162,6 +166,7 @@ Read the [V0.9 language specification](docs/language-spec-v0.9.md) and
 [V0.16 language specification](docs/language-spec-v0.16.md), the
 [V0.18 diagram generation specification](docs/language-spec-v0.18.md), and the
 additive [V0.19 rendering and affine-unit specification](docs/language-spec-v0.19.md)
+followed by the additive [V0.20 TypeScript transpilation specification](docs/language-spec-v0.20.md)
 for the current language contract. V0.19 omits chart data tables by default;
 authors that intentionally retain one use `showTable true` or another Boolean
 expression that resolves true. Browse the [examples](examples/) and

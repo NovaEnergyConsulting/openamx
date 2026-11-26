@@ -53,6 +53,7 @@ let inputSettingsKey = "[]";
 let nextJobId = 0;
 let selectedId = 0;
 let initialFailureUsed = false;
+let committingPolls = 0;
 const jobs = new Map<number, DesktopJobSnapshot>();
 const createdFiles = new Map<string, { kind: "amx" | "csv" | "json" | "css"; text: string }>();
 export const failNextPreview = ref(false);
@@ -209,6 +210,7 @@ function previewBootstrap(token: string): string {
 function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchState["requestIdentity"]>): DesktopJobSnapshot {
 	const jobIdentity: DesktopJobIdentity = { ...requestIdentity, jobId: ++nextJobId };
 	let result: DesktopJobResult | undefined;
+	let graphPreview: DesktopJobSnapshot["graphPreview"];
 	let diagnostics: DesktopJobSnapshot["diagnostics"] = [];
 	let status: DesktopJobSnapshot["status"] = operation === "preview" ? "running" : "succeeded";
 	if (operation === "discover-outputs") result = { kind: "output-discovery", outputs: [{ name: "result", type: "Number", formats: ["json"] }] };
@@ -249,13 +251,37 @@ function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchStat
 			previewCompletionLog.push({ identity: jobIdentity, status: pending.status, currentPath: hasActiveDocument ? activePath : null });
 		}, fixtureScenario === "stale" && jobIdentity.canonicalActiveUri.endsWith("/report.amx") ? 800 : 250);
 		return pending;
+	} else if (operation === "transpile") {
+		const outputId = `mock-output-${jobIdentity.jobId}`;
+		graphPreview = {
+			outputDirectoryName: "typescript-output",
+			entryOutputPath: "report.ts",
+			modulePaths: ["libraries/model.ts", "report.ts"],
+			moduleCount: 2,
+			bytes: 1024,
+			overwritePaths: fixtureScenario === "typescript-overwrite" ? ["libraries/model.ts"] : []
+		};
+		result = { kind: "typescript-graph", outputId, outputDirectoryName: "typescript-output", entryFileName: "report.ts", moduleCount: 2, bytes: 1024 };
+		if (fixtureScenario === "typescript-stale") {
+			status = "running";
+			result = undefined;
+			graphPreview = undefined;
+		}
+		if (fixtureScenario === "typescript-writer-error") {
+			status = "failed";
+			result = undefined;
+			diagnostics = [{ code: "AMX6002", message: "Graph publication failed and rollback was verified." }];
+		}
 	} else if (operation === "run") result = { kind: "run", summary: { values: [{ name: "result", value: 3 }] } };
 	else if (operation === "validate-data") result = {
 		kind: "data-validation", valid: true,
 		schema: { name: "DataRecord", type: "JSON", acceptedFormats: ["json"], fields: [{ name: "value", type: "Number", optional: false, hasDefault: false }] }
 	};
 	else result = { kind: "export", outputId: `mock-output-${jobIdentity.jobId}`, fileName: `report.${operation === "export-data" ? "json" : operation}`, bytes: 256, ...(operation === "export-data" ? { name: "result" } : {}) };
-	const job: DesktopJobSnapshot = { identity: jobIdentity, operation: operation as DesktopJobSnapshot["operation"], status, cleanupPending: false, diagnostics, result };
+	const job: DesktopJobSnapshot = {
+		identity: jobIdentity, operation: operation as DesktopJobSnapshot["operation"], status, cleanupPending: false, diagnostics, result, graphPreview,
+		...(fixtureScenario === "typescript-writer-error" ? { outputPathStates: [{ outputPath: "libraries/model.ts", state: "unrecovered" as const, detail: "Injected harness rollback outcome." }] } : {})
+	};
 	jobs.set(jobIdentity.jobId, job);
 	return job;
 }
@@ -496,10 +522,32 @@ const request = {
 	async startJob({ operation, identity: requestIdentity }: { operation: string; identity: NonNullable<WorkbenchState["requestIdentity"]> }) {
 		jobRequests.push({ operation, identity: { ...requestIdentity } });
 		if (operation === "preview") previewStartedAt.push(performance.now());
-		return { ok: true as const, job: finishJob(operation, requestIdentity) };
+		const job = finishJob(operation, requestIdentity);
+		if (operation === "transpile" && fixtureScenario === "typescript-preparing") {
+			job.status = "running";
+			job.stage = "resolving-graph";
+			job.result = undefined;
+			job.graphPreview = undefined;
+			jobs.set(job.identity.jobId, job);
+		}
+		if (operation === "transpile" && fixtureScenario === "typescript-committing") {
+			job.status = "committing";
+			job.stage = "committing";
+			committingPolls = 0;
+			jobs.set(job.identity.jobId, job);
+		}
+		return { ok: true as const, job };
 	},
 	async getJob({ jobId }: { jobId: number }) {
 		const job = jobs.get(jobId);
+		if (job?.operation === "transpile" && fixtureScenario === "typescript-committing" && job.status === "committing") {
+			committingPolls++;
+			if (committingPolls >= 5) {
+				job.status = "succeeded";
+				job.stage = undefined;
+				jobs.set(jobId, job);
+			}
+		}
 		return job ? { ok: true as const, job } : { ok: false as const, error: { code: "MISSING", message: "Job missing" } };
 	},
 	async cancelJob({ jobId }: { jobId: number }) {
@@ -531,7 +579,15 @@ const request = {
 	async pickDestination({ extension }: { extension: string }) {
 		return { ok: true as const, cancelled: false, selectionId: `selection-${++selectedId}`, fileName: `report${extension}` };
 	},
-	async openExportedOutput() { return { ok: true as const }; },
+	async pickGraphDestination() {
+		if (fixtureScenario === "typescript-picker-cancel") return { ok: true as const, cancelled: true };
+		return { ok: true as const, cancelled: false, selectionId: `graph-selection-${++selectedId}`, directoryName: "typescript-output" };
+	},
+	async openExportedOutput({ outputId, action }: { outputId: string; action: "open" | "reveal" }) {
+		if (!outputId.startsWith("mock-output-")) return { ok: false as const, error: { code: "OUTPUT", message: "Registered output missing." } };
+		lastOpenedPath = action === "open" ? `${projectRoot}/typescript-output/report.ts` : `${projectRoot}/typescript-output`;
+		return { ok: true as const };
+	},
 	async setPanelSizes() { return { ok: true as const, state: state() }; },
 	async saveDocument() { documentRevision++; savedText = currentText; return { ok: true as const, document: document() }; }
 };
@@ -555,6 +611,7 @@ export function harnessSnapshot() {
 		analysisRequests: [...analysisRequests],
 		analysisCompletionLog: [...analysisCompletionLog],
 		jobRequests: [...jobRequests],
+		jobStates: [...jobs.values()].map(job => ({ operation: job.operation, status: job.status, stage: job.stage, resultKind: job.result?.kind })),
 		bufferWrites: [...bufferWrites],
 		previewCompletions,
 		previewStartedAt: [...previewStartedAt],

@@ -7,8 +7,11 @@ import { renderPreparedHtml } from "../../../src/renderer/renderHtml";
 import { preparePdfReport, serializePdfReport } from "../../../src/renderer/reportPdf";
 import { prepareDocxReport, serializeDocxReport } from "../../../src/renderer/reportDocx";
 import { serializeOutputs } from "../../../src/runtime/outputData";
+import { resolveTranspileGraph } from "../../../src/transpiler/filesystemGraph";
+import { transpileDocument } from "../../../src/transpiler";
+import type { TranspileDiagnostic } from "../../../src/transpiler/types";
 import type { TextDiagnostic, RunSummary } from "../shared/rpc";
-import type { WorkerJobMessage, WorkerJobRequest, WorkerJobResult } from "./jobProtocol";
+import { createTypeScriptGraphResult, MAX_TRANSPILE_MODULES, type WorkerJobMessage, type WorkerJobRequest, type WorkerJobResult } from "./jobProtocol";
 
 declare var self: Worker;
 
@@ -55,7 +58,20 @@ function failureDiagnostics(error: unknown): TextDiagnostic[] {
 }
 
 function validateRequest(request: WorkerJobRequest): void {
+	if (!request || typeof request !== "object" || Array.isArray(request)) throw new Error("Worker request must be an object.");
+	const allowedFields = new Set([
+		"kind", "jobId", "operation", "entryPath", "entryText", "projectRoot", "sourceOverlay", "inputMappings", "validation",
+		"pdfDestinationPath", "docxDestinationPath", "htmlDestinationPath", "inputInspection", "dataOutput"
+	]);
+	if (Object.keys(request).some(field => !allowedFields.has(field))) throw new Error("Worker request contains an unsupported field.");
 	if (!Number.isSafeInteger(request.jobId) || request.jobId < 1) throw new Error("Invalid worker job identity.");
+	if (request.kind !== "start" || !["run", "preview", "html", "pdf", "docx", "export-data", "discover-outputs", "validate-data", "transpile"].includes(request.operation))
+		throw new Error("Invalid worker operation.");
+	if (typeof request.entryPath !== "string" || request.entryPath.length > 4096 || !isAbsolute(request.entryPath)
+		|| typeof request.entryText !== "string" || typeof request.projectRoot !== "string" || request.projectRoot.length > 4096 || !isAbsolute(request.projectRoot)
+		|| !Array.isArray(request.sourceOverlay) || !Array.isArray(request.inputMappings)
+		|| (request.validation !== "aggregate" && request.validation !== "fail-fast"))
+		throw new Error("Worker request contains malformed source or identity fields.");
 	if (request.entryText.length > MAX_TEXT || request.sourceOverlay.length > MAX_OVERLAY_MODULES || request.inputMappings.length > 100)
 		throw new Error("Worker request exceeds its item or document limit.");
 	if (request.operation === "pdf") {
@@ -77,8 +93,14 @@ function validateRequest(request: WorkerJobRequest): void {
 		throw new Error("An HTML destination is valid only for an HTML export job.");
 	}
 	let overlayTextLength = 0;
-	for (const [path, text] of request.sourceOverlay) {
+	const overlayPaths = new Set<string>();
+	for (const item of request.sourceOverlay) {
+		if (!Array.isArray(item) || item.length !== 2 || typeof item[0] !== "string" || typeof item[1] !== "string")
+			throw new Error("Worker overlay contains a malformed item.");
+		const [path, text] = item;
 		if (path.length > 4096 || text.length > MAX_TEXT) throw new Error("Worker overlay item exceeds its limit.");
+		if (overlayPaths.has(path)) throw new Error("Worker overlay contains a duplicate path.");
+		overlayPaths.add(path);
 		overlayTextLength += text.length;
 	}
 	if (overlayTextLength > MAX_OVERLAY_TEXT) throw new Error("Worker overlay exceeds its total text limit.");
@@ -91,10 +113,45 @@ function validateRequest(request: WorkerJobRequest): void {
 	} else if (request.inputInspection) {
 		throw new Error("Input inspection is valid only for a validate-data job.");
 	}
+	if (request.operation === "export-data") {
+		if (!request.dataOutput) throw new Error("Named data export selection is required.");
+	} else if (request.dataOutput) {
+		throw new Error("Named data export selection is valid only for an export-data job.");
+	}
+	if (request.operation === "transpile" && (request.pdfDestinationPath || request.docxDestinationPath || request.htmlDestinationPath
+		|| request.inputInspection || request.dataOutput || request.inputMappings.length))
+		throw new Error("TypeScript graph requests cannot include report or data-export fields.");
+}
+
+function transpileDiagnostics(diagnostics: readonly TranspileDiagnostic[]): TextDiagnostic[] {
+	return diagnostics.slice(0, 100).map(item => ({
+		code: (item.code ?? "DESKTOP_TRANSPILE").slice(0, 32),
+		message: item.message.slice(0, 1000),
+		file: item.file?.slice(0, 4096),
+		line: item.line,
+		column: item.column
+	}));
 }
 
 async function execute(request: WorkerJobRequest): Promise<WorkerJobResult> {
 	validateRequest(request);
+	if (request.operation === "transpile") {
+		send({ kind: "progress", jobId: request.jobId, stage: "resolving-graph" });
+		const input = resolveTranspileGraph(request.entryPath, {
+			importRoot: request.projectRoot,
+			entryText: request.entryText,
+			sourceOverlay: new Map(request.sourceOverlay)
+		});
+		if (input.modules.length > MAX_TRANSPILE_MODULES)
+			throw new Error(`TypeScript graph exceeds the ${MAX_TRANSPILE_MODULES}-module limit.`);
+		const graph = transpileDocument(input);
+		if (!graph.ok) {
+			const diagnostics = transpileDiagnostics(graph.diagnostics);
+			const first = diagnostics[0] ?? { code: "DESKTOP_TRANSPILE", message: "TypeScript graph preparation failed." };
+			throw new AmxError(first, diagnostics);
+		}
+		return createTypeScriptGraphResult(graph);
+	}
 	send({ kind: "progress", jobId: request.jobId, stage: "loading-inputs" });
 	const loaded = await loadEntryModule(request.entryPath, {
 		entryText: request.entryText,

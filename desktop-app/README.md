@@ -59,13 +59,14 @@ Open an existing folder with **Open project**. Recent projects preserve only val
 
 ## Workbench
 
-- The active `.amx` document controls analysis, preview, explicit Run, and all export formats. Imports resolve relative to the importing module and remain inside the selected project root; open unsaved imported modules are used by the contained module graph.
+- The active `.amx` document controls analysis, preview, explicit Run, report/data export, and **Export TypeScript…**. TypeScript export selects a graph output directory, includes captured unsaved entry and open dependency buffers, and confirms exact graph-owned overwrite targets once. Imports resolve relative to the importing module and remain inside the selected project root.
 - Live preview is debounced, can be paused/resumed or refreshed, and marks retained output stale after relevant edits. Run is explicit.
 - AMX completion, diagnostics, navigation, references, rename, and safe actions use shared parser/checker facts. Only exact executable `amx` fences run; ordinary Markdown and code fences remain narrative.
 - CSV and JSON tabs offer virtualized structured editing, raw mode, schema/validation details, and edit history. Supported table data is capped at 100,000 rows; larger or unsupported values retain a bounded raw fallback without silent truncation.
 - CSS files appear in the project explorer and open in editable source tabs with CSS syntax highlighting, property/value completion, indentation, code folding, Find, undo/redo, autosave, conflict protection, and recovery. Use **New CSS** to create a stylesheet, then select it in Report Settings. Switching back to an AMX tab uses the current unsaved CSS buffer for preview and HTML export; PDF and DOCX are unchanged. Moving or renaming CSS requires updating its Report Settings path.
 - The Inputs pane maps declared logical inputs. Local choices remain private by default; contained project defaults require explicit promotion. External mapped data is labeled private.
 - Report Settings supports project defaults and current-document overrides. One Export workflow supports HTML, PDF, DOCX, and eligible explicitly exported JSON/CSV bindings.
+- **Export TypeScript…** writes a complete `.ts` module graph through the trusted Bun service. Consumers need the `openamx/transpiler-runtime` helper subpath and a TypeScript toolchain that accepts generated `.ts` relative imports. The graph provides calculation/data exports and view DTOs; it does not render reports. Multi-file rollback remains best-effort and is not crash-atomic.
 - Charts are interactive in the live preview and HTML reports, with the runtime bundled for offline use. PDF charts are static; full chart data remains in the report tables. DOCX chart behavior is unchanged.
 - File writes, settings updates, autosave, recovery, trash, conflicts, output preparation, and atomic commits are owned by Bun. Cancellation or staleness before atomic replacement preserves the previous file; a rename already in progress is not interruptible.
 
@@ -85,7 +86,7 @@ The desktop chrome uses the indigo/purple, lavender, and cyan palette from `asse
 
 Run `bun run test:theme` to build the webview and check the production stylesheet in Chromium independently of the workflow harness. The checks cover explicit modes under both system appearances, system appearance changes, code/data-editor tokens, unchanged status colours, normal text contrast of at least 4.5:1, and representative control/focus contrast of at least 3:1. Screenshots are written to Playwright test results. Install the test browser with `bunx playwright install chromium` if it is missing.
 
-These are stylesheet-surface checks, not full application or native installation acceptance. The existing `test:ui` runner requires the `spikes/sprint042-workflow-harness` fixture, which is absent from this checkout, and its web-server command also needs a Windows-compatible invocation. Before release, verify saved preferences, authoring/preview/export behaviour, and the appearance in the native desktop webview using the existing release process.
+These are stylesheet-surface checks, not full application or native installation acceptance. The `test:ui` runner uses the `spikes/sprint042-workflow-harness` Vite fixture; browser-harness results do not establish native WebView acceptance. On Windows, start it from `desktop-app/` with `bun run vite --config spikes/sprint042-workflow-harness/vite.config.ts --host 127.0.0.1 --port 4183 --strictPort`, then run the focused Playwright command while that server is available. Before release, verify saved preferences, authoring/preview/export behaviour, and the appearance in the native desktop webview using the existing release process.
 
 ## Keyboard Shortcuts
 

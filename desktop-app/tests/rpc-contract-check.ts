@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createPingResponse } from "../src/shared/rpc";
 import { createDesktopService } from "../src/bun/desktopService";
 import { writeDesktopData, writeDesktopHtml } from "../src/bun/desktopWorkflow";
+import { writeTranspiledGraph } from "../../src/transpiler/outputWriter";
 import { preparePdfDestination, writePdfAtomically } from "../../src/runtime/pdfDestination";
 import { prepareDocxDestination, writeDocxAtomically } from "../../src/runtime/docxDestination";
 import { desktopWorkerUrl } from "../src/bun/workerEntrypoint";
@@ -2042,4 +2043,437 @@ assert.equal(multiState.ok, true);
 if (!multiState.ok) throw new Error(multiState.error.message);
 assert.equal(multiState.state.tabs.filter(tab => tab.dirty).length, 2);
 console.log("Sprint 029 multi-tab save preflight assertions passed");
+
+function createS125GraphFixture() {
+	const root = mkdtempSync(join(tmpdir(), "openamx-s125-graph-rpc-"));
+	const project = join(root, "source project");
+	const output = join(root, "typescript output");
+	mkdirSync(project);
+	mkdirSync(output);
+	const entry = join(project, "main.amx");
+	const dependency = join(project, "library.amx");
+	const entryDisk = "# Entry\n\n```amx\nimport { value } from \"./library.amx\"\nexport let total: Number = value\n```\n";
+	const dependencyDisk = "```amx\nexport let value: Number = 1\n```\n";
+	writeFileSync(entry, entryDisk);
+	writeFileSync(dependency, dependencyDisk);
+	writeFileSync(join(output, "unrelated.txt"), "preserve me");
+	return { root, project, output, entry, dependency, entryDisk, dependencyDisk };
+}
+
+async function waitForS125GraphJob(service: ReturnType<typeof createDesktopService>, jobId: number) {
+	for (let attempt = 0; attempt < 2000; attempt++) {
+		const result = await service.request.getJob({ jobId });
+		if (!result.ok) throw new Error(result.error.message);
+		if (result.job.status !== "running" && result.job.status !== "committing") return result.job;
+		await new Promise(resolve => setTimeout(resolve, 10));
+	}
+	throw new Error("S125 graph job did not reach a terminal state.");
+}
+
+const graphFixture = createS125GraphFixture();
+let graphSelectionDirectory: string | undefined = graphFixture.output;
+let graphConfirmation: (paths: readonly string[]) => boolean | Promise<boolean> = () => true;
+const graphConfirmations: string[][] = [];
+const graphNativeActions: string[] = [];
+let graphService!: ReturnType<typeof createDesktopService>;
+graphService = createDesktopService(undefined, {
+	async choose({ directory }) { return directory ? graphSelectionDirectory : undefined; },
+	async confirmGraphOverwrite(_directory, paths) {
+		graphConfirmations.push([...paths]);
+		return graphConfirmation(paths);
+	},
+	openPath(path) { graphNativeActions.push(`open:${path}`); return true; },
+	revealPath(path) { graphNativeActions.push(`reveal:${path}`); return true; }
+});
+try {
+	assert.equal((await graphService.request.openProject({ path: graphFixture.project })).ok, true);
+	assert.deepEqual(await graphService.request.setAutosave({ enabled: false, delayMs: 500 }), { ok: true, enabled: false, delayMs: 500 });
+	assert.equal((await graphService.request.openDocument({ path: graphFixture.dependency })).ok, true);
+	const dependencyOverlay = "```amx\nexport let value: Number = 40\n```\n";
+	assert.equal((await graphService.request.updateBuffer({ text: dependencyOverlay })).ok, true);
+	assert.equal((await graphService.request.openDocument({ path: graphFixture.entry })).ok, true);
+	const entryOverlay = "# Entry overlay\n\n```amx\nimport { value } from \"./library.amx\"\nexport let total: Number = value + 2\n```\n";
+	assert.equal((await graphService.request.updateBuffer({ text: entryOverlay })).ok, true);
+	const initialWorkbench = await graphService.request.getWorkbench();
+	assert.equal(initialWorkbench.ok, true);
+	if (!initialWorkbench.ok || !initialWorkbench.state.requestIdentity) throw new Error("S125 graph source identity unavailable.");
+	assert.equal((await graphService.request.pickGraphDestination({ extra: true } as Record<string, never>)).ok, false);
+	assert.equal((await graphService.request.startJob({
+		operation: "transpile", identity: { ...initialWorkbench.state.requestIdentity, extra: true } as unknown as typeof initialWorkbench.state.requestIdentity,
+		graphSelectionId: "malformed-identity-token"
+	})).ok, false);
+	graphSelectionDirectory = undefined;
+	assert.deepEqual(await graphService.request.pickGraphDestination({}), { ok: true, cancelled: true });
+	assert.equal((await graphService.request.startJob({
+		operation: "transpile", identity: initialWorkbench.state.requestIdentity, selectionId: "single-file-selection"
+	})).ok, false, "a graph job rejects single-file destination tokens");
+	graphSelectionDirectory = graphFixture.output;
+	const selectedGraph = await graphService.request.pickGraphDestination({});
+	assert.equal(selectedGraph.ok, true);
+	if (!selectedGraph.ok || !selectedGraph.selectionId) throw new Error("S125 graph destination was not selected.");
+	const startedGraph = await graphService.request.startJob({
+		operation: "transpile", identity: initialWorkbench.state.requestIdentity, graphSelectionId: selectedGraph.selectionId
+	});
+	assert.equal(startedGraph.ok, true);
+	if (!startedGraph.ok) throw new Error(startedGraph.error.message);
+	const completedGraph = await waitForS125GraphJob(graphService, startedGraph.job.identity.jobId);
+	assert.equal(completedGraph.status, "succeeded");
+	assert.equal(completedGraph.result?.kind, "typescript-graph");
+	assert.equal(completedGraph.graphPreview?.moduleCount, 2);
+	assert.deepEqual(completedGraph.graphPreview?.modulePaths, ["library.ts", "main.ts"]);
+	assert.deepEqual(graphConfirmations, [], "new output graph does not prompt for overwrite");
+	assert.match(readFileSync(join(graphFixture.output, "library.ts"), "utf8"), /40/);
+	assert.match(readFileSync(join(graphFixture.output, "main.ts"), "utf8"), /value/);
+	assert.equal(readFileSync(graphFixture.entry, "utf8"), graphFixture.entryDisk);
+	assert.equal(readFileSync(graphFixture.dependency, "utf8"), graphFixture.dependencyDisk);
+	assert.equal(readFileSync(join(graphFixture.output, "unrelated.txt"), "utf8"), "preserve me");
+	if (completedGraph.result?.kind !== "typescript-graph" || !completedGraph.result.outputId) throw new Error("S125 graph result did not register its output.");
+	assert.deepEqual(await graphService.request.openExportedOutput({ outputId: completedGraph.result.outputId, action: "open" }), { ok: true });
+	assert.deepEqual(await graphService.request.openExportedOutput({ outputId: completedGraph.result.outputId, action: "reveal" }), { ok: true });
+	assert.equal(graphNativeActions[0], `open:${join(graphFixture.output, "main.ts")}`);
+	assert.equal(graphNativeActions[1], `reveal:${graphFixture.output}`);
+	assert.deepEqual(await graphService.request.openExportedOutput({ outputId: "unknown-output", action: "open" }).then(result => result.ok), false);
+
+	graphConfirmation = () => false;
+	const cancelledSelection = await graphService.request.pickGraphDestination({});
+	assert.equal(cancelledSelection.ok, true);
+	if (!cancelledSelection.ok || !cancelledSelection.selectionId) throw new Error("Expected overwrite selection.");
+	const currentWorkbench = await graphService.request.getWorkbench();
+	if (!currentWorkbench.ok || !currentWorkbench.state.requestIdentity) throw new Error("Current S125 graph identity unavailable.");
+	const cancelledStart = await graphService.request.startJob({
+		operation: "transpile", identity: currentWorkbench.state.requestIdentity, graphSelectionId: cancelledSelection.selectionId
+	});
+	if (!cancelledStart.ok) throw new Error(cancelledStart.error.message);
+	const cancelledGraph = await waitForS125GraphJob(graphService, cancelledStart.job.identity.jobId);
+	assert.equal(cancelledGraph.status, "cancelled");
+	assert.deepEqual(graphConfirmations.at(-1), ["library.ts", "main.ts"]);
+	assert.match(readFileSync(join(graphFixture.output, "main.ts"), "utf8"), /total/);
+	assert.equal(readFileSync(join(graphFixture.output, "unrelated.txt"), "utf8"), "preserve me");
+
+	graphConfirmation = () => true;
+	const acceptedSelection = await graphService.request.pickGraphDestination({});
+	if (!acceptedSelection.ok || !acceptedSelection.selectionId) throw new Error("Expected accepted overwrite selection.");
+	const acceptedWorkbench = await graphService.request.getWorkbench();
+	if (!acceptedWorkbench.ok || !acceptedWorkbench.state.requestIdentity) throw new Error("Current S125 graph identity unavailable.");
+	const acceptedStart = await graphService.request.startJob({
+		operation: "transpile", identity: acceptedWorkbench.state.requestIdentity, graphSelectionId: acceptedSelection.selectionId
+	});
+	if (!acceptedStart.ok) throw new Error(acceptedStart.error.message);
+	const acceptedGraph = await waitForS125GraphJob(graphService, acceptedStart.job.identity.jobId);
+	assert.equal(acceptedGraph.status, "succeeded");
+	assert.equal(graphConfirmations.at(-1)?.length, 2);
+	assert.equal(readFileSync(join(graphFixture.output, "unrelated.txt"), "utf8"), "preserve me");
+
+	graphConfirmation = () => {
+		writeFileSync(join(graphFixture.output, "main.ts"), "changed after overwrite approval");
+		return true;
+	};
+	const mutatedSelection = await graphService.request.pickGraphDestination({});
+	if (!mutatedSelection.ok || !mutatedSelection.selectionId) throw new Error("Expected mutation-check selection.");
+	const mutationWorkbench = await graphService.request.getWorkbench();
+	if (!mutationWorkbench.ok || !mutationWorkbench.state.requestIdentity) throw new Error("Current S125 graph identity unavailable.");
+	const mutationStart = await graphService.request.startJob({
+		operation: "transpile", identity: mutationWorkbench.state.requestIdentity, graphSelectionId: mutatedSelection.selectionId
+	});
+	if (!mutationStart.ok) throw new Error(mutationStart.error.message);
+	const mutationGraph = await waitForS125GraphJob(graphService, mutationStart.job.identity.jobId);
+	assert.equal(mutationGraph.status, "failed");
+	assert.match(mutationGraph.diagnostics[0]?.message ?? "", /changed after overwrite approval/);
+	assert.equal(readFileSync(join(graphFixture.output, "main.ts"), "utf8"), "changed after overwrite approval");
+
+	graphConfirmation = async () => {
+		const updated = await graphService.request.updateBuffer({ path: graphFixture.dependency, text: "```amx\nexport let value: Number = 99\n```\n" });
+		assert.equal(updated.ok, true);
+		return true;
+	};
+	const staleSelection = await graphService.request.pickGraphDestination({});
+	if (!staleSelection.ok || !staleSelection.selectionId) throw new Error("Expected stale-source selection.");
+	const staleWorkbench = await graphService.request.getWorkbench();
+	if (!staleWorkbench.ok || !staleWorkbench.state.requestIdentity) throw new Error("Current S125 graph identity unavailable.");
+	const staleStart = await graphService.request.startJob({
+		operation: "transpile", identity: staleWorkbench.state.requestIdentity, graphSelectionId: staleSelection.selectionId
+	});
+	if (!staleStart.ok) throw new Error(staleStart.error.message);
+	const staleGraph = await waitForS125GraphJob(graphService, staleStart.job.identity.jobId);
+	assert.equal(staleGraph.status, "superseded");
+	assert.equal(readFileSync(join(graphFixture.output, "main.ts"), "utf8"), "changed after overwrite approval");
+
+	graphConfirmation = () => {
+		writeFileSync(graphFixture.dependency, "# external dependency edit\n");
+		return true;
+	};
+	const diskConflictSelection = await graphService.request.pickGraphDestination({});
+	if (!diskConflictSelection.ok || !diskConflictSelection.selectionId) throw new Error("Expected disk-conflict selection.");
+	const diskConflictWorkbench = await graphService.request.getWorkbench();
+	if (!diskConflictWorkbench.ok || !diskConflictWorkbench.state.requestIdentity) throw new Error("Current S125 graph identity unavailable.");
+	const diskConflictStart = await graphService.request.startJob({
+		operation: "transpile", identity: diskConflictWorkbench.state.requestIdentity, graphSelectionId: diskConflictSelection.selectionId
+	});
+	if (!diskConflictStart.ok) throw new Error(diskConflictStart.error.message);
+	const diskConflictGraph = await waitForS125GraphJob(graphService, diskConflictStart.job.identity.jobId);
+	assert.equal(diskConflictGraph.status, "superseded");
+	assert.equal(readFileSync(join(graphFixture.output, "main.ts"), "utf8"), "changed after overwrite approval");
+	const registeredOutputId = completedGraph.result?.kind === "typescript-graph" ? completedGraph.result.outputId : undefined;
+	if (!registeredOutputId) throw new Error("Successful graph output ID is unavailable for stale-identity validation.");
+	const movedOutput = join(graphFixture.root, "typescript output moved");
+	renameSync(graphFixture.output, movedOutput);
+	mkdirSync(graphFixture.output);
+	assert.equal((await graphService.request.openExportedOutput({ outputId: registeredOutputId, action: "open" })).ok, false);
+	console.log("Sprint 125 graph RPC/service contract passed: overlays, multi-file output, cancel, overwrite, stale source/disk, mutation, and output identity");
+} finally {
+	rmSync(graphFixture.root, { recursive: true, force: true });
+}
+
+const graphCancelFixture = createS125GraphFixture();
+const idleGraphWorkerFactory = (_url: string): Worker => ({
+	addEventListener() {},
+	postMessage() {},
+	terminate() { return Promise.resolve(0); }
+} as unknown as Worker);
+const graphCancelService = createDesktopService(undefined, {
+	async choose({ directory }) { return directory ? graphCancelFixture.output : undefined; }
+}, undefined, idleGraphWorkerFactory);
+try {
+	assert.equal((await graphCancelService.request.openProject({ path: graphCancelFixture.project })).ok, true);
+	assert.equal((await graphCancelService.request.openDocument({ path: graphCancelFixture.entry })).ok, true);
+	const selection = await graphCancelService.request.pickGraphDestination({});
+	if (!selection.ok || !selection.selectionId) throw new Error("Expected worker-cancellation graph destination.");
+	const workbench = await graphCancelService.request.getWorkbench();
+	if (!workbench.ok || !workbench.state.requestIdentity) throw new Error("Graph-cancellation identity unavailable.");
+	const started = await graphCancelService.request.startJob({
+		operation: "transpile", identity: workbench.state.requestIdentity, graphSelectionId: selection.selectionId
+	});
+	if (!started.ok) throw new Error(started.error.message);
+	const cancelled = await graphCancelService.request.cancelJob({ jobId: started.job.identity.jobId });
+	assert.equal(cancelled.ok, true);
+	if (!cancelled.ok) throw new Error(cancelled.error.message);
+	assert.equal(cancelled.job.status, "cancelled");
+	assert.deepEqual(readdirSync(graphCancelFixture.output).sort(), ["unrelated.txt"]);
+	console.log("Sprint 125 worker-preparation cancellation leaves graph output untouched");
+} finally {
+	rmSync(graphCancelFixture.root, { recursive: true, force: true });
+}
+
+const graphRollbackFixture = createS125GraphFixture();
+writeFileSync(join(graphRollbackFixture.output, "library.ts"), "original library output");
+writeFileSync(join(graphRollbackFixture.output, "main.ts"), "original entry output");
+const graphRollbackWriter: typeof writeTranspiledGraph = (graph, output, options = {}) => writeTranspiledGraph(graph, output, {
+	...options,
+	overwrite: true,
+	failureInjector(phase, outputPath) {
+		if (phase === "publish" && outputPath === "main.ts") throw new Error("injected desktop graph publish failure");
+	}
+});
+const graphRollbackService = createDesktopService(undefined, {
+	async choose({ directory }) { return directory ? graphRollbackFixture.output : undefined; },
+	async confirmGraphOverwrite() { return true; }
+}, undefined, undefined, undefined, graphRollbackWriter);
+try {
+	assert.equal((await graphRollbackService.request.openProject({ path: graphRollbackFixture.project })).ok, true);
+	assert.equal((await graphRollbackService.request.openDocument({ path: graphRollbackFixture.entry })).ok, true);
+	const selection = await graphRollbackService.request.pickGraphDestination({});
+	if (!selection.ok || !selection.selectionId) throw new Error("Expected writer-rollback graph destination.");
+	const workbench = await graphRollbackService.request.getWorkbench();
+	if (!workbench.ok || !workbench.state.requestIdentity) throw new Error("Writer-rollback identity unavailable.");
+	const started = await graphRollbackService.request.startJob({
+		operation: "transpile", identity: workbench.state.requestIdentity, graphSelectionId: selection.selectionId
+	});
+	if (!started.ok) throw new Error(started.error.message);
+	const failed = await waitForS125GraphJob(graphRollbackService, started.job.identity.jobId);
+	assert.equal(failed.status, "failed");
+	assert.match(failed.diagnostics[0]?.message ?? "", /rollback was verified/);
+	assert.deepEqual(failed.outputPathStates?.map(({ outputPath, state }) => ({ outputPath, state })), [
+		{ outputPath: "library.ts", state: "restored" },
+		{ outputPath: "main.ts", state: "staged" }
+	]);
+	assert.equal(readFileSync(join(graphRollbackFixture.output, "library.ts"), "utf8"), "original library output");
+	assert.equal(readFileSync(join(graphRollbackFixture.output, "main.ts"), "utf8"), "original entry output");
+	console.log("Sprint 125 service reports real S124 writer rollback path states");
+} finally {
+	rmSync(graphRollbackFixture.root, { recursive: true, force: true });
+}
+
+const graphStageFailureFixture = createS125GraphFixture();
+const graphStageFailureWriter: typeof writeTranspiledGraph = (graph, output, options = {}) => writeTranspiledGraph(graph, output, {
+	...options,
+	failureInjector(phase, outputPath) {
+		if (phase === "stage" && outputPath === "main.ts") throw new Error("injected desktop graph stage failure");
+	}
+});
+const graphStageFailureService = createDesktopService(undefined, {
+	async choose({ directory }) { return directory ? graphStageFailureFixture.output : undefined; }
+}, undefined, undefined, undefined, graphStageFailureWriter);
+try {
+	assert.equal((await graphStageFailureService.request.openProject({ path: graphStageFailureFixture.project })).ok, true);
+	assert.equal((await graphStageFailureService.request.openDocument({ path: graphStageFailureFixture.entry })).ok, true);
+	const selection = await graphStageFailureService.request.pickGraphDestination({});
+	if (!selection.ok || !selection.selectionId) throw new Error("Expected stage-failure graph destination.");
+	const workbench = await graphStageFailureService.request.getWorkbench();
+	if (!workbench.ok || !workbench.state.requestIdentity) throw new Error("Stage-failure identity unavailable.");
+	const started = await graphStageFailureService.request.startJob({
+		operation: "transpile", identity: workbench.state.requestIdentity, graphSelectionId: selection.selectionId
+	});
+	if (!started.ok) throw new Error(started.error.message);
+	const failed = await waitForS125GraphJob(graphStageFailureService, started.job.identity.jobId);
+	assert.equal(failed.status, "failed");
+	assert.deepEqual(failed.outputPathStates?.map(({ outputPath, state }) => ({ outputPath, state })), [
+		{ outputPath: "library.ts", state: "staged" }
+	]);
+	assert.deepEqual(readdirSync(graphStageFailureFixture.output).sort(), ["unrelated.txt"]);
+	console.log("Sprint 125 stage failure reports staged paths and leaves final targets untouched");
+} finally {
+	rmSync(graphStageFailureFixture.root, { recursive: true, force: true });
+}
+
+const graphRollbackIncompleteFixture = createS125GraphFixture();
+writeFileSync(join(graphRollbackIncompleteFixture.output, "library.ts"), "original library output");
+writeFileSync(join(graphRollbackIncompleteFixture.output, "main.ts"), "original entry output");
+const graphRollbackIncompleteWriter: typeof writeTranspiledGraph = (graph, output, options = {}) => writeTranspiledGraph(graph, output, {
+	...options,
+	overwrite: true,
+	failureInjector(phase, outputPath) {
+		if (phase === "publish" && outputPath === "main.ts") throw new Error("injected desktop publish failure");
+		if (phase === "rollback" && outputPath === "library.ts") throw new Error("injected desktop rollback failure");
+	}
+});
+const graphRollbackIncompleteService = createDesktopService(undefined, {
+	async choose({ directory }) { return directory ? graphRollbackIncompleteFixture.output : undefined; },
+	async confirmGraphOverwrite() { return true; }
+}, undefined, undefined, undefined, graphRollbackIncompleteWriter);
+try {
+	assert.equal((await graphRollbackIncompleteService.request.openProject({ path: graphRollbackIncompleteFixture.project })).ok, true);
+	assert.equal((await graphRollbackIncompleteService.request.openDocument({ path: graphRollbackIncompleteFixture.entry })).ok, true);
+	const selection = await graphRollbackIncompleteService.request.pickGraphDestination({});
+	if (!selection.ok || !selection.selectionId) throw new Error("Expected incomplete-rollback graph destination.");
+	const workbench = await graphRollbackIncompleteService.request.getWorkbench();
+	if (!workbench.ok || !workbench.state.requestIdentity) throw new Error("Incomplete-rollback identity unavailable.");
+	const started = await graphRollbackIncompleteService.request.startJob({
+		operation: "transpile", identity: workbench.state.requestIdentity, graphSelectionId: selection.selectionId
+	});
+	if (!started.ok) throw new Error(started.error.message);
+	const failed = await waitForS125GraphJob(graphRollbackIncompleteService, started.job.identity.jobId);
+	assert.equal(failed.status, "failed");
+	assert.match(failed.diagnostics[0]?.message ?? "", /rollback incomplete/);
+	assert.deepEqual(failed.outputPathStates?.map(({ outputPath, state }) => ({ outputPath, state })), [
+		{ outputPath: "library.ts", state: "unrecovered" },
+		{ outputPath: "main.ts", state: "staged" }
+	]);
+	assert.equal(existsSync(join(graphRollbackIncompleteFixture.output, "library.ts")), true);
+	assert.notEqual(readFileSync(join(graphRollbackIncompleteFixture.output, "library.ts"), "utf8"), "original library output");
+	assert.equal(existsSync(join(graphRollbackIncompleteFixture.output, "main.ts")), true);
+	assert.equal(readFileSync(join(graphRollbackIncompleteFixture.output, "main.ts"), "utf8"), "original entry output");
+	console.log("Sprint 125 service exposes unrecovered paths after injected incomplete rollback");
+} finally {
+	rmSync(graphRollbackIncompleteFixture.root, { recursive: true, force: true });
+}
+
+const graphStaleActiveFixture = createS125GraphFixture();
+const graphStaleActiveService = createDesktopService(undefined, {
+	async choose({ directory }) { return directory ? graphStaleActiveFixture.output : undefined; }
+});
+try {
+	assert.equal((await graphStaleActiveService.request.openProject({ path: graphStaleActiveFixture.project })).ok, true);
+	assert.equal((await graphStaleActiveService.request.openDocument({ path: graphStaleActiveFixture.entry })).ok, true);
+	const selection = await graphStaleActiveService.request.pickGraphDestination({});
+	if (!selection.ok || !selection.selectionId) throw new Error("Expected stale-active graph destination.");
+	const initialWorkbench = await graphStaleActiveService.request.getWorkbench();
+	if (!initialWorkbench.ok || !initialWorkbench.state.requestIdentity) throw new Error("Stale-active identity unavailable.");
+	assert.equal((await graphStaleActiveService.request.updateBuffer({ text: graphStaleActiveFixture.entryDisk.replace("# Entry", "# Edited entry") })).ok, true);
+	const staleStart = await graphStaleActiveService.request.startJob({
+		operation: "transpile", identity: initialWorkbench.state.requestIdentity, graphSelectionId: selection.selectionId
+	});
+	assert.equal(staleStart.ok, false);
+	if (staleStart.ok) throw new Error("Stale active-document graph selection unexpectedly started.");
+	assert.equal(staleStart.error.code, "DESKTOP_STALE");
+	assert.deepEqual(readdirSync(graphStaleActiveFixture.output).sort(), ["unrelated.txt"]);
+	console.log("Sprint 125 stale active-document selection is rejected before worker startup");
+} finally {
+	rmSync(graphStaleActiveFixture.root, { recursive: true, force: true });
+}
+
+const malformedGraphFixture = createS125GraphFixture();
+const malformedGraphWorkerFactory = (_url: string): Worker => {
+	const listeners = new Map<string, EventListener[]>();
+	const emit = (type: string, event: Event) => { for (const listener of listeners.get(type) ?? []) listener(event); };
+	return {
+		addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+			const eventListener = typeof listener === "function" ? listener : (event: Event) => listener.handleEvent(event);
+			listeners.set(type, [...(listeners.get(type) ?? []), eventListener]);
+		},
+		postMessage(request: WorkerJobRequest) {
+			const message = {
+				kind: "complete",
+				jobId: request.jobId,
+				result: {
+					kind: "typescript-graph",
+					graph: { ok: true, entryModuleId: "main.ts", modules: [{ moduleId: "main.ts", sourcePath: malformedGraphFixture.entry, outputPath: "main.ts", code: "" }] },
+				moduleCount: 1,
+				bytes: 0,
+				payloadBytes: 1
+				}
+			} as unknown as WorkerJobMessage;
+			emit("message", new MessageEvent("message", { data: message }));
+			emit("close", new Event("close"));
+		},
+		terminate() { return Promise.resolve(0); }
+	} as unknown as Worker;
+};
+const malformedGraphService = createDesktopService(undefined, {
+	async choose({ directory }) { return directory ? malformedGraphFixture.output : undefined; }
+}, undefined, malformedGraphWorkerFactory);
+try {
+	assert.equal((await malformedGraphService.request.openProject({ path: malformedGraphFixture.project })).ok, true);
+	assert.equal((await malformedGraphService.request.openDocument({ path: malformedGraphFixture.entry })).ok, true);
+	const selection = await malformedGraphService.request.pickGraphDestination({});
+	if (!selection.ok || !selection.selectionId) throw new Error("Expected malformed-result graph destination.");
+	const workbench = await malformedGraphService.request.getWorkbench();
+	if (!workbench.ok || !workbench.state.requestIdentity) throw new Error("Malformed-result identity unavailable.");
+	const started = await malformedGraphService.request.startJob({
+		operation: "transpile", identity: workbench.state.requestIdentity, graphSelectionId: selection.selectionId
+	});
+	if (!started.ok) throw new Error(started.error.message);
+	const failed = await waitForS125GraphJob(malformedGraphService, started.job.identity.jobId);
+	assert.equal(failed.status, "failed");
+	assert.match(failed.diagnostics[0]?.message ?? "", /malformed or oversized TypeScript graph/);
+	assert.deepEqual(readdirSync(malformedGraphFixture.output).sort(), ["unrelated.txt"]);
+	console.log("Sprint 125 service rejects malformed worker graph payload before output preflight");
+} finally {
+	rmSync(malformedGraphFixture.root, { recursive: true, force: true });
+}
+
+const graphPrecommitFixture = createS125GraphFixture();
+const graphPrecommitService = createDesktopService(undefined, {
+	async choose({ directory }) { return directory ? graphPrecommitFixture.output : undefined; }
+});
+try {
+	assert.equal((await graphPrecommitService.request.openProject({ path: graphPrecommitFixture.project })).ok, true);
+	assert.equal((await graphPrecommitService.request.openDocument({ path: graphPrecommitFixture.entry })).ok, true);
+	const selection = await graphPrecommitService.request.pickGraphDestination({});
+	if (!selection.ok || !selection.selectionId) throw new Error("Expected precommit graph destination.");
+	const workbench = await graphPrecommitService.request.getWorkbench();
+	if (!workbench.ok || !workbench.state.requestIdentity) throw new Error("Precommit graph identity unavailable.");
+	const started = await graphPrecommitService.request.startJob({
+		operation: "transpile", identity: workbench.state.requestIdentity, graphSelectionId: selection.selectionId
+	});
+	if (!started.ok) throw new Error(started.error.message);
+	let precommitSeen = false;
+	let lastPrecommitSnapshot: unknown;
+	for (let attempt = 0; attempt < 300; attempt++) {
+		const snapshot = await graphPrecommitService.request.getJob({ jobId: started.job.identity.jobId });
+		if (!snapshot.ok) throw new Error(snapshot.error.message);
+		lastPrecommitSnapshot = snapshot.job;
+		if (snapshot.job.stage === "committing" && snapshot.job.status === "running") { precommitSeen = true; break; }
+		if (snapshot.job.status !== "running") break;
+		await new Promise(resolve => setTimeout(resolve, 5));
+	}
+	assert.equal(precommitSeen, true, `prepublication stage remains cancellable: ${JSON.stringify(lastPrecommitSnapshot)}`);
+	const cancelled = await graphPrecommitService.request.cancelJob({ jobId: started.job.identity.jobId });
+	assert.equal(cancelled.ok, true);
+	if (!cancelled.ok) throw new Error(cancelled.error.message);
+	assert.equal(cancelled.job.status, "cancelled");
+	assert.deepEqual(readdirSync(graphPrecommitFixture.output).sort(), ["unrelated.txt"]);
+	console.log("Sprint 125 cancellation during prepublication remains safe and writes no graph files");
+} finally {
+	rmSync(graphPrecommitFixture.root, { recursive: true, force: true });
+}
 console.log("Final active resources:", process.getActiveResourcesInfo());

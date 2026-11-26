@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { CircleHelp, Database, Download, Eye, Pause, Play, RefreshCw, Settings, SlidersHorizontal } from "@lucide/vue";
 import packageMetadata from "../../package.json";
-import type { ActiveDocumentRequestIdentity, DataInputSchema, DataOutputSchema, DesktopExportAction, DesktopJobOperation, DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, TrashItem, WorkbenchState } from "../shared/rpc";
+import type { ActiveDocumentRequestIdentity, DataInputSchema, DataOutputSchema, DesktopExportAction, DesktopGraphPreview, DesktopJobOperation, DesktopJobStatus, DesktopOutputPathState, DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, TrashItem, WorkbenchState } from "../shared/rpc";
 import CodeEditor from "./CodeEditor.vue";
 import CommandPalette from "./components/CommandPalette.vue";
 import DataEditorPane from "./components/DataEditorPane.vue";
@@ -13,6 +13,7 @@ import PreferencesDialog from "./components/PreferencesDialog.vue";
 import ProjectExplorer from "./components/ProjectExplorer.vue";
 import ReportSettingsDialog from "./components/ReportSettingsDialog.vue";
 import RuntimePanel from "./components/RuntimePanel.vue";
+import TypeScriptExportDialog from "./components/TypeScriptExportDialog.vue";
 import ResizableHandle from "./components/ui/resizable/ResizableHandle.vue";
 import ResizablePanel from "./components/ui/resizable/ResizablePanel.vue";
 import ResizablePanelGroup from "./components/ui/resizable/ResizablePanelGroup.vue";
@@ -60,6 +61,7 @@ const defaultEditorPercent = computed(() => 100 - defaultExplorerPercent.value -
 const editorElement = ref<InstanceType<typeof CodeEditor> | null>(null);
 const dataEditorElement = ref<InstanceType<typeof DataEditorPane> | null>(null);
 let invoker: HTMLElement | null = null;
+let typeScriptExportInvoker: HTMLElement | null = null;
 let focusInvoker: HTMLElement | null = null;
 let settingsInvoker: HTMLElement | null = null;
 let workbenchResizeObserver: ResizeObserver | undefined;
@@ -99,6 +101,14 @@ const exportBinding = ref("");
 const exportFileName = ref("report.html");
 const exportBusy = ref(false);
 const exportDialogError = ref("");
+const typeScriptExportOpen = ref(false);
+const typeScriptExportBusy = ref(false);
+const typeScriptJobStatus = ref<DesktopJobStatus>("succeeded");
+const typeScriptExportError = ref("");
+const typeScriptOutputDirectory = ref("");
+const typeScriptGraphPreview = ref<DesktopGraphPreview | null>(null);
+const typeScriptPathStates = ref<DesktopOutputPathState[]>([]);
+const typeScriptOutputId = ref("");
 const completedOutputId = ref("");
 const completedOutputName = ref("");
 const files = ref<ProjectFile[]>([]);
@@ -113,6 +123,7 @@ let bufferRevision = 0;
 let previewRequest = 0;
 let runRequest = 0;
 let exportRequest = 0;
+let typeScriptExportRequest = 0;
 let navigationRequest = 0;
 let staticRequest = 0;
 let pendingEdit: Promise<void> = Promise.resolve();
@@ -300,7 +311,9 @@ async function cancelActiveJob() {
 		if (activeJobId.value !== jobId) return;
 		if (cancelled.ok && cancelled.job.status === "committing") {
 			jobStage.value = "committing";
-			status.value = "The atomic file replacement has started and cannot be interrupted.";
+			status.value = cancelled.job.operation === "transpile"
+				? "TypeScript graph publication has started and can no longer be interrupted."
+				: "The atomic file replacement has started and cannot be interrupted.";
 			return;
 		}
 		if (cancelled.ok && cancelled.job.cleanupPending) {
@@ -318,7 +331,8 @@ async function cancelActiveJob() {
 async function executeJob(
 	operation: DesktopJobOperation, 
 	selectionId?: string, 
-	dataOutput?: { name: string; format: "json" | "csv" }) {
+	dataOutput?: { name: string; format: "json" | "csv" },
+	graphSelectionId?: string) {
 	
 	await pendingEdit; 
 	await pendingInputSettings; 
@@ -327,12 +341,16 @@ async function executeJob(
 	const identity = workbench.value.requestIdentity;
 	if (!identity) throw new Error("Open an active AMX document before starting a job.");
 	
-	const started = await props.rpc.request.startJob({ operation, identity, selectionId, dataOutput }); if (!started.ok) throw new Error(started.error.message);
+	const started = operation === "transpile"
+		? await props.rpc.request.startJob({ operation, identity, graphSelectionId: graphSelectionId! })
+		: await props.rpc.request.startJob({ operation, identity, selectionId, dataOutput });
+	if (!started.ok) throw new Error(started.error.message);
 	
 	let job = started.job; 
 	const jobId = job.identity.jobId; 
 	activeJobId.value = jobId; 
 	jobStage.value = job.stage ?? "";
+	if (operation === "transpile") typeScriptJobStatus.value = job.status;
 	cleanupJobId.value = null; 
 	cleanupPending.value = false;
 	
@@ -344,6 +362,11 @@ async function executeJob(
 		if (!polled.ok) throw new Error(polled.error.message); 
 		job = polled.job; 
 		jobStage.value = job.stage ?? "";
+		if (operation === "transpile") {
+			typeScriptJobStatus.value = job.status;
+			typeScriptGraphPreview.value = job.graphPreview ?? null;
+			typeScriptPathStates.value = job.outputPathStates ?? [];
+		}
 	}
 	
 	if (["running", "committing"].includes(job.status)) { 
@@ -421,6 +444,7 @@ function togglePreviewPause() {
 function invalidateInputResults() {
 	cancelActiveJob();
 	if (exportDialogOpen.value) { exportDialogOpen.value = false; exportRequest++; }
+	if (typeScriptExportOpen.value) { typeScriptExportOpen.value = false; typeScriptExportRequest++; }
 	bufferRevision++;
 	previewRequest++;
 	pending.value = false;
@@ -745,6 +769,65 @@ function closeExportWorkflow() {
 	cancelActiveJob();
 }
 
+function openTypeScriptExport() {
+	if (document.value?.kind !== "amx") return;
+	typeScriptExportInvoker = window.document.activeElement instanceof HTMLElement ? window.document.activeElement : null;
+	typeScriptExportOpen.value = true;
+	typeScriptExportBusy.value = false;
+	typeScriptExportError.value = "";
+	typeScriptOutputDirectory.value = "";
+	typeScriptGraphPreview.value = null;
+	typeScriptPathStates.value = [];
+	typeScriptOutputId.value = "";
+}
+
+function closeTypeScriptExport() {
+	typeScriptExportOpen.value = false;
+	typeScriptExportRequest++;
+	cancelActiveJob();
+	const fallback = window.document.querySelector<HTMLElement>('[aria-label="Export TypeScript graph"]')
+		?? window.document.querySelector<HTMLElement>('[aria-label="Commands"]');
+	const target = typeScriptExportInvoker?.isConnected ? typeScriptExportInvoker : fallback;
+	requestAnimationFrame(() => target?.focus());
+}
+
+async function chooseTypeScriptDirectory() {
+	if (document.value?.kind !== "amx" || typeScriptExportBusy.value) return;
+	await pendingEdit;
+	await pendingInputSettings;
+	const path = document.value.path;
+	const revision = document.value.revision;
+	const request = ++typeScriptExportRequest;
+	typeScriptExportError.value = "";
+	typeScriptExportBusy.value = true;
+	try {
+		const selection = await props.rpc.request.pickGraphDestination({}, { maxRequestTime: Infinity });
+		if (!isCurrent(bufferRevision) || request !== typeScriptExportRequest || document.value?.path !== path || document.value.revision !== revision) return;
+		if (!selection.ok) { typeScriptExportError.value = selection.error.message; return; }
+		if (selection.cancelled || !selection.selectionId) return;
+		typeScriptOutputDirectory.value = selection.directoryName ?? "Selected directory";
+		const job = await executeJob("transpile", undefined, undefined, selection.selectionId);
+		if (!isCurrent(bufferRevision) || request !== typeScriptExportRequest || document.value?.path !== path || document.value.revision !== revision) return;
+		if (!job) { typeScriptExportError.value = "TypeScript export cancelled."; return; }
+		typeScriptGraphPreview.value = job.graphPreview ?? null;
+		typeScriptPathStates.value = job.outputPathStates ?? [];
+		if (job.status !== "succeeded" || job.result?.kind !== "typescript-graph") {
+			typeScriptExportError.value = job.diagnostics[0]?.message ?? (job.status === "cancelled" ? "TypeScript export cancelled." : "TypeScript graph export failed.");
+			analysis.value = { ...analysis.value, diagnostics: job.diagnostics };
+			return;
+		}
+		typeScriptOutputId.value = job.result.outputId ?? "";
+		completedOutputId.value = typeScriptOutputId.value;
+		completedOutputName.value = `${job.result.moduleCount ?? 0} TypeScript modules`;
+		exportStatus.value = `Saved ${job.result.moduleCount ?? 0} TypeScript modules (${(job.result.bytes ?? 0).toLocaleString()} bytes)`;
+	} catch (error) {
+		if (isCurrent(bufferRevision) && request === typeScriptExportRequest)
+			typeScriptExportError.value = error instanceof Error ? error.message.slice(0, 1000) : "TypeScript export request failed.";
+	} finally {
+		if (request === typeScriptExportRequest) typeScriptExportBusy.value = false;
+	}
+}
+
 function setExportFormat(format: "html" | "pdf" | "docx" | "json" | "csv") {
 	const base = format === "json" || format === "csv" ? exportBinding.value || "output" : `${document.value ? label(document.value) : 'report'}`;
 	exportFormat.value = format;
@@ -787,6 +870,7 @@ const commands = computed<ShellCommand[]>(() => [
 	{ id: "view.focus-editor", label: "Focus editor", enabled: !!document.value, disabledReason: "Open a document first", run: () => setFocusMode("editor") },
 	{ id: "view.focus-preview", label: "Focus preview", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: () => setFocusMode("preview") },
 	{ id: "document.export", label: "Export…", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: openExportWorkflow },
+	{ id: "document.export-typescript", label: "Export TypeScript…", enabled: document.value?.kind === "amx", disabledReason: "Open an AMX document first", run: openTypeScriptExport },
 	{ id: "project.clear-recents", label: "Clear recent projects", enabled: !!recents.value.length, disabledReason: "History is empty", run: clearRecents }
 ]);
 
@@ -795,6 +879,7 @@ function onKeydown(event: KeyboardEvent) {
 		if (palette.value) dismissPalette();
 		else if (helpOpen.value) helpOpen.value = false;
 		else if (preferencesOpen.value) preferencesOpen.value = false;
+		else if (typeScriptExportOpen.value) closeTypeScriptExport();
 		else if (exportDialogOpen.value) closeExportWorkflow();
 		else if (reportSettingsOpen.value) closeReportSettings();
 		else if (focusMode.value !== "none") setFocusMode("none");
@@ -880,6 +965,8 @@ function clearView() {
 	if (previewTimer) clearTimeout(previewTimer);
 	previewTimer = undefined;
 	exportDialogOpen.value = false;
+	typeScriptExportOpen.value = false;
+	typeScriptExportRequest++;
 	cancelActiveJob();
 	bufferRevision++;
 	previewRequest++;
@@ -1362,6 +1449,7 @@ async function updateText(text: string) {
 	const currentDocument = document.value;
 	cancelActiveJob();
 	if (exportDialogOpen.value) { exportDialogOpen.value = false; exportRequest++; }
+	if (typeScriptExportOpen.value) { typeScriptExportOpen.value = false; typeScriptExportRequest++; }
 	const revision = ++bufferRevision;
 	staticRequest++;
 	staticAnalysis.value = { diagnostics: [], completions: [] };
@@ -1602,6 +1690,7 @@ async function openExportedOutput(action: DesktopExportAction) {
 						<button v-else-if="document?.kind === 'amx'" type="button" title="Resume live preview" aria-label="Resume live preview" @click="togglePreviewPause"><Play :size="14" /></button>
 						<button v-if="document?.kind === 'amx'" type="button" title="Refresh preview" aria-label="Refresh preview" @click="refresh"><RefreshCw :size="14" /></button>
 						<button v-if="document?.kind === 'amx'" type="button" title="Export active document" aria-label="Export active document" @click="openExportWorkflow"><Download :size="14" /> Export</button>
+						<button v-if="document?.kind === 'amx'" type="button" title="Export TypeScript graph" aria-label="Export TypeScript graph" @click="openTypeScriptExport"><Download :size="14" /> TypeScript</button>
 						<button type="button" :disabled="document?.kind !== 'amx'" @click="openReportSettings"><SlidersHorizontal :size="14" /> Report settings</button>
 					</span>
 				</div>
@@ -1650,6 +1739,7 @@ async function openExportedOutput(action: DesktopExportAction) {
 		<HelpCenterDialog :open="helpOpen" :initial-section="helpSection" :shortcuts="commands" @close="helpOpen = false" @create-project="helpOpen = false; createProject($event)" @export-diagnostics="downloadDiagnosticSummary" />
 		<PreferencesDialog :open="preferencesOpen" :theme="theme" :wrap-lines="editorWrapLines" :autosave="autosaveEnabled" :autosave-delay-ms="autosaveDelayMs" @close="preferencesOpen = false" @save="savePreferences" />
 		<ExportDialog :open="exportDialogOpen" :active-label="document?.label ?? document?.path.split(/[\\/]/).pop() ?? ''" :outputs="exportOutputs" :selected-format="exportFormat" :selected-output="exportBinding" :file-name="exportFileName" :busy="exportBusy" :error="exportDialogError" :outputs-truncated="exportOutputsTruncated" @close="closeExportWorkflow" @format="setExportFormat" @output="setExportBinding" @file-name="exportFileName = $event" @export="performExport" />
+		<TypeScriptExportDialog :open="typeScriptExportOpen" :active-label="document?.label ?? document?.path.split(/[\\/]/).pop() ?? ''" :directory-name="typeScriptOutputDirectory" :busy="typeScriptExportBusy" :job-status="typeScriptJobStatus" :stage="jobStage" :error="typeScriptExportError" :preview="typeScriptGraphPreview" :path-states="typeScriptPathStates" :output-id="typeScriptOutputId" @close="closeTypeScriptExport" @choose="chooseTypeScriptDirectory" @output-action="openExportedOutput" />
 		<ReportSettingsDialog :open="reportSettingsOpen" :settings="reportSettings" :busy="reportSettingsBusy" :error="reportSettingsError" @close="closeReportSettings" @save="saveReportSettings" @pick-logo="pickReportLogo" @pick-stylesheet="pickReportStylesheet" />
 		<div v-if="trashOpen" class="export-backdrop" @click.self="trashOpen = false">
 			<section class="export-dialog trash-dialog" role="dialog" aria-modal="true" aria-labelledby="trash-title">

@@ -24,7 +24,7 @@ export interface ActiveDocumentRequestIdentity {
 	inputSettingsRevision: number;
 }
 export interface DesktopJobIdentity extends ActiveDocumentRequestIdentity { jobId: number; }
-export type DesktopJobOperation = "run" | "preview" | "html" | "pdf" | "docx" | "export-data" | "discover-outputs" | "validate-data";
+export type DesktopJobOperation = "run" | "preview" | "html" | "pdf" | "docx" | "export-data" | "discover-outputs" | "validate-data" | "transpile";
 export type DesktopExportAction = "open" | "reveal";
 export type DesktopJobStatus = "running" | "committing" | "succeeded" | "failed" | "cancelled" | "superseded";
 export interface DataInputSchema {
@@ -49,7 +49,7 @@ export interface DataOutputSchema {
 	truncated?: boolean;
 }
 export interface DesktopJobResult {
-	kind: "run" | "preview" | "export" | "data-validation" | "output-discovery";
+	kind: "run" | "preview" | "export" | "data-validation" | "output-discovery" | "typescript-graph";
 	summary?: RunSummary;
 	html?: string;
 	previewToken?: string;
@@ -62,6 +62,22 @@ export interface DesktopJobResult {
 	name?: string;
 	outputId?: string;
 	fileName?: string;
+	outputDirectoryName?: string;
+	entryFileName?: string;
+	moduleCount?: number;
+}
+export interface DesktopGraphPreview {
+	outputDirectoryName: string;
+	entryOutputPath: string;
+	modulePaths: string[];
+	moduleCount: number;
+	bytes: number;
+	overwritePaths: string[];
+}
+export interface DesktopOutputPathState {
+	outputPath: string;
+	state: "staged" | "published" | "restored" | "unrecovered";
+	detail?: string;
 }
 export interface DesktopJobSnapshot {
 	identity: DesktopJobIdentity;
@@ -70,6 +86,8 @@ export interface DesktopJobSnapshot {
 	cleanupPending: boolean;
 	stage?: string;
 	result?: DesktopJobResult;
+	graphPreview?: DesktopGraphPreview;
+	outputPathStates?: DesktopOutputPathState[];
 	diagnostics: TextDiagnostic[];
 }
 export interface WorkbenchState { tabs: TabState[]; active?: string; generation: number; inputSettingsRevision: number; requestIdentity?: ActiveDocumentRequestIdentity; }
@@ -110,6 +128,7 @@ export interface DesktopRPCClient {
 		pickProject(params?: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; root?: string }>>;
 		pickDocument(params?: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; document?: OpenDocument }>>;
 		pickDestination(params: { extension: ".html" | ".pdf" | ".docx" | ".json" | ".csv"; fileName: string }, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; selectionId?: string; fileName?: string }>>;
+		pickGraphDestination(params?: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ cancelled: boolean; selectionId?: string; directoryName?: string }>>;
 		openExportedOutput(params: { outputId: string; action: DesktopExportAction }): Promise<DesktopRPCResponse<Record<string, never>>>;
 		openDocument(params: { path: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
 		selectTab(params: { path: string }): Promise<DesktopRPCResponse<{ document: OpenDocument }>>;
@@ -126,7 +145,7 @@ export interface DesktopRPCClient {
 		setProjectReportSettings(params: { values: ReportSettingsValues; expectedRevision: string }): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot; state: WorkbenchState }>>;
 		setDocumentReportSettings(params: { values: ReportSettingsValues; expectedRevision: number }): Promise<DesktopRPCResponse<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }>>;
 		setAutosave(params: { enabled: boolean; delayMs: number }): Promise<DesktopRPCResponse<{ enabled: boolean; delayMs: number }>>;
-		startJob(params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; selectionId?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string }; dataOutput?: { name: string; format: "json" | "csv" } }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
+		startJob(params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; selectionId?: string; graphSelectionId?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string }; dataOutput?: { name: string; format: "json" | "csv" } }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
 		openPreviewTarget(params: { targetId: string; previewToken: string; identity: ActiveDocumentRequestIdentity }): Promise<DesktopRPCResponse<{ opened: boolean; cancelled?: boolean; document?: OpenDocument }>>;
 		invalidatePreviewTargets(params: { previewToken: string; identity: ActiveDocumentRequestIdentity }): Promise<DesktopRPCResponse<{ invalidated: boolean }>>;
 		getJob(params: { jobId: number }): Promise<DesktopRPCResponse<{ job: DesktopJobSnapshot }>>;
@@ -180,6 +199,7 @@ export type DesktopRPCSchema = {
 			pickProject: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; root?: string }> };
 			pickDocument: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; document?: OpenDocument }> };
 			pickDestination: { params: { extension: ".html" | ".pdf" | ".docx" | ".json" | ".csv"; fileName: string }; response: DesktopRPCResponse<{ cancelled: boolean; selectionId?: string; fileName?: string }> };
+			pickGraphDestination: { params: Record<string, never>; response: DesktopRPCResponse<{ cancelled: boolean; selectionId?: string; directoryName?: string }> };
 			openExportedOutput: { params: { outputId: string; action: DesktopExportAction }; response: DesktopRPCResponse<Record<string, never>> };
 			openDocument: { params: { path: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
 			selectTab: { params: { path: string }; response: DesktopRPCResponse<{ document: OpenDocument }> };
@@ -196,7 +216,7 @@ export type DesktopRPCSchema = {
 			setProjectReportSettings: { params: { values: ReportSettingsValues; expectedRevision: string }; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot; state: WorkbenchState }> };
 			setDocumentReportSettings: { params: { values: ReportSettingsValues; expectedRevision: number }; response: DesktopRPCResponse<{ settings: ReportSettingsSnapshot; document: OpenDocument; state: WorkbenchState }> };
 			setAutosave: { params: { enabled: boolean; delayMs: number }; response: DesktopRPCResponse<{ enabled: boolean; delayMs: number }> };
-			startJob: { params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; selectionId?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string }; dataOutput?: { name: string; format: "json" | "csv" } }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
+			startJob: { params: { operation: DesktopJobOperation; identity: ActiveDocumentRequestIdentity; selectionId?: string; graphSelectionId?: string; inputInspection?: { name: string; format: "json" | "csv"; text: string }; dataOutput?: { name: string; format: "json" | "csv" } }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };
 			openPreviewTarget: { params: { targetId: string; previewToken: string; identity: ActiveDocumentRequestIdentity }; response: DesktopRPCResponse<{ opened: boolean; cancelled?: boolean; document?: OpenDocument }> };
 			invalidatePreviewTargets: { params: { previewToken: string; identity: ActiveDocumentRequestIdentity }; response: DesktopRPCResponse<{ invalidated: boolean }> };
 			getJob: { params: { jobId: number }; response: DesktopRPCResponse<{ job: DesktopJobSnapshot }> };

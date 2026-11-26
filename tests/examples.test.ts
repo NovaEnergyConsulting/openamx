@@ -600,6 +600,40 @@ describe("V0.16 language documentation and examples", () => {
   });
 });
 
+describe("V0.20 TypeScript transpilation example", () => {
+  it("links the additive spec and transpiles the standalone multi-module example", async () => {
+    const readme = await Bun.file("README.md").text();
+    const specification = await Bun.file("docs/language-spec-v0.20.md").text();
+    const examplePath = "examples/16_TypeScript_Transpilation.amx";
+    const source = await Bun.file(examplePath).text();
+    const assetPath = path.resolve("examples/data/asset.json");
+    const loaded = await loadEntryModule(examplePath, { inputMappings: [`asset=${assetPath}`] });
+    const directory = await mkdtemp(path.join(tmpdir(), "openamx-v020-example-"));
+    try {
+      const output = path.join(directory, "generated");
+      const transpiled = await runCli("transpile", examplePath, "--out-dir", output);
+
+      expect(readme).toContain("[TypeScript graph transpilation](examples/16_TypeScript_Transpilation.amx)");
+      expect(readme).toContain("[V0.20 TypeScript transpilation specification](docs/language-spec-v0.20.md)");
+      expect(specification).toContain("openamx/transpiler-runtime");
+      expect(specification).toContain("crash-atomic");
+      expect(readme).toContain("[V0.19 rendering and affine-unit specification](docs/language-spec-v0.19.md)");
+      expect(source).toContain("{{ asset.name }}");
+      expect(formatAmxDocument(formatAmxDocument(source))).toBe(formatAmxDocument(source));
+      expect(loaded.env.get("assetName")).toBe("North Pump 01");
+      expect(loaded.viewEmissions.map(view => view.kind)).toEqual(["table", "chart"]);
+      expect(loaded.diagramEmissions.map(emission => emission.model.name)).toEqual(["assetLabel"]);
+      expect(transpiled.exitCode).toBe(0);
+      expect(transpiled.stderr).toBe("");
+      expect(await Bun.file(path.join(output, "16_TypeScript_Transpilation.ts")).exists()).toBe(true);
+      expect(await Bun.file(path.join(output, "libraries", "asset-management.ts")).exists()).toBe(true);
+      expect(await Bun.file(path.join(output, "16_TypeScript_Transpilation.ts")).text()).toContain("./libraries/asset-management.ts");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("V0.2 canonical examples", () => {
   it("renders the basic example without executing its ordinary fence", async () => {
     const path = "tests/fixtures/examples/hello-world.amx";
