@@ -20,6 +20,9 @@
   Help/prompt/consent UI, apply/restart, and quit-safe staged-update retry.
 - No release, publication, deployment, distribution, or platform
   certification authority follows from S129.
+- S130 planning is recorded in
+  `planning/sprints/0130-v21-update-prompt-and-quit-safe-apply/`. This
+  preparation does not authorize implementation or verification.
 
 ## V0.21 Sprint 128 Product-Owner Closeout (2026-11-27)
 

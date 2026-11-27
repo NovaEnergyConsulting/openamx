@@ -18,6 +18,10 @@
   release assembly/publication, and platform certification remain unverified
   or out of scope. S130 retains Help/prompt/consent UI, apply/restart, and
   quit-safe staged-update retry. No release or publication authority follows.
+- S130 planning documentation is prepared in
+  `planning/sprints/0130-v21-update-prompt-and-quit-safe-apply/`. S129
+  disposition satisfies its dependency only; S130 execution requires separate
+  exact authorization.
 
 ## V0.21 Sprint 128 Product-Owner Closeout (2026-11-27)
 
