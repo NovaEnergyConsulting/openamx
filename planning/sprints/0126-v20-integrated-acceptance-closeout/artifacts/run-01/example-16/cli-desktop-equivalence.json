@@ -1,0 +1,32 @@
+{
+  "sourceEntry": "16_TypeScript_Transpilation.amx",
+  "sourceDependency": "libraries/asset-management.amx",
+  "desktopEntryOutputPath": "16_TypeScript_Transpilation.ts",
+  "cliOutputPaths": [
+    "16_TypeScript_Transpilation.ts",
+    "libraries/asset-management.ts"
+  ],
+  "desktopOutputPaths": [
+    "16_TypeScript_Transpilation.ts",
+    "libraries/asset-management.ts"
+  ],
+  "modules": [
+    {
+      "outputPath": "16_TypeScript_Transpilation.ts",
+      "bytes": 17908,
+      "sha256": "9574f5bf12d142c83f15f8c38e9601864f574e8b8868f0192f18ba80eb4b5cd8",
+      "importSpecifiers": [
+        "./libraries/asset-management.ts",
+        "openamx/transpiler-runtime"
+      ]
+    },
+    {
+      "outputPath": "libraries/asset-management.ts",
+      "bytes": 10763,
+      "sha256": "b8d4438dc330bcb8e818234b629b9a22302aae0be56b12a9b54b010d4f2ef126",
+      "importSpecifiers": [
+        "openamx/transpiler-runtime"
+      ]
+    }
+  ]
+}

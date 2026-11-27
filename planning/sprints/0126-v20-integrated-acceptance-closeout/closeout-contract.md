@@ -6,6 +6,26 @@ S126 reconciles the complete V0.20 evidence chain and submits an integrated
 closeout recommendation. It changes no product behavior. A Product Owner
 disposition is separate from Builder evidence and does not rewrite raw status.
 
+## S126 Execution Outcome
+
+- The Product Owner separately authorized S126 on 2026-11-27 after the S124/
+  S125 lifecycle reconciliation. The exact baseline, isolated worktree,
+  selected command groups, output roots, and five-retry cap are recorded in
+  `builder-evidence.md`.
+- Execution stopped after the retained S125 Measurement probe reproduced a
+  generated Measurement type-identity compile failure, S126 raw `FAIL`:
+  `AMXMeasurement<"vector:[...Length]^1">` is not assignable to
+  `AMXMeasurement<"Length">` (`TS2345`). No product source, test, helper,
+  emitter, CLI, desktop, documentation, or example change was made.
+- Example 16's accepted Asset form passed AMX run, CLI graph transpilation,
+  strict TypeScript compilation, generated `run(inputs)` oracle comparison,
+  and CLI/desktop service-worker graph path/byte equivalence. These results do
+  not close the Measurement failure or incomplete G123 rows.
+- Builder recommendation: `BLOCKED/OPEN`. Separate Product Owner disposition
+  is `PENDING`; a corrective scope and fresh acceptance cycle require separate
+  authorization. No release, package/version, publication, deployment,
+  distribution, or platform certification authority is granted.
+
 ## Required Status Model
 
 Record four separate concepts for each requirement:
@@ -47,6 +67,9 @@ At minimum, reconcile each item without status promotion:
   S125 evidence; preserve BLOCKED/UNAVAILABLE and NOT RUN individually.
 - `S125-MEASUREMENT-PROBE-01`: generated Measurement graph compile raw FAIL;
   no fix is permitted in S126.
+- `S126-MEASUREMENT-COMPILE-01`: retained probe re-run raw FAIL with TS2345
+  Measurement identity mismatch; no oracle or product repair follows this
+  stop condition without separate corrective authorization.
 - S125 full desktop unit/RPC suite: raw FAIL on report-export timing poll;
   S125 focused graph RPC/worker and Vite UI passes remain separate evidence.
 - S125 configured Hutch typecheck wrapper BLOCKED/UNAVAILABLE vs direct pinned

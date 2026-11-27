@@ -1,5 +1,32 @@
 # Planning Decisions
 
+## V0.20 Sprint 126 Entry Reconciliation and Authorization (2026-11-27)
+
+- The Product Owner authorized reconciliation of the canonical lifecycle
+  ledgers on 2026-11-27. S124 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS on
+  2026-11-26; S125 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS on 2026-11-27.
+  These dispositions are recorded in the original Builder evidence and do
+  not promote or rewrite any raw result.
+- S126 is authorized for the exact command groups and preservation boundaries
+  recorded in `planning/state.md` and the S126 verification plan. The exact
+  baseline is `08fbfa3592bc815e1a6617d3c003a468bd8da9a0` on
+  `feat/create-V0.20.0`; execution is isolated in the named detached
+  validation worktree. New evidence is limited to the S126 `artifacts/run-01/`
+  root.
+- Five retries per gate are authorized after the initial attempt. A confirmed
+  product defect is a stop condition; no source fix or cap extension is
+  authorized. Every raw failure, retry, unavailable route, and residual
+  remains distinct from the Builder recommendation and separate Product
+  Owner disposition.
+- Preserve S122/S123/S124 process FAILs, every incomplete G123 row, G124
+  publish cancellation/crash NOT RUN, S125 Measurement probe FAIL, S125 full
+  desktop suite FAIL, Hutch wrapper no-result, native/platform
+  BLOCKED/UNAVAILABLE, D122-15, and D121-18. No acceptance or disposition
+  upgrades those raw statuses.
+- No release, package/version, publication, deployment, distribution,
+  installer, Marketplace/registry, native certification, or
+  cross-platform certification workflow is authorized.
+
 ## V0.20 Sprint 123 Product-Owner Closeout (2026-11-26)
 
 - The Product Owner accepted and closed S123 with recorded residuals on

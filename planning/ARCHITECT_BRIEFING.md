@@ -1,3 +1,40 @@
+# ARCHITECT BRIEFING — V0.20 Sprint 126 Integrated Acceptance (2026-11-27)
+
+## Where things stand
+S126 verification ran against the clean `feat/create-V0.20.0` baseline
+`08fbfa3592bc815e1a6617d3c003a468bd8da9a0` in the authorized detached
+worktree. The accepted Asset Example 16 path passed AMX, CLI, generated strict
+compile/oracle, and CLI/desktop graph equivalence. Verification stopped when
+the retained Measurement probe reproduced a generated type-identity compile
+failure (TS2345). The Builder recommends BLOCKED/OPEN; the separate Product
+Owner disposition is pending.
+
+## Authorized execution
+Mutating checks run in the detached validation worktree
+`C:\Users\gamez\Programming\openamx-s126-validation-08fbfa3`; new evidence
+is limited to
+`planning/sprints/0126-v20-integrated-acceptance-closeout/artifacts/run-01/`.
+The authorized groups are root full/type/build/diff; Example 16 AMX, CLI,
+generated compile/oracle and CLI/desktop graph comparison; the retained
+Measurement probe; documentation/preservation; and the port-4183 Vite UI
+harness. Root focused tests, desktop worker/RPC/typechecks/full suite, and
+native/platform routes were not authorized. The Vite harness is not native
+WebView evidence.
+
+The retry cap was five retries per gate after the initial attempt. The
+Measurement failure triggered the stop condition; preserve first failures and
+retries. No product changes or release/package/platform workflows are
+authorized. Raw statuses, residual owners, Builder recommendation, and
+separate Product Owner disposition remain distinct; S126 is not closed.
+
+## Carried residuals
+Keep the S122/S123/S124 process FAILs, incomplete G123 rows, G124 cancel/crash
+NOT RUN, S125 Measurement probe FAIL, S125 full desktop suite FAIL, Hutch
+wrapper no-result, native/platform BLOCKED/UNAVAILABLE, D122-15, and D121-18
+unchanged. No previous acceptance upgrades these raw statuses.
+
+---
+
 # ARCHITECT BRIEFING — V0.20 Sprint 123 Closeout (2026-11-26)
 
 ## Current S123 State

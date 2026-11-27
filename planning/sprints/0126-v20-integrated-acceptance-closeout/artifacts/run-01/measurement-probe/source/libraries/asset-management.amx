@@ -1,0 +1,50 @@
+```amx
+export type FailureMode {
+  id: String
+  name: String
+  description?: String? = null
+  severity: Number
+  occurrence: Number
+  detectability?: Number? = null
+}
+
+export type Risk {
+  id: String
+  failureMode: FailureMode
+  likelihood: Number
+  consequence: Number
+  score?: Number? = null
+}
+
+export type Strategy {
+  id: String
+  name: String
+  description?: String? = null
+  targetRiskIds: String[] = []
+}
+
+export type Asset {
+  id: String
+  name: String
+  assetClass: String
+  criticality: Number
+  failureModes: FailureMode[] = []
+}
+
+export type MaintenanceTask {
+  id: String
+  assetId: String
+  strategyId?: String? = null
+  title: String
+  intervalDays: Number
+  estimatedCost?: Number? = null
+}
+
+export type LifecycleCost {
+  assetId: String
+  acquisitionCost: Number
+  operatingCost: Number
+  maintenanceCost: Number
+  disposalCost?: Number? = null
+}
+```

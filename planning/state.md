@@ -1,5 +1,45 @@
 # Planning State
 
+## V0.20 Sprint 126 Integrated Acceptance (2026-11-27)
+
+- The Product Owner authorized the narrow lifecycle reconciliation and S126
+  verification on 2026-11-27. S124 and S125 are ACCEPTED/CLOSED WITH RECORDED
+  RESIDUALS as recorded in their Builder evidence; no historical raw evidence
+  or artifact is rewritten.
+- S126 is verification/closeout only. The approved baseline is clean
+  `feat/create-V0.20.0` at
+  `08fbfa3592bc815e1a6617d3c003a468bd8da9a0`. Mutating checks use the detached
+  worktree `C:\Users\gamez\Programming\openamx-s126-validation-08fbfa3` with
+  the existing root `node_modules` junction; the primary worktree's product
+  and generated outputs remain untouched.
+- S126 verification stopped after the retained Measurement probe reproduced a
+  generated type-identity compile failure, TS2345. The Builder recommends
+  BLOCKED/OPEN and requests a separately authorized corrective scope and fresh
+  acceptance cycle. Product Owner disposition remains pending; no S126 fix was
+  made.
+- New evidence is confined to
+  `planning/sprints/0126-v20-integrated-acceptance-closeout/artifacts/run-01/`.
+  Preserve root `dist`, `src/renderer/diagramBrowserRuntime.ts`,
+  `desktop-app/dist`, `desktop-app/artifacts`, `desktop-app/test-results`, and
+  all S121-S125 artifacts. Do not clean pre-existing paths.
+- Authorized command groups are root full suite/typecheck/build/diff check;
+  Example 16 AMX/CLI/generated compile-and-oracle plus CLI/desktop graph
+  comparison; the retained S125 Measurement probe; documentation and
+  preservation audit; and the desktop Vite UI harness on port 4183 only.
+  The separate focused-root selection, desktop worker/RPC checks, configured
+  and direct desktop typechecks, full desktop suite, and native/platform
+  routes were not selected and remain NOT RUN or carried at their prior raw
+  status. Vite evidence is harness-only.
+- The retry limit is five retries per gate after its first attempt. Stop
+  immediately on a confirmed product defect, preserve every first failure and
+  retry, and obtain a replan before any cap extension. No source, test,
+  helper, CLI, desktop behavior, documentation, or example fix is authorized.
+- S126 records raw statuses separately from Builder interpretation, residual
+  owners, and Product Owner disposition. The Builder submits a recommendation;
+  the separate S126 Product Owner disposition remains pending. No release,
+  package/version, publication, deployment, distribution, or platform
+  certification authority is granted.
+
 ## V0.20 Sprint 123 Product-Owner Closeout (2026-11-26)
 
 - The Product Owner accepted and closed S123 with recorded residuals on

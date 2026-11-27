@@ -1,0 +1,127 @@
+{
+  "amxExports": {
+    "assetName": "North Pump 01"
+  },
+  "generatedExports": {
+    "assetName": "North Pump 01"
+  },
+  "amxViews": [
+    {
+      "kind": "table",
+      "name": "exposureTable",
+      "data": [
+        {
+          "label": "Base",
+          "score": 4
+        },
+        {
+          "label": "Escalated",
+          "score": 8
+        }
+      ]
+    },
+    {
+      "kind": "chart",
+      "name": "exposureChart",
+      "data": [
+        4,
+        8
+      ]
+    }
+  ],
+  "amxDiagrams": [
+    {
+      "name": "assetLabel",
+      "title": "Asset label",
+      "elements": [
+        {
+          "primitive": "text",
+          "name": "name",
+          "source": {
+            "line": 55,
+            "column": 3
+          },
+          "x": 12,
+          "y": 40,
+          "value": "North Pump 01",
+          "fill": "#203040"
+        }
+      ]
+    }
+  ],
+  "generatedViews": [
+    {
+      "kind": "table",
+      "name": "exposureTable",
+      "title": "Exposure points",
+      "description": "",
+      "columns": [
+        {
+          "field": "label",
+          "label": "Scenario"
+        },
+        {
+          "field": "score",
+          "label": "Score"
+        }
+      ],
+      "rows": [
+        [
+          "Base",
+          4
+        ],
+        [
+          "Escalated",
+          8
+        ]
+      ]
+    },
+    {
+      "kind": "chart",
+      "name": "exposureChart",
+      "chartKind": "bar",
+      "title": "Exposure score",
+      "description": "Base and escalated asset criticality",
+      "data": [
+        4,
+        8
+      ],
+      "headings": [
+        "label",
+        "Score"
+      ],
+      "showTable": false
+    },
+    {
+      "kind": "diagram",
+      "schema": "structured-v2",
+      "name": "assetLabel",
+      "title": "Asset label",
+      "description": "The active asset name at declaration time",
+      "canvas": {
+        "width": 240,
+        "height": 80,
+        "coordinates": "bottom-left-y-up"
+      },
+      "timeline": {
+        "variable": "t",
+        "from": 0,
+        "to": 1,
+        "duration": 1
+      },
+      "initialFrame": {
+        "time": 0,
+        "elements": [
+          {
+            "primitive": "text",
+            "name": "name",
+            "x": 12,
+            "y": 40,
+            "value": "North Pump 01",
+            "fill": "#203040"
+          }
+        ]
+      }
+    }
+  ]
+}
