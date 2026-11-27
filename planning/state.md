@@ -1,5 +1,22 @@
 # Planning State
 
+## V0.21 Sprint 128 Product-Owner Closeout (2026-11-27)
+
+- The Product Owner ACCEPTED/CLOSED S128 WITH RECORDED RESIDUALS on
+  2026-11-27. The exact Hutch 0.30.0 / Electrobun 2.0.7 pair, stable GitHub
+  latest-download host, and explicit full-bundle policy are recorded in the
+  S128 compatibility note.
+- Native Windows x64 artifact generation and verification passed. The
+  publisher basename collision was fixed under a narrow approved amendment;
+  the injected duplicate-name test rejects before client/network activity.
+- Other native targets, installed-app updater behavior, production release
+  assembly/publication, GitHub asset availability, and platform certification
+  remain unverified or out of scope. No release was created or published.
+- S129 planning documentation is prepared in
+  `planning/sprints/0129-v21-main-process-updater-integration/`. S128
+  disposition satisfies its dependency only; S129 execution requires separate
+  exact authorization.
+
 ## V0.20 Sprint 127 Product-Owner Closeout (2026-11-27)
 
 - The Product Owner ACCEPTED/CLOSED S127 WITH RECORDED RESIDUALS on

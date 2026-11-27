@@ -1,5 +1,25 @@
 # Planning Decisions
 
+## V0.21 Sprint 128 Product-Owner Closeout (2026-11-27)
+
+- **Product Owner disposition (2026-11-27): ACCEPTED/CLOSED WITH RECORDED
+  RESIDUALS.** This closes the S128 toolchain and update-host contract only;
+  it does not authorize S129 execution or a release.
+- Accept Hutch `0.30.0` and Electrobun `2.0.7` as the exact S128 project
+  pins, with the stable GitHub `releases/latest/download` base URL and
+  `release.generatePatch: false`. Preserve the existing app name, identifier,
+  version authority, and stable channel.
+- Accept the Windows x64 generated artifact contract and focused bundle /
+  publisher fixture evidence. Other native hosts, installed-app updater
+  behavior, production release assembly/publication, and public GitHub asset
+  availability remain unverified or out of scope.
+- The approved S128 amendment added publisher basename preflight before
+  client creation or network operations; retain the duplicate-name regression
+  and all S128 raw failures/retries in their original evidence.
+- S129's separate handoff and execution authorization remain required. No
+  publication, deployment, app identity/version change, or platform
+  certification authority follows S128.
+
 ## V0.20 Sprint 127 Product-Owner Closeout (2026-11-27)
 
 - **Product Owner disposition (2026-11-27): ACCEPTED/CLOSED WITH RECORDED
