@@ -1,0 +1,16 @@
+import { deepStrictEqual } from 'node:assert/strict';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadEntryModule } from '../../../../../../../src/runtime/moduleLoader.ts';
+import { run } from './generated/16_TypeScript_Transpilation.ts';
+const directory = dirname(fileURLToPath(import.meta.url));
+const assetPath = "C:\\Users\\gamez\\Programming\\openamx\\examples\\data\\asset.json";
+const amx = await loadEntryModule(join(directory, "source/16_TypeScript_Transpilation.amx"), { inputMappings: [`asset=${assetPath}`] });
+const generated = run({ asset: amx.env.get("asset") } as Parameters<typeof run>[0]);
+const amxSpeed = amx.env.get("averageSpeedResult") as { value: number; unit: { text: string } };
+const generatedSpeed = generated.exports.averageSpeedResult as unknown as { value: number; unit: { text: string } };
+deepStrictEqual(Object.keys(generated.exports).sort(), ["assetName", "averageSpeedResult"]);
+deepStrictEqual(generated.exports.assetName, amx.env.get("assetName"));
+deepStrictEqual([generatedSpeed.value, generatedSpeed.unit.text], [amxSpeed.value, amxSpeed.unit.text]);
+deepStrictEqual([generatedSpeed.value, generatedSpeed.unit.text], [45, "kilometer_per_hour"]);
+console.log(JSON.stringify({ exports: { assetName: generated.exports.assetName, averageSpeedResult: generatedSpeed } }));

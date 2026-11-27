@@ -1,3 +1,30 @@
+# ARCHITECT BRIEFING — V0.20 Sprint 127 Product-Owner Closeout (2026-11-27)
+
+## Where things stand
+Sprint 127 is ACCEPTED/CLOSED WITH RECORDED RESIDUALS. The graph-wide
+Measurement brand correction strictly compiles the retained imported
+`averageSpeed` graph and its generated outputs match the AMX oracle. This
+closes only the narrow S127 correction; V0.20 integrated acceptance remains
+open with incomplete G123 coverage and the S125/S126 raw Measurement failures
+preserved.
+
+## What is proven
+The ten-file focused selection passed 331/0; root typecheck, strict generated
+compiles, separate AMX oracles, diff check, and `dist`/renderer restoration
+passed. The generated Measurement result is 45 `kilometer_per_hour`; equal-
+vector aliases use one canonical brand. Exact command outcomes, retries,
+hashes, and residuals are in the S127 Builder evidence and run-01 artifacts.
+
+## Residuals and authority
+S125 TS2339/TS2322 and S126 TS2345 remain historical raw FAILs. Incomplete
+G123 rows, G124 cancellation/crash NOT RUN, S125 desktop aggregate FAIL,
+Hutch/native/platform residuals, D122-15, and D121-18 are unchanged. S126's
+separate Product Owner disposition remains pending. No release, package,
+publication, deployment, distribution, or platform certification authority
+follows.
+
+---
+
 # ARCHITECT BRIEFING — V0.20 Sprint 126 Integrated Acceptance (2026-11-27)
 
 ## Where things stand

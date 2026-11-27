@@ -1,0 +1,16 @@
+import { deepStrictEqual } from 'node:assert/strict';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadEntryModule } from '../../../../../../../src/runtime/moduleLoader.ts';
+import { run } from './generated/16_TypeScript_Transpilation.ts';
+const directory = dirname(fileURLToPath(import.meta.url));
+const amx = await loadEntryModule(join(directory, "source/16_TypeScript_Transpilation.amx"));
+const generated = run({});
+const measurement = (value: unknown) => value as { value: number; unit: { text: string } };
+const actual = Object.fromEntries(Object.entries(generated.exports).map(([name, value]) => { const result = measurement(value); return [name, { value: result.value, unit: result.unit.text }]; }));
+const expected = Object.fromEntries(["averageSpeedResult", "averageSpeedAliasResult"].map(name => { const result = measurement(amx.env.get(name)); return [name, { value: result.value, unit: result.unit.text }]; }));
+deepStrictEqual(Object.keys(generated.exports).sort(), ["averageSpeedAliasResult", "averageSpeedResult"]);
+deepStrictEqual(actual, expected);
+deepStrictEqual(actual.averageSpeedResult, { value: 45, unit: "kilometer_per_hour" });
+deepStrictEqual(actual.averageSpeedAliasResult, { value: 45, unit: "kilometer_per_hour_alias" });
+console.log(JSON.stringify({ exports: actual }));

@@ -1,0 +1,102 @@
+---
+title: Calculation
+---
+This stays literal: {{ 1 + 1 }}
+```amx
+import { Payload, Priority, Row, Status } from "./types.amx"
+import { Length, meter, centimeter } from "./units.amx"
+input payload: Payload
+fn square(value: Number): Number = value ^ 2
+fn adjust(count: Number): Number {
+  let total = count
+  total = total + 1
+  count += 2
+  return total + count
+}
+let values: Number[] = for item in [1 to 3] {
+  return square(item)
+}
+let selected: Number = match 1 {
+  case 1 => values[1]
+  default => 0
+}
+let ready: Boolean = payload.status is Status
+let total: Number = sum(values)
+let totalText: String = "Total ${total}"
+let rows: Row[] = [Row { label = "A", value = 1 meter, measuredAt = "2024-02-29T12:30:00Z" }, Row { label = "B", value = 200 centimeter, measuredAt = "2024-02-29T13:30:00Z" }]
+table data = table(rows) {
+  title: "Rows"
+  column label as "Label"
+  column value as "Value"
+}
+chart trend = column(rows) {
+  title: "Trend"
+  description: "Values"
+  category: label
+  series value as "Load"
+  showTable total > 0
+}
+chart barTrend = bar(rows) {
+  title: "Bar"
+  description: "Ratings"
+  category: label
+  series rating as "Rating"
+}
+chart lineTrend = line(rows) {
+  title: "Line"
+  description: "Timeline"
+  x: measuredAt
+  series rating as "Rating"
+}
+chart scatterTrend = scatter(rows) {
+  title: "Scatter"
+  description: "Coordinates"
+  x: rating
+  y: rating
+  group: label
+}
+let scalarValues: Number[] = [1, 2]
+let scalarLabels: String[] = ["One", "Two"]
+chart scalarTrend = bar(scalarValues) {
+  title: "Scalar"
+  description: "Labels"
+  labels: scalarLabels
+  series "Value"
+}
+show data
+add Row { label = "C", value = 3 meter, measuredAt = "2024-02-29T14:30:00Z" } to rows at 2
+show data
+export let distanceMeters: Number = payload.distance / 1 meter
+export let converted: Length = payload.distance in centimeter
+export let result: Number = total + selected + distanceMeters + adjust(2)
+export let summary: String = totalText
+export let observedAt: DateTime = payload.observedAt
+export let firstLocationRating: Number = payload.locations[1].rating
+export let firstLocationNote: String? = payload.locations[1].note
+export let secondLabel: String? = payload.labels[2]
+diagram scene {
+  title: "Scene"
+  description: "Initial frame"
+  width: 100
+  height: 50
+  time t from 0 to 1 duration 1
+  for item in values {
+    if item > 2 {
+      circle point {
+        cx: item * 10
+        cy: t
+        r: 2
+        stroke: "#263238"
+        lineWidth: 1
+      }
+    }
+  }
+}
+show trend
+show barTrend
+show lineTrend
+show scatterTrend
+show scalarTrend
+export let readyExport: Boolean = ready
+export let distanceMetersAgain: Number = distanceMeters
+```

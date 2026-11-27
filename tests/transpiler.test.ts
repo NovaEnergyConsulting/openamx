@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
-import { mkdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { mkdir, readFile } from 'node:fs/promises';
+import { dirname, join, relative, sep } from 'node:path';
 import { safeNarrativeComments } from '../src/transpiler/source';
 import { transpileDocument } from '../src/transpiler';
 
@@ -347,7 +347,7 @@ describe('transpiler source comments', () => {
     const typesCode = result.modules.find(module => module.moduleId === 'types')!.code;
     expect(entryCode).toContain('// This stays literal: {{ 1 + 1 }}');
     expect(entryCode).toContain('__amxDiagramView(');
-    expect(typesCode).toContain('__AMXMeasurementInput<"Length">');
+    expect(typesCode).toContain(`__AMXMeasurementInput<${JSON.stringify(JSON.stringify(['units.ts', 'Length']))}>`);
     expect(entryCode.split('\n').filter(line => line.includes('1 + 1')).every(line => line.trimStart().startsWith('//'))).toBe(true);
 
     const artifactRoot = process.env.OPENAMX_S123_ARTIFACT_ROOT
@@ -413,6 +413,178 @@ describe('transpiler source comments', () => {
       'let amxInputCode = ""; try { await loadEntryModule(join(directory, "main.amx"), { inputMappings: [`payload=${join(directory, "invalid-payload.json")}`] }); } catch (error) { amxInputCode = (error as { code?: string }).code ?? ""; }',
       'if (generatedInputCode !== "AMX4003" || amxInputCode !== generatedInputCode) throw new Error(`Input diagnostic mismatch: ${generatedInputCode} !== ${amxInputCode}`);',
       'console.log(JSON.stringify({ exports: generated.exports, views: generated.views, generatedInputCode, amxInputCode }));',
+      ''
+    ].join('\n'));
+  });
+
+  it('uses graph-wide Measurement identities for imported units and equal-vector aliases', async () => {
+    const libraryOutputPath = 'libraries/travel-measurements.ts';
+    const librarySource = [
+      '```amx',
+      'export dimension Length',
+      'export dimension Time',
+      'export dimension Speed = Length / Time',
+      'export dimension SpeedAlias = Length / Time',
+      'export unit meter: Length',
+      'export unit kilometer = 1000 * meter',
+      'export unit second: Time',
+      'export unit hour = 3600 * second',
+      'export unit kilometer_per_hour = kilometer / hour',
+      'export unit kilometer_per_hour_alias = kilometer_per_hour',
+      'export fn averageSpeed(distance: Length, duration: Time): Speed = round((distance / duration) in kilometer_per_hour, 2)',
+      'export fn averageSpeedAlias(distance: Length, duration: Time): SpeedAlias = round((distance / duration) in kilometer_per_hour_alias, 2)',
+      '```', ''
+    ].join('\n');
+    const entrySource = [
+      '```amx',
+      'import { Speed, SpeedAlias, averageSpeed, averageSpeedAlias, meter, second } from "./libraries/travel-measurements.amx"',
+      'export let averageSpeedResult: Speed = averageSpeed(1500 meter, 120 second)',
+      'export let averageSpeedAliasResult: SpeedAlias = averageSpeedAlias(1500 meter, 120 second)',
+      '```', ''
+    ].join('\n');
+    const modules = [
+      {
+        moduleId: 'entry', sourcePath: 'C:/primary/project/16_TypeScript_Transpilation.amx',
+        outputPath: '16_TypeScript_Transpilation.ts', sourceText: entrySource,
+        resolvedImports: [{ importPath: './libraries/travel-measurements.amx', moduleId: 'travel' }]
+      },
+      {
+        moduleId: 'travel', sourcePath: 'C:/primary/project/libraries/travel-measurements.amx',
+        outputPath: libraryOutputPath, sourceText: librarySource, resolvedImports: []
+      }
+    ];
+    const result = transpileDocument({ entryModuleId: 'entry', modules });
+    const alternateRoots = transpileDocument({
+      entryModuleId: 'entry',
+      modules: [...modules].reverse().map(module => ({
+        ...module,
+        sourcePath: module.sourcePath.replace('C:/primary/', 'D:/other-checkout/')
+      }))
+    });
+    expect(result).toMatchObject({ ok: true });
+    expect(alternateRoots).toMatchObject({ ok: true });
+    if (!result.ok || !alternateRoots.ok) return;
+
+    const entryCode = result.modules.find(module => module.moduleId === 'entry')!.code;
+    const libraryCode = result.modules.find(module => module.moduleId === 'travel')!.code;
+    const brand = (name: string) => JSON.stringify(JSON.stringify([libraryOutputPath, name]));
+    const lengthBrand = brand('Length');
+    const timeBrand = brand('Time');
+    const speedBrand = brand('Speed');
+    expect(lengthBrand).not.toBe(timeBrand);
+    expect(lengthBrand).not.toBe(speedBrand);
+    expect(timeBrand).not.toBe(speedBrand);
+    expect(libraryCode).toContain(`arg_0_distance: __AMXMeasurement<${lengthBrand}>`);
+    expect(libraryCode).toContain(`arg_1_duration: __AMXMeasurement<${timeBrand}>`);
+    expect(libraryCode).toContain(`): __AMXMeasurement<${speedBrand}> {`);
+    expect(entryCode).toContain(`as unknown as __AMXMeasurement<${lengthBrand}>`);
+    expect(entryCode).toContain(`as unknown as __AMXMeasurement<${timeBrand}>`);
+    expect(entryCode).toContain(`averageSpeedResult: __AMXMeasurement<${speedBrand}>`);
+    expect(entryCode).toContain(`averageSpeedAliasResult: __AMXMeasurement<${speedBrand}>`);
+    for (const module of result.modules) {
+      expect(alternateRoots.modules.find(candidate => candidate.outputPath === module.outputPath)?.code)
+        .toBe(module.code);
+    }
+
+    const artifactRoot = process.env.OPENAMX_S123_ARTIFACT_ROOT
+      ? join(process.cwd(), process.env.OPENAMX_S123_ARTIFACT_ROOT)
+      : join(process.cwd(), 'planning', 'sprints', '0127-v20-measurement-type-identity-correction', 'artifacts', 'run-01');
+    const fixtureDirectory = join(artifactRoot, 'measurement-identity');
+    const sourceDirectory = join(fixtureDirectory, 'source');
+    await mkdir(join(sourceDirectory, 'libraries'), { recursive: true });
+    await mkdir(join(fixtureDirectory, 'generated'), { recursive: true });
+    await Bun.write(join(sourceDirectory, '16_TypeScript_Transpilation.amx'), entrySource);
+    await Bun.write(join(sourceDirectory, 'libraries', 'travel-measurements.amx'), librarySource);
+    for (const module of result.modules) {
+      const target = join(fixtureDirectory, 'generated', module.outputPath);
+      await mkdir(dirname(target), { recursive: true });
+      await Bun.write(target, module.code);
+    }
+    const projectSpecifier = relative(fixtureDirectory, process.cwd()).split(sep).join('/');
+    await Bun.write(join(fixtureDirectory, 'oracle.ts'), [
+      "import { deepStrictEqual } from 'node:assert/strict';",
+      "import { dirname, join } from 'node:path';",
+      "import { fileURLToPath } from 'node:url';",
+      `import { loadEntryModule } from '${projectSpecifier}/src/runtime/moduleLoader.ts';`,
+      "import { run } from './generated/16_TypeScript_Transpilation.ts';",
+      'const directory = dirname(fileURLToPath(import.meta.url));',
+      'const amx = await loadEntryModule(join(directory, "source/16_TypeScript_Transpilation.amx"));',
+      'const generated = run({});',
+      'const measurement = (value: unknown) => value as { value: number; unit: { text: string } };',
+      'const actual = Object.fromEntries(Object.entries(generated.exports).map(([name, value]) => { const result = measurement(value); return [name, { value: result.value, unit: result.unit.text }]; }));',
+      'const expected = Object.fromEntries(["averageSpeedResult", "averageSpeedAliasResult"].map(name => { const result = measurement(amx.env.get(name)); return [name, { value: result.value, unit: result.unit.text }]; }));',
+      'deepStrictEqual(Object.keys(generated.exports).sort(), ["averageSpeedAliasResult", "averageSpeedResult"]);',
+      'deepStrictEqual(actual, expected);',
+      'deepStrictEqual(actual.averageSpeedResult, { value: 45, unit: "kilometer_per_hour" });',
+      'deepStrictEqual(actual.averageSpeedAliasResult, { value: 45, unit: "kilometer_per_hour_alias" });',
+      'console.log(JSON.stringify({ exports: actual }));',
+      ''
+    ].join('\n'));
+  });
+
+  it('strict-compiles the retained S125 imported averageSpeed graph for AMX comparison', async () => {
+    const probeRoot = join(process.cwd(), 'planning', 'sprints', '0125-v20-desktop-export-and-documentation', 'artifacts', 'run-01', 'example-16', 'probe-source');
+    const entrySource = await readFile(join(probeRoot, '16_TypeScript_Transpilation.amx'), 'utf8');
+    const assetSource = await readFile(join(probeRoot, 'libraries', 'asset-management.amx'), 'utf8');
+    const measurementSource = await readFile(join(probeRoot, 'libraries', 'travel-measurements.amx'), 'utf8');
+    const result = transpileDocument({
+      entryModuleId: 'entry',
+      modules: [
+        {
+          moduleId: 'entry', sourcePath: 'project/16_TypeScript_Transpilation.amx',
+          outputPath: '16_TypeScript_Transpilation.ts', sourceText: entrySource,
+          resolvedImports: [
+            { importPath: './libraries/asset-management.amx', moduleId: 'assets' },
+            { importPath: './libraries/travel-measurements.amx', moduleId: 'measurements' }
+          ]
+        },
+        {
+          moduleId: 'assets', sourcePath: 'project/libraries/asset-management.amx',
+          outputPath: 'libraries/asset-management.ts', sourceText: assetSource, resolvedImports: []
+        },
+        {
+          moduleId: 'measurements', sourcePath: 'project/libraries/travel-measurements.amx',
+          outputPath: 'libraries/travel-measurements.ts', sourceText: measurementSource, resolvedImports: []
+        }
+      ]
+    });
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) return;
+
+    const artifactRoot = process.env.OPENAMX_S123_ARTIFACT_ROOT
+      ? join(process.cwd(), process.env.OPENAMX_S123_ARTIFACT_ROOT)
+      : join(process.cwd(), 'planning', 'sprints', '0127-v20-measurement-type-identity-correction', 'artifacts', 'run-01');
+    const fixtureDirectory = join(artifactRoot, 'measurement-identity-retained');
+    const sourceDirectory = join(fixtureDirectory, 'source');
+    await mkdir(join(sourceDirectory, 'libraries'), { recursive: true });
+    await mkdir(join(fixtureDirectory, 'generated'), { recursive: true });
+    await Bun.write(join(sourceDirectory, '16_TypeScript_Transpilation.amx'), entrySource);
+    await Bun.write(join(sourceDirectory, 'libraries', 'asset-management.amx'), assetSource);
+    await Bun.write(join(sourceDirectory, 'libraries', 'travel-measurements.amx'), measurementSource);
+    for (const module of result.modules) {
+      const target = join(fixtureDirectory, 'generated', module.outputPath);
+      await mkdir(dirname(target), { recursive: true });
+      await Bun.write(target, module.code);
+    }
+    const projectSpecifier = relative(fixtureDirectory, process.cwd()).split(sep).join('/');
+    const assetPath = JSON.stringify(join(process.cwd(), 'examples', 'data', 'asset.json'));
+    await Bun.write(join(fixtureDirectory, 'oracle.ts'), [
+      "import { deepStrictEqual } from 'node:assert/strict';",
+      "import { dirname, join } from 'node:path';",
+      "import { fileURLToPath } from 'node:url';",
+      `import { loadEntryModule } from '${projectSpecifier}/src/runtime/moduleLoader.ts';`,
+      "import { run } from './generated/16_TypeScript_Transpilation.ts';",
+      'const directory = dirname(fileURLToPath(import.meta.url));',
+      `const assetPath = ${assetPath};`,
+      'const amx = await loadEntryModule(join(directory, "source/16_TypeScript_Transpilation.amx"), { inputMappings: [`asset=${assetPath}`] });',
+      'const generated = run({ asset: amx.env.get("asset") } as Parameters<typeof run>[0]);',
+      'const amxSpeed = amx.env.get("averageSpeedResult") as { value: number; unit: { text: string } };',
+      'const generatedSpeed = generated.exports.averageSpeedResult as unknown as { value: number; unit: { text: string } };',
+      'deepStrictEqual(Object.keys(generated.exports).sort(), ["assetName", "averageSpeedResult"]);',
+      'deepStrictEqual(generated.exports.assetName, amx.env.get("assetName"));',
+      'deepStrictEqual([generatedSpeed.value, generatedSpeed.unit.text], [amxSpeed.value, amxSpeed.unit.text]);',
+      'deepStrictEqual([generatedSpeed.value, generatedSpeed.unit.text], [45, "kilometer_per_hour"]);',
+      'console.log(JSON.stringify({ exports: { assetName: generated.exports.assetName, averageSpeedResult: generatedSpeed } }));',
       ''
     ].join('\n'));
   });

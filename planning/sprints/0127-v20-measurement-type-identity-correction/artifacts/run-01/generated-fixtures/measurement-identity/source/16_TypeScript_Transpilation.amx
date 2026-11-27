@@ -1,0 +1,5 @@
+```amx
+import { Speed, SpeedAlias, averageSpeed, averageSpeedAlias, meter, second } from "./libraries/travel-measurements.amx"
+export let averageSpeedResult: Speed = averageSpeed(1500 meter, 120 second)
+export let averageSpeedAliasResult: SpeedAlias = averageSpeedAlias(1500 meter, 120 second)
+```

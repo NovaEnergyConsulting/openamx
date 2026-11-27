@@ -1,6 +1,25 @@
 import type { TranspileDiagnostic, TranspileGraphInput, TranspileResult, TranspiledModule } from './types';
-import { emitModule, LoweringFailure } from './emit';
-import { prepareGraph, sourceDiagnostic } from './graph';
+import { emitModule, LoweringFailure, measurementVectorKey } from './emit';
+import { prepareGraph, sourceDiagnostic, type PreparedModule } from './graph';
+import type { DimensionMetadata } from '../typechecker/dimensionTypes';
+
+function canonicalMeasurementDimensionIds(modules: readonly PreparedModule[]): ReadonlyMap<string, string> {
+  const representatives = new Map<string, DimensionMetadata>();
+  for (const module of modules) {
+    for (const dimension of module.check.dimensions.values()) {
+      const key = measurementVectorKey(dimension.vector);
+      const current = representatives.get(key);
+      if (!current || dimension.moduleIdentity < current.moduleIdentity
+        || dimension.moduleIdentity === current.moduleIdentity && dimension.declarationName < current.declarationName) {
+        representatives.set(key, dimension);
+      }
+    }
+  }
+  return new Map([...representatives].map(([key, dimension]) => [
+    key,
+    JSON.stringify([dimension.moduleIdentity, dimension.declarationName])
+  ]));
+}
 
 export type {
   TranspileDiagnostic,
@@ -19,6 +38,7 @@ export function transpileDocument(input: TranspileGraphInput): TranspileResult {
     return { ok: false, diagnostics: [sourceDiagnostic(error)] };
   }
 
+  const measurementDimensionIds = canonicalMeasurementDimensionIds(graph.dependencyOrder);
   const generated: TranspiledModule[] = [];
   for (const module of graph.dependencyOrder) {
     try {
@@ -26,7 +46,7 @@ export function transpileDocument(input: TranspileGraphInput): TranspileResult {
         moduleId: module.input.moduleId,
         sourcePath: module.input.sourcePath,
         outputPath: module.input.outputPath,
-        code: emitModule(module, module === graph.entry)
+        code: emitModule(module, module === graph.entry, measurementDimensionIds)
       });
     } catch (error) {
       const diagnostic: TranspileDiagnostic = error instanceof LoweringFailure

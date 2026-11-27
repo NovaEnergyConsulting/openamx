@@ -1,0 +1,50 @@
+# TypeScript graph probe
+
+```amx
+import { Asset, FailureMode } from "./libraries/asset-management.amx"
+import { Speed, averageSpeed, meter, second } from "./libraries/travel-measurements.amx"
+
+input asset: Asset
+
+type ExposurePoint {
+  label: String
+  score: Number
+}
+
+let points: ExposurePoint[] = [
+  ExposurePoint { label = "Base", score = asset.criticality },
+  ExposurePoint { label = "Escalated", score = asset.criticality * 2 }
+]
+let scores: Number[] = [asset.criticality, asset.criticality * 2]
+export let assetName: String = asset.name
+export let averageSpeedResult: Speed = averageSpeed(1500 meter, 120 second)
+
+table exposureTable = table(points) {
+  title: "Exposure points"
+  column label as "Scenario"
+  column score as "Score"
+}
+
+chart exposureChart = bar(scores) {
+  title: "Exposure score"
+  description: "Base and escalated asset criticality"
+  series "Score"
+}
+
+show exposureTable
+show exposureChart
+
+diagram assetLabel {
+  title: "Asset label"
+  description: "The active asset name at declaration time"
+  width: 240
+  height: 80
+  time t from 0 to 1 duration 1
+  text name {
+    x: 12
+    y: 40
+    value: asset.name
+    fill: "#203040"
+  }
+}
+```

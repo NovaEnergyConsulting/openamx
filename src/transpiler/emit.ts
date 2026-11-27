@@ -45,6 +45,14 @@ const reservedWords = new Set([
   'typeof', 'var', 'void', 'while', 'with', 'yield'
 ]);
 
+export function measurementVectorKey(vector: ReadonlyMap<string, number>): string {
+  return JSON.stringify([...vector].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0));
+}
+
+function sameVector(left: ReadonlyMap<string, number>, right: ReadonlyMap<string, number>): boolean {
+  return left.size === right.size && [...left].every(([key, exponent]) => right.get(key) === exponent);
+}
+
 function quote(value: string): string {
   return JSON.stringify(value).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }
@@ -71,7 +79,11 @@ class ModuleEmitter {
   private readonly sourceFile: string;
   private readonly expressionLoopReturns: string[] = [];
 
-  constructor(private readonly module: PreparedModule, private readonly isEntry: boolean) {
+  constructor(
+    private readonly module: PreparedModule,
+    private readonly isEntry: boolean,
+    private readonly measurementDimensionIds: ReadonlyMap<string, string>
+  ) {
     this.inputs = moduleStatements(module).filter((statement): statement is Extract<StatementNode, { type: 'inputDeclaration' }> => statement.type === 'inputDeclaration');
     this.prefix = `__amx_${hash(module.input.outputPath)}_`;
     this.sourceFile = module.input.sourcePath.startsWith('/') || /^[A-Za-z]:[\\/]/.test(module.input.sourcePath)
@@ -136,10 +148,8 @@ class ModuleEmitter {
   }
 
   private measurementDimensionId(vector: ReadonlyMap<string, number>): string {
-    const dimensions = [...this.module.check.dimensions.values()]
-      .filter(dimension => sameVector(dimension.vector, vector))
-      .sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
-    if (dimensions.length) return dimensions[0].name;
+    const canonicalId = this.measurementDimensionIds.get(measurementVectorKey(vector));
+    if (canonicalId) return canonicalId;
     const parts = [...vector].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
       .map(([identity, exponent]) => `${identity}^${exponent}`);
     return parts.length ? `vector:${parts.join('*')}` : 'dimensionless';
@@ -807,10 +817,6 @@ function quoteIdentifier(name: string): string {
   return reservedWords.has(name) ? `[${quote(name)}]` : name;
 }
 
-function sameVector(left: ReadonlyMap<string, number>, right: ReadonlyMap<string, number>): boolean {
-  return left.size === right.size && [...left].every(([key, exponent]) => right.get(key) === exponent);
-}
-
 function viewHelperSource(): string[] {
   return [
     `function __amxDiagramNumber(value: number, context: __AMXRuntimeContext, code: string, message: string, source: Readonly<{ file?: string; line?: number; column?: number }>, positive = false): number { if (!Number.isFinite(value) || positive && value <= 0) throw new __AMXRuntimeError({ code, message, file: source.file ?? context.file, line: source.line ?? context.line, column: source.column ?? context.column }); return value; }`,
@@ -828,6 +834,10 @@ function emittedName(outputPath: string, name: string): string {
   return `__amx_${hash(outputPath)}_${name}`;
 }
 
-export function emitModule(module: PreparedModule, isEntry: boolean): string {
-  return new ModuleEmitter(module, isEntry).emit();
+export function emitModule(
+  module: PreparedModule,
+  isEntry: boolean,
+  measurementDimensionIds: ReadonlyMap<string, string>
+): string {
+  return new ModuleEmitter(module, isEntry, measurementDimensionIds).emit();
 }

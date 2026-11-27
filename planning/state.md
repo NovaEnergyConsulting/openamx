@@ -1,5 +1,27 @@
 # Planning State
 
+## V0.20 Sprint 127 Product-Owner Closeout (2026-11-27)
+
+- The Product Owner ACCEPTED/CLOSED S127 WITH RECORDED RESIDUALS on
+  2026-11-27. The approved graph-wide Measurement type-identity correction
+  strictly compiles and matches the separate AMX oracle for the retained
+  imported `averageSpeed` graph and adjacent identity cases.
+- S127 changed only `src/transpiler/emit.ts`, internal
+  `src/transpiler/index.ts` wiring, `tests/transpiler.test.ts`, and S127
+  evidence/artifacts. The public S122 helper contract, checker semantics,
+  CLI, desktop, package, docs, and examples are unchanged.
+- Preserve the S125 Measurement probe raw FAIL (TS2339/TS2322) and the S126
+  Measurement compile raw FAIL (TS2345), including their original artifacts.
+  These outcomes remain historical failures; the S127 pass is new evidence.
+- Preserve all incomplete G123 rows, G124 cancellation/crash NOT RUN,
+  S125 desktop aggregate FAIL, Hutch/native/platform residuals, D122-15, and
+  D121-18. S127 does not close the full V0.20 acceptance matrix. S126's
+  separate Product Owner disposition remains pending.
+- Root `dist` and `src/renderer/diagramBrowserRuntime.ts` were restored
+  hash-identically after builds. Desktop outputs and S121-S126 artifacts
+  remain untouched. No release, package/version, publication, deployment,
+  distribution, or platform certification authority follows.
+
 ## V0.20 Sprint 126 Integrated Acceptance (2026-11-27)
 
 - The Product Owner authorized the narrow lifecycle reconciliation and S126

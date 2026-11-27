@@ -1,5 +1,24 @@
 # Planning Decisions
 
+## V0.20 Sprint 127 Product-Owner Closeout (2026-11-27)
+
+- **Product Owner disposition (2026-11-27): ACCEPTED/CLOSED WITH RECORDED
+  RESIDUALS.** This closes S127's authorized Measurement type-identity
+  correction only; it does not close the V0.20 integrated acceptance matrix.
+- The retained three-module S125 `averageSpeed` graph strictly compiles and
+  matches the AMX oracle for explicit exports, asset name, Measurement value
+  `45`, and display unit `kilometer_per_hour`. Adjacent derived-dimension,
+  equal-vector dimension alias, unit alias, distinct-vector, output-root, and
+  traversal-order cases passed their approved checks.
+- The S127 Builder recommendation and raw command evidence remain recorded in
+  `planning/sprints/0127-v20-measurement-type-identity-correction/builder-evidence.md`.
+  S125 TS2339/TS2322 and S126 TS2345 remain raw historical FAILs; no prior
+  artifacts or outcomes are rewritten.
+- Remaining G123/G124 rows, S125 desktop/native residuals, D122-15, and
+  D121-18 are unchanged. No release, package/version, publication,
+  deployment, distribution, native, or platform certification authority is
+  granted. S126's separate Product Owner disposition remains pending.
+
 ## V0.20 Sprint 126 Entry Reconciliation and Authorization (2026-11-27)
 
 - The Product Owner authorized reconciliation of the canonical lifecycle
