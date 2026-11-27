@@ -1,5 +1,24 @@
 # Planning State
 
+## V0.21 Sprint 129 Product-Owner Closeout (2026-11-27)
+
+- S129 execution was separately authorized against clean baseline
+  `c2a3a0da259dec93f413a81a8f999bb11f1e2657` on `feat/create-V0.21.0`, using
+  the detached validation worktree recorded in S129 Builder evidence.
+- The Bun-main-process updater coordinator, typed RPC contract, and injected
+  state-machine tests are complete. Focused updater tests passed 9/0 with 33
+  assertions; RPC contract check, desktop typecheck, configured desktop test,
+  and `git diff --check` passed.
+- Preserve the initial focused updater fixture failure, initial RPC export
+  status timing failure, and initial typecheck contract failure with their
+  retries in `planning/sprints/0129-v21-main-process-updater-integration/artifacts/run-01/`.
+- The Product Owner ACCEPTED/CLOSED S129 WITH RECORDED RESIDUALS on
+  2026-11-27 for the authorized main-process integration scope.
+- Installed-app update behavior, live-host behavior, other platforms,
+  release assembly/publication, and platform certification remain unverified
+  or out of scope. S130 retains Help/prompt/consent UI, apply/restart, and
+  quit-safe staged-update retry. No release or publication authority follows.
+
 ## V0.21 Sprint 128 Product-Owner Closeout (2026-11-27)
 
 - The Product Owner ACCEPTED/CLOSED S128 WITH RECORDED RESIDUALS on

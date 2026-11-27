@@ -67,6 +67,14 @@ function delayedPreviewWorkerFactory() {
 const result = createPingResponse("request-1", "1.4.2");
 assert.deepEqual(result, { nonce: "request-1", runtime: "bun", version: "1.4.2" });
 assert.deepEqual(Object.keys(result), ["nonce", "runtime", "version"]);
+const updaterRpcSource = readFileSync(join(import.meta.dir, "../src/shared/rpc.ts"), "utf8");
+const bunMainSource = readFileSync(join(import.meta.dir, "../src/bun/index.ts"), "utf8");
+for (const operation of ["getUpdateState", "checkForUpdates", "downloadUpdate"]) {
+	assert.match(updaterRpcSource, new RegExp(`${operation}:`));
+	assert.match(bunMainSource, new RegExp(`${operation}:`));
+}
+assert.doesNotMatch(updaterRpcSource, /applyUpdate|restartToUpdate/);
+assert.doesNotMatch(bunMainSource, /applyUpdate|restartToUpdate/);
 const v012EditorRoot = mkdtempSync(join(tmpdir(), "openamx-v012-editor-"));
 const v012EditorPath = join(v012EditorRoot, "report.amx");
 const v012EditorText = [

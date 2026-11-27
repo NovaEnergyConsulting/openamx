@@ -8,6 +8,15 @@ export interface PingResponse {
 
 export interface DesktopRPCError { code: string; message: string; }
 export type DesktopRPCResponse<T> = { ok: true } & T | { ok: false; error: DesktopRPCError };
+export type DesktopUpdaterState =
+	| { status: "not-checked" }
+	| { status: "checking" }
+	| { status: "up-to-date"; version: string }
+	| { status: "available"; version: string }
+	| { status: "downloading"; version: string }
+	| { status: "ready"; version: string }
+	| { status: "unsupported"; reason: "development" | "channel" | "authority" | "identity" | "configuration" }
+	| { status: "failed"; operation: "check" | "download"; code: "UPDATE_CHECK_FAILED" | "UPDATE_DOWNLOAD_FAILED"; message: string };
 export interface DesktopRequestOptions { maxRequestTime?: number; }
 export type ProjectCreationIntent = "standard" | "guide";
 export type DocumentKind = "amx" | "csv" | "json" | "css" | "settings" | "external-data" | "html-output" | "pdf-output" | "docx-output";
@@ -182,6 +191,14 @@ export interface DesktopRPCClient {
 	};
 }
 
+export interface DesktopUpdaterRPCClient {
+	request: {
+		getUpdateState(): Promise<DesktopRPCResponse<{ state: DesktopUpdaterState }>>;
+		checkForUpdates(): Promise<DesktopRPCResponse<{ state: DesktopUpdaterState }>>;
+		downloadUpdate(): Promise<DesktopRPCResponse<{ state: DesktopUpdaterState }>>;
+	};
+}
+
 export function createPingResponse(nonce: string, version: string): PingResponse {
 	return { nonce, runtime: "bun", version };
 }
@@ -193,6 +210,9 @@ export type DesktopRPCSchema = {
 				params: { nonce: string };
 				response: PingResponse;
 			};
+			getUpdateState: { params: Record<string, never>; response: DesktopRPCResponse<{ state: DesktopUpdaterState }> };
+			checkForUpdates: { params: Record<string, never>; response: DesktopRPCResponse<{ state: DesktopUpdaterState }> };
+			downloadUpdate: { params: Record<string, never>; response: DesktopRPCResponse<{ state: DesktopUpdaterState }> };
 			openProject: { params: { path: string }; response: DesktopRPCResponse<{ root: string }> };
 			createProject: { params: { path: string; action?: TransitionAction; intent?: ProjectCreationIntent }; response: DesktopRPCResponse<{ root: string; document: OpenDocument; state: WorkbenchState }> };
 			pickCreateProject: { params: { intent?: ProjectCreationIntent }; response: DesktopRPCResponse<{ cancelled: boolean; root?: string }> };

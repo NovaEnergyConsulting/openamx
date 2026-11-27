@@ -1,10 +1,12 @@
 /// <reference types="bun" />
 import { homedir } from "node:os";
 import { join } from "node:path";
-import Electrobun, { BrowserWindow, Utils, createRPC } from "electrobun/main";
+import Electrobun, { BrowserWindow, BuildConfig, Updater, Utils, createRPC } from "electrobun/main";
+import { appMetadata } from "../../app-metadata";
 import { createPingResponse, type DesktopRPCSchema } from "../shared/rpc";
 import { createDesktopService } from "./desktopService";
 import { resolveDesktopGuideResourceDirectory } from "./guideResources";
+import { createUpdaterCoordinator } from "./updater";
 
 const guideResourceDirectory = resolveDesktopGuideResourceDirectory(import.meta.dir);
 
@@ -69,6 +71,9 @@ const service = createDesktopService(undefined, {
 	revealPath(path) { Utils.showItemInFolder(path); return true; }
 }, join(homedir(), ".config", "openamx", "desktop-session.json"), undefined, guideResourceDirectory);
 
+const updateCoordinator = createUpdaterCoordinator(Updater, BuildConfig.getSync(), appMetadata);
+void updateCoordinator.start();
+
 let quitApproved = false;
 let quitPromptPending = false;
 function confirmAndQuit() {
@@ -97,6 +102,9 @@ Electrobun.events.on("will-close", event => {
 const rpc = createRPC<DesktopRPCSchema["bun"], DesktopRPCSchema["webview"]>({
 	requestHandler: {
 		...service.request,
+		getUpdateState: () => ({ ok: true, state: updateCoordinator.getState() }),
+		checkForUpdates: async () => ({ ok: true, state: await updateCoordinator.checkForUpdates() }),
+		downloadUpdate: async () => ({ ok: true, state: await updateCoordinator.downloadUpdate() }),
 		ping: ({ nonce }) => {
 			console.log(`Typed webview-to-Bun RPC received: ${nonce}`);
 			return createPingResponse(nonce, process.versions.bun ?? "unknown");

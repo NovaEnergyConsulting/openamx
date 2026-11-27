@@ -1,5 +1,26 @@
 # Planning Decisions
 
+## V0.21 Sprint 129 Product-Owner Closeout (2026-11-27)
+
+- **Product Owner disposition (2026-11-27): ACCEPTED/CLOSED WITH RECORDED
+  RESIDUALS.** This closes the authorized main-process updater integration
+  only; it does not close V0.21 or authorize S130/release work.
+- Accept the Bun-main-process updater coordinator, typed state/RPC operations,
+  packaged stable/direct-host gating, one startup check, shared explicit
+  checks, explicit download/preparation, and injected state-machine evidence.
+  The existing quit guard is unchanged; no apply/restart RPC or renderer/UI
+  behavior was added.
+- Preserve the initial focused updater fixture failure, RPC export status
+  timing failure, and typecheck contract failure with their retries in the
+  S129 `artifacts/run-01/` evidence. Later passes do not rewrite those raw
+  outcomes.
+- Installed-app update behavior, live-host behavior, native preparation,
+  other platforms, release assembly/publication, GitHub asset availability,
+  and platform certification remain unverified or out of scope. S130 retains
+  Help/prompt/consent UI, apply/restart, and quit-safe staged-update retry.
+- No release, publication, deployment, distribution, or platform
+  certification authority follows from S129.
+
 ## V0.21 Sprint 128 Product-Owner Closeout (2026-11-27)
 
 - **Product Owner disposition (2026-11-27): ACCEPTED/CLOSED WITH RECORDED
