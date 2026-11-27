@@ -191,6 +191,16 @@ describe("release preflight", () => {
 		expect(appMetadata).toEqual({ name: "OpenAMX Desktop", identifier: "dev.openamx.desktop", version: desktopManifest.version });
 	});
 
+	test("pins the compatible stable toolchain and full-bundle GitHub update host", async () => {
+		const hutchConfig = await readFile(path.resolve(import.meta.dir, "../desktop-app/hutch.config.ts"), "utf8");
+		const electrobunConfig = await readFile(path.resolve(import.meta.dir, "../desktop-app/electrobun.config.ts"), "utf8");
+		expect(hutchConfig).toContain("// @hutch cli=0.30.0");
+		expect(hutchConfig).toContain('version: "2.0.7"');
+		expect(electrobunConfig).toContain("https://github.com/NovaEnergyConsulting/openamx/releases/latest/download");
+		expect(electrobunConfig).toContain("generatePatch: false");
+		expect(appMetadata).toMatchObject({ name: "OpenAMX Desktop", identifier: "dev.openamx.desktop" });
+	});
+
 	test("keeps unavailable host tools separate from unsupported host matrices", async () => {
 		const directory = await fixture();
 		const result = await inspectRelease(directory, {
@@ -582,19 +592,37 @@ describe("desktop release packaging", () => {
 		expect(await readdir(path.join(directory, "releases")).catch(() => [])).toEqual([]);
 	});
 
-	test("verifies Hutch sidecar target, version, payload hash, and safe app archive", async () => {
+	test("verifies Hutch update manifest, full payload, and checksum sidecar", async () => {
 		const directory = await fixture();
-		const archiveName = "stable-linux-x64-payload.tar.zst";
+		const archiveName = "stable-linux-x64-OpenAMXDesktop.tar.zst";
+		const checksumFileName = "stable-linux-x64-checksum.json";
 		const artifactDirectory = path.join(directory, "artifacts");
+		const updateMetadataPath = path.join(artifactDirectory, "stable-linux-x64-update.json");
 		await mkdir(artifactDirectory, { recursive: true });
-		await writeFile(path.join(artifactDirectory, archiveName), "payload");
-		await writeFile(path.join(artifactDirectory, "stable-linux-x64-update.json"), JSON.stringify({
-			version: "0.6.0", platform: "linux", arch: "x64", hash: "abc123", artifact: { file: archiveName },
-		}));
+		const tarBytes = tarArchive([{ name: "OpenAMXDesktop/Resources/version.json", data: "{}" }]);
+		await writeFile(path.join(artifactDirectory, archiveName), Bun.zstdCompressSync(tarBytes));
+		const updateMetadata = { schemaVersion: 1, identifier: "dev.openamx.desktop", channel: "stable", version: "0.6.0", platform: "linux", arch: "x64", hash: "abc123", artifact: { file: archiveName } };
+		await writeFile(updateMetadataPath, JSON.stringify(updateMetadata));
+		const checksum = { hash: "abc123", tarSha256: createHash("sha256").update(tarBytes).digest("hex"), tarSize: tarBytes.byteLength };
+		await writeFile(path.join(artifactDirectory, checksumFileName), JSON.stringify(checksum));
 		await expect(verifyUpdateMetadata(artifactDirectory, "linux", "x64", "0.6.0", "abc123")).resolves.toEqual({
-			fileName: "stable-linux-x64-update.json", appArchive: archiveName,
+			fileName: "stable-linux-x64-update.json", appArchive: archiveName, checksumFileName,
 		});
 		await expect(verifyUpdateMetadata(artifactDirectory, "linux", "x64", "0.6.0", "wrong-hash")).rejects.toThrow("does not match");
+		await writeFile(updateMetadataPath, JSON.stringify({ ...updateMetadata, channel: "canary" }));
+		await expect(verifyUpdateMetadata(artifactDirectory, "linux", "x64", "0.6.0", "abc123")).rejects.toThrow("does not match");
+		await writeFile(updateMetadataPath, JSON.stringify({ ...updateMetadata, identifier: "dev.openamx.other" }));
+		await expect(verifyUpdateMetadata(artifactDirectory, "linux", "x64", "0.6.0", "abc123")).rejects.toThrow("does not match");
+		await writeFile(updateMetadataPath, JSON.stringify(updateMetadata));
+		await rm(path.join(artifactDirectory, checksumFileName));
+		await expect(verifyUpdateMetadata(artifactDirectory, "linux", "x64", "0.6.0", "abc123")).rejects.toThrow("missing its required checksum");
+		await writeFile(path.join(artifactDirectory, checksumFileName), JSON.stringify({ ...checksum, tarSha256: "0".repeat(64) }));
+		await expect(verifyUpdateMetadata(artifactDirectory, "linux", "x64", "0.6.0", "abc123")).rejects.toThrow("checksum sidecar does not match");
+		await writeFile(path.join(artifactDirectory, checksumFileName), JSON.stringify({ ...checksum, tarSize: checksum.tarSize + 1 }));
+		await expect(verifyUpdateMetadata(artifactDirectory, "linux", "x64", "0.6.0", "abc123")).rejects.toThrow("checksum sidecar does not match");
+		await writeFile(path.join(artifactDirectory, checksumFileName), JSON.stringify(checksum));
+		await writeFile(updateMetadataPath, JSON.stringify({ ...updateMetadata, artifact: { file: "stable-win-x64-OpenAMXDesktop.tar.zst" } }));
+		await expect(verifyUpdateMetadata(artifactDirectory, "linux", "x64", "0.6.0", "abc123")).rejects.toThrow("unsafe or mismatched app archive");
 	});
 
 	test("rejects legacy spike installers instead of treating them as current artifacts", async () => {
@@ -701,7 +729,7 @@ describe("release collection and verification", () => {
 		temporaryDirectories.push(bundleRoot);
 		return { directory, sourceCommit, bundleRoot };
 	}
-	async function writeBundle(directory: string, kind: "desktop" | "extension", sourceCommit: string, target = "linux-x64", installerArchive = tarGzip([{ name: "installer", data: "desktop payload" }]), version = "0.6.0") {
+	async function writeBundle(directory: string, kind: "desktop" | "extension", sourceCommit: string, target = "linux-x64", installerArchive = tarGzip([{ name: "installer", data: "desktop payload" }]), version = "0.6.0", additionalArtifacts: Array<{ file: string; bytes: Buffer; role?: string }> = []) {
 		const artifactsDirectory = path.join(directory, "artifacts");
 		await mkdir(artifactsDirectory, { recursive: true });
 		const artifactFile = kind === "desktop" ? `artifacts/OpenAMX-${target}.tar.gz` : `artifacts/openamx-vscode-${version}.vsix`;
@@ -714,10 +742,17 @@ describe("release collection and verification", () => {
 		}
 		await writeFile(path.join(directory, artifactFile), artifactBytes);
 		const artifact = { file: artifactFile, sizeBytes: artifactBytes.byteLength, sha256: bundleHash(artifactBytes), role: kind === "desktop" ? "installer" : undefined };
+		const artifactRecords = [artifact, ...additionalArtifacts.map((additional) => ({
+			file: additional.file, sizeBytes: additional.bytes.byteLength, sha256: bundleHash(additional.bytes), role: additional.role,
+		}))];
+		for (const additional of additionalArtifacts) {
+			await mkdir(path.dirname(path.join(directory, additional.file)), { recursive: true });
+			await writeFile(path.join(directory, additional.file), additional.bytes);
+		}
 		const manifest = kind === "desktop" ? {
 			schemaVersion: 1, product: "OpenAMX Desktop", version, sourceCommit,
 			target: { os: target.split("-")[0], architecture: target.split("-")[1], status: "available" },
-			application: { name: "OpenAMX Desktop", identifier: "dev.openamx.desktop" }, installerFormat: "tar.gz", artifacts: [artifact],
+			application: { name: "OpenAMX Desktop", identifier: "dev.openamx.desktop" }, installerFormat: "tar.gz", artifacts: artifactRecords,
 		} : {
 			schemaVersion: 1, kind: "vscode-extension", version, sourceCommit,
 			name: "openamx-vscode", publisher: "EngineersTools", main: "./dist/extension.js", platformNeutral: true,
@@ -726,7 +761,7 @@ describe("release collection and verification", () => {
 		const evidence = { schemaVersion: 1, buildPackageStatus: "passed", manualInstallLaunchStatus: "not_performed" };
 		await writeFile(path.join(directory, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 		await writeFile(path.join(directory, "evidence.json"), `${JSON.stringify(evidence, null, 2)}\n`);
-		const sums = ["manifest.json", "evidence.json", artifactFile].map((file) => `${bundleHash(requireBuffer(path.join(directory, file)))}  ${file}`);
+		const sums = ["manifest.json", "evidence.json", ...artifactRecords.map(({ file }) => file)].map((file) => `${bundleHash(requireBuffer(path.join(directory, file)))}  ${file}`);
 		await writeFile(path.join(directory, "SHA256SUMS"), `${sums.join("\n")}\n`);
 		await writeFile(path.join(directory, "COMPLETE"), `${sourceCommit}\n`);
 		return directory;
@@ -746,6 +781,30 @@ describe("release collection and verification", () => {
 		expect((await readFile(path.join(collected, "targets/linux-x64/artifacts/OpenAMX-linux-x64.tar.gz"))).subarray(0, 2)).toEqual(Buffer.from([0x1f, 0x8b]));
 		await expect(publishRelease({ rootDirectory: directory, releaseDirectory: collected, allowPartial: true })).rejects.toThrow("Publication blocked by license/notices readiness");
 		await expect(collectRelease(directory, [desktop, extension])).rejects.toThrow("Refusing to overwrite accepted");
+	});
+
+	test("preserves stable update filenames and bytes through release assembly", async () => {
+		const { directory, sourceCommit, bundleRoot } = await committedReleaseFixture();
+		const tarBytes = tarArchive([{ name: "OpenAMXDesktop/Resources/version.json", data: "{}" }]);
+		const archiveName = "stable-linux-x64-OpenAMXDesktop.tar.zst";
+		const archiveBytes = Bun.zstdCompressSync(tarBytes);
+		const updateManifestName = "stable-linux-x64-update.json";
+		const checksumName = "stable-linux-x64-checksum.json";
+		const updateHash = "fixture-app-hash";
+		const updateArtifacts = [
+			{ file: `artifacts/${updateManifestName}`, bytes: Buffer.from(JSON.stringify({ version: "0.6.0", platform: "linux", arch: "x64", hash: updateHash, artifact: { file: archiveName } })), role: "update-manifest" },
+			{ file: `artifacts/${archiveName}`, bytes: archiveBytes, role: "update-payload" },
+			{ file: `artifacts/${checksumName}`, bytes: Buffer.from(JSON.stringify({ hash: updateHash, tarSha256: bundleHash(tarBytes), tarSize: tarBytes.byteLength })), role: "update-checksum" },
+		];
+		const desktop = await writeBundle(path.join(bundleRoot, "linux-x64"), "desktop", sourceCommit, "linux-x64", undefined, "0.6.0", updateArtifacts);
+		const extension = await writeBundle(path.join(bundleRoot, "extension"), "extension", sourceCommit);
+		const collected = await collectRelease(directory, [desktop, extension]);
+		const manifest = JSON.parse(await readFile(path.join(collected, "manifest.json"), "utf8"));
+		for (const artifact of updateArtifacts) {
+			const assembledFile = `targets/linux-x64/${artifact.file}`;
+			expect(manifest.assets.some((asset: { file: string }) => asset.file === assembledFile)).toBe(true);
+			expect(await readFile(path.join(collected, assembledFile))).toEqual(artifact.bytes);
+		}
 	});
 
 	test("isolates two fixture versions and refuses identical or conflicting same-version reruns without mutation", async () => {
@@ -922,11 +981,23 @@ describe("explicit GitHub release publication", () => {
 		const sourceCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: directory, encoding: "utf8" }).trim();
 		const releaseDirectory = path.join(directory, "releases/0.6.0/assembled");
 		const assets = [] as Array<{ file: string; sizeBytes: number; sha256: string; role: string }>;
-		for (const [file, role] of [
+		const updateTar = tarArchive([{ name: "OpenAMXDesktop/Resources/version.json", data: "{}" }]);
+		const updateArchiveName = "stable-linux-x64-OpenAMXDesktop.tar.zst";
+		const updateArchive = Bun.zstdCompressSync(updateTar);
+		const updateHash = "fixture-app-hash";
+		const artifactSpecs: Array<[string, string]> = [
 			["targets/linux-x64/artifacts/OpenAMX-Desktop-0.6.0-linux-x64.tar.gz", "installer"],
+			["targets/linux-x64/artifacts/stable-linux-x64-update.json", "update-manifest"],
+			[`targets/linux-x64/artifacts/${updateArchiveName}`, "update-payload"],
+			["targets/linux-x64/artifacts/stable-linux-x64-checksum.json", "update-checksum"],
 			["extension/artifacts/openamx-vscode-0.6.0.vsix", "vscode-extension"],
-		]) {
-			let bytes = Buffer.from(`asset bytes ${path.basename(file)}`);
+		];
+		for (const [file, role] of artifactSpecs) {
+			let bytes = role === "update-manifest"
+				? Buffer.from(JSON.stringify({ version: "0.6.0", platform: "linux", arch: "x64", hash: updateHash, artifact: { file: updateArchiveName } }))
+				: role === "update-payload" ? updateArchive
+					: role === "update-checksum" ? Buffer.from(JSON.stringify({ hash: updateHash, tarSha256: bundleHashForTest(updateTar), tarSize: updateTar.byteLength }))
+						: Buffer.from(`asset bytes ${path.basename(file)}`);
 			if (role === "vscode-extension") {
 				const zip = new JSZip();
 				for (const item of ["[Content_Types].xml", "extension.vsixmanifest", "extension/amx.tmGrammar.json", "extension/language-configuration.json", "extension/readme.md", "extension/dist/extension.js", "extension/LICENSE.md", "extension/NOTICE"]) zip.file(item, "test fixture only");
@@ -1003,9 +1074,24 @@ describe("explicit GitHub release publication", () => {
 		expect(mock.calls).toEqual([]);
 		const result = await publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: mock.client, verify: () => mockedReadyVerification(state) });
 		expect(result).toMatchObject({ repository: "NovaEnergyConsulting/openamx", tag: "v0.6.0", draft: true });
-		expect(result.uploaded).toHaveLength(2);
+		expect(result.uploaded).toHaveLength(5);
 		expect(result.partialTargets).toContain("windows-x64:missing");
 		expect(mock.calls).toContain("create-draft");
+	});
+
+	test("rejects duplicate flat update basenames before uploading assets", async () => {
+		const state = await publishFixture();
+		const duplicateFile = "targets/linux-x64-copy/artifacts/stable-linux-x64-update.json";
+		const duplicateBytes = Buffer.from("duplicate flat-name fixture");
+		await mkdir(path.dirname(path.join(state.releaseDirectory, duplicateFile)), { recursive: true });
+		await writeFile(path.join(state.releaseDirectory, duplicateFile), duplicateBytes);
+		const manifestPath = path.join(state.releaseDirectory, "manifest.json");
+		const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+		manifest.assets.push({ file: duplicateFile, sizeBytes: duplicateBytes.byteLength, sha256: bundleHashForTest(duplicateBytes), role: "update-manifest" });
+		await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+		const mock = mockClient(state.sourceCommit);
+		await expect(publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: mock.client, verify: () => mockedReadyVerification(state) })).rejects.toThrow("ambiguous duplicate asset name");
+		expect(mock.remote.size).toBe(0);
 	});
 
 	test("rejects mismatched tags, non-draft releases, and conflicting assets", async () => {
@@ -1022,11 +1108,11 @@ describe("explicit GitHub release publication", () => {
 		const state = await publishFixture();
 		const first = mockClient(state.sourceCommit);
 		const published = await publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: first.client, verify: () => mockedReadyVerification(state) });
-		expect(published.uploaded).toHaveLength(2);
+		expect(published.uploaded).toHaveLength(5);
 		const retry = mockClient(state.sourceCommit, { tagCommit: state.sourceCommit, existingRelease: existingDraft(state.sourceCommit) });
 		for (const [name, asset] of first.remote) retry.remote.set(name, asset);
 		const retried = await publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: retry.client, verify: () => mockedReadyVerification(state) });
-		expect(retried.confirmed).toHaveLength(2);
+		expect(retried.confirmed).toHaveLength(5);
 		const extraName = "OpenAMX-Desktop-0.6.0-windows-x64.zip";
 		const extraFile = `targets/windows-x64/artifacts/${extraName}`;
 		const extraBytes = Buffer.from("later same revision target");
@@ -1041,7 +1127,7 @@ describe("explicit GitHub release publication", () => {
 		const addMock = mockClient(state.sourceCommit, { tagCommit: state.sourceCommit, existingRelease: existingDraft(state.sourceCommit) });
 		for (const [name, asset] of first.remote) addMock.remote.set(name, asset);
 		const added = await publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: addMock.client, verify: () => mockedReadyVerification(state) });
-		expect(added.confirmed).toHaveLength(2);
+		expect(added.confirmed).toHaveLength(5);
 		expect(added.uploaded).toContain(extraName);
 	});
 

@@ -1,0 +1,49 @@
+{
+  "update": {
+    "fileName": "stable-win-x64-update.json",
+    "appArchive": "stable-win-x64-OpenAMXDesktop.tar.zst",
+    "checksumFileName": "stable-win-x64-checksum.json"
+  },
+  "application": {
+    "hash": "32q0pp714v7fm",
+    "runtimeVersions": {
+      "bun": "1.4.4"
+    }
+  },
+  "installer": {
+    "file": "win-x64-OpenAMXDesktop-Setup.zip",
+    "format": "zip",
+    "members": [
+      ".installer\\OpenAMX Desktop-Setup.metadata.json",
+      ".installer\\OpenAMX Desktop-Setup.tar.zst",
+      "OpenAMX Desktop-Setup.exe"
+    ]
+  },
+  "inventory": [
+    {
+      "file": "stable-win-x64-checksum.json",
+      "sizeBytes": 123,
+      "sha256": "a2812149ac12525e7b5a229d7f8d61709b292e032cb0177575ee44d7320f7e7a"
+    },
+    {
+      "file": "stable-win-x64-OpenAMXDesktop.tar.zst",
+      "sizeBytes": 57347984,
+      "sha256": "0d284e84a3d830306cdf982e77a15db68a84d6925527b8b4661197ab2ae70580"
+    },
+    {
+      "file": "stable-win-x64-update.json",
+      "sizeBytes": 205,
+      "sha256": "5aacbd2927119f243e427c7507f3e0776165be3cca3488ed47c0bd905e458fbc"
+    },
+    {
+      "file": "win-x64-OpenAMXDesktop-Setup.zip",
+      "sizeBytes": 58233465,
+      "sha256": "b558022ea2870cc7f0bf74bf91044ec0477b89d03959f91a2541999746ce965a"
+    }
+  ],
+  "decompressedTar": {
+    "sizeBytes": 160506880,
+    "sha256": "c75bda621d0888bc83c978875e4af33148f407051c16bdc6b15cded106862e89"
+  },
+  "patchFiles": []
+}

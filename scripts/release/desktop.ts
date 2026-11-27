@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
+import { zstdDecompressSync } from "node:zlib";
 import { cp, mkdir, mkdtemp, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspectRelease, isStableVersion, mapNativeTarget } from "../release";
 import { spawnReleaseCommand } from "./process";
-import { inspectTarZstdMembers } from "./archive";
+import { inspectTarMembers, inspectTarZstdMembers, MAX_UNCOMPRESSED_ARCHIVE_BYTES } from "./archive";
 
 const APPLICATION_NAME = "OpenAMX Desktop";
 const APPLICATION_IDENTIFIER = "dev.openamx.desktop";
@@ -251,19 +252,38 @@ export async function findInstaller(artifactDirectory: string, nativeOs: NativeO
 	return { path: installerPath, ...format };
 }
 
-export async function verifyUpdateMetadata(artifactDirectory: string, nativeOs: NativeOs, nativeArchitecture: string, version: string, appHash: string): Promise<{ fileName: string; appArchive: string }> {
+export async function verifyUpdateMetadata(artifactDirectory: string, nativeOs: NativeOs, nativeArchitecture: string, version: string, appHash: string): Promise<{ fileName: string; appArchive: string; checksumFileName: string }> {
 	const platformSlug = nativeOs === "mac" ? "macos" : nativeOs;
-	const fileName = `stable-${platformSlug}-${nativeArchitecture}-update.json`;
+	const assetPrefix = `stable-${platformSlug}-${nativeArchitecture}-`;
+	const fileName = `${assetPrefix}update.json`;
 	const metadata = JSON.parse(await readFile(path.join(artifactDirectory, fileName), "utf8")) as Record<string, unknown>;
-	if (metadata.version !== version || metadata.platform !== platformSlug || metadata.arch !== nativeArchitecture || metadata.hash !== appHash) {
+	if (metadata.schemaVersion !== 1 || metadata.identifier !== APPLICATION_IDENTIFIER || metadata.channel !== "stable"
+		|| metadata.version !== version || metadata.platform !== platformSlug || metadata.arch !== nativeArchitecture || metadata.hash !== appHash) {
 		throw new Error("Electrobun update metadata does not match the requested version, operating system, architecture, or app payload.");
 	}
 	const appArchive = (metadata.artifact as { file?: unknown } | undefined)?.file;
-	if (typeof appArchive !== "string" || path.basename(appArchive) !== appArchive || !appArchive.endsWith(".tar.zst")) {
-		throw new Error("Electrobun update metadata names an unsafe or missing app archive.");
+	if (typeof appArchive !== "string" || path.basename(appArchive) !== appArchive || !appArchive.startsWith(assetPrefix) || !appArchive.endsWith(".tar.zst")) {
+		throw new Error("Electrobun update metadata names an unsafe or mismatched app archive.");
 	}
-	if (!(await stat(path.join(artifactDirectory, appArchive)).then(() => true, () => false))) throw new Error("Electrobun update metadata references an absent app archive.");
-	return { fileName, appArchive };
+	const archivePath = path.join(artifactDirectory, appArchive);
+	if (!(await stat(archivePath).then(() => true, () => false))) throw new Error("Electrobun update metadata references an absent app archive.");
+	let tarBytes: Buffer;
+	try {
+		tarBytes = zstdDecompressSync(await readFile(archivePath), { maxOutputLength: MAX_UNCOMPRESSED_ARCHIVE_BYTES });
+	} catch (cause) {
+		throw new Error("Electrobun full update payload is malformed or exceeds the archive inspection size limit.", { cause });
+	}
+	inspectTarMembers(tarBytes);
+	const checksumFileName = `${assetPrefix}checksum.json`;
+	const checksumPath = path.join(artifactDirectory, checksumFileName);
+	if (!(await stat(checksumPath).then(() => true, () => false))) throw new Error(`Electrobun update is missing its required checksum sidecar: ${checksumFileName}`);
+	const checksum = JSON.parse(await readFile(checksumPath, "utf8")) as Record<string, unknown>;
+	if (checksum.hash !== appHash || typeof checksum.tarSha256 !== "string" || !/^[a-f0-9]{64}$/.test(checksum.tarSha256)
+		|| !Number.isSafeInteger(checksum.tarSize) || checksum.tarSize !== tarBytes.byteLength
+		|| checksum.tarSha256 !== sha256(tarBytes)) {
+		throw new Error("Electrobun checksum sidecar does not match the app hash, full payload digest, or uncompressed TAR size.");
+	}
+	return { fileName, appArchive, checksumFileName };
 }
 
 export async function finalizeTargetBundle(
@@ -373,9 +393,11 @@ export async function runDesktopRelease(rootDirectory = ROOT_DIRECTORY): Promise
 		const artifactName = `OpenAMX-Desktop-${packageManifest.version}-${target.os}-${target.architecture}${installer.extension}`;
 		await cp(installer.path, path.join(bundleArtifacts, artifactName));
 		const sidecars = (await readdir(artifactRoot, { withFileTypes: true })).filter((entry) => entry.isFile() && entry.name.startsWith(`stable-${platformSlug}-${target.nativeArchitecture}-`) && entry.name !== path.basename(installer.path));
-		if (!sidecars.some((entry) => entry.name === updateMetadata.fileName) || !sidecars.some((entry) => entry.name === updateMetadata.appArchive)) {
-			throw new Error("Fresh app archive or update metadata was not included in the target bundle.");
+		const requiredUpdateAssets = [updateMetadata.fileName, updateMetadata.appArchive, updateMetadata.checksumFileName];
+		if (requiredUpdateAssets.some((name) => !sidecars.some((entry) => entry.name === name))) {
+			throw new Error("A required update manifest, full app archive, or checksum sidecar was not included in the target bundle.");
 		}
+		if (sidecars.some((entry) => entry.name.endsWith(".patch"))) throw new Error("A delta patch was emitted despite the explicit full-bundle-only release policy.");
 		for (const sidecar of sidecars) await cp(path.join(artifactRoot, sidecar.name), path.join(bundleArtifacts, sidecar.name));
 		const artifactRecords = await Promise.all((await readdir(bundleArtifacts, { withFileTypes: true })).filter((entry) => entry.isFile()).map(async (entry) => {
 			const contents = await readFile(path.join(bundleArtifacts, entry.name));

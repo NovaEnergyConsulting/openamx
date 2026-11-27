@@ -1,3 +1,4 @@
+// @hutch cli=0.30.0
 export default {
 	packageManager: "bun",
 	scripts: {
@@ -9,6 +10,6 @@ export default {
 		run: ["bun", "run", "run"],
 	},
 	electrobun: {
-		version: "2.0.5",
+		version: "2.0.7",
 	},
 };

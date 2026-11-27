@@ -4,6 +4,10 @@ export default {
 	app: {
 		...appMetadata,
 	},
+	release: {
+		baseUrl: "https://github.com/NovaEnergyConsulting/openamx/releases/latest/download",
+		generatePatch: false,
+	},
 	build: {
 		mainProcess: "bun",
 		buildFolder: process.env.OPENAMX_ELECTROBUN_BUILD_FOLDER ?? "build",

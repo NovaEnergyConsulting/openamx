@@ -149,6 +149,12 @@ export async function publishRelease(options: {
 	const manifest = JSON.parse(await readFile(path.join(options.releaseDirectory, "manifest.json"), "utf8")) as {
 		version: string; sourceCommit: string; assets: Array<{ file: string; sizeBytes: number; sha256: string }>;
 	};
+	const requestedNames = new Set<string>();
+	for (const asset of manifest.assets) {
+		const name = path.basename(asset.file);
+		if (requestedNames.has(name)) throw new Error(`Local release contains ambiguous duplicate asset name ${name}.`);
+		requestedNames.add(name);
+	}
 	const client = options.client ?? await createGitHubReleaseClient();
 	const tag = `v${manifest.version}`;
 	const tagCommit = await client.getTagCommit(repository, tag);
@@ -171,13 +177,10 @@ export async function publishRelease(options: {
 	const remoteAssets = await client.listAssets(repository, release);
 	const uploaded: string[] = [];
 	const confirmed: string[] = [];
-	const requestedNames = new Set<string>();
 	for (const asset of manifest.assets) {
 		const localBytes = await readFile(path.join(options.releaseDirectory, asset.file));
 		if (localBytes.byteLength !== asset.sizeBytes || hash(localBytes) !== asset.sha256) throw new Error(`Local release asset changed after verification: ${asset.file}`);
 		const name = path.basename(asset.file);
-		if (requestedNames.has(name)) throw new Error(`Local release contains ambiguous duplicate asset name ${name}.`);
-		requestedNames.add(name);
 		const existing = remoteAssets.find((item) => item.name === name);
 		if (existing) {
 			const remoteBytes = await client.downloadAsset(repository, existing);
