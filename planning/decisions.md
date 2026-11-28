@@ -20,6 +20,10 @@
   integrated closeout.
 - No release, publication, deployment, distribution, or platform
   certification authority follows from S131.
+- S132 planning is recorded in
+  `planning/sprints/0132-v21-integrated-acceptance-closeout/`. Execution
+  remains gated on separate approval, including a safe test-only loopback
+  mechanism that leaves production host restrictions intact.
 
 ## V0.21 Sprint 130 Product-Owner Closeout (2026-11-28)
 

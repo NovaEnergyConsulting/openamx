@@ -17,6 +17,10 @@
   S132 owns installed-app update acceptance and integrated closeout.
 - No release, publication, deployment, distribution, or platform
   certification authority follows from S131.
+- S132 planning documentation is prepared in
+  `planning/sprints/0132-v21-integrated-acceptance-closeout/`. S131
+  disposition does not authorize S132 execution; separate exact authorization
+  is required, including resolution of the packaged loopback test-host gate.
 
 ## V0.21 Sprint 130 Product-Owner Closeout (2026-11-28)
 
