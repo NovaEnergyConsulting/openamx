@@ -1,5 +1,5 @@
 {
   "phase": "sprint-closed",
-  "sprint": "131",
-  "note": "Product Owner accepted Sprint 131 with recorded residuals. S132 Windows x64 package/artifact checks and focused local/mock tests are recorded in Builder evidence. The run:app app-metadata startup defect is fixed and its bundle regression passes. Installed-app bootstrap/update, real quit-guard, release assembly/verification, and other native targets remain NOT RUN. S132 remains blocked; no release authority follows."
+  "sprint": "132",
+  "note": "Product Owner accepted Sprint 132 and V0.21.0 with recorded residuals on 2026-11-28, reporting all functionality verified. Builder raw NOT RUN rows remain unchanged; other native targets, public GitHub reachability/assets, release assembly/verification, publication, distribution, and platform certification remain residuals. No release authority follows."
 }

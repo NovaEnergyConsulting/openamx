@@ -2,15 +2,19 @@
 
 ## Status
 
-The initial preflight stopped when Hutch reported that it was downloading the
-project-pinned CLI. The user clarified that Hutch setup was a one-time install
-and instructed the Builder to continue. The isolated Hutch 0.30.0 installation
-and cached Bun 1.4.4 / Electrobun 2.0.7 toolchain were then verified locally.
-Windows x64 package builds, artifact checks, focused tests, and two loopback
-metadata/checksum smoke cases completed. The V0.20 installer bridge and
-packaged V0.21 update workflow remain NOT RUN because no disposable native
-profile or VM was available. This is not S132 completion; Builder recommends
-BLOCKED / NOT READY FOR CLOSEOUT pending an authorized isolated install route.
+Product Owner disposition: **ACCEPTED/CLOSED WITH RECORDED RESIDUALS on
+2026-11-28** for S132 and V0.21.0. The Product Owner states they completed the
+outstanding verification steps and all functionality worked as expected.
+The initial Hutch preflight stop and subsequent one-time setup clarification,
+local toolchain verification, Windows x64 artifact builds, focused tests, and
+loopback metadata/checksum smoke remain recorded below.
+
+This evidence remains the Builder's raw execution record. It does not contain
+the Product Owner's separately performed native installation/update logs,
+request traces, or target inventory. Do not rewrite the Builder's `NOT RUN`
+rows as Builder passes; the closeout disposition relies on the Product
+Owner's explicit verification statement. Residuals and authority limits remain
+as recorded in Closeout and Decisions.
 
 ## Authorization and Baselines
 
@@ -71,6 +75,11 @@ Do not mark an unavailable target passed or unsupported without direct
 accepted evidence.
 
 ## Installed-App Flow
+
+The matrix below records Builder-run evidence only. The Product Owner's
+2026-11-28 disposition separately states that all remaining functionality was
+verified; no supporting raw native logs or target inventory were supplied in
+this workspace, so Builder raw statuses are preserved unchanged.
 
 | Scenario | Expected | Raw status | Evidence |
 | --- | --- | --- | --- |
@@ -214,6 +223,9 @@ accepted evidence.
 	`OpenAMX Desktop`, `dev.openamx.desktop`, version `0.20.0`.
 - Focused primary tests passed: app metadata bundle regression plus updater
 	and update-apply suites, 19/0 with 73 assertions.
+- The current primary V0.21.0 commit is `5a4c7a9`; it contains both the fix
+	and regression test. Re-ran `bun test src/bun/appMetadata.test.ts` against
+	that committed version: PASS, 1/0 with 2 assertions.
 - A fixed stable package built in the diagnostic worktree and passed the S128
 	Windows artifact inspector: app hash `1yml4gpazcchk`, managed Bun `1.4.4`,
 	valid manifest/full archive/checksum/Setup ZIP, and no patch files.
@@ -257,10 +269,12 @@ retained; no cleanup was performed.
 	production and loopback packages and local fixtures are verified, but the
 	V0.20 installer bridge, installed V0.21 update, consent-gated payload
 	download, native preparation/apply/relaunch, failure preservation, and real
-	quit guard have not been exercised. The reproduced `run:app` startup defect
+	quit guard were not exercised by the Builder. The `run:app` startup defect
 	is fixed in the primary checkout and verified in a byte-identical diagnostic
-	worktree; it does not close the remaining S132 installed-app gates.
-- Product Owner disposition: Pending.
+	worktree.
+- Product Owner disposition: **ACCEPTED/CLOSED WITH RECORDED RESIDUALS on
+	2026-11-28** for S132 and V0.21.0, based on the Product Owner's statement
+	that all remaining functionality was verified externally.
 - Loopback-test gate: **PASS for Windows x64 package host isolation**: the
 	production artifact embeds GitHub stable and has no loopback string; both
 	test artifacts embed only loopback and have no GitHub stable string; the
@@ -275,5 +289,9 @@ retained; no cleanup was performed.
 	preservation, external-network monitor evidence, and all non-Windows targets
 	remain unverified.
 - Public GitHub route/publication: NOT RUN and not authorized by S132.
-- Unverified targets and remaining limitations: Pending.
+- Unverified targets and remaining limitations: Builder raw results for
+	installed-app scenarios remain `NOT RUN`; Product Owner's independent
+	verification is accepted as the closeout basis. Other native targets, public
+	GitHub reachability/assets, release assembly/verification, publication, and
+	certification remain residuals.
 - Release/publication/platform authority: None follows from S132.

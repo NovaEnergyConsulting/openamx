@@ -40,14 +40,15 @@
   Local available/no-update hosts served only exact manifests and checksum
   sidecars to requests from `127.0.0.1`; no payload was requested. Details,
   raw failures/retries, package hashes, and logs are in S132 `artifacts/run-01/`.
-- S132 remains **BLOCKED / NOT READY FOR CLOSEOUT**: the host had no disposable
-  VM/profile facility, so no Setup installer or app was installed. V0.20 to
-  V0.21 bootstrap, consented package download, native apply/relaunch, failure
-  preservation, and real save/conflict quit-guard flows remain NOT RUN. Other
-  native targets, release assembly and `release:verify` remain NOT RUN. A
-  separate Product Owner closeout decision is pending. No release,
-  publication, deployment, distribution, or platform-certification authority
-  follows from S132.
+- The Product Owner ACCEPTED/CLOSED S132 AND V0.21.0 WITH RECORDED RESIDUALS
+  on 2026-11-28, stating they completed the outstanding verification steps and
+  all functionality worked as expected. The Builder's own raw `NOT RUN` rows
+  remain unchanged; Product Owner verification was performed separately and
+  its raw logs/target inventory were not added to this workspace.
+- Preserve residuals: other native targets, public GitHub reachability/assets,
+  release assembly/verification, publication, distribution, and platform
+  certification are not evidenced or authorized by this disposition. No
+  release or publication authority follows from S132.
 - S132 also reproduced a `run:app` startup defect in a detached worktree at
   the current commit. The Bun worker attempts to read
   `Resources/app/bun/package.json`, which the Electrobun bundle does not

@@ -1,5 +1,24 @@
 # Planning Decisions
 
+## V0.21 Sprint 132 Product-Owner Closeout (2026-11-28)
+
+- **Product Owner disposition: ACCEPTED/CLOSED WITH RECORDED RESIDUALS.** The
+  user states they completed the outstanding verification steps, all
+  functionality worked as expected, and Sprint 132 plus V0.21.0 may be closed.
+- Preserve S132 Builder evidence as the Builder's own raw record: it does not
+  contain the Product Owner's native installation/update logs, request traces,
+  or target inventory, and its execution rows remain `NOT RUN` where the
+  Builder did not perform those steps. The closeout relies on the Product
+  Owner's explicit verification/disposition, not retroactive changes to those
+  raw rows.
+- The `run:app` package-metadata fix and its bundled-entry regression are in
+  the primary checkout and the reproduced startup failure is resolved.
+- Close S132 and V0.21.0 with the residuals already recorded: other native
+  targets, public GitHub reachability/assets, release assembly/verification,
+  publication, distribution, and platform certification are not authorized
+  or evidenced by this disposition. No release or publication authority
+  follows.
+
 ## V0.21 Sprint 132 Local Artifact Continuation (2026-11-28)
 
 - After the initial Hutch self-version output indicated a one-time download,
