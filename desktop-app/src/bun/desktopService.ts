@@ -29,7 +29,7 @@ import { desktopWorkerUrl } from "./workerEntrypoint";
 import { createPingResponse, type ActiveDocumentRequestIdentity, type DesktopGraphPreview, type DesktopJobIdentity, type DesktopJobOperation, type DesktopJobResult, type DesktopJobSnapshot, type DesktopOutputPathState, type DesktopRPCClient, type DesktopRPCError, type DesktopRPCResponse, type DocumentKind, type OpenDocument, type ProjectCreationIntent, type ProjectFile, type ProjectFileKind, type RecoveryItem, type RunSummary, type TextAnalysis, type TextDiagnostic, type WorkbenchState, type RecentProject, type ReportSettingKey, type ReportSettingsSnapshot, type ReportSettingsValues, type TransitionAction } from "../shared/rpc";
 import type { PreviewNavigationTarget } from "../../../src/renderer/renderHtml";
 import { isBoundedTypeScriptGraphResult, type WorkerJobMessage, type WorkerJobRequest, type WorkerJobResult } from "./jobProtocol";
-import { materializeDesktopGuide } from "./guideResources";
+import { materializeDesktopGuide, readDesktopAmxSkillResource } from "./guideResources";
 
 const MAX_TEXT = 2_000_000;
 const MAX_DATA_TEXT = 20_000_000;
@@ -1502,22 +1502,31 @@ export function createDesktopService(
 						record();
 						return { ok: true, root: projectDirectory, document, state: state() };
 					}
+					if (!guideResourceDirectory) throw new Error("The bundled AMX authoring skill is unavailable.");
+					const skillContents = readDesktopAmxSkillResource(guideResourceDirectory);
 					const internalDirectory = join(projectDirectory, ".openamx");
 					projectConfig = join(internalDirectory, "project.json");
 					report = join(projectDirectory, "report.amx");
+					const skillDirectory = join(internalDirectory, "skills", "amx");
+					const skill = join(skillDirectory, "SKILL.md");
 					const configTemporary = join(projectDirectory, `.project.${randomUUID()}.tmp`);
 					const reportTemporary = join(projectDirectory, `.report.${randomUUID()}.tmp`);
-					mkdirSync(internalDirectory, { recursive: false, mode: 0o700 });
+					const skillTemporary = join(skillDirectory, `.SKILL.${randomUUID()}.tmp`);
 					try {
+						mkdirSync(skillDirectory, { recursive: true, mode: 0o700 });
 						writeFileSync(configTemporary, '{"version":1,"inputs":{}}\n', { encoding: "utf8", mode: 0o600, flag: "wx" });
 						writeFileSync(reportTemporary, '# New Report\n\n```amx\nexport let title: String = "New Report"\n```\n', { encoding: "utf8", mode: 0o600, flag: "wx" });
+						writeFileSync(skillTemporary, skillContents, { mode: 0o600, flag: "wx" });
 						renameSync(configTemporary, projectConfig);
+						renameSync(skillTemporary, skill);
 						renameSync(reportTemporary, report);
 					} catch (error) {
-						for (const file of [configTemporary, reportTemporary, projectConfig, report]) {
+						for (const file of [configTemporary, reportTemporary, skillTemporary, projectConfig, report, skill]) {
 							try { if (existsSync(file)) unlinkSync(file); } catch {}
 						}
-						try { if (existsSync(internalDirectory) && readdirSync(internalDirectory).length === 0) rmSync(internalDirectory); } catch {}
+						for (const directory of [skillDirectory, join(internalDirectory, "skills"), internalDirectory]) {
+							try { if (existsSync(directory) && readdirSync(directory).length === 0) rmSync(directory); } catch {}
+						}
 						throw error;
 					}
 					service.setProjectRoot(projectDirectory, action);

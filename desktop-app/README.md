@@ -53,7 +53,9 @@ numbered 00-14 guide and its approved local support files; the workbench opens
 `00_Table_of_Contents.amx` and does not create the generic `report.amx`.
 **Hello OpenAMX** and **Operations note** remain compact, input-free
 single-report starters that use the normal report buffer and autosave path.
-Ordinary **Create project** behavior is unchanged.
+New projects include the bundled AMX authoring skill at
+`.openamx/skills/amx/SKILL.md`, so coding agents working in the project can
+reference the same guidance outside the desktop workbench.
 
 Open an existing folder with **Open project**. Recent projects preserve only validated project roots, a safe relative active file, and panel sizes. Existing sessions with a V0.5 `entry` field migrate by retaining a safe `active` file when present and discarding the obsolete entry field; entry-only sessions restore the project without opening a document. Migration does not run AMX or overwrite project source. Recovery is a separate inspect/restore/discard flow; restoring buffers does not write them to disk.
 

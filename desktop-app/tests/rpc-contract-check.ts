@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join, relative } from "node:path";
+import { basename, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createPingResponse } from "../src/shared/rpc";
 import { createDesktopService } from "../src/bun/desktopService";
@@ -11,6 +11,7 @@ import { preparePdfDestination, writePdfAtomically } from "../../src/runtime/pdf
 import { prepareDocxDestination, writeDocxAtomically } from "../../src/runtime/docxDestination";
 import { desktopWorkerUrl } from "../src/bun/workerEntrypoint";
 import type { WorkerJobMessage, WorkerJobRequest } from "../src/bun/jobProtocol";
+import { DESKTOP_AMX_SKILL_RESOURCE_PATH, stageDesktopGuideResources } from "../src/bun/guideResources";
 
 function workerThatReturnsThenCloses(): Worker {
 	const listeners = new Map<string, EventListener>();
@@ -276,13 +277,19 @@ console.log("Worker result followed by immediate close does not fail atomic expo
 const createdProjectRoot = mkdtempSync(join(tmpdir(), "openamx-create-parent-"));
 const createdProjectDirectory = join(createdProjectRoot, "new-project");
 mkdirSync(createdProjectDirectory);
-const creationService = createDesktopService();
+const creationResources = join(createdProjectRoot, "guide-resources");
+stageDesktopGuideResources(resolve(import.meta.dir, "../../examples"), creationResources);
+const creationService = createDesktopService(undefined, undefined, undefined, undefined, creationResources);
 const createdProject = await creationService.request.createProject({ path: createdProjectDirectory });
 assert.equal(createdProject.ok, true);
 if (!createdProject.ok) throw new Error(createdProject.error.message);
 assert.equal(createdProject.root, createdProjectDirectory);
 assert.equal(createdProject.document.path, join(createdProjectDirectory, "report.amx"));
 assert.deepEqual(JSON.parse(readFileSync(join(createdProjectDirectory, ".openamx", "project.json"), "utf8")), { version: 1, inputs: {} });
+assert.deepEqual(
+	readFileSync(join(createdProjectDirectory, ...DESKTOP_AMX_SKILL_RESOURCE_PATH.split("/"))),
+	readFileSync(join(creationResources, ...DESKTOP_AMX_SKILL_RESOURCE_PATH.split("/")))
+);
 assert.match(readFileSync(join(createdProjectDirectory, "report.amx"), "utf8"), /export let title: String = "New Report"/);
 const createdReportAnalysis = await creationService.request.analyzeBuffer();
 assert.equal(createdReportAnalysis.ok, true);
@@ -291,7 +298,7 @@ assert.deepEqual(createdReportAnalysis.analysis.diagnostics, []);
 assert.equal((await creationService.request.listProjectFiles()).ok, true);
 const pickedProjectDirectory = join(createdProjectRoot, "picked-project");
 mkdirSync(pickedProjectDirectory);
-const pickerCreationService = createDesktopService(undefined, { async choose() { return pickedProjectDirectory; } });
+const pickerCreationService = createDesktopService(undefined, { async choose() { return pickedProjectDirectory; } }, undefined, undefined, creationResources);
 assert.deepEqual(await pickerCreationService.request.pickCreateProject(), { ok: true, cancelled: false, root: pickedProjectDirectory });
 assert.deepEqual(await pickerCreationService.request.getProjectContext(), {
 	ok: true,

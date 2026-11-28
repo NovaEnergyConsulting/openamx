@@ -38,11 +38,20 @@ domain rules.
    units, assumptions, and desired output formats. Ask for missing domain rules
    rather than guessing; mark explicitly illustrative values as illustrative.
 2. Create a project folder and a primary `.amx` file. No project manifest is
-   required for a basic CLI document. Add companion folders only as needed:
+   required for a basic CLI document. A project created by the desktop app has
+   a root-level `.openamx/` directory containing `project.json` and the
+   bundled agent skill at `skills/amx/SKILL.md`; the desktop app may use the
+   directory for additional project settings or metadata. Keep it separate
+   from document modules and data; `project.json` and the skill can be
+   versioned, while machine-local `local.json` overrides are ignored by
+   version control. Add companion folders only as needed:
 
    ```text
    project/
      analysis.amx
+     .openamx/   # desktop project settings and metadata (not required by CLI)
+       project.json
+       skills/amx/SKILL.md  # bundled guidance for AMX authoring agents
      data/       # optional local JSON or CSV inputs
      modules/    # optional reusable .amx files
    ```

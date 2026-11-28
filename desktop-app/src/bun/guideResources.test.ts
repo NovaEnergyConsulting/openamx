@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { createDesktopService } from "./desktopService";
 import electrobunConfig from "../../electrobun.config";
 import {
-	DESKTOP_GUIDE_FILES, DESKTOP_GUIDE_STAGE_RELATIVE_PATH, materializeDesktopGuide,
+	DESKTOP_AMX_SKILL_RESOURCE_PATH, DESKTOP_GUIDE_FILES, DESKTOP_GUIDE_STAGE_RELATIVE_PATH, materializeDesktopGuide,
 	resolveDesktopGuideResourceDirectory, stageDesktopGuideResources, verifyDesktopGuideParity
 } from "./guideResources";
 
@@ -28,6 +28,7 @@ describe("desktop guide resources", () => {
 			expect(manifest.map(entry => entry.path)).toEqual([...DESKTOP_GUIDE_FILES]);
 			expect(verifyDesktopGuideParity(canonicalExamples, destination)).toEqual(manifest);
 			expect(readdirSync(destination).sort()).toEqual([
+				".openamx",
 				"00_Table_of_Contents.amx",
 				"01_First_Computable_Document.amx",
 				"02_Expressions_and_Decisions.amx",
@@ -188,15 +189,20 @@ describe("desktop guide resources", () => {
 	it("keeps ordinary project creation on the standard report path", async () => {
 		const temporaryRoot = mkdtempSync(join(tmpdir(), "openamx-standard-project-"));
 		const project = join(temporaryRoot, "project");
+		const resources = join(temporaryRoot, "resources");
 		mkdirSync(project);
+		stageDesktopGuideResources(canonicalExamples, resources);
 		try {
-			const service = createDesktopService();
+		const service = createDesktopService(undefined, undefined, undefined, undefined, resources);
 			const result = await service.request.createProject({ path: project });
 			expect(result.ok).toBe(true);
 			if (!result.ok) throw new Error(result.error.message);
 			expect(result.document.path).toBe(join(project, "report.amx"));
 			expect(result.state.active).toBe(join(project, "report.amx"));
 			expect(readFileSync(join(project, ".openamx", "project.json"), "utf8")).toBe('{"version":1,"inputs":{}}\n');
+		expect(readFileSync(join(project, ...DESKTOP_AMX_SKILL_RESOURCE_PATH.split("/")))).toEqual(
+			readFileSync(join(resources, ...DESKTOP_AMX_SKILL_RESOURCE_PATH.split("/")))
+		);
 			expect(readFileSync(join(project, "report.amx"), "utf8")).toContain('export let title: String = "New Report"');
 			expect(existsSync(join(project, "00_Table_of_Contents.amx"))).toBe(false);
 		} finally {

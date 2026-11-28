@@ -6,6 +6,7 @@ import {
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 export const DESKTOP_GUIDE_STAGE_RELATIVE_PATH = "dist/guide";
+export const DESKTOP_AMX_SKILL_RESOURCE_PATH = ".openamx/skills/amx/SKILL.md";
 
 export const DESKTOP_GUIDE_FILES = [
 	"00_Table_of_Contents.amx",
@@ -34,9 +35,13 @@ export const DESKTOP_GUIDE_FILES = [
 	"libraries/asset-management.amx",
 	"libraries/screening.amx",
 	"libraries/travel-measurements.amx",
+	DESKTOP_AMX_SKILL_RESOURCE_PATH,
 ] as const;
 
 const DESKTOP_GUIDE_DIRECTORIES = [
+	".openamx",
+	".openamx/skills",
+	".openamx/skills/amx",
 	"data",
 	"fixtures",
 	"fixtures/invalid",
@@ -88,7 +93,7 @@ function assertRealDirectory(path: string, description: string): string {
 	return canonical;
 }
 
-function readResourceFile(root: string, path: typeof DESKTOP_GUIDE_FILES[number]): Buffer {
+function readResourceFile(root: string, path: string): Buffer {
 	const parts = path.split("/");
 	if (parts.some(part => !part || part === "." || part === ".." || part.includes("\\"))) {
 		throw new Error(`Guide resource path is invalid: ${path}`);
@@ -112,10 +117,15 @@ function readResourceFile(root: string, path: typeof DESKTOP_GUIDE_FILES[number]
 	return readFileSync(current);
 }
 
-function readGuideResources(rootPath: string): GuideResource[] {
+function readGuideResources(rootPath: string, canonicalSource = false): GuideResource[] {
 	const root = assertRealDirectory(rootPath, "Guide resource root");
+	const canonicalSkillRoot = canonicalSource
+		? assertRealDirectory(resolve(root, "..", ".github", "skills", "amx"), "Canonical AMX skill source")
+		: undefined;
 	return DESKTOP_GUIDE_FILES.map(path => {
-		const contents = readResourceFile(root, path);
+		const contents = path === DESKTOP_AMX_SKILL_RESOURCE_PATH && canonicalSkillRoot
+			? readResourceFile(canonicalSkillRoot, "SKILL.md")
+			: readResourceFile(root, path);
 		return { path, contents, sha256: fileHash(contents) };
 	});
 }
@@ -165,7 +175,7 @@ function manifest(resources: GuideResource[]): DesktopGuideManifestEntry[] {
 }
 
 export function verifyDesktopGuideParity(sourceRoot: string, resourceRoot: string): DesktopGuideManifestEntry[] {
-	const source = readGuideResources(sourceRoot);
+	const source = readGuideResources(sourceRoot, true);
 	verifyExactTree(resourceRoot);
 	const resource = readGuideResources(resourceRoot);
 	for (let index = 0; index < source.length; index++) {
@@ -176,6 +186,11 @@ export function verifyDesktopGuideParity(sourceRoot: string, resourceRoot: strin
 		}
 	}
 	return manifest(resource);
+}
+
+export function readDesktopAmxSkillResource(resourceRoot: string): Buffer {
+	const root = assertRealDirectory(resourceRoot, "Desktop AMX skill resource root");
+	return readResourceFile(root, DESKTOP_AMX_SKILL_RESOURCE_PATH);
 }
 
 function writeExclusive(path: string, contents: Uint8Array): void {
@@ -273,7 +288,7 @@ function ensureNewParent(
 }
 
 export function stageDesktopGuideResources(sourceRoot: string, destinationRoot: string): DesktopGuideManifestEntry[] {
-	const source = readGuideResources(sourceRoot);
+	const source = readGuideResources(sourceRoot, true);
 	if (existsSync(destinationRoot)) return verifyDesktopGuideParity(sourceRoot, destinationRoot);
 
 	const destination = resolve(destinationRoot);
