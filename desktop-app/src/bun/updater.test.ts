@@ -118,6 +118,12 @@ describe("main-process updater coordinator", () => {
 		}
 	});
 
+	it("matches the native display name when the bundle name is normalized", async () => {
+		const fake = createFakeAdapter({ localInfo: { ...localInfo, name: "OpenAMXDesktop", displayName: "OpenAMX Desktop" } });
+		expect(await fake.coordinator.start()).toEqual({ status: "available", version: "0.21.0" });
+		expect(fake.calls.check).toBe(1);
+	});
+
 	it("coalesces startup and explicit checks", async () => {
 		const pending = deferred<NativeUpdateInfo>();
 		const fake = createFakeAdapter({ check: () => pending.promise });

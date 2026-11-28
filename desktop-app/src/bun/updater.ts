@@ -7,6 +7,7 @@ export interface UpdateLocalInfo {
 	baseUrl: string;
 	channel: string;
 	name: string;
+	displayName?: string;
 	identifier: string;
 	updateAuthority?: "direct" | "external" | "none";
 }
@@ -69,7 +70,7 @@ export function createUpdaterCoordinator(adapter: UpdaterAdapter, build: Updater
 					localInfo = await adapter.getLocalInfo();
 					if (localInfo.channel !== "stable") return "channel";
 					if (localInfo.updateAuthority !== undefined && localInfo.updateAuthority !== "direct") return "authority";
-					if (localInfo.identifier !== identity.identifier || localInfo.name !== identity.name) return "identity";
+					if (localInfo.identifier !== identity.identifier || (localInfo.displayName ?? localInfo.name) !== identity.name) return "identity";
 					if (localInfo.baseUrl !== STABLE_UPDATE_BASE_URL) return "configuration";
 					return undefined;
 				} catch {
