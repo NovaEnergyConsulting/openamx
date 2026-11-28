@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { CircleHelp, Database, Download, Eye, Pause, Play, RefreshCw, Settings, SlidersHorizontal } from "@lucide/vue";
 import packageMetadata from "../../package.json";
-import type { ActiveDocumentRequestIdentity, DataInputSchema, DataOutputSchema, DesktopExportAction, DesktopGraphPreview, DesktopJobOperation, DesktopJobStatus, DesktopOutputPathState, DesktopRPCClient, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, TrashItem, WorkbenchState } from "../shared/rpc";
+import type { ActiveDocumentRequestIdentity, DataInputSchema, DataOutputSchema, DesktopExportAction, DesktopGraphPreview, DesktopJobOperation, DesktopJobStatus, DesktopOutputPathState, DesktopRPCClient, DesktopUpdaterRPCClient, DesktopUpdaterState, InputConfiguration, OpenDocument, ProjectFile, RecentProject, RecoveryItem, ReportSettingsSnapshot, ReportSettingsValues, RunSummary, TextAnalysis, TextDiagnostic, TrashItem, WorkbenchState } from "../shared/rpc";
 import CodeEditor from "./CodeEditor.vue";
 import CommandPalette from "./components/CommandPalette.vue";
 import DataEditorPane from "./components/DataEditorPane.vue";
@@ -23,7 +23,7 @@ import { createDiagnosticSummary } from "./diagnosticSummary";
 import type { ShellCommand, ShellFocusMode, ShellTheme } from "./shell";
 import type { StarterSelection } from "./starterExamples";
 
-const props = defineProps<{ rpc: DesktopRPCClient }>();
+const props = defineProps<{ rpc: DesktopRPCClient & DesktopUpdaterRPCClient }>();
 const document = ref<OpenDocument | null>(null);
 const workbench = ref<WorkbenchState>({ tabs: [], generation: 0, inputSettingsRevision: 0 });
 const projectRoot = ref("");
@@ -32,6 +32,19 @@ const recovery = ref<RecoveryItem[]>([]);
 const palette = ref(false);
 const helpOpen = ref(false);
 const helpSection = ref("getting-started");
+const updaterState = ref<DesktopUpdaterState>({ status: "not-checked" });
+const updateOfferOpen = ref(false);
+const updateOfferVersion = ref("");
+const updatePreparing = ref(false);
+const updateApplying = ref(false);
+const updateApplyRequested = ref(false);
+const updateCheckBusy = ref(false);
+const updateError = ref("");
+const updateStatusMessage = ref("");
+const updateActionButton = ref<HTMLButtonElement | null>(null);
+const updateReady = computed(() => updaterState.value.status === "ready" && !updateApplyRequested.value);
+const updateReadyVersion = computed(() => updaterState.value.status === "ready" ? updaterState.value.version : "");
+const updateChromeVisible = computed(() => updatePreparing.value || updateApplying.value || updateReady.value || !!updateError.value || !!updateStatusMessage.value);
 const preferencesOpen = ref(false);
 const editorWrapLines = ref(localStorage.getItem("openamx.editor-wrap") !== "false");
 const autosaveEnabled = ref(localStorage.getItem("openamx.autosave") !== "false");
@@ -61,6 +74,9 @@ const defaultEditorPercent = computed(() => 100 - defaultExplorerPercent.value -
 const editorElement = ref<InstanceType<typeof CodeEditor> | null>(null);
 const dataEditorElement = ref<InstanceType<typeof DataEditorPane> | null>(null);
 let invoker: HTMLElement | null = null;
+let updateOfferInvoker: HTMLElement | null = null;
+let updateStateTimer: ReturnType<typeof setTimeout> | undefined;
+let updateStatePollInFlight = false;
 let typeScriptExportInvoker: HTMLElement | null = null;
 let focusInvoker: HTMLElement | null = null;
 let settingsInvoker: HTMLElement | null = null;
@@ -845,10 +861,155 @@ function cycleTab(direction: number) {
 	if (index >= 0 && tabs.length > 1) void selectTab(tabs[(index + direction + tabs.length) % tabs.length].path);
 }
 
+function openUpdateOffer(version: string, force = false) {
+	if (updateOfferOpen.value || (!force && updateOfferVersion.value === version)) return;
+	updateOfferVersion.value = version;
+	updateOfferInvoker = window.document.activeElement instanceof HTMLElement ? window.document.activeElement : null;
+	updateOfferOpen.value = true;
+	void nextTick(() => updateActionButton.value?.focus());
+}
+
+function dismissUpdateOffer(restoreFocus = true) {
+	updateOfferOpen.value = false;
+	const target = updateOfferInvoker;
+	updateOfferInvoker = null;
+	if (restoreFocus && target?.isConnected) requestAnimationFrame(() => target.focus());
+}
+
+function updateStateIsPending(state: DesktopUpdaterState) {
+	return state.status === "not-checked" || state.status === "checking" || state.status === "downloading";
+}
+
+function setUpdaterState(state: DesktopUpdaterState, source: "poll" | "manual" | "download") {
+	updaterState.value = state;
+	if (state.status === "available") {
+		if (source === "manual") openUpdateOffer(state.version, true);
+		else if (source === "poll") openUpdateOffer(state.version);
+	}
+	if (state.status === "ready") {
+		updateOfferOpen.value = false;
+		updatePreparing.value = false;
+		if (source === "download") {
+			updateError.value = "";
+			updateApplyRequested.value = false;
+		}
+		if (!updateApplyRequested.value && !updateError.value) updateStatusMessage.value = `Version ${state.version} is ready to install.`;
+	}
+	if (state.status === "failed" && state.operation === "download") {
+		updatePreparing.value = false;
+		updateStatusMessage.value = "";
+		updateError.value = state.message;
+	}
+}
+
+function scheduleUpdateStatePoll() {
+	if (updateStateTimer || !updateStateIsPending(updaterState.value)) return;
+	updateStateTimer = setTimeout(() => {
+		updateStateTimer = undefined;
+		void readUpdateState();
+	}, 250);
+}
+
+async function readUpdateState() {
+	if (updateStatePollInFlight) return;
+	updateStatePollInFlight = true;
+	try {
+		const result = await props.rpc.request.getUpdateState();
+		if (result.ok) setUpdaterState(result.state, "poll");
+	} catch {
+		// Local state refreshes are quiet; explicit checks own user-visible outcomes.
+	} finally {
+		updateStatePollInFlight = false;
+		scheduleUpdateStatePoll();
+	}
+}
+
+async function checkForUpdates() {
+	if (updateCheckBusy.value) return;
+	updateCheckBusy.value = true;
+	updateError.value = "";
+	updateStatusMessage.value = "";
+	updaterState.value = { status: "checking" };
+	scheduleUpdateStatePoll();
+	try {
+		const result = await props.rpc.request.checkForUpdates();
+		if (result.ok) setUpdaterState(result.state, "manual");
+	} catch {
+		// No-update and routine check failures stay quiet.
+	} finally {
+		updateCheckBusy.value = false;
+		scheduleUpdateStatePoll();
+	}
+}
+
+async function startUpdateDownload() {
+	if (!updateOfferOpen.value || updatePreparing.value || updaterState.value.status !== "available") return;
+	const version = updateOfferVersion.value;
+	dismissUpdateOffer(false);
+	updateError.value = "";
+	updateStatusMessage.value = "";
+	updatePreparing.value = true;
+	updaterState.value = { status: "downloading", version };
+	scheduleUpdateStatePoll();
+	try {
+		const result = await props.rpc.request.downloadUpdate();
+		if (!result.ok) {
+			updatePreparing.value = false;
+			updateError.value = result.error.message;
+			return;
+		}
+		setUpdaterState(result.state, "download");
+	} catch {
+		updatePreparing.value = false;
+		updateError.value = "The update could not be prepared. Try checking again.";
+	}
+}
+
+async function restartToUpdate() {
+	if (updateApplying.value || updateApplyRequested.value || updaterState.value.status !== "ready") return;
+	const version = updaterState.value.version;
+	updateApplying.value = true;
+	updateError.value = "";
+	updateStatusMessage.value = "Confirming that all tabs are safe to close…";
+	try {
+		const response = await props.rpc.request.applyUpdate();
+		if (!response.ok) {
+			updateStatusMessage.value = "";
+			updateError.value = response.error.message;
+			return;
+		}
+		updaterState.value = response.state;
+		switch (response.result.status) {
+			case "applied":
+				updateApplyRequested.value = true;
+				updateStatusMessage.value = `Restarting to apply version ${version}.`;
+				break;
+			case "failed":
+				updateStatusMessage.value = "";
+				updateError.value = response.result.message;
+				break;
+			case "busy":
+				updateStatusMessage.value = "An update restart is already in progress.";
+				break;
+			case "cancelled":
+			case "not-ready":
+				updateStatusMessage.value = "";
+				break;
+		}
+	} catch {
+		updateStatusMessage.value = "";
+		updateError.value = "The update restart request failed. The staged update remains available.";
+	} finally {
+		updateApplying.value = false;
+	}
+}
+
 const commands = computed<ShellCommand[]>(() => [
 	{ id: "help.open", label: "Help and shortcuts", enabled: true, run: () => openHelp("getting-started") },
 	{ id: "help.release-notes", label: "Release notes", enabled: true, run: () => openHelp("release-notes") },
 	{ id: "help.diagnostic-export", label: "Download diagnostic summary", enabled: true, run: downloadDiagnosticSummary },
+	{ id: "update.check", label: "Check for updates", enabled: !updateCheckBusy.value, disabledReason: "An update check is already running", run: checkForUpdates },
+	{ id: "update.restart", label: "Restart to update", enabled: updateReady.value && !updateApplying.value, disabledReason: "A prepared update is not available", run: restartToUpdate },
 	{ id: "preferences.open", label: "Preferences", enabled: true, run: () => { preferencesOpen.value = true; } },
 	{ id: "project.open", label: "Open project", shortcut: "Ctrl/Cmd+O", enabled: true, run: openProject },
 	{ id: "project.create", label: "Create project", enabled: true, run: createProject },
@@ -876,7 +1037,8 @@ const commands = computed<ShellCommand[]>(() => [
 
 function onKeydown(event: KeyboardEvent) {
 	if (event.key === "Escape") {
-		if (palette.value) dismissPalette();
+		if (updateOfferOpen.value) dismissUpdateOffer();
+		else if (palette.value) dismissPalette();
 		else if (helpOpen.value) helpOpen.value = false;
 		else if (preferencesOpen.value) preferencesOpen.value = false;
 		else if (typeScriptExportOpen.value) closeTypeScriptExport();
@@ -953,9 +1115,17 @@ async function savePreferences(value: { theme: ShellTheme; wrapLines: boolean; a
 	status.value = "Preferences saved on this device.";
 }
 
-onMounted(() => { setTheme(theme.value); void props.rpc.request.setAutosave({ enabled: autosaveEnabled.value, delayMs: autosaveDelayMs.value }); window.addEventListener("keydown", onKeydown); void syncRecents(); void syncRecovery(); });
+onMounted(() => {
+	setTheme(theme.value);
+	void props.rpc.request.setAutosave({ enabled: autosaveEnabled.value, delayMs: autosaveDelayMs.value });
+	window.addEventListener("keydown", onKeydown);
+	void syncRecents();
+	void syncRecovery();
+	void readUpdateState();
+});
 onUnmounted(() => {
 	window.removeEventListener("keydown", onKeydown);
+	if (updateStateTimer) clearTimeout(updateStateTimer);
 	if (previewTimer) clearTimeout(previewTimer);
 	closePreviewPort(true);
 	cancelActiveJob();
@@ -1630,6 +1800,15 @@ async function openExportedOutput(action: DesktopExportAction) {
 			<button type="button" aria-label="Preferences" title="Preferences" @click="preferencesOpen = true"><Settings :size="16" /></button>
 			<button type="button" @click="showPalette">Commands</button>
 		</header>
+		<section v-if="updateChromeVisible" class="update-chrome" :class="{ 'update-ready': updateReady }" aria-live="polite">
+			<p v-if="updateError" role="alert">{{ updateError }}</p>
+			<p v-else-if="updatePreparing" role="status">Preparing version {{ updateOfferVersion }}…</p>
+			<p v-else-if="updateApplying" role="status">{{ updateStatusMessage }}</p>
+			<p v-else-if="updateStatusMessage" role="status">{{ updateStatusMessage }}</p>
+			<p v-else-if="updateReady" role="status">Version {{ updateReadyVersion }} is ready to install.</p>
+			<button v-if="updateReady" type="button" :disabled="updateApplying" @click="restartToUpdate"><RefreshCw :size="14" /> Restart to update</button>
+			<button v-if="updaterState.status === 'failed' && updaterState.operation === 'download'" type="button" class="quiet-button" @click="checkForUpdates">Check again</button>
+		</section>
 		<WelcomeView v-if="!projectRoot" :recents="recents" :recovery="recovery" :status="status" @open-project="openProject" @create-project="createProject" @restore="restore" @restore-recovery="resolveRecovery('restore')" @discard-recovery="resolveRecovery('discard')" @clear-recents="clearRecents" @open-help="openHelp" />
 		<div v-else class="workbench" :class="`focus-${focusMode}`">
 			<div ref="workbenchPanelsElement" class="workbench-panels">
@@ -1736,6 +1915,19 @@ async function openExportedOutput(action: DesktopExportAction) {
 			/>
 		</div>
 		<CommandPalette :open="palette" :commands="commands" @dismiss="dismissPalette" />
+		<div v-if="updateOfferOpen" class="update-backdrop" @click.self="dismissUpdateOffer()">
+			<section class="update-dialog" role="dialog" aria-modal="true" aria-labelledby="update-offer-title" aria-describedby="update-offer-description">
+				<header class="update-dialog-header">
+					<div><p class="update-eyebrow">OPENAMX UPDATE</p><h2 id="update-offer-title">Version {{ updateOfferVersion }} is available</h2></div>
+					<button class="icon-button" type="button" aria-label="Close update offer" title="Later" @click="dismissUpdateOffer()">×</button>
+				</header>
+				<p id="update-offer-description">Prepare this update now, or come back to it later.</p>
+				<footer class="update-dialog-actions">
+					<button type="button" class="quiet-button" @click="dismissUpdateOffer()">Later</button>
+					<button ref="updateActionButton" type="button" class="primary-button" :disabled="updatePreparing" @click="startUpdateDownload">Update</button>
+				</footer>
+			</section>
+		</div>
 		<HelpCenterDialog :open="helpOpen" :initial-section="helpSection" :shortcuts="commands" @close="helpOpen = false" @create-project="helpOpen = false; createProject($event)" @export-diagnostics="downloadDiagnosticSummary" />
 		<PreferencesDialog :open="preferencesOpen" :theme="theme" :wrap-lines="editorWrapLines" :autosave="autosaveEnabled" :autosave-delay-ms="autosaveDelayMs" @close="preferencesOpen = false" @save="savePreferences" />
 		<ExportDialog :open="exportDialogOpen" :active-label="document?.label ?? document?.path.split(/[\\/]/).pop() ?? ''" :outputs="exportOutputs" :selected-format="exportFormat" :selected-output="exportBinding" :file-name="exportFileName" :busy="exportBusy" :error="exportDialogError" :outputs-truncated="exportOutputsTruncated" @close="closeExportWorkflow" @format="setExportFormat" @output="setExportBinding" @file-name="exportFileName = $event" @export="performExport" />

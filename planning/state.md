@@ -1,5 +1,28 @@
 # Planning State
 
+## V0.21 Sprint 130 Product-Owner Closeout (2026-11-28)
+
+- The Product Owner ACCEPTED/CLOSED S130 WITH RECORDED RESIDUALS on
+  2026-11-28 for the separately authorized update prompt and quit-safe apply
+  scope. Builder evidence remains the raw-results record.
+- The searchable manual update command, delayed startup-result observation,
+  consent-only preparation, accessible offer, persistent ready-state restart,
+  typed apply RPC, and preflighted one-shot quit handoff are implemented.
+- Focused updater/apply tests, RPC contract, desktop typecheck, configured
+  desktop suite, and focused UI workflow passed. Preserve the initial
+  typecheck and Playwright failures/retries in S130 `artifacts/run-01/`; later
+  passes do not rewrite those raw outcomes.
+- The 4,385-path preservation audit found no protected-path differences; the
+  final transfer hash index matched all 57 indexed files. S128/S129 evidence
+  and generated outputs remain preserved. The detached validation worktree,
+  isolated Hutch home, and generated outputs are retained.
+- Installed-app update behavior, live-host behavior, native apply/relaunch,
+  other platforms, release assembly/publication, and platform certification
+  remain unverified or out of scope. S131 owns release documentation/pipeline
+  follow-up; S132 owns installed-app update acceptance and integrated closeout.
+- No release, publication, deployment, distribution, or platform
+  certification authority follows from S130.
+
 ## V0.21 Sprint 129 Product-Owner Closeout (2026-11-27)
 
 - S129 execution was separately authorized against clean baseline

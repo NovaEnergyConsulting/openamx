@@ -17,6 +17,12 @@ export type DesktopUpdaterState =
 	| { status: "ready"; version: string }
 	| { status: "unsupported"; reason: "development" | "channel" | "authority" | "identity" | "configuration" }
 	| { status: "failed"; operation: "check" | "download"; code: "UPDATE_CHECK_FAILED" | "UPDATE_DOWNLOAD_FAILED"; message: string };
+export type DesktopUpdaterApplyResult =
+	| { status: "applied" }
+	| { status: "busy" }
+	| { status: "cancelled" }
+	| { status: "failed"; message: string }
+	| { status: "not-ready" };
 export interface DesktopRequestOptions { maxRequestTime?: number; }
 export type ProjectCreationIntent = "standard" | "guide";
 export type DocumentKind = "amx" | "csv" | "json" | "css" | "settings" | "external-data" | "html-output" | "pdf-output" | "docx-output";
@@ -196,6 +202,7 @@ export interface DesktopUpdaterRPCClient {
 		getUpdateState(): Promise<DesktopRPCResponse<{ state: DesktopUpdaterState }>>;
 		checkForUpdates(): Promise<DesktopRPCResponse<{ state: DesktopUpdaterState }>>;
 		downloadUpdate(): Promise<DesktopRPCResponse<{ state: DesktopUpdaterState }>>;
+		applyUpdate(): Promise<DesktopRPCResponse<{ result: DesktopUpdaterApplyResult; state: DesktopUpdaterState }>>;
 	};
 }
 
@@ -213,6 +220,7 @@ export type DesktopRPCSchema = {
 			getUpdateState: { params: Record<string, never>; response: DesktopRPCResponse<{ state: DesktopUpdaterState }> };
 			checkForUpdates: { params: Record<string, never>; response: DesktopRPCResponse<{ state: DesktopUpdaterState }> };
 			downloadUpdate: { params: Record<string, never>; response: DesktopRPCResponse<{ state: DesktopUpdaterState }> };
+			applyUpdate: { params: Record<string, never>; response: DesktopRPCResponse<{ result: DesktopUpdaterApplyResult; state: DesktopUpdaterState }> };
 			openProject: { params: { path: string }; response: DesktopRPCResponse<{ root: string }> };
 			createProject: { params: { path: string; action?: TransitionAction; intent?: ProjectCreationIntent }; response: DesktopRPCResponse<{ root: string; document: OpenDocument; state: WorkbenchState }> };
 			pickCreateProject: { params: { intent?: ProjectCreationIntent }; response: DesktopRPCResponse<{ cancelled: boolean; root?: string }> };

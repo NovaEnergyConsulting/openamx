@@ -148,6 +148,23 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 .app-header select { min-height: 30px; border: 1px solid var(--shell-line); background: var(--shell-surface); color: var(--shell-ink); font: 11px "DM Sans", sans-serif; }
 .app-header button, .actions button, .drawer-heading button { min-height: 30px; padding: 5px 8px; border-color: var(--shell-line); background: transparent; color: var(--shell-ink); font-size: 11px; }
 .app-header button:hover:not(:disabled), .actions button:hover:not(:disabled), .drawer-heading button:hover:not(:disabled) { background: var(--shell-raised); }
+.update-chrome { display: flex; min-height: 38px; align-items: center; gap: 12px; border-bottom: 1px solid var(--shell-line); padding: 5px 8px; background: var(--shell-raised); }
+.update-chrome p { min-width: 0; flex: 1; margin: 0; color: var(--shell-ink); font-size: 11px; overflow-wrap: anywhere; }
+.update-chrome p[role="alert"] { color: var(--shell-danger); }
+.update-chrome.update-ready { border-left: 3px solid var(--shell-success); }
+.update-chrome button { display: inline-flex; min-height: 29px; flex: none; align-items: center; gap: 6px; padding: 4px 8px; border-color: var(--shell-line); background: var(--shell-surface); color: var(--shell-ink); font-size: 10px; }
+.update-chrome button:hover:not(:disabled) { background: var(--shell-bg); }
+.update-backdrop { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; overflow: auto; padding: 16px; background: var(--shell-overlay); }
+.update-dialog { width: min(440px, 100%); max-height: min(520px, 92vh); overflow: auto; border: 1px solid var(--shell-line); border-radius: 6px; background: var(--shell-bg); color: var(--shell-ink); box-shadow: 0 18px 60px rgb(0 0 0 / 28%); padding: 18px; }
+.update-dialog-header { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.update-eyebrow { margin: 0 0 4px; color: var(--shell-muted); font: 9px "DM Mono", monospace; }
+.update-dialog h2 { margin: 0; font: 500 22px/1.2 "Newsreader", serif; overflow-wrap: anywhere; }
+.update-dialog-header .icon-button { min-height: 30px; border-color: var(--shell-line); background: transparent; color: var(--shell-ink); font-size: 17px; }
+.update-dialog > p { margin: 14px 0 0; color: var(--shell-muted); font-size: 12px; line-height: 1.5; }
+.update-dialog-actions { display: flex; justify-content: end; gap: 7px; margin-top: 20px; border-top: 1px solid var(--shell-line); padding-top: 12px; }
+.update-dialog-actions button { min-height: 32px; padding: 5px 10px; font-size: 11px; }
+.update-dialog-actions .quiet-button { border-color: var(--shell-line); background: transparent; color: var(--shell-ink); }
+.update-dialog-actions .primary-button { border-color: var(--shell-accent); background: var(--shell-accent); color: var(--shell-accent-ink); }
 .wordmark { font-size: 15px; font-weight: 700; letter-spacing: 0; }
 .eyebrow, .kicker, .proof-heading, footer { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0; }
 .eyebrow, .kicker, footer { color: var(--shell-muted); }

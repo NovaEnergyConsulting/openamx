@@ -1,5 +1,26 @@
 # Planning Decisions
 
+## V0.21 Sprint 130 Product-Owner Closeout (2026-11-28)
+
+- **Product Owner disposition (2026-11-28): ACCEPTED/CLOSED WITH RECORDED
+  RESIDUALS.** This closes only the separately authorized S130 update prompt
+  and quit-safe apply scope; S131/S132 and release work remain separate.
+- Accept the searchable explicit check, startup-state observation without a
+  second host check, version offer with consent-only download, truthful
+  preparation state, persistent ready retry, typed Bun apply operation, and
+  asynchronous save/conflict preflight before the synchronous Electrobun quit
+  handoff.
+- Preserve the initial TS2339 typecheck failure, configured Playwright
+  launcher failure, overlay-interception UI failures, and command-wrapper
+  failures with their retries in S130 `artifacts/run-01/`. The final typecheck,
+  10/10 UI pass, and hash audits do not rewrite earlier raw outcomes.
+- Accept the mock/injected test evidence only. Installed-app updater behavior,
+  live-host behavior, native apply/relaunch, other platforms, release
+  assembly/publication, and platform certification remain unverified or out
+  of scope. S132 owns installed-app acceptance and integrated closeout.
+- No release, publication, deployment, distribution, or platform
+  certification authority follows from S130.
+
 ## V0.21 Sprint 129 Product-Owner Closeout (2026-11-27)
 
 - **Product Owner disposition (2026-11-27): ACCEPTED/CLOSED WITH RECORDED

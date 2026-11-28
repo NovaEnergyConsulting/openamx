@@ -6,9 +6,21 @@ import { editorSymbolFacts } from "../../../../src/editor/symbols";
 import { formatAmxDocument } from "../../../../src/formatter/formatAmx";
 import { parseDocumentText } from "../../../../src/parser/parseDocument";
 import { checkDocument } from "../../../../src/typechecker/checkDocument";
-import type { DesktopRPCClient, DesktopJobIdentity, DesktopJobSnapshot, DesktopJobResult, OpenDocument, TextAnalysis, TextDiagnostic, WorkbenchState } from "../../../src/shared/rpc";
+import type { DesktopRPCClient, DesktopUpdaterRPCClient, DesktopUpdaterState, DesktopUpdaterApplyResult, DesktopJobIdentity, DesktopJobSnapshot, DesktopJobResult, OpenDocument, TextAnalysis, TextDiagnostic, WorkbenchState } from "../../../src/shared/rpc";
 
 const fixtureScenario = new URLSearchParams(window.location.search).get("scenario") ?? "";
+const updateAvailableScenarios = new Set(["update-available", "startup-delayed", "download-pending", "download-failure", "apply-cancel", "apply-save", "apply-discard", "apply-failure-retry", "apply-save-failure-retry", "apply-pending"]);
+let mockUpdaterState: DesktopUpdaterState = fixtureScenario === "startup-delayed"
+	? { status: "checking" }
+	: updateAvailableScenarios.has(fixtureScenario)
+		? { status: "available", version: "0.21.1" }
+		: { status: "up-to-date", version: "0.21.0" };
+let updateStateReads = 0;
+let updateCheckCalls = 0;
+let updateDownloadCalls = 0;
+let updateApplyCalls = 0;
+let pendingUpdateDownload: (() => void) | undefined;
+let pendingUpdateApply: (() => void) | undefined;
 let projectRoot = "/sprint042-browser-fixture";
 let activePath = `${projectRoot}/report.amx`;
 let secondPath = `${projectRoot}/second.amx`;
@@ -288,6 +300,45 @@ function finishJob(operation: string, requestIdentity: NonNullable<WorkbenchStat
 
 const request = {
 	async ping({ nonce }: { nonce: string }) { return { nonce, runtime: "bun" as const, version: "browser-harness" }; },
+	async getUpdateState() {
+		updateStateReads++;
+		if (fixtureScenario === "startup-delayed" && updateStateReads >= 2) mockUpdaterState = { status: "available", version: "0.21.1" };
+		return { ok: true as const, state: mockUpdaterState };
+	},
+	async checkForUpdates() {
+		updateCheckCalls++;
+		if (fixtureScenario === "manual-check-failure") {
+			mockUpdaterState = { status: "failed", operation: "check", code: "UPDATE_CHECK_FAILED", message: "The update check failed. Try again later." };
+		} else if (fixtureScenario === "manual-no-update") {
+			mockUpdaterState = { status: "up-to-date", version: "0.21.0" };
+		} else {
+			mockUpdaterState = { status: "available", version: "0.21.1" };
+		}
+		return { ok: true as const, state: mockUpdaterState };
+	},
+	async downloadUpdate() {
+		updateDownloadCalls++;
+		const version = mockUpdaterState.status === "available" ? mockUpdaterState.version : "0.21.1";
+		mockUpdaterState = { status: "downloading", version };
+		if (fixtureScenario === "download-pending") await new Promise<void>(resolve => { pendingUpdateDownload = resolve; });
+		if (fixtureScenario === "download-failure") {
+			mockUpdaterState = { status: "failed", operation: "download", code: "UPDATE_DOWNLOAD_FAILED", message: "The update could not be prepared. Try again later." };
+		} else {
+			mockUpdaterState = { status: "ready", version };
+		}
+		return { ok: true as const, state: mockUpdaterState };
+	},
+	async applyUpdate() {
+		updateApplyCalls++;
+		if (mockUpdaterState.status !== "ready") return { ok: true as const, result: { status: "not-ready" } as DesktopUpdaterApplyResult, state: mockUpdaterState };
+		if (fixtureScenario === "apply-pending") await new Promise<void>(resolve => { pendingUpdateApply = resolve; });
+		let result: DesktopUpdaterApplyResult = { status: "applied" };
+		if (fixtureScenario === "apply-cancel" && updateApplyCalls === 1) result = { status: "cancelled" };
+		if (["apply-failure-retry", "apply-save-failure-retry"].includes(fixtureScenario) && updateApplyCalls === 1) {
+			result = { status: "failed", message: "A tab could not be saved. Resolve conflicts or try again." };
+		}
+		return { ok: true as const, result, state: mockUpdaterState };
+	},
 	async pickProject() {
 		if (projectRoot !== "/sprint042-browser-fixture") generation++;
 		if (projectExplorerWorkflowFixture) {
@@ -592,7 +643,7 @@ const request = {
 	async saveDocument() { documentRevision++; savedText = currentText; return { ok: true as const, document: document() }; }
 };
 
-export const rpc = { request } as unknown as DesktopRPCClient;
+export const rpc = { request } as unknown as DesktopRPCClient & DesktopUpdaterRPCClient;
 
 export function setWindowsExplorerPathFixture(enabled: boolean) {
 	windowsExplorerPathFixture = enabled;
@@ -600,6 +651,21 @@ export function setWindowsExplorerPathFixture(enabled: boolean) {
 
 export function harnessSnapshot() {
 	return {
+		mockUpdaterState,
+		updateStateReads,
+		updateCheckCalls,
+		updateDownloadCalls,
+		updateApplyCalls,
+		completeUpdateDownload() {
+			const complete = pendingUpdateDownload;
+			pendingUpdateDownload = undefined;
+			complete?.();
+		},
+		completeUpdateApply() {
+			const complete = pendingUpdateApply;
+			pendingUpdateApply = undefined;
+			complete?.();
+		},
 		currentText,
 		savedText,
 		lastOpenedPath,

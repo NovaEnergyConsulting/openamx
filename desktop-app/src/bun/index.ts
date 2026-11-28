@@ -7,6 +7,7 @@ import { createPingResponse, type DesktopRPCSchema } from "../shared/rpc";
 import { createDesktopService } from "./desktopService";
 import { resolveDesktopGuideResourceDirectory } from "./guideResources";
 import { createUpdaterCoordinator } from "./updater";
+import { createUpdateApplyCoordinator } from "./updateApply";
 
 const guideResourceDirectory = resolveDesktopGuideResourceDirectory(import.meta.dir);
 
@@ -73,6 +74,11 @@ const service = createDesktopService(undefined, {
 
 const updateCoordinator = createUpdaterCoordinator(Updater, BuildConfig.getSync(), appMetadata);
 void updateCoordinator.start();
+const updateApplyCoordinator = createUpdateApplyCoordinator({
+	getState: () => updateCoordinator.getState(),
+	confirmQuit: () => service.request.confirmQuit(),
+	applyUpdate: () => Updater.applyUpdate()
+});
 
 let quitApproved = false;
 let quitPromptPending = false;
@@ -90,11 +96,13 @@ function confirmAndQuit() {
 }
 Electrobun.events.on("before-quit", event => {
 	if (quitApproved) return;
+	if (updateApplyCoordinator.beforeQuit(event)) return;
 	event.response = { allow: false };
 	confirmAndQuit();
 });
 Electrobun.events.on("will-close", event => {
 	if (quitApproved) return;
+	if (updateApplyCoordinator.willClose(event)) return;
 	event.response = { allow: false };
 	confirmAndQuit();
 });
@@ -105,6 +113,7 @@ const rpc = createRPC<DesktopRPCSchema["bun"], DesktopRPCSchema["webview"]>({
 		getUpdateState: () => ({ ok: true, state: updateCoordinator.getState() }),
 		checkForUpdates: async () => ({ ok: true, state: await updateCoordinator.checkForUpdates() }),
 		downloadUpdate: async () => ({ ok: true, state: await updateCoordinator.downloadUpdate() }),
+		applyUpdate: async () => ({ ok: true, result: await updateApplyCoordinator.apply(), state: updateCoordinator.getState() }),
 		ping: ({ nonce }) => {
 			console.log(`Typed webview-to-Bun RPC received: ${nonce}`);
 			return createPingResponse(nonce, process.versions.bun ?? "unknown");
