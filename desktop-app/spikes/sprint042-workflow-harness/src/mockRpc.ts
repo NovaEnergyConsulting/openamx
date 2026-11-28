@@ -19,6 +19,7 @@ let updateStateReads = 0;
 let updateCheckCalls = 0;
 let updateCheckMaxRequestTime: number | undefined;
 let updateDownloadCalls = 0;
+let updateDownloadMaxRequestTime: number | undefined;
 let updateApplyCalls = 0;
 let pendingUpdateDownload: (() => void) | undefined;
 let pendingUpdateApply: (() => void) | undefined;
@@ -318,8 +319,9 @@ const request = {
 		}
 		return { ok: true as const, state: mockUpdaterState };
 	},
-	async downloadUpdate() {
+	async downloadUpdate(_params?: Record<string, never>, options?: DesktopRequestOptions) {
 		updateDownloadCalls++;
+		updateDownloadMaxRequestTime = options?.maxRequestTime;
 		const version = mockUpdaterState.status === "available" ? mockUpdaterState.version : "0.21.1";
 		mockUpdaterState = { status: "downloading", version };
 		if (fixtureScenario === "download-pending") await new Promise<void>(resolve => { pendingUpdateDownload = resolve; });
@@ -658,6 +660,7 @@ export function harnessSnapshot() {
 		updateCheckCalls,
 		updateCheckMaxRequestTime,
 		updateDownloadCalls,
+		updateDownloadMaxRequestTime,
 		updateApplyCalls,
 		completeUpdateDownload() {
 			const complete = pendingUpdateDownload;

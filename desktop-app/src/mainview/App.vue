@@ -952,7 +952,7 @@ async function startUpdateDownload() {
 	updaterState.value = { status: "downloading", version };
 	scheduleUpdateStatePoll();
 	try {
-		const result = await props.rpc.request.downloadUpdate();
+		const result = await props.rpc.request.downloadUpdate({}, { maxRequestTime: Infinity });
 		if (!result.ok) {
 			updatePreparing.value = false;
 			updateError.value = result.error.message;

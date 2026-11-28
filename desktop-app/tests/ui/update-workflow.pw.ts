@@ -5,6 +5,7 @@ type UpdateHarnessSnapshot = {
 	updateCheckCalls: number;
 	updateCheckMaxRequestTime: number | undefined;
 	updateDownloadCalls: number;
+	updateDownloadMaxRequestTime: number | undefined;
 	updateApplyCalls: number;
 	mockUpdaterState: { status: string };
 	completeUpdateDownload: () => void;
@@ -112,6 +113,7 @@ test("consent starts one preparation and displays no fabricated progress", async
 	await expect(page.locator(".update-chrome [role='status']")).toHaveText("Preparing version 0.21.1…");
 	await expect(page.getByRole("progressbar")).toHaveCount(0);
 	expect((await snapshot(page)).updateDownloadCalls).toBe(1);
+	expect((await snapshot(page)).updateDownloadMaxRequestTime).toBe(Number.POSITIVE_INFINITY);
 	await page.evaluate(() => (window as UpdateHarnessWindow).__openamxHarnessSnapshot().completeUpdateDownload());
 	await expect(page.getByRole("button", { name: "Restart to update" })).toBeVisible();
 	await expect(page.locator(".update-chrome [role='status']")).toContainText("ready to install");
