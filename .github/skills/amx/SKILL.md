@@ -13,15 +13,19 @@ files.
 
 ## Current language and runtime
 
-The current repository contract is OpenAMX V0.18 (package version 0.18.0).
-V0.18 adds loops and conditionals inside diagrams to generate primitives;
-previous additions include statement-bodied functions (V0.16), runtime type
-predicates, math and text functions, and numeric formatting (V0.14), as well
-as records, enums, measurements, and report views. Use only features supported
-by the installed runtime: check `openamx --version` when available. If a
-project provides a newer specification or runtime, verify its contract before
-using newer syntax. Do not treat plans or examples from another language as
-evidence that a construct is supported.
+The current repository contract is OpenAMX V0.21.0 (package version 0.21.0).
+V0.21 adds stable-release update checks and user-consented updates to the
+desktop app; it does not change AMX syntax or runtime semantics. The latest
+language additions are V0.20 AMX-to-TypeScript graph transpilation, V0.19
+affine/offset units and chart-table visibility with `showTable`, and V0.18
+diagram-local loops and conditionals. Earlier additions include
+statement-bodied functions (V0.16), runtime type predicates, math and text
+functions, and numeric formatting (V0.14), as well as records, enums,
+measurements, and report views. Use only features supported by the installed
+runtime: check `openamx --version` when available. If a project provides a
+newer specification or runtime, verify its contract before using newer syntax.
+Do not treat plans or examples from another language as evidence that a
+construct is supported.
 
 OpenAMX is domain-neutral. The author defines the domain's types, calculations,
 units, and interpretation. Do not present included demonstrations or
@@ -64,9 +68,12 @@ domain rules.
 5. If the CLI is not installed, the supported CLI uses Bun 1.0 or newer:
    install Bun using its official instructions, then install OpenAMX with
    `bun add -g @nova-energy/openamx`. Do not assume Node.js or Deno can run it.
-   The desktop app bundles its runtime and does not require Bun. The VS Code
-   extension provides editor analysis, not document execution or input
-   validation.
+   The desktop app bundles its runtime and does not require Bun. V0.21 desktop
+   builds check for stable updates at launch and on request; an update is
+   downloaded only after the user chooses Update. Existing V0.20 installations
+   need a normal V0.21 installer upgrade before update checks are available.
+   The VS Code extension provides editor analysis, not document execution or
+   input validation.
 
 ## Document and language essentials
 
@@ -331,10 +338,29 @@ let distanceInKm: Length = distance in kilometer
 let adjusted: Length = (3 + 2) meter
 ```
 
-Measurements are not plain Numbers. Add/compare only compatible dimensions;
-`in` changes the displayed unit, not the physical value. Do not invent units
-or silently assign units to external bare numbers. For compound expressions,
-declare a named unit or use explicit Measurement arithmetic.
+Affine units can include an offset as well as a positive scale. For example:
+
+```amx
+dimension ThermodynamicTemperature
+unit kelvin: ThermodynamicTemperature
+unit celsius = kelvin + 273.15
+unit fahrenheit = (5 / 9) * kelvin + (273.15 - 160 / 9)
+
+let boiling: ThermodynamicTemperature = 100 celsius
+let boilingFahrenheit = boiling in fahrenheit
+let difference = 20 celsius - 10 celsius
+```
+
+Measurements are not plain Numbers. `in` changes the displayed unit, not the
+physical value. Compatible linear measurements can be added; affine
+measurements can be compared and subtracted, with subtraction retaining the
+left operand's display unit, but cannot be directly added, multiplied, divided,
+or exponentiated. `sum` and `mean` aggregate affine values physically and
+return the first element's display unit; `min` and `max` return a source value.
+Do not invent units or silently assign units to external bare numbers. For
+compound expressions, declare a named unit or use explicit Measurement
+arithmetic. The standard SI module exports `celsius`, `fahrenheit`, `degC`, and
+`degF`; import the names you use.
 
 ### Tables, charts, and named outputs
 
@@ -364,6 +390,7 @@ table register = table(rows) {
 chart scores = bar(rows) {
   title: "Output by asset"
   description: "Observed output for each asset"
+  showTable true
   category: assetId
   series output as "Output"
 }
@@ -396,7 +423,11 @@ specify `x: field` and one or more series. `scatter` requires record rows with
 `series` option. For a `Number[]` source, bar/column/line use exactly one
 `series "Label"`; optional `labels: stringList` must have the same length.
 Every chart requires a quoted `title` and `description`; do not add options
-that do not apply to its source shape or chart kind.
+that do not apply to its source shape or chart kind. Every chart may also use
+`showTable BooleanExpression` (without a colon) to control its associated data
+table. Omission defaults to `false` in V0.19 and later; set it to `true` when
+the chart's data table should be included. A false value omits the table from
+HTML, PDF, and DOCX rather than merely hiding it.
 
 Named data outputs are separate from report views. Export a top-level value
 explicitly and map its name to a destination when running:
@@ -416,6 +447,27 @@ openamx run analysis.amx --output summary=out/summary.json
 
 CSV output is limited to lists of flat records with scalar fields; use JSON
 for nested records/lists.
+
+### TypeScript transpilation
+
+V0.20 adds AMX-to-TypeScript graph transpilation for calculation and data
+workflows. Use it when generated TypeScript is requested; it is separate from
+running or rendering the AMX document:
+
+```sh
+openamx transpile analysis.amx --out-dir typescript-output
+```
+
+Transpilation checks and lowers the entry document and its reachable relative
+`.amx` imports into a corresponding `.ts` graph. The generated entry exposes
+typed `AMXRunInputs` and `AMXRunExports`, a synchronous `run(inputs)` function,
+and an `AMXRunResult` containing `exports` and `views`; only explicitly
+exported document values are returned. The helper runtime is imported from
+`openamx/transpiler-runtime`. Transpilation does not evaluate the generated
+TypeScript, execute Markdown interpolation, or render HTML/PDF/DOCX. Keep the
+output directory separate from the AMX import tree; existing graph targets are
+refused unless `--overwrite` is specified. Continue to run the original AMX
+document to validate its calculations and inputs.
 
 ### Values, records, and collections
 
@@ -501,9 +553,12 @@ let distanceInKilometers: Length = distance in kilometer
 ```
 
 Measurements are not plain Numbers. Addition and comparison require compatible
-dimensions; multiplication and division compose dimensions. Do not silently
-drop units or assume an external bare number has a unit. JSON measurements
-use `{"value": 10, "unit": "meter"}`; CSV measurement fields use text such as
+dimensions; multiplication and division compose dimensions for linear
+measurements. Affine measurements support physical comparison and left-unit
+subtraction, but not direct addition, multiplication, division, or powers.
+`sum` and `mean` aggregate them physically. Do not silently drop units or
+assume an external bare number has a unit. JSON measurements use
+`{"value": 10, "unit": "meter"}`; CSV measurement fields use text such as
 `10 meter`.
 
 The current library includes `PI`, `E`, trigonometric and logarithmic math
@@ -542,13 +597,17 @@ let scores: Number[] = [1, 2, 3]
 chart scoreChart = bar(scores) {
   title: "Scores"
   description: "Example values"
+  showTable true
   series "Score"
 }
 show scoreChart
 ```
 
-Use `export let name = value` for a named data output; `run` and `render`
-accept `--output name=path` to serialize exported values as JSON or CSV.
+Charts accept an optional Boolean `showTable` expression; omission defaults to
+false, while `showTable true` includes the chart-associated data table in
+HTML, PDF, and DOCX. Use `export let name = value` for a named data output;
+`run` and `render` accept `--output name=path` to serialize exported values as
+JSON or CSV.
 
 Formula-driven diagrams are declared inside an AMX block. Current primitive
 types are `line`, `rectangle`, `circle`, and `text`. Geometry and text can
@@ -630,8 +689,9 @@ diagram marker {
 Diagrams are interactive in standalone HTML and desktop preview. PDF and DOCX
 use a static frame at the lower time bound; DOCX diagrams are images, not
 editable Word shapes. HTML charts are interactive; PDF charts are static with
-their data retained in tables. DOCX charts are native editable charts when
-they can be represented.
+their data tables included only when `showTable` resolves to true. DOCX charts
+are native editable charts when they can be represented. A chart's data table
+is included only when its `showTable` expression resolves to true.
 
 ## Inputs and outputs
 
