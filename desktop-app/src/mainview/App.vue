@@ -932,7 +932,7 @@ async function checkForUpdates() {
 	updaterState.value = { status: "checking" };
 	scheduleUpdateStatePoll();
 	try {
-		const result = await props.rpc.request.checkForUpdates();
+		const result = await props.rpc.request.checkForUpdates({}, { maxRequestTime: 15_000 });
 		if (result.ok) setUpdaterState(result.state, "manual");
 	} catch {
 		// No-update and routine check failures stay quiet.

@@ -200,7 +200,7 @@ export interface DesktopRPCClient {
 export interface DesktopUpdaterRPCClient {
 	request: {
 		getUpdateState(): Promise<DesktopRPCResponse<{ state: DesktopUpdaterState }>>;
-		checkForUpdates(): Promise<DesktopRPCResponse<{ state: DesktopUpdaterState }>>;
+		checkForUpdates(params?: Record<string, never>, options?: DesktopRequestOptions): Promise<DesktopRPCResponse<{ state: DesktopUpdaterState }>>;
 		downloadUpdate(): Promise<DesktopRPCResponse<{ state: DesktopUpdaterState }>>;
 		applyUpdate(): Promise<DesktopRPCResponse<{ result: DesktopUpdaterApplyResult; state: DesktopUpdaterState }>>;
 	};

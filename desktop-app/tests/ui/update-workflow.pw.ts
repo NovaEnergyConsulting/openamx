@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 type UpdateHarnessSnapshot = {
 	updateStateReads: number;
 	updateCheckCalls: number;
+	updateCheckMaxRequestTime: number | undefined;
 	updateDownloadCalls: number;
 	updateApplyCalls: number;
 	mockUpdaterState: { status: string };
@@ -55,6 +56,7 @@ test("Check for updates is searchable and an up-to-date result stays quiet", asy
 	await page.goto("/?scenario=manual-no-update");
 	await runCheckCommand(page);
 	await expect.poll(async () => (await snapshot(page)).updateCheckCalls).toBe(1);
+	expect((await snapshot(page)).updateCheckMaxRequestTime).toBe(15_000);
 	await expect(page.getByRole("dialog", { name: /Version/ })).toHaveCount(0);
 	await expect(page.locator(".update-chrome [role='alert']")).toHaveCount(0);
 	expect((await snapshot(page)).updateDownloadCalls).toBe(0);

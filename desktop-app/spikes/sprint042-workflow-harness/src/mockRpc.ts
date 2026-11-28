@@ -6,7 +6,7 @@ import { editorSymbolFacts } from "../../../../src/editor/symbols";
 import { formatAmxDocument } from "../../../../src/formatter/formatAmx";
 import { parseDocumentText } from "../../../../src/parser/parseDocument";
 import { checkDocument } from "../../../../src/typechecker/checkDocument";
-import type { DesktopRPCClient, DesktopUpdaterRPCClient, DesktopUpdaterState, DesktopUpdaterApplyResult, DesktopJobIdentity, DesktopJobSnapshot, DesktopJobResult, OpenDocument, TextAnalysis, TextDiagnostic, WorkbenchState } from "../../../src/shared/rpc";
+import type { DesktopRPCClient, DesktopUpdaterRPCClient, DesktopUpdaterState, DesktopUpdaterApplyResult, DesktopRequestOptions, DesktopJobIdentity, DesktopJobSnapshot, DesktopJobResult, OpenDocument, TextAnalysis, TextDiagnostic, WorkbenchState } from "../../../src/shared/rpc";
 
 const fixtureScenario = new URLSearchParams(window.location.search).get("scenario") ?? "";
 const updateAvailableScenarios = new Set(["update-available", "startup-delayed", "download-pending", "download-failure", "apply-cancel", "apply-save", "apply-discard", "apply-failure-retry", "apply-save-failure-retry", "apply-pending"]);
@@ -17,6 +17,7 @@ let mockUpdaterState: DesktopUpdaterState = fixtureScenario === "startup-delayed
 		: { status: "up-to-date", version: "0.21.0" };
 let updateStateReads = 0;
 let updateCheckCalls = 0;
+let updateCheckMaxRequestTime: number | undefined;
 let updateDownloadCalls = 0;
 let updateApplyCalls = 0;
 let pendingUpdateDownload: (() => void) | undefined;
@@ -305,8 +306,9 @@ const request = {
 		if (fixtureScenario === "startup-delayed" && updateStateReads >= 2) mockUpdaterState = { status: "available", version: "0.21.1" };
 		return { ok: true as const, state: mockUpdaterState };
 	},
-	async checkForUpdates() {
+	async checkForUpdates(_params?: Record<string, never>, options?: DesktopRequestOptions) {
 		updateCheckCalls++;
+		updateCheckMaxRequestTime = options?.maxRequestTime;
 		if (fixtureScenario === "manual-check-failure") {
 			mockUpdaterState = { status: "failed", operation: "check", code: "UPDATE_CHECK_FAILED", message: "The update check failed. Try again later." };
 		} else if (fixtureScenario === "manual-no-update") {
@@ -654,6 +656,7 @@ export function harnessSnapshot() {
 		mockUpdaterState,
 		updateStateReads,
 		updateCheckCalls,
+		updateCheckMaxRequestTime,
 		updateDownloadCalls,
 		updateApplyCalls,
 		completeUpdateDownload() {
