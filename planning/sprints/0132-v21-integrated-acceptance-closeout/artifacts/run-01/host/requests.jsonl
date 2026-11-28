@@ -1,0 +1,5 @@
+{"time":"2026-11-28T11:33:46.094Z","scenario":"available","method":"GET","path":"/stable-win-x64-update.json","clientAddress":"127.0.0.1","status":200}
+{"time":"2026-11-28T11:33:46.105Z","scenario":"available","method":"GET","path":"/stable-win-x64-checksum.json","clientAddress":"127.0.0.1","status":200}
+{"time":"2026-11-28T11:48:40.881Z","scenario":"no-update","method":"GET","path":"/stable-win-x64-update.json","clientAddress":"127.0.0.1","status":200}
+{"time":"2026-11-28T11:48:40.892Z","scenario":"no-update","method":"GET","path":"/stable-win-x64-checksum.json","clientAddress":"127.0.0.1","status":200}
+{"time":"2026-11-28T11:54:13.767Z","scenario":"available","method":"GET","path":"/stable-win-x64-update.json","clientAddress":"127.0.0.1","status":200}

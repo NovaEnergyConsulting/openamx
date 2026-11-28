@@ -19,8 +19,45 @@
   certification authority follows from S131.
 - S132 planning documentation is prepared in
   `planning/sprints/0132-v21-integrated-acceptance-closeout/`. S131
-  disposition does not authorize S132 execution; separate exact authorization
-  is required, including resolution of the packaged loopback test-host gate.
+  closeout remains accepted with residuals. On 2026-11-28 the user instructed
+  the Builder to proceed with the suggested Windows x64 validation envelope,
+  then clarified that Hutch setup was a one-time install. Baselines were
+  confirmed as V0.20 pre-updater
+  `c05f608f86c2366358e9533a126464dc11fff416` and accepted S131 V0.21
+  `f2bddb1205b2e9213c8fe56ec75112e13e0e1355`. Four detached validation
+  worktrees and an isolated `HUTCH_HOME` were created and remain retained.
+- Preserve the initial Hutch output that printed
+  `hutch: downloading hutch 0.30.0 for windows-x64`, the initial missing-Bun
+  prepare failure, and subsequent local-cache retries in S132 Builder evidence.
+  The one-time install subsequently appeared under the isolated
+  `HUTCH_HOME`; its launcher and engine reported Hutch `0.30.0`. Bun `1.4.4`
+  and Electrobun `2.0.7` were staged from local caches; direct-engine prepare
+  succeeded. No public GitHub/update-host request was made.
+- Windows x64 V0.20, production-config V0.21, loopback V0.21, and loopback
+  V0.21.1 packages were built and inspected. Production bundle host isolation,
+  loopback bundle host isolation, full-bundle/no-patch output, focused desktop
+  updater/apply/RPC/UI checks, root release tests, and `release:check` passed.
+  Local available/no-update hosts served only exact manifests and checksum
+  sidecars to requests from `127.0.0.1`; no payload was requested. Details,
+  raw failures/retries, package hashes, and logs are in S132 `artifacts/run-01/`.
+- S132 remains **BLOCKED / NOT READY FOR CLOSEOUT**: the host had no disposable
+  VM/profile facility, so no Setup installer or app was installed. V0.20 to
+  V0.21 bootstrap, consented package download, native apply/relaunch, failure
+  preservation, and real save/conflict quit-guard flows remain NOT RUN. Other
+  native targets, release assembly and `release:verify` remain NOT RUN. A
+  separate Product Owner closeout decision is pending. No release,
+  publication, deployment, distribution, or platform-certification authority
+  follows from S132.
+- S132 also reproduced a `run:app` startup defect in a detached worktree at
+  the current commit. The Bun worker attempts to read
+  `Resources/app/bun/package.json`, which the Electrobun bundle does not
+  contain. On 2026-11-28 the user authorized the fix plan. The primary
+  `desktop-app/app-metadata.ts` now statically imports package metadata, with a
+  regression test proving the bundled module works without a sibling manifest.
+  The root `bun run run:app` chain was rerun in a byte-identical detached
+  diagnostic worktree and remained alive after launcher startup; a fixed
+  stable package passed artifact inspection. This resolves the startup
+  failure, but does not close S132's native installed-app acceptance gates.
 
 ## V0.21 Sprint 130 Product-Owner Closeout (2026-11-28)
 

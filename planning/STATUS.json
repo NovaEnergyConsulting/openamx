@@ -1,5 +1,5 @@
 {
   "phase": "sprint-closed",
   "sprint": "131",
-  "note": "Product Owner accepted Sprint 131 with recorded residuals. Sprint 132 documentation is prepared; integrated acceptance requires separate authorization, including resolution of the loopback test-host gate."
+  "note": "Product Owner accepted Sprint 131 with recorded residuals. S132 Windows x64 package/artifact checks and focused local/mock tests are recorded in Builder evidence. The run:app app-metadata startup defect is fixed and its bundle regression passes. Installed-app bootstrap/update, real quit-guard, release assembly/verification, and other native targets remain NOT RUN. S132 remains blocked; no release authority follows."
 }

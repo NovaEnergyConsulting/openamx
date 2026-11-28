@@ -1,5 +1,81 @@
 # Planning Decisions
 
+## V0.21 Sprint 132 Local Artifact Continuation (2026-11-28)
+
+- After the initial Hutch self-version output indicated a one-time download,
+  the user clarified that Hutch installation takes time and is then available
+  on its installed path. The Builder resumed using the verified Hutch
+  `0.30.0` launcher/engine in isolated `HUTCH_HOME`, with locally cached Bun
+  `1.4.4` and Electrobun `2.0.7`.
+- Windows x64 V0.20 pre-updater (`c05f608f86c2366358e9533a126464dc11fff416`),
+  production-config V0.21 and loopback V0.21 (`f2bddb1205b2e9213c8fe56ec75112e13e0e1355`),
+  and loopback V0.21.1 packages were built in detached validation worktrees.
+  Package inventory, checksum/payload integrity, no-patch policy, and embedded
+  host isolation passed. S132 focused updater/apply/RPC/UI/release checks and
+  `release:check` passed at the recorded scopes.
+- Loopback host smoke tests fetched only the exact manifest and checksum for
+  V0.21.0/V0.21.1, from `127.0.0.1`; no full payload was requested. The host
+  was stopped. No public GitHub/update-host request, release assembly,
+  `release:verify`, publication, or release-output mutation occurred.
+- No disposable VM/profile facility was available. Installer installation,
+  V0.20-to-V0.21 bootstrap, consented update download/preparation, native
+  apply/relaunch, and real quit-guard workflows remain NOT RUN. S132 is
+  **BLOCKED / NOT READY FOR CLOSEOUT** pending an authorized isolated native
+  install environment and separate Product Owner disposition.
+- Validation-only source/config/version changes and generated artifacts stay
+  in the named detached worktrees and `artifacts/run-01/`; none were
+  transferred to primary product source. A Vite cache appeared under the
+  primary desktop dependency junction; its prior state was not captured and
+  it was left untouched. No release or platform authority follows.
+
+## V0.21 `run:app` Startup Defect (2026-11-28)
+
+- Reproduced root `bun run run:app` in a detached worktree at current commit
+  `2a0a11cae21776d6c770545871ec6d74ac72fc3c`. Web build, dev package build,
+  and launcher startup succeeded; the Bun app worker then exited with ENOENT
+  for `Resources/app/bun/package.json`.
+- Root cause is `desktop-app/app-metadata.ts` reading `./package.json` from
+  `import.meta.url` at runtime. The bundled entrypoint is under
+  `Resources/app/bun/`, and `desktop-app/electrobun.config.ts` does not copy
+  `package.json` there. This affects the shared main-process entry, not only
+  `run:app`.
+- The user explicitly authorized execution of the fix plan on 2026-11-28.
+  `desktop-app/app-metadata.ts` now statically imports the desktop package
+  metadata, preserving package version authority without a runtime sibling
+  manifest. `desktop-app/src/bun/appMetadata.test.ts` bundles and imports the
+  metadata with no package.json beside the bundle; the focused test passes.
+- The exact `bun run run:app` chain now completes web/dev packaging and keeps
+  the launcher/Bun process alive in an isolated worktree with byte-identical
+  primary source/test files. A fixed stable package also passed the S128
+  artifact inspector. The fatal ENOENT is resolved; the earlier failure remains
+  historical evidence.
+- S132 closeout remains BLOCKED on disposable native install/update acceptance
+  and its other recorded residuals. The startup fix alone does not close S132.
+
+## V0.21 Sprint 132 Initial Builder Preflight Stop (Historical, 2026-11-28)
+
+- The user instructed the Builder to proceed with the suggested Windows x64
+  validation envelope. Candidate source baselines were V0.20 pre-updater
+  `c05f608` and accepted S131 V0.21 `f2bddb1`; detached worktrees were created
+  for those lanes, a production-config audit, and the loopback test build.
+- The production-config host rejection regression was changed only in its
+  audit worktree to use `http://127.0.0.1:4184/updates`; it passed with the
+  focused updater suite (9/0). The loopback-test worktree changed only its
+  updater URL, Electrobun URL, and synchronized temporary package versions;
+  its focused updater suite passed (9/0).
+- Isolated `HUTCH_HOME` status confirmed the project Hutch pragma `0.30.0`.
+  The subsequent `hutch self version` output included
+  `hutch: downloading hutch 0.30.0 for windows-x64`. Whether that command made
+  an external request and its destination are not evidenced. The Builder
+  stopped immediately; do not infer permission for public-host access from
+  the preceding instruction.
+- Electrobun prepare, stable package builds, installer/profile operations,
+  loopback server tests, release assembly/verification, and public GitHub
+  calls were NOT RUN. The validation edits and isolated Hutch home remain in
+  the detached worktrees; no source/config change was transferred to the
+  primary checkout. S132 continuation requires a replan resolving offline
+  toolchain verification and providing a disposable native profile.
+
 ## V0.21 Sprint 131 Product-Owner Closeout (2026-11-28)
 
 - **Product Owner disposition (2026-11-28): ACCEPTED/CLOSED WITH RECORDED
