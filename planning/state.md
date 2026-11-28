@@ -1,5 +1,23 @@
 # Planning State
 
+## V0.21 Sprint 131 Product-Owner Closeout (2026-11-28)
+
+- The Product Owner ACCEPTED/CLOSED S131 WITH RECORDED RESIDUALS on
+  2026-11-28. Builder evidence remains the raw-results record.
+- The V0.21 release/update contract is documented in `docs/releasing.md`.
+  Focused release fixtures passed 65/0 with 256 expectations after the
+  separately authorized frozen dependency install; `release:check` and final
+  `git diff --check` passed.
+- The 4,042-path preservation audit found only the authorized changes to
+  `docs/releasing.md` and `tests/release.test.ts`. Existing release outputs,
+  release scripts, and S121-S130 evidence remain unchanged.
+- Windows x64 is the only S128 native updater-artifact inspection evidence.
+  Installed-app update behavior, live-host behavior, public asset availability,
+  release assembly/publication, and other native targets remain unverified.
+  S132 owns installed-app update acceptance and integrated closeout.
+- No release, publication, deployment, distribution, or platform
+  certification authority follows from S131.
+
 ## V0.21 Sprint 130 Product-Owner Closeout (2026-11-28)
 
 - The Product Owner ACCEPTED/CLOSED S130 WITH RECORDED RESIDUALS on

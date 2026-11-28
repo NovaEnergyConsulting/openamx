@@ -1,5 +1,26 @@
 # Planning Decisions
 
+## V0.21 Sprint 131 Product-Owner Closeout (2026-11-28)
+
+- **Product Owner disposition (2026-11-28): ACCEPTED/CLOSED WITH RECORDED
+  RESIDUALS.** This closes only the S131 runbook and fixture-test scope; it
+  does not authorize or imply release publication or platform certification.
+- Accept the documented stable GitHub latest-download contract, manifest/full
+  payload/checksum asset retention, explicit `release.generatePatch: false`
+  policy, V0.20 installer bridge, consent and quit-safe apply behavior, and
+  human publication workflow.
+- Accept the focused local release-test results: update metadata/checksum
+  validation, assembly byte/name retention, and duplicate-basename rejection
+  before injected client calls. Preserve the initial missing-`jszip` failure
+  and separately authorized frozen-install retry in S131 evidence.
+- `release:check` was a preflight only. S128 native updater-artifact
+  inspection remains Windows x64 only; installed-app behavior, live-host
+  behavior, public asset availability, production assembly/publication, and
+  other platforms remain unverified. S132 owns installed-app acceptance and
+  integrated closeout.
+- No release, publication, deployment, distribution, or platform
+  certification authority follows from S131.
+
 ## V0.21 Sprint 130 Product-Owner Closeout (2026-11-28)
 
 - **Product Owner disposition (2026-11-28): ACCEPTED/CLOSED WITH RECORDED

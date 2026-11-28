@@ -1046,7 +1046,7 @@ describe("explicit GitHub release publication", () => {
 		if (options.conflictingAsset) remote.set(options.conflictingAsset, { name: options.conflictingAsset, size: 5, url: `mock://${options.conflictingAsset}`, bytes: Buffer.from("other") });
 		const client: GitHubReleaseClient = {
 			getTagCommit: async (_repository, tag) => { calls.push(`tag:${tag}`); return resolvedTag; },
-			commitExists: async (_repository, commit) => commit === sourceCommit,
+			commitExists: async (_repository, commit) => { calls.push(`commit:${commit}`); return commit === sourceCommit; },
 			getReleaseByTag: async (_repository, tag) => { calls.push(`release:${tag}`); return release; },
 			createDraft: async (_repository, input) => {
 				calls.push("create-draft");
@@ -1054,9 +1054,10 @@ describe("explicit GitHub release publication", () => {
 				release = { id: 1, tag_name: input.tagName, target_commitish: input.targetCommit, draft: true, upload_url: "mock://upload", assets_url: "mock://assets" };
 				return release;
 			},
-			listAssets: async () => [...remote.values()],
-			downloadAsset: async (_repository, asset) => remote.get(asset.name)!.bytes,
+			listAssets: async () => { calls.push("list-assets"); return [...remote.values()]; },
+			downloadAsset: async (_repository, asset) => { calls.push(`download:${asset.name}`); return remote.get(asset.name)!.bytes; },
 			uploadAsset: async (_repository, _release, name, bytes) => {
+				calls.push(`upload:${name}`);
 				uploadCount++;
 				if (options.failUploadAt === uploadCount) throw new Error("interrupted upload");
 				if (remote.has(name)) throw new Error(`duplicate remote ${name}`);
@@ -1091,6 +1092,7 @@ describe("explicit GitHub release publication", () => {
 		await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
 		const mock = mockClient(state.sourceCommit);
 		await expect(publishRelease({ rootDirectory: state.directory, releaseDirectory: state.releaseDirectory, allowPartial: true, client: mock.client, verify: () => mockedReadyVerification(state) })).rejects.toThrow("ambiguous duplicate asset name");
+		expect(mock.calls).toEqual([]);
 		expect(mock.remote.size).toBe(0);
 	});
 
