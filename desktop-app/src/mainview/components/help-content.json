@@ -28,11 +28,14 @@
       "id": "language",
       "title": "AMX language essentials",
       "summary": "Understand executable fences, imports, and typed inputs.",
-      "terms": "language syntax code fence markdown let type function import export input record table chart cli",
+      "terms": "language syntax code fence markdown let type function import export input record table chart cli transpile transpilation TypeScript generated diagram loop conditional affine units Celsius Fahrenheit showTable",
       "steps": [
         "Only exact, case-sensitive ```amx fences execute; ordinary Markdown and other code fences stay narrative.",
         "Use let for bindings, type and fn for typed records/functions, and input declarations for JSON or CSV data.",
         "Imports resolve from local project files. Explicit exports control which bindings can be exported as JSON or CSV.",
+        "V0.18 diagrams can generate primitives with diagram-local loops and conditionals. Generated membership is fixed for a model, and control blocks are limited to 64 emitted primitives; nested diagram loops are not supported.",
+        "V0.19 charts accept a Boolean showTable option, which defaults to false. Affine units support offsets such as Celsius and Fahrenheit for conversion, comparison, and selected aggregate operations; direct affine addition remains unsupported.",
+        "V0.20 can transpile AMX to typed TypeScript through the core API, CLI, and desktop. It preserves reachable local imports and explicit exports; generated TypeScript is not executed and is not a report-rendering format.",
         "The desktop uses the same parser/runtime and preserves existing CLI behavior; this guide adds no alternate syntax."
       ]
     },
@@ -205,13 +208,19 @@
     {
       "id": "release-notes",
       "title": "Release notes",
-      "summary": "V0.17.0 - Workbench and project workflow improvements",
-      "terms": "version changes release notes feature v0.17 0.17.0 workbench explorer command palette runtime",
+      "summary": "V0.21.1 - Language, TypeScript, and desktop update improvements",
+      "terms": "version changes release notes feature v0.17 0.17.0 v0.18 v0.19 v0.20 v0.21 v0.21.1 TypeScript transpilation affine units diagrams updater stable update check restart",
       "steps": [
         "AMX documents receive analysis and an initial live preview when activated, unless preview is paused. Running computations remains an explicit action.",
         "The project explorer adds whole-project file/folder counts, file and empty-folder creation, guarded file duplicate/move/trash/restore workflows, file drag-and-drop, and project-scoped open/reveal actions.",
         "The searchable command palette supports keyboard selection and execution, including Ctrl/Cmd+Shift+P. Explorer, editor, and context panes can be resized with pointer or keyboard controls, with layouts remembered per project.",
-        "The Runtime panel stays at the bottom of the workbench and exposes run/cancel status, progress, diagnostics, results, and export details. Folder duplicate/move, folder-tree drag-and-drop, folder trash, and folder restore remain out of scope."
+        "The Runtime panel stays at the bottom of the workbench and exposes run/cancel status, progress, diagnostics, results, and export details. Folder duplicate/move, folder-tree drag-and-drop, folder trash, and folder restore remain out of scope.",
+        "V0.18 adds loop- and conditional-generated primitives to formula-driven diagrams, with a 64-emission limit for control blocks.",
+        "V0.19 adds chart data-table visibility through showTable and affine units with offsets, including Celsius and Fahrenheit conversions.",
+        "V0.20 adds AMX-to-TypeScript transpilation in the core API, CLI, and desktop workbench, including multi-file local import graphs and explicit exports. Generated code is not executed or rendered as a report.",
+        "V0.21 adds stable desktop update checks at startup and on request. Choose Update to download an offered version or Later to defer; no-update and routine check failures stay quiet.",
+        "Updates are downloaded only after consent and applied only when ready. The existing unsaved/conflicted-tab quit guard remains in force; canceling it keeps a prepared update available through Restart to update. V0.20 installations need a normal V0.21 installer upgrade before update checks are available.",
+        "The current desktop package version is V0.21.1. Update checks use the stable channel; no prerelease channel or scheduled background checks are provided."
       ]
     }
   ],
@@ -230,12 +239,17 @@
     "diagnosticExportAction": "Download diagnostic summary",
     "shortcutsTitle": "Keyboard shortcuts",
     "noMatchingShortcuts": "No matching shortcuts.",
-    "releaseNotesTitle": "Release notes · V0.17.0",
+    "releaseNotesTitle": "Release notes · V0.21.1",
     "releaseNotes": [
       "AMX activation now initializes analysis and live preview without implicitly running computations.",
       "Project explorer improvements add searchable whole-project counts, guarded file operations, Trash recovery, and project-scoped file actions.",
       "Navigate and run enabled commands from the keyboard; resize workbench panes and keep runtime activity in the bottom panel.",
-      "Folder duplicate/move, folder-tree drag-and-drop, folder trash, and folder restore are not included in V0.17.0."
+      "Folder duplicate/move, folder-tree drag-and-drop, folder trash, and folder restore are not included in V0.17.0.",
+      "V0.18 adds loop- and conditional-generated diagram primitives with a bounded 64-primitive output for control blocks.",
+      "V0.19 adds chart table visibility and affine/offset measurement units, including Celsius and Fahrenheit.",
+      "V0.20 adds typed AMX-to-TypeScript transpilation through the core API, CLI, and desktop; generated code is not run or rendered as a report.",
+      "V0.21 adds stable update checks at startup and on request. Download requires choosing Update; Later defers, and applying a prepared update respects the save/conflict quit guard.",
+      "V0.21.1 is the current desktop package version. V0.20 installations require a normal V0.21 installer upgrade before update discovery is available."
     ],
     "footerNote": "Search is local. No telemetry is sent.",
     "closeButton": "Close"

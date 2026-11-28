@@ -51,7 +51,7 @@ test("bundled help keeps stable topics, local search, registry shortcuts, routin
 	const topicButtons = page.locator(".help-topics [data-topic-id]");
 	await expect(topicButtons).toHaveCount(expectedTopicIds.length);
 	await expect(topicButtons.evaluateAll(elements => elements.map(element => element.getAttribute("data-topic-id")))).resolves.toEqual(expectedTopicIds);
-	await expect(page.locator(".help-release h3")).toHaveText("Release notes · V0.17.0");
+	await expect(page.locator(".help-release h3")).toHaveText("Release notes · V0.21.1");
 
 	const search = page.getByRole("searchbox", { name: "Search help and commands" });
 	await search.fill("imports");
@@ -76,11 +76,17 @@ test("bundled help keeps stable topics, local search, registry shortcuts, routin
 	await layoutTopic.click();
 	await expect(page.locator(".help-content")).toContainText("remembered separately for each project");
 	await expect(page.locator(".help-content")).toContainText("Runtime panel stays along the bottom");
-	await search.fill("v0.17.0");
+	await search.fill("v0.21.1");
 	const releaseTopic = page.locator(".help-topics [data-topic-id='release-notes']");
 	await releaseTopic.click();
-	await expect(page.locator(".help-content")).toContainText("V0.17.0 - Workbench and project workflow improvements");
+	await expect(page.locator(".help-content")).toContainText("V0.21.1 - Language, TypeScript, and desktop update improvements");
 	await expect(page.locator(".help-content")).toContainText("initial live preview when activated");
+	await expect(page.locator(".help-content")).toContainText("stable desktop update checks at startup and on request");
+	await expect(page.locator(".help-content")).toContainText("V0.20 installations need a normal V0.21 installer upgrade");
+	await search.fill("transpilation TypeScript");
+	await expect(page.locator(".help-topics [data-topic-id='language']")).toBeVisible();
+	await page.locator(".help-topics [data-topic-id='language']").click();
+	await expect(page.locator(".help-content")).toContainText("generated TypeScript is not executed");
 	await search.fill("offline");
 	const previewTopic = page.locator(".help-topics [data-topic-id='preview-export']");
 	await previewTopic.click();
