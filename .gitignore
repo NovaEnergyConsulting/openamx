@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 .hutch/
+desktop-app/.cottontail-tmp/
 
 # Build output
 dist/
