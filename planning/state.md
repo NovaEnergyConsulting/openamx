@@ -22,6 +22,10 @@
   follow-up; S132 owns installed-app update acceptance and integrated closeout.
 - No release, publication, deployment, distribution, or platform
   certification authority follows from S130.
+- S131 planning documentation is prepared in
+  `planning/sprints/0131-v21-release-pipeline-and-documentation/`. S130
+  disposition does not authorize S131 execution; separate exact authorization
+  is required.
 
 ## V0.21 Sprint 129 Product-Owner Closeout (2026-11-27)
 

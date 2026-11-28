@@ -1,5 +1,5 @@
 {
   "phase": "sprint-closed",
   "sprint": "130",
-  "note": "Product Owner accepted and closed Sprint 130 with recorded residuals. S131 owns release documentation/pipeline follow-up; S132 owns installed-app acceptance and integrated closeout. No release or platform certification authority follows."
+  "note": "Product Owner accepted Sprint 130 with recorded residuals. Sprint 131 documentation is prepared; implementation and verification require separate authorization. S132 owns installed-app acceptance and integrated closeout."
 }
