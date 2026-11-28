@@ -323,6 +323,7 @@ describe("desktop release packaging", () => {
 			["package.json", '{"name":"openamx","version":"0.15.0"}\n'],
 			["bun.lock", "fixture lock\n"],
 			["README.md", "release fixture\n"],
+			[".github/skills/amx/SKILL.md", "canonical AMX skill\n"],
 			["desktop-app/package.json", '{"name":"openamx-desktop"}\n'],
 			["desktop-app/hutch.config.ts", 'export default { version: "2.0.1" }\n'],
 			["examples/00_Table_of_Contents.amx", "# Guide\n"],
@@ -354,8 +355,9 @@ describe("desktop release packaging", () => {
 			prepareDesktopBuildWorktree(repository, worktree, commit);
 
 			expect(execFileSync("git", ["-C", worktree, "sparse-checkout", "list"], { encoding: "utf8" }).trim().split(/\r?\n/).sort())
-				.toEqual(["desktop-app", "examples", "scripts", "src"]);
+				.toEqual([".github/skills/amx", "desktop-app", "examples", "scripts", "src"]);
 			expect(existsSync(path.join(worktree, "package.json"))).toBe(true);
+			expect(existsSync(path.join(worktree, ".github/skills/amx/SKILL.md"))).toBe(true);
 			expect(existsSync(path.join(worktree, "desktop-app/hutch.config.ts"))).toBe(true);
 			expect(existsSync(path.join(worktree, "examples/00_Table_of_Contents.amx"))).toBe(true);
 			expect(existsSync(path.join(worktree, "scripts/build-diagram-runtime.ts"))).toBe(true);

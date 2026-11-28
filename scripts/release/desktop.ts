@@ -12,7 +12,7 @@ import { inspectTarMembers, inspectTarZstdMembers, MAX_UNCOMPRESSED_ARCHIVE_BYTE
 const APPLICATION_NAME = "OpenAMX Desktop";
 const APPLICATION_IDENTIFIER = "dev.openamx.desktop";
 const PDF_FONT_FILES = ["Roboto-Regular.ttf", "Roboto-Medium.ttf", "Roboto-Italic.ttf", "Roboto-MediumItalic.ttf"];
-const DESKTOP_BUILD_WORKTREE_PATHS = ["desktop-app", "examples", "scripts", "src"] as const;
+const DESKTOP_BUILD_WORKTREE_PATHS = [".github/skills/amx", "desktop-app", "examples", "scripts", "src"] as const;
 const ROOT_DIRECTORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 type NativeOs = "linux" | "win" | "mac";
